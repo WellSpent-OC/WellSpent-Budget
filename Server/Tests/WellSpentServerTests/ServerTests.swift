@@ -2342,4 +2342,100 @@ struct TakeoverTests {
             #expect(reply.accepted == [his.recordID.uuid], "got \(reply.rejected)")
         }
     }
+
+    /// Mallory knew Jamie's sign-up keys, so she added him with them and a
+    /// junk group key sealed to him, then removed him without moving the
+    /// epoch. The server keeps the first key for each slot, so when Robin
+    /// later added him with everything so far, Jamie was handed the junk key
+    /// and read nothing. The entry that leaves someone out of the group now
+    /// takes the group keys stored for them, in the same transaction.
+    @Test func aRemovalTakesTheGroupKeysStoredForThePerson() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-cleared-founder@example.com")
+            var mallory = Account(email: "trust-cleared-manager@example.com")
+            var jamie = Account(email: "trust-cleared-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: groupKey, on: app)
+
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: jamie.publicKeys,
+                recipientUserID: UserID(jamie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let adding = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                   by: mallory, after: log, in: groupID)
+            #expect(try await post(adding, keys: [junk], to: groupID, as: mallory, on: app).status == .created)
+            log.append(adding)
+            let out = try entry(.remove, subject: jamie, level: .none, by: mallory, after: log, in: groupID)
+            #expect(try await post(out, to: groupID, as: mallory, on: app).status == .created)
+            log.append(out)
+            let left = try await WrappedKeyRow.query(on: app.db)
+                .filter(\.$groupID == groupID).filter(\.$recipientUserID == jamie.userID).count()
+            #expect(left == 0, "his slot is empty again")
+
+            let back = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                 by: robin, after: log, in: groupID)
+            let real = try KeyWrap.wrapToIdentity(groupKey, recipient: jamie.publicKeys,
+                                                  recipientUserID: UserID(jamie.userID),
+                                                  sender: robin.identity, senderUserID: UserID(robin.userID))
+            #expect(try await post(back, keys: [real], to: groupID, as: robin, on: app).status == .created)
+
+            let held = try #require(try await keys(in: groupID, as: jamie, on: app).first {
+                $0.scope == .group(GroupID(groupID)) && $0.epoch == .initial
+            })
+            let opened = try? KeyWrap.unwrapToIdentity(held, recipient: jamie.identity, sender: robin.publicKeys)
+            #expect(opened?.rawBytes == groupKey.rawBytes, "he reads everything so far")
+        }
+    }
+
+    /// A group key sealed to a member was taken with any entry from a
+    /// manager. Mallory attached a junk key for an epoch Leslie never held,
+    /// since she joined "from now on", to an entry registering her own
+    /// laptop, and filled Leslie's empty slot. A group key now goes only to
+    /// the person an entry adds, or for the epoch the entry starts.
+    @Test func olderGroupKeysTravelOnlyWithTheirOwnEntry() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-older-founder@example.com")
+            var mallory = Account(email: "trust-older-manager@example.com")
+            var leslie = Account(email: "trust-older-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&leslie, on: app)
+            let groupID = UUID()
+            let first = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: first, on: app)
+
+            // Leslie joins "from now on": a new epoch, its key sealed to all three.
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            let adding = try entry(.add, subject: leslie, keys: leslie.publicKeys, level: .read,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory, leslie].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            #expect(try await post(adding, keys: sealed, to: groupID, as: robin, on: app).status == .created)
+            log.append(adding)
+
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: leslie.publicKeys,
+                recipientUserID: UserID(leslie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let laptop = DeviceKeyPair()
+            let hers = try entry(.addDevice, subject: mallory, device: laptop.id,
+                                 devicePublicKey: laptop.publicKey, epochAfter: Epoch(1),
+                                 by: mallory, after: log, in: groupID)
+            let answer = try await post(hers, keys: [junk], to: groupID, as: mallory, on: app)
+            #expect(answer.status == .badRequest)
+            #expect(answer.reason.contains("the person an entry adds"), "got \(answer.reason)")
+            #expect(try await post(hers, to: groupID, as: mallory, on: app).status == .created,
+                    "the entry on its own goes in")
+        }
+    }
 }

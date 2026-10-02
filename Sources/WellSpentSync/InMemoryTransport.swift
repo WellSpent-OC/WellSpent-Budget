@@ -274,11 +274,16 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
             }
             if !keys.isEmpty {
                 guard membership.allows(user, .manage) else { throw ServerRefused(reason: "that needs manage") }
-                try Self.check(keys, in: group, sealedToPeople: true, by: user, state: membership,
+                try Self.check(keys, in: group, by: user, state: membership,
                                log: known + [entry], requestEntry: entry, on: state)
             }
             state.logs[group] = known + [entry]
             for key in keys { Self.store(key, in: group, state: &state) }
+            // As on the real server: someone this entry leaves out of the
+            // group loses the group keys stored for them.
+            if let leaving = MembershipLog.groupKeysDropped(by: entry, state: membership) {
+                state.keys[group]?.removeAll { $0.scope == .group(group) && $0.recipientUserID == leaving }
+            }
         }
     }
 
@@ -290,13 +295,13 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                   membership.allows(user, .manage) else {
                 throw ServerRefused(reason: "that needs manage")
             }
-            try Self.check(keys, in: group, sealedToPeople: false, by: user, state: membership,
+            try Self.check(keys, in: group, by: user, state: membership,
                            log: state.logs[group] ?? [], requestEntry: nil, on: state)
             for key in keys { Self.store(key, in: group, state: &state) }
         }
     }
 
-    private static func check(_ keys: [WrappedKey], in group: GroupID, sealedToPeople: Bool,
+    private static func check(_ keys: [WrappedKey], in group: GroupID,
                               by user: UserID, state membership: MembershipState,
                               log: [MembershipLogEntry], requestEntry: MembershipLogEntry?,
                               on state: State) throws {
@@ -309,7 +314,7 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                                                     requestEntry: requestEntry, sentNow: keys,
                                                     stored: state.keys[group] ?? [])
             }
-            if let why = key.refusal(in: group, sealedToPeople: sealedToPeople, sender: user,
+            if let why = key.refusal(in: group, with: requestEntry, log: log, sender: user,
                                      state: membership, claims: claimed, senderHoldsGroupKey: holds) {
                 throw ServerRefused(reason: why)
             }

@@ -63,9 +63,13 @@ extension WrappedKey {
     /// thing changes what other members' Macs can read. A key must come from
     /// the person sending it, for an epoch the group has reached, and be one of
     /// two kinds. A group key for this group, sealed to one of its members,
-    /// travels only with a membership entry (`sealedToPeople`). A budget key,
-    /// sealed under the group key, is for a budget no other group uses; `claims`
-    /// says who uses its ID.
+    /// travels only with a membership entry (`entry`), and only for the person
+    /// that entry adds or for the epoch that entry starts. Any other entry
+    /// could carry junk keys for older epochs, sealed to a member who joined
+    /// "from now on", and fill slots that were empty: invited back later with
+    /// everything so far, that member lost the real older keys. `log` is the
+    /// group's log, ending with `entry`. A budget key, sealed under the group
+    /// key, is for a budget no other group uses; `claims` says who uses its ID.
     ///
     /// A later epoch is refused because a server keeps only the first key for
     /// each scope, epoch and recipient. One stored ahead of time would win over
@@ -74,13 +78,20 @@ extension WrappedKey {
     /// (`senderHoldsGroupKey`): a manager who joined "from now on" could fill
     /// an older epoch's empty slot with junk, and the real key sent later was
     /// dropped.
-    public func refusal(in group: GroupID, sealedToPeople: Bool, sender: UserID,
-                        state: MembershipState, claims: IDClaims?,
+    public func refusal(in group: GroupID, with entry: MembershipLogEntry?, log: [MembershipLogEntry],
+                        sender: UserID, state: MembershipState, claims: IDClaims?,
                         senderHoldsGroupKey: Bool) -> String? {
         switch (wrapKind, scope) {
-        case (.hpkeToIdentity, .group(let id)) where sealedToPeople:
+        case (.hpkeToIdentity, .group(let id)) where entry != nil:
             guard id == group, let recipientUserID, state.level(of: recipientUserID) > .none else {
                 return "a group key goes only to a member of this group"
+            }
+            let forThePersonAdded = entry?.action == .add && entry?.subjectUserID == recipientUserID
+            let forTheEpochStarted = entry.map {
+                epoch == $0.epochAfter && MembershipLog.entryStarting($0.epochAfter, in: log) == $0
+            } ?? false
+            guard forThePersonAdded || forTheEpochStarted else {
+                return "a group key goes only to the person an entry adds, or for the epoch it starts"
             }
         case (.aesUnderGroupKey, .budget(let budget)) where recipientUserID == nil:
             guard let claims, claims.areFree(forBudgetIn: group.uuid, id: budget.uuid) else {
@@ -90,8 +101,8 @@ extension WrappedKey {
                 return "a budget key comes only from someone who holds that epoch's group key"
             }
         default:
-            return sealedToPeople ? "that kind of key is not handed out here"
-                                  : "only budget keys sealed under the group key"
+            return entry != nil ? "that kind of key is not handed out here"
+                                : "only budget keys sealed under the group key"
         }
         guard senderUserID == sender else { return "a key must come from the person sending it" }
         guard epoch <= state.epoch else { return "the group has not reached that key's epoch" }
@@ -135,5 +146,17 @@ extension MembershipLog {
             current = entry.epochAfter
         }
         return nil
+    }
+
+    /// Whose stored group keys a server drops when it stores `entry`, given
+    /// the state after it: the subject's, when the entry leaves them out of
+    /// the group. A server keeps the first key for each slot, so a junk key
+    /// sealed to someone with their add stayed in their slot after they were
+    /// removed. Invited back with everything so far, they got the junk one
+    /// and the real one was dropped.
+    public static func groupKeysDropped(by entry: MembershipLogEntry, state: MembershipState) -> UserID? {
+        guard [.add, .changeLevel, .remove].contains(entry.action),
+              state.level(of: entry.subjectUserID) == .none else { return nil }
+        return entry.subjectUserID
     }
 }

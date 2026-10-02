@@ -335,8 +335,9 @@ public struct LamportClock: Sendable, Equatable {
     }
 
     /// Later wins. On the same counter the higher device ID wins, and on the
-    /// same device the higher author ID, as `RecordEnvelope.replaces` decides
-    /// it. Deterministic everywhere.
+    /// same device the higher author ID. Deterministic everywhere. This is the
+    /// tie rule of `RecordEnvelope.replaces`, without its one exception: there
+    /// a group's delete is final whatever the values, and here it is not.
     public static func wins(_ a: RecordEnvelope, over b: RecordEnvelope) -> Bool {
         if a.lamport != b.lamport { return a.lamport > b.lamport }
         if a.authorDeviceID != b.authorDeviceID {

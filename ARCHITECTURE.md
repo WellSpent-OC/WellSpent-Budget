@@ -143,16 +143,15 @@ refuse. A statement import files each row under its budget's own group.
 A record that can never be saved as it is does not stop a sync for good. One whose
 seal does not open with the key this Mac holds for its epoch is counted as
 undecryptable, and one whose contents do not decode as what its envelope says is
-refused. A save this
-Mac's database refuses for a reason that will repeat, a constraint, is set aside
-and counted (`SyncReport.unsaved`), tried again on later pulls, and that record's
-queued row stays out of the push meanwhile: the failed save also undid moving a
-re-seal above the newer version, and sending it would put this Mac's old content
-over that version on every Mac. Either way the pull moves past it. Before, the error
-stopped the pull before its cursor moved, so one bad record from any member at Add
-stopped the group syncing for everyone else, for good. A failure that can clear up,
-such as a full disk, still stops the pull before its cursor moves, so the record
-comes again once it can be saved.
+refused. A save this Mac's database refuses for a reason that will repeat, a
+constraint, is set aside and counted (`SyncReport.unsaved`), tried again on later
+pulls, and that record's queued row stays out of the push meanwhile: the failed
+save also undid moving a re-seal above the newer version, and sending it would put
+this Mac's old content over that version on every Mac. Either way the pull moves
+past it. Before, the error stopped the pull before its cursor moved, so one bad
+record from any member at Add stopped the group syncing for everyone else, for
+good. A failure that can clear up, such as a full disk, still stops the pull before
+its cursor moves, so the record comes again once it can be saved.
 
 Two of those had causes of their own. A Mac holds one imported row per fingerprint
 in a group, and two members who import the same statement each send theirs, so a
@@ -169,7 +168,10 @@ an update, but only from someone who may write, signed when its format is known,
 only up to a limit per sender in each group (`SyncEngine.setAsideLimit`). Past the
 limit such a record is passed over like a refused one, and the pull moves on, so an
 update does not bring it back. A record set aside because this build cannot read
-it keeps its queued row out of the push, as one that cannot be saved does.
+it, or whose retry fails, keeps a queued plain re-seal of it out of the push: the
+re-seal would send this Mac's older content over that version. Edits and deletes
+made here still go out. Holding them too let any member at Add freeze another
+member's record for good, by sending a copy of it in a made-up format.
 
 A member profile's ID is worked out from the group and the person
 (`RecordID.memberProfile`), so anyone can work out someone else's in advance. The
@@ -257,7 +259,8 @@ The replay also checks what each entry changes (`MembershipLog.checkWhatItChange
   broken by who wrote it (`RecordEnvelope.replaces`). A server reads who wrote the
   stored version from its envelope. The app keeps the author with each version it
   stores. A version stored before it did counts as this person's when it is on this
-  Mac's own device ID, since nobody else could sign under it then.
+  Mac's own device ID: this Mac sent it in nearly every case, since earlier builds
+  skipped most of what others signed under its ID as its own coming back.
 - **The epoch starts at the first one and moves one step at a time, and only by a
   manager**, who is the one who can hand out the new epoch's keys. An epoch nobody
   holds keys for left every member's edits queued for good. The next epoch is worked
@@ -280,9 +283,18 @@ The server takes keys only from a manager: on the log route only with an entry
 whose author may manage the group, and on the keys route as before. Each key must
 come from the person sending it, for an epoch the group has reached, and be one of
 two kinds. A group key for this group, sealed to one of its members, travels only
-with a membership entry. A budget key, sealed under the group key, is for a budget
-no other group uses (`WrappedKey.refusal`). The first key stored for a scope, epoch
+with a membership entry, and only for the person that entry adds or for the epoch
+that entry starts. A budget key, sealed under the group key, is for a budget no
+other group uses (`WrappedKey.refusal`). The first key stored for a scope, epoch
 and recipient is the one kept, so every member's app is handed the same one.
+
+Because the first key is kept, nothing may fill a slot before the real key. A
+manager could once attach junk keys for older epochs to any entry of her own,
+sealed to a member who joined "from now on", and fill that member's empty slots.
+An entry that leaves someone out of the group also takes the group keys stored for
+them, in the same transaction (`MembershipLog.groupKeysDropped`). Otherwise a junk
+key sealed to them with their add stayed after they were removed, and when they
+were invited back with everything so far, the real key was dropped.
 
 The server also takes a budget key only from someone who holds that epoch's group
 key: one someone else sealed to them, one they sealed to themselves with the entry
@@ -349,8 +361,13 @@ rule above.
   removing the founder is refused.
 - **One 403 from a server that lies makes a member's Mac found its group again,**
   writing over the founding entry it stored.
-- **Letting go of a group can send a plain re-seal over a newer version that the
-  pull set aside.** Dormant until a build writes a newer record format.
+- **A manager can stop every "from now on" invite in a group with keys nobody can
+  seal to.** Sealing the new epoch's key to every member fails on such keys before
+  the add is sent (`Sharing.keysForNewMember`), so the inviter's sync stops at that
+  group on every round until the link expires.
+- **A member at View can make a group's log grow without limit.** Registering the
+  same device again, with the same key, is taken each time, and every member's app
+  replays every entry.
 
 Plausible, dormant, or small:
 
@@ -363,17 +380,22 @@ Plausible, dormant, or small:
   moment can both store a key for one slot. Membership entries are serialised by
   their sequence, so only the keys route is exposed.
 - **Set-aside rows have no expiry, and stay when their group is deleted.** Records of
-  a type or format this build cannot read are limited per sender in each group.
-  Transactions waiting for their budget and saves that keep failing are not limited.
-  Each is a record on the server, and one waiting for its budget is not opened while
-  it waits.
+  a type or format this build cannot read are limited per sender in each group, and
+  past that limit one is passed over for good. Transactions waiting for their budget
+  and saves that keep failing are not limited. Each is a record on the server, and
+  one waiting for its budget is not opened while it waits.
+- **A plain re-seal waits behind a version this build cannot read.** A record with
+  such a version set aside here keeps its queued re-seal back until an update can
+  read that version, and letting go of the group drops it. A member added "from now
+  on" cannot read that record until someone edits it. Edits and deletes made here
+  still go out, and are weighed by Lamport value as usual.
 - **Made-up keys someone has signed with keep that person out, on a server that
   lies.** An honest server takes only sign-up keys in an add, and the log takes no
   add that leaves someone without keys. A server that lies can hold made-up keys on
   someone's ID, signed with as them; the inviter's add is then dropped rather than
   failing every sync, and the person cannot join that group. A removal clears keys
-  nobody signed with, but a group key the server stored for them stays in that
-  person's slot.
+  nobody signed with. An honest server also drops the group keys it stored for
+  them, but a server that lies can keep them.
 
 ## A version sent twice is stored once
 

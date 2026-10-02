@@ -24,9 +24,14 @@ public actor SyncEngine {
     private let identity: IdentityKeyPair
     private let device: DeviceKeyPair
     private let userID: UserID
-    /// Records whose pulled version this round could not save, or cannot
-    /// read. Their queued rows wait rather than go out over that version.
+    /// Records whose pulled version this round could not save. Their queued
+    /// rows wait for a later round rather than go out over that version.
     private var heldBack: Set<RecordID> = []
+    /// Records with a version set aside here that this build cannot read, or
+    /// whose retry failed. Only a plain re-seal of one waits: it carries this
+    /// Mac's older content and no edit. An edit or a delete made here goes
+    /// out, and the server weighs it by its Lamport value as usual.
+    private var resealsHeldBack: Set<RecordID> = []
     /// The most records of a type or format this build cannot read that are
     /// kept from one sender in one group, waiting for an update. Past it,
     /// another such record from them is passed over like a refused one, and
@@ -47,6 +52,7 @@ public actor SyncEngine {
     public func sync(group: GroupID) async throws -> SyncReport {
         var report = SyncReport()
         heldBack = []
+        resealsHeldBack = []
 
         let membership = try await refreshMembership(group: group)
         guard membership.allows(userID, .read) else { throw SyncError.notAMember(group) }
@@ -208,9 +214,11 @@ public actor SyncEngine {
     /// missing.
     ///
     /// A record that stays because this build cannot read it, or because a
-    /// retry failed, is held back from the push too. A queued re-seal of it
-    /// would otherwise send this Mac's older content over the version that
-    /// waits here, on every Mac.
+    /// retry failed, keeps a queued plain re-seal of it out of the push. The
+    /// re-seal would otherwise send this Mac's older content over the version
+    /// that waits here, on every Mac. Edits and deletes made here still go:
+    /// holding them too let any member at Add freeze another member's record
+    /// for good, by sending a copy of it in a made-up format.
     ///
     /// A row leaves only once it has been dealt with. It was deleted first,
     /// and a failure in between lost it with nothing counted.
@@ -219,7 +227,7 @@ public actor SyncEngine {
         var report = report
         for (envelope, serverSeq) in try store.deferredEnvelopes(in: group) {
             guard envelope.recordType.isKnown, envelope.version == RecordEnvelope.currentVersion else {
-                heldBack.insert(envelope.recordID)
+                resealsHeldBack.insert(envelope.recordID)
                 continue
             }
             if envelope.recordType == .transaction, let budget = envelope.budgetID,
@@ -234,10 +242,10 @@ public actor SyncEngine {
                 outcome = try apply(envelope, membership: membership, serverSeq: serverSeq)
             } catch {
                 // Its key has not arrived yet, or this pull cannot settle it
-                // for another reason. It stays, for a later pull, and its
-                // queued row waits with it.
+                // for another reason. It stays, for a later pull, and a
+                // queued re-seal of it waits with it.
                 report.undecryptable += 1
-                heldBack.insert(envelope.recordID)
+                resealsHeldBack.insert(envelope.recordID)
                 continue
             }
             switch outcome {
@@ -435,9 +443,13 @@ public actor SyncEngine {
                                              isDeleted: localIsDeleted || rival.isDeleted,
                                              author: userID)
         } else {
-            // A version stored before migration v7 has no author on file. On
-            // this Mac's own device ID it is this person's: before then,
-            // nobody else could sign under it here.
+            // A version stored before migration v7 has no author on file. One
+            // on this Mac's own device ID is taken as this person's. This Mac
+            // sent it in nearly every case: the builds before v7 skipped most
+            // of what anyone else signed under this ID, as this Mac's own
+            // coming back. The store does not know device IDs this Mac used
+            // before, so a version on one of those keeps the stored one on a
+            // tie, as before.
             incomingWins = try store.recordVersion(envelope.recordID).map {
                 envelope.replaces(lamport: $0.lamport, device: $0.device, isDeleted: localIsDeleted,
                                   author: $0.author ?? ($0.device == device.id ? userID : nil))
@@ -670,7 +682,8 @@ public actor SyncEngine {
         var sealed: [(push: PendingPush, payload: Data)] = []
         var gone: [PendingPush] = []
 
-        for item in pending where !heldBack.contains(item.recordID) {
+        for item in pending where !heldBack.contains(item.recordID)
+            && !(item.isReseal && resealsHeldBack.contains(item.recordID)) {
             guard let payload = try payload(for: item, in: store) else {
                 // No record to seal, because it is no longer in this Mac's
                 // database, so there is nothing to send. The row is dropped

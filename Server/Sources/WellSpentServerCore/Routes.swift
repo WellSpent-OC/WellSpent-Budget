@@ -450,7 +450,7 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
             guard state.allows(UserID(user.id), .manage) else {
                 throw ServerError.insufficientLevel(needed: .manage)
             }
-            if let why = try await refusal(forKeys: body.wrappedKeys, sealedToPeople: true,
+            if let why = try await refusal(forKeys: body.wrappedKeys,
                                            groupID: groupID, callerID: user.id, state: state,
                                            log: combined, requestEntry: body.entry,
                                            on: request.db) {
@@ -466,6 +466,16 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
 
             for key in body.wrappedKeys {
                 try await storeKey(key, groupID: groupID, on: db)
+            }
+            // Someone this entry leaves out of the group loses the group keys
+            // stored for them, so a junk one cannot outlast them and take the
+            // real one's place when they are invited back.
+            if let leaving = MembershipLog.groupKeysDropped(by: body.entry, state: state) {
+                try await WrappedKeyRow.query(on: db)
+                    .filter(\.$groupID == groupID)
+                    .filter(\.$scopeKind == "group")
+                    .filter(\.$recipientUserID == leaving.uuid)
+                    .delete()
             }
 
             try await MembershipRow.query(on: db).filter(\.$groupID == groupID).delete()
@@ -546,7 +556,7 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
             throw ServerError.insufficientLevel(needed: .manage)
         }
         let body = try request.content.decode(UploadKeysRequest.self)
-        if let why = try await refusal(forKeys: body.wrappedKeys, sealedToPeople: false,
+        if let why = try await refusal(forKeys: body.wrappedKeys,
                                        groupID: groupID, callerID: user.id, state: state,
                                        log: try await storedLog(groupID: groupID, on: request.db),
                                        requestEntry: nil, on: request.db) {
@@ -630,7 +640,7 @@ func storedLog(groupID: UUID, on db: any Database) async throws -> [MembershipLo
 /// Why wrapped keys may not be stored in a group, or nil when they may. The
 /// caller has already checked that the sender may manage the group. The rules
 /// themselves are `WrappedKey.refusal`, shared with the in-memory server.
-func refusal(forKeys keys: [WrappedKey], sealedToPeople: Bool, groupID: UUID, callerID: UUID,
+func refusal(forKeys keys: [WrappedKey], groupID: UUID, callerID: UUID,
              state: MembershipState, log: [MembershipLogEntry], requestEntry: MembershipLogEntry?,
              on db: any Database) async throws -> String? {
     let decoder = JSONDecoder()
@@ -651,7 +661,7 @@ func refusal(forKeys keys: [WrappedKey], sealedToPeople: Bool, groupID: UUID, ca
                                                 log: log, requestEntry: requestEntry,
                                                 sentNow: keys, stored: stored)
         }
-        if let why = key.refusal(in: GroupID(groupID), sealedToPeople: sealedToPeople,
+        if let why = key.refusal(in: GroupID(groupID), with: requestEntry, log: log,
                                  sender: UserID(callerID), state: state, claims: claimed,
                                  senderHoldsGroupKey: holds) {
             return why
