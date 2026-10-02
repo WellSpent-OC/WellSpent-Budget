@@ -1,0 +1,18 @@
+.build/
+Server/.build/
+.git/
+.github/
+coverage/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+# The client package's tests are never loaded: it is a path dependency here, and
+# SwiftPM does not build a dependency's test targets.
+Tests/
+# Server/Tests is NOT ignored on purpose. Nothing in the image runs tests, but
+# SwiftPM refuses to load a manifest whose declared target directories are
+# missing, and the server's manifest declares IntegrationTests. The sources land
+# in the build stage only; the final image copies just the binary.
+
+# Production secrets for docker-compose.yml. Never baked into the image.
+.env

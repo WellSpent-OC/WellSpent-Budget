@@ -1,0 +1,15 @@
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+.DS_Store
+
+# Never commit key material, even from a test run.
+*.key
+*.pem
+secrets/
+Server/.build/
+
+# Production secrets for docker-compose.yml.
+.env

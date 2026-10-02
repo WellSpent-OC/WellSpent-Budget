@@ -1,0 +1,56 @@
+# Production stack for a self-hosted sync server.
+#
+# Nothing publishes a port on the host. cloudflared dials out to Cloudflare and
+# reaches the server over the private compose network.
+#
+# Secrets live in .env (gitignored): PGPASSWORD and CLOUDFLARE_TUNNEL_TOKEN.
+# Until the tunnel exists, bring up just `db server`; the token may be blank.
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wellspent
+      POSTGRES_PASSWORD: ${PGPASSWORD:?set PGPASSWORD in .env}
+      POSTGRES_DB: wellspent
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wellspent -d wellspent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    # The root, not Server/, because Server/Package.swift depends on the parent
+    # by path: "..".
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # sslmode=disable is correct here and only here: postgres-kit enforces full
+      # certificate verification whenever it uses TLS, and the database is on a
+      # private bridge on one machine.
+      DATABASE_URL: postgres://wellspent:${PGPASSWORD}@db:5432/wellspent?sslmode=disable
+      VAPOR_ENV: production
+      # Not debug: Fluent logs SQL at debug, and the signup INSERT carries an
+      # email address and a password hash.
+      LOG_LEVEL: info
+      TRUSTED_PROXY: "1"
+      # Do not set SKIP_AUTO_MIGRATE. purgeExpiredTokens runs before migrate
+      # would, and dies on the missing tokens table.
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - server
+
+volumes:
+  pgdata:

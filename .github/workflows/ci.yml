@@ -1,0 +1,287 @@
+name: CI
+
+# Gates that must pass before a pull request can merge.
+#
+# Job names here are what branch protection requires, so renaming a job means
+# updating the required checks on the repository too, or merges will block on a
+# check that no longer runs.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Gate 1. Everything else is only worth running if this passes.
+  unit-tests:
+    name: Unit tests
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # The image's default Xcode can be behind what the dependency tree needs.
+      # fluent-postgres-driver 2.13 requires swift-tools-version 6.2, and a
+      # too-old toolchain fails at resolution with a message that does not
+      # mention Xcode at all.
+      - name: Select the newest Xcode on the image
+        run: |
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Show toolchain
+        run: |
+          xcode-select -p
+          swift --version
+
+      # The package floor is macOS 14 / iOS 17, set by HPKE.
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            Server/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved', 'Server/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build
+        run: swift build
+
+      - name: Client tests
+        run: swift test
+
+      - name: Server tests
+        run: cd Server && swift test --filter WellSpentServerTests
+
+      # The real client against the real server over HTTP. Boots the server
+      # in-process on a random port and needs no database service, because
+      # development and test both run on SQLite.
+      - name: Integration tests
+        run: cd Server && swift test --filter IntegrationTests
+
+  # Gate 2. Runs only if the tests pass, because a coverage number from a failing
+  # suite means nothing.
+  coverage:
+    name: Coverage floor
+    needs: unit-tests
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-cov-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-cov-${{ runner.os }}-
+
+      # Covers the library targets. WellSpentApp is an executable with no test
+      # target depending on it, so it is not linked into the test binary and
+      # cannot be measured here. See scripts/coverage.sh and STATUS.md.
+      - name: Line coverage
+        run: ./scripts/coverage.sh
+        env:
+          COVERAGE_MINIMUM: 85
+
+  # The server ships as a Linux container, and nothing else in this workflow
+  # compiles it for Linux. A macOS build passing says nothing about whether
+  # swift-crypto, GRDB and the Vapor stack resolve and build on the target.
+  docker-build:
+    name: Linux container builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The default docker driver cannot export a cache, so `cache-to` fails the
+      # build before it compiles anything. buildx gives the container driver,
+      # which supports both caching and `load`.
+      - name: Set up buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: wellspent-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A binary that builds but cannot start is not much of a result.
+      - name: It starts and answers a health check
+        run: |
+          docker run -d --name wellspent -p 8080:8080 \
+            -e WELLSPENT_SQLITE_PATH=/tmp/ci.sqlite \
+            wellspent-server:ci serve --env development --hostname 0.0.0.0 --port 8080
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then echo; echo "healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "never became healthy. Logs:"
+          docker logs wellspent
+          exit 1
+
+      - name: Stop
+        if: always()
+        run: docker rm -f wellspent || true
+
+  # Every other test in this repository runs on SQLite, and Postgres is what
+  # production uses. This job is the only thing that proves the migrations, the
+  # unique constraints and a real connection pool behave on the real driver.
+  postgres-tests:
+    name: Server tests on Postgres
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # The same image the Dockerfile builds with, so a failure here is a failure
+    # the container would also have.
+    container: swift:6.2-noble
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: wellspent
+          POSTGRES_PASSWORD: wellspent
+          POSTGRES_DB: wellspent_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Deliberate. Configure.swift checks DATABASE_URL before the .testing
+      # branch, so this one variable points the whole suite at Postgres instead
+      # of in-memory SQLite, which is exactly what is wanted here.
+      #
+      # The host is the service name rather than localhost, because this job runs
+      # inside a container on the same network as the service.
+      DATABASE_URL: postgres://wellspent:wellspent@postgres:5432/wellspent_test?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show the toolchain
+        run: swift --version
+
+      # GRDB needs sqlite3.h and the swift image does not ship it. The Dockerfile
+      # never needed this because `swift build --product WellSpentServer` does not
+      # pull GRDB into the graph, while `swift test` builds every target in the
+      # package, and the test targets reach the client's Store.
+      - name: Install the SQLite headers GRDB needs
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends libsqlite3-dev
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Server/.build
+          key: spm-linux-pg-${{ hashFiles('Server/Package.resolved', 'Package.resolved') }}
+          restore-keys: spm-linux-pg-
+
+      # --no-parallel is load bearing. swift-testing serialises within a suite,
+      # not across the five of them, and every test builds its own Application
+      # whose configure() calls autoMigrate(). Against one shared database those
+      # racing migrations fight over _fluent_migrations and CREATE TABLE. On
+      # SQLite each test gets a private in-memory database, which is why this has
+      # never surfaced.
+      #
+      # The suite also assumes a database that starts empty, because several
+      # tests register fixed email addresses and Postgres persists where
+      # in-memory SQLite did not. A fresh service container gives that, so do not
+      # run this step twice in one job.
+      #
+      # IntegrationTests is left out on purpose: it registers
+      # stranger@example.com and so does this suite, so sharing one database
+      # turns the second signup into a 409. It needs a database of its own.
+      #
+      # No -F flags here. Those exist for macOS with CommandLineTools selected;
+      # on Linux SwiftPM builds swift-testing from source.
+      - name: Server tests against Postgres
+        working-directory: Server
+        run: swift test --no-parallel --filter WellSpentServerTests
+
+  # Gate enforcement, without branch protection.
+  #
+  # Branch protection and rulesets both need GitHub Pro on a private repo, so
+  # GitHub will not disable the merge button for us.
+  #
+  # A draft pull request cannot be merged, which is the one free lever that
+  # genuinely blocks. But the default GITHUB_TOKEN is NOT permitted to convert a
+  # pull request to a draft: the GraphQL mutation answers "Resource not
+  # accessible by integration" even with pull-requests: write. That is a GitHub
+  # restriction, not a setting.
+  #
+  # So this job does what it can with the token it has, and tells you plainly
+  # when it cannot block:
+  #
+  #   With a GATE_TOKEN secret  -> converts the PR to a draft. A real block.
+  #   Without one               -> labels it and fails the check. Advisory only.
+  #
+  # To make it block, create a fine-grained personal access token with
+  # "Pull requests: write" on this repository and save it as the GATE_TOKEN
+  # secret. Or pay for GitHub Pro, which makes this whole job unnecessary.
+  gate:
+    name: Gate
+    needs: [unit-tests, coverage, docker-build, postgres-tests]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Make sure the label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "gates: failing" --repo "$GITHUB_REPOSITORY" \
+            --color B60205 --description "CI gates are failing; do not merge" --force || true
+
+      - name: Block the merge when a gate fails
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr edit "$PR" --add-label "gates: failing" --repo "$GITHUB_REPOSITORY" || true
+
+          if [ "$HAS_GATE_TOKEN" = "true" ] && gh pr ready "$PR" --undo --repo "$GITHUB_REPOSITORY"; then
+            note="Gates failed, so this was converted to a draft and cannot be merged. Push a fix and it will be marked ready again automatically."
+          else
+            note="Gates failed. This pull request is labelled \`gates: failing\` and must not be merged. It could not be converted to a draft, because the default GITHUB_TOKEN is not allowed to do that; add a GATE_TOKEN secret to make this an actual block."
+            echo "::warning::Could not convert to a draft. Add a GATE_TOKEN secret (fine-grained PAT, Pull requests: write) to make this gate block rather than advise."
+          fi
+
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$note" || true
+          echo "::error::Gates failed."
+          exit 1
+
+      - name: Release the merge when every gate passes
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # Only undo what this workflow did. An intentional draft stays a draft.
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels \
+               --jq '.labels[].name' | grep -qx "gates: failing"; then
+            gh pr edit "$PR" --remove-label "gates: failing" --repo "$GITHUB_REPOSITORY" || true
+            if [ "$HAS_GATE_TOKEN" = "true" ]; then
+              gh pr ready "$PR" --repo "$GITHUB_REPOSITORY" || true
+            fi
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "Gates pass." || true
+          fi
