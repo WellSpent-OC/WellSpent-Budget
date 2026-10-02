@@ -24,11 +24,13 @@ public actor SyncEngine {
     private let identity: IdentityKeyPair
     private let device: DeviceKeyPair
     private let userID: UserID
-    /// Records whose pulled version this round could not save. Their queued
-    /// rows wait for a later round rather than go out over that version.
+    /// Records whose pulled version this round could not save, or cannot
+    /// read. Their queued rows wait rather than go out over that version.
     private var heldBack: Set<RecordID> = []
     /// The most records of a type or format this build cannot read that are
-    /// kept for one group, waiting for an update.
+    /// kept from one sender in one group, waiting for an update. Past it,
+    /// another such record from them is passed over like a refused one, and
+    /// the pull moves on.
     static let setAsideLimit = 10_000
 
     public init(store: Store, keyRing: KeyRing, transport: any SyncTransport,
@@ -205,13 +207,21 @@ public actor SyncEngine {
     /// format this build cannot read, or a transaction whose budget is still
     /// missing.
     ///
+    /// A record that stays because this build cannot read it, or because a
+    /// retry failed, is held back from the push too. A queued re-seal of it
+    /// would otherwise send this Mac's older content over the version that
+    /// waits here, on every Mac.
+    ///
     /// A row leaves only once it has been dealt with. It was deleted first,
     /// and a failure in between lost it with nothing counted.
     private func replayDeferred(group: GroupID, membership: MembershipState,
                                 into report: SyncReport) throws -> SyncReport {
         var report = report
-        for (envelope, serverSeq) in try store.deferredEnvelopes(in: group)
-        where envelope.recordType.isKnown && envelope.version == RecordEnvelope.currentVersion {
+        for (envelope, serverSeq) in try store.deferredEnvelopes(in: group) {
+            guard envelope.recordType.isKnown, envelope.version == RecordEnvelope.currentVersion else {
+                heldBack.insert(envelope.recordID)
+                continue
+            }
             if envelope.recordType == .transaction, let budget = envelope.budgetID,
                try store.budget(budget) == nil {
                 continue
@@ -224,8 +234,10 @@ public actor SyncEngine {
                 outcome = try apply(envelope, membership: membership, serverSeq: serverSeq)
             } catch {
                 // Its key has not arrived yet, or this pull cannot settle it
-                // for another reason. It stays, for a later pull.
+                // for another reason. It stays, for a later pull, and its
+                // queued row waits with it.
                 report.undecryptable += 1
+                heldBack.insert(envelope.recordID)
                 continue
             }
             switch outcome {
@@ -300,15 +312,20 @@ public actor SyncEngine {
         // kept rather than dropped: the pull cursor moves past it now, so once
         // an update teaches this build to read it, `replayDeferred` applies it
         // from here. Only from someone who may write, signed when the format
-        // is one this build knows, and only so many per group, or any member
-        // or a server that lies could fill this Mac with them.
+        // is one this build knows, and only so many from each sender, or any
+        // member or a server that lies could fill this Mac with them. Counted
+        // per sender, one member at Add cannot use up the room other members'
+        // records need.
         if !envelope.recordType.isKnown || envelope.version != RecordEnvelope.currentVersion {
             if envelope.version == RecordEnvelope.currentVersion,
                !envelope.verifySignature(byDeviceKey: signingKey) {
                 return .ignored
             }
-            guard try store.deferredCount(in: envelope.groupID) < Self.setAsideLimit else { return .ignored }
-            try store.deferEnvelope(envelope, serverSeq: serverSeq)
+            guard try store.unreadableCount(in: envelope.groupID, from: envelope.authorUserID,
+                                            except: envelope.recordID) < Self.setAsideLimit else {
+                return .ignored
+            }
+            try store.deferEnvelope(envelope, serverSeq: serverSeq, unreadable: true)
             return .deferred
         }
 
@@ -418,9 +435,12 @@ public actor SyncEngine {
                                              isDeleted: localIsDeleted || rival.isDeleted,
                                              author: userID)
         } else {
+            // A version stored before migration v7 has no author on file. On
+            // this Mac's own device ID it is this person's: before then,
+            // nobody else could sign under it here.
             incomingWins = try store.recordVersion(envelope.recordID).map {
                 envelope.replaces(lamport: $0.lamport, device: $0.device, isDeleted: localIsDeleted,
-                                  author: $0.author)
+                                  author: $0.author ?? ($0.device == device.id ? userID : nil))
             } ?? (envelope.isDeleted || !localIsDeleted)
         }
         if !incomingWins {

@@ -821,10 +821,15 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             // is taken and nothing changes. The ciphertext is not compared,
             // because the app seals every send afresh with a new nonce.
             // The person and the device together: two people can each
-            // register one device ID as their own.
+            // register one device ID as their own. Who wrote the stored
+            // version is read from its envelope. The author column was not
+            // updated when a version was replaced before this check read it,
+            // so on older rows it can name whoever first pushed the record.
+            let storedAuthor = (try? JSONDecoder().decode(RecordEnvelope.self, from: existing.envelope))?
+                .authorUserID.uuid ?? existing.authorUserID
             if existing.lamport == lamport,
                existing.authorDeviceID == envelope.authorDeviceID.uuid,
-               existing.authorUserID == envelope.authorUserID.uuid,
+               storedAuthor == envelope.authorUserID.uuid,
                existing.isDeleted == envelope.isDeleted {
                 accepted.append(envelope.recordID.uuid)
                 continue
@@ -834,7 +839,7 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             guard envelope.replaces(lamport: UInt64(existing.lamport),
                                     device: DeviceID(existing.authorDeviceID),
                                     isDeleted: existing.isDeleted,
-                                    author: UserID(existing.authorUserID)) else {
+                                    author: UserID(storedAuthor)) else {
                 let reopens = envelope.recordType == .groupMeta && existing.isDeleted && !envelope.isDeleted
                 rejected[envelope.recordID.uuid.uuidString] = reopens
                     ? "the group has been deleted"

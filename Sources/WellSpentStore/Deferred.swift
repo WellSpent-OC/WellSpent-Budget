@@ -11,17 +11,25 @@ struct DeferredEnvelopeRow: Codable, FetchableRecord, PersistableRecord {
     var recordType: String
     var envelope: Data
     var serverSeq: Int64
+    var authorUserId: String?
+    var unreadable: Bool
 }
 
 extension Store {
     /// The newest version wins: a record set aside twice keeps only the later one.
-    public func deferEnvelope(_ envelope: RecordEnvelope, serverSeq: UInt64) throws {
+    /// `unreadable` says it was set aside because this build cannot read
+    /// its type or format, rather than to wait for its budget or because it
+    /// could not be saved.
+    public func deferEnvelope(_ envelope: RecordEnvelope, serverSeq: UInt64,
+                              unreadable: Bool = false) throws {
         let data = try JSONEncoder().encode(envelope)
         try database.write { db in
             try DeferredEnvelopeRow(recordId: envelope.recordID.dbValue,
                                     budgetGroupId: envelope.groupID.dbValue,
                                     recordType: envelope.recordType.rawValue,
-                                    envelope: data, serverSeq: Int64(serverSeq)).save(db)
+                                    envelope: data, serverSeq: Int64(serverSeq),
+                                    authorUserId: envelope.authorUserID.dbValue,
+                                    unreadable: unreadable).save(db)
         }
     }
 
@@ -40,6 +48,20 @@ extension Store {
     public func deferredCount(in group: GroupID) throws -> Int {
         try database.read { db in
             try DeferredEnvelopeRow.filter(Column("budgetGroupId") == group.dbValue).fetchCount(db)
+        }
+    }
+
+    /// How many records from `author` are set aside in a group because this
+    /// build cannot read them, not counting `except`, which a new copy would
+    /// replace.
+    public func unreadableCount(in group: GroupID, from author: UserID, except record: RecordID) throws -> Int {
+        try database.read { db in
+            try DeferredEnvelopeRow
+                .filter(Column("budgetGroupId") == group.dbValue)
+                .filter(Column("authorUserId") == author.dbValue)
+                .filter(Column("unreadable") == true)
+                .filter(Column("recordId") != record.dbValue)
+                .fetchCount(db)
         }
     }
 

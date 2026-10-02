@@ -11,9 +11,9 @@ import WellSpentStore
 /// server. Their engine pulls through `leak`, which can also hand over records
 /// the server never stored, the way a server that skips a rule could.
 private final class Member {
-    let userID = UserID()
+    let userID: UserID
     let identity = IdentityKeyPair.generate()
-    let device = DeviceKeyPair()
+    let device: DeviceKeyPair
     let store: Store
     let keyRing: KeyRing
     let session: InMemorySession
@@ -21,8 +21,11 @@ private final class Member {
     let engine: SyncEngine
     let sharing: Sharing
 
-    init(server: InMemoryTransport) throws {
-        store = Store(database: try WellSpentDatabase.inMemory())
+    init(server: InMemoryTransport, userID: UserID = UserID(), device: DeviceKeyPair = DeviceKeyPair(),
+         database: WellSpentDatabase? = nil) throws {
+        self.userID = userID
+        self.device = device
+        store = Store(database: try database ?? WellSpentDatabase.inMemory())
         keyRing = KeyRing(store: store, identity: identity, userID: userID)
         session = server.session(for: userID, keys: identity.publicKeys)
         leak = Leak(session)
@@ -207,6 +210,45 @@ private final class LyingLog: InviteTransport, @unchecked Sendable {
 
 /// Makes this Mac's database refuse to save a transaction with this merchant,
 /// for a test of what a pull does with a save it cannot make.
+/// A connection that lets `first` run once, just before the first add it
+/// sends, the way another member's entry can reach the server first.
+private final class Racing: InviteTransport, @unchecked Sendable {
+    let inner: InMemorySession
+    var first: (() async throws -> Void)?
+    init(_ inner: InMemorySession) { self.inner = inner }
+
+    func appendMembership(_ entry: MembershipLogEntry, group: GroupID,
+                          wrappedKeys: [WrappedKey]) async throws {
+        if entry.action == .add, let run = first {
+            first = nil
+            try await run()
+        }
+        try await inner.appendMembership(entry, group: group, wrappedKeys: wrappedKeys)
+    }
+    func push(_ envelopes: [RecordEnvelope], group: GroupID) async throws -> PushResult {
+        try await inner.push(envelopes, group: group)
+    }
+    func pull(group: GroupID, since: UInt64, limit: Int) async throws -> PullResult {
+        try await inner.pull(group: group, since: since, limit: limit)
+    }
+    func membershipLog(group: GroupID, since: UInt64) async throws -> [MembershipLogEntry] {
+        try await inner.membershipLog(group: group, since: since)
+    }
+    func wrappedKeys(group: GroupID, for user: UserID) async throws -> [WrappedKey] {
+        try await inner.wrappedKeys(group: group, for: user)
+    }
+    func createInvite(_ invite: NewInvite) async throws { try await inner.createInvite(invite) }
+    func lookupInvite(id: Data) async throws -> InviteLookup { try await inner.lookupInvite(id: id) }
+    func acceptInvite(id: Data, sealed: SealedAcceptance) async throws {
+        try await inner.acceptInvite(id: id, sealed: sealed)
+    }
+    func invites(in group: GroupID) async throws -> [PendingInvite] { try await inner.invites(in: group) }
+    func deleteInvite(id: Data) async throws { try await inner.deleteInvite(id: id) }
+    func uploadKeys(_ keys: [WrappedKey], group: GroupID) async throws {
+        try await inner.uploadKeys(keys, group: group)
+    }
+}
+
 private func refuseToSave(merchant: String, in store: Store) throws {
     try store.database.writer.write { db in
         try db.execute(sql: """
@@ -1214,7 +1256,9 @@ struct TrustTests {
     /// A record of a type or format this build cannot read was set aside
     /// before anyone checked who sent it, and without a limit, so a member at
     /// View, or a server that lies, could fill every Mac with them. Only
-    /// someone who may write gets one set aside, and only so many per group.
+    /// someone who may write gets one set aside, and only so many from each
+    /// sender, so one member at Add cannot use up the room other members'
+    /// records need. Transactions waiting for their budget are not counted.
     @Test func onlySoManyUnreadableRecordsAreSetAsideAndOnlyFromAWriter() async throws {
         let robin = try Member(server: server), mallory = try Member(server: server)
         try await robin.found(household, name: "Household")
@@ -1233,18 +1277,354 @@ struct TrustTests {
         #expect(try await robin.sync(household).ignored == 1, "she can only view")
         #expect(try robin.store.deferredEnvelopes(in: household).isEmpty)
 
-        let filler = try JSONEncoder().encode(try future(from: robin))
-        try robin.store.database.write { db in
-            try db.execute(sql: """
-                WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
-                INSERT INTO deferredEnvelope (recordId, budgetGroupId, recordType, envelope, serverSeq)
-                SELECT 'filler-' || i, ?, 'future', ?, 0 FROM n
-                """, arguments: [SyncEngine.setAsideLimit, household.uuid.uuidString, filler])
-        }
         let leslie = try Member(server: server)
         try await leslie.join(household, from: robin, level: .write)
+        func fill(from member: Member, unreadable: Bool, prefix: String) throws {
+            let filler = try JSONEncoder().encode(try future(from: member))
+            try robin.store.database.write { db in
+                try db.execute(sql: """
+                    WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+                    INSERT INTO deferredEnvelope
+                        (recordId, budgetGroupId, recordType, envelope, serverSeq, authorUserId, unreadable)
+                    SELECT ? || i, ?, 'future', ?, 0, ?, ? FROM n
+                    """, arguments: [SyncEngine.setAsideLimit, prefix, household.uuid.uuidString, filler,
+                                     member.userID.uuid.uuidString, unreadable])
+            }
+        }
+        try fill(from: leslie, unreadable: true, prefix: "hers-")
+        try fill(from: robin, unreadable: false, prefix: "waiting-")
         robin.leak.extra = [try future(from: leslie)]
-        #expect(try await robin.sync(household).ignored == 1, "the group's limit is reached")
-        #expect(try robin.store.deferredCount(in: household) == SyncEngine.setAsideLimit)
+        #expect(try await robin.sync(household).ignored == 1, "her limit is reached")
+
+        robin.leak.extra = [try future(from: robin)]
+        let own = try await robin.sync(household)
+        #expect(own.deferred == 1 && own.ignored == 0, "his is still set aside: got \(own)")
+    }
+
+    // MARK: - Who starts an epoch, keyless adds, refused answers
+
+    /// Registering a device needs only View, and its entry could name any
+    /// epoch. Mallory's named the next one, and the server took it for the
+    /// entry that started that epoch, so it refused the budget keys Robin's
+    /// "from now on" invite carried. His sync stopped at the group on every
+    /// round until the link expired, and the server refused the key of every
+    /// budget he added later, so nobody else could read those budgets.
+    @Test func aViewMemberCannotBlockFromNowInvites() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .read)
+
+        let (log, state) = try await mallory.membership(of: household)
+        let laptop = DeviceKeyPair()
+        let ahead = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .read,
+            epochAfter: state.epoch.next, deviceID: laptop.id, devicePublicKey: laptop.publicKey,
+            author: mallory.identity, authorUserID: mallory.userID)
+        await #expect(throws: ServerRefused.self) {
+            try await mallory.session.appendMembership(ahead, group: household, wrappedKeys: [])
+        }
+
+        try await jamie.join(household, from: robin, level: .read, history: .fromNow)
+        #expect(try jamie.store.pendingJoins().isEmpty, "the join finished")
+        let his = try robin.spend("Hilltop", in: groceries)
+        let rent = Budget(groupID: household, name: "Rent", limit: Money(minorUnits: 200_000))
+        try robin.store.save(rent)
+        try await robin.sync(household)
+        try await jamie.sync(household)
+        #expect(try jamie.store.transaction(his.id)?.merchant == "Hilltop")
+        #expect(try jamie.store.budget(rent.id)?.name == "Rent", "a budget added later reaches him")
+    }
+
+    /// Both servers compare the keys an add carries with the person's sign-up
+    /// keys, and an add with none got round that. Mallory added Jamie with no
+    /// keys and a junk group key for him, then removed him. When Robin later
+    /// added him with "Everything so far", the server kept her key in Jamie's
+    /// slot and dropped Robin's, so Jamie read nothing.
+    @Test func aKeylessAddCannotPlantAKeyForLater() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        let his = try robin.spend("Hilltop", in: groceries)
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .manage)
+
+        var (log, state) = try await mallory.membership(of: household)
+        let madeUp = IdentityKeyPair.generate()
+        let junk = try KeyWrap.wrapToIdentity(
+            ScopedKey.generate(scope: .group(household), epoch: state.epoch), recipient: madeUp.publicKeys,
+            recipientUserID: jamie.userID, sender: mallory.identity, senderUserID: mallory.userID)
+        let keyless = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .add, subjectUserID: jamie.userID, subjectKeys: nil, level: .read,
+            epochAfter: state.epoch, author: mallory.identity, authorUserID: mallory.userID)
+        await #expect(throws: ServerRefused.self) {
+            try await mallory.session.appendMembership(keyless, group: household, wrappedKeys: [junk])
+        }
+        (log, state) = try await mallory.membership(of: household)
+        if state.level(of: jamie.userID) > .none {
+            try await mallory.session.appendMembership(try MembershipLogEntry.signed(
+                scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+                action: .remove, subjectUserID: jamie.userID, subjectKeys: nil, level: .none,
+                epochAfter: state.epoch, author: mallory.identity, authorUserID: mallory.userID),
+                group: household, wrappedKeys: [])
+        }
+
+        try await jamie.join(household, from: robin, level: .read)
+        #expect(try jamie.store.transaction(his.id)?.merchant == "Hilltop", "he reads everything so far")
+    }
+
+    /// An answer is bound to the link's secret, not to an account, so whoever
+    /// holds the link can answer with keys that are not their sign-up keys,
+    /// someone else's ID, an ID with no account, or keys that do not parse.
+    /// The server refused the add, or sealing to the keys failed, and Robin's
+    /// sync stopped at the group on every round until the link expired. The
+    /// invite is dropped now, and the sync goes on.
+    @Test func anAnswerTheServerWillNotAddSpoilsOnlyItsInvite() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+
+        let made = IdentityKeyPair.generate().publicKeys
+        let unparseable = try JSONDecoder().decode(IdentityPublicKeys.self, from: Data(
+            #"{"signing":"AAEC","kem":"AAEC"}"#.utf8))
+        let answers: [(String, UserID, IdentityPublicKeys)] = [
+            ("keys that are not hers", mallory.userID, made),
+            ("someone else's ID", jamie.userID, made),
+            ("an ID with no account", UserID(), made),
+            ("keys that do not parse", mallory.userID, unparseable),
+        ]
+        for (label, user, keys) in answers {
+            let link = try await robin.sharing.createInvite(
+                group: household, groupName: "Household", level: .read, historyAccess: .all,
+                inviterName: "Robin")
+            let secret = try InviteSecret(bytes: link.secret)
+            let lookup = try await mallory.session.lookupInvite(id: secret.id)
+            let sealed = try InviteCrypto.sealAcceptance(
+                InviteAcceptance(accepterUserID: user, accepterKeys: keys, displayName: "Mallory"),
+                invite: lookup.invite(id: secret.id), secret: secret)
+            try await mallory.session.acceptInvite(id: secret.id, sealed: sealed)
+
+            await #expect(throws: Never.self, "\(label)") { try await robin.sync(household) }
+            #expect(server.inviteCount == 0, "\(label): the invite was dropped")
+        }
+        try await jamie.join(household, from: robin, level: .read)
+        #expect(try jamie.store.pendingJoins().isEmpty, "a real answer still gets in")
+    }
+
+    /// The fake server took whatever keys a test opened a session with as the
+    /// person's sign-up keys, so a test could pass that the real server, which
+    /// keeps the keys someone signed up with, would fail. The first keys stay.
+    @Test func theFakeServerKeepsTheKeysSomeoneSignedUpWith() {
+        let user = UserID()
+        let signedUp = IdentityKeyPair.generate().publicKeys
+        _ = server.session(for: user, keys: signedUp)
+        _ = server.session(for: user, keys: IdentityKeyPair.generate().publicKeys)
+        #expect(server.identityKeys(of: user) == signedUp)
+    }
+
+    /// A refusal that came because another entry reached the log first is
+    /// not the answer's fault. That invite stays, and the next sync adds them.
+    @Test func anAddRefusedBecauseTheLogMovedIsTriedAgain() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let jamie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .read, historyAccess: .all,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+        let racing = Racing(robin.session)
+        racing.first = {
+            let (log, state) = try await leslie.membership(of: household)
+            let laptop = DeviceKeyPair()
+            try await leslie.session.appendMembership(try MembershipLogEntry.signed(
+                scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+                action: .addDevice, subjectUserID: leslie.userID, subjectKeys: nil, level: .write,
+                epochAfter: state.epoch, deviceID: laptop.id, devicePublicKey: laptop.publicKey,
+                author: leslie.identity, authorUserID: leslie.userID), group: household, wrappedKeys: [])
+        }
+        let sharing = Sharing(store: robin.store, keyRing: robin.keyRing, transport: racing,
+                              identity: robin.identity, device: robin.device, userID: robin.userID)
+        #expect(try await sharing.finishInvites(group: household).isEmpty)
+        #expect(server.inviteCount == 1, "the invite stays")
+        #expect(try await sharing.finishInvites(group: household).map(\.accepterUserID) == [jamie.userID])
+    }
+
+    // MARK: - Versions from before v7, and set-aside records held back
+
+    /// Versions stored before migration v7 have no author on file. On a tie
+    /// in Lamport value and device, Robin's Mac kept its own, while both
+    /// servers, which compare the real authors, took the other person's.
+    /// Mallory registered his device ID as hers and pushed her copy of his
+    /// record at his value: everyone else took hers, and his Mac kept his
+    /// until someone next edited it. A version with no author on this Mac's
+    /// own device ID is this person's: before v7 nobody else could sign
+    /// under it here.
+    @Test func aVersionStoredBeforeV7IsThisMacsOwn() async throws {
+        let groceries = groceries()
+        let record = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                 merchant: "Hilltop", amount: Money(minorUnits: -1000))
+        let device = DeviceKeyPair()
+
+        // His database, made by a build before v7, holding his version.
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: configuration)
+        try WellSpentDatabase.migrator.migrate(queue, upTo: "v6-outbox-edit-lamport")
+        try await queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO recordVersion (recordId, lamport, authorDeviceId, serverSeq)
+                VALUES (?, 7, ?, 0)
+                """, arguments: [record.id.uuid.uuidString, device.id.uuid.uuidString])
+        }
+        let robin = try Member(server: server, userID: UserID(UUID(uuidString: "00000000-0000-0000-0000-00000000000A")!),
+                               device: device, database: try WellSpentDatabase(writer: queue))
+        let mallory = try Member(server: server,
+                                 userID: UserID(UUID(uuidString: "FFFFFFFF-0000-0000-0000-00000000000A")!))
+        #expect(try robin.store.recordVersion(record.id)?.author == nil, "v7 kept no author for it")
+
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try robin.store.save(record, queue: false)
+        try await robin.sync(household)
+        let his = try robin.forge(record, id: record.id, type: .transaction, group: household,
+                                  budget: groceries.id, lamport: 7)
+        #expect(try await server.push([his], group: household).accepted == [record.id])
+        try await mallory.join(household, from: robin, level: .manage)
+
+        let borrowed = DeviceKeyPair(id: device.id)
+        let (log, state) = try await mallory.membership(of: household)
+        try await mallory.session.appendMembership(try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .manage,
+            epochAfter: state.epoch, deviceID: borrowed.id, devicePublicKey: borrowed.publicKey,
+            author: mallory.identity, authorUserID: mallory.userID), group: household, wrappedKeys: [])
+        var changed = record
+        changed.merchant = "Changed"
+        let hers = try RecordCodec.seal(
+            changed, recordID: record.id, recordType: .transaction, groupID: household,
+            budgetID: groceries.id, scopeKey: try mallory.keyRing.key(for: .budget(groceries.id), epoch: .initial),
+            lamport: 7, author: mallory.userID, device: borrowed, membershipSequence: 0)
+        #expect(try await server.push([hers], group: household).accepted == [record.id])
+        let stored = try await server.pull(group: household, since: 0, limit: 500).envelopes
+        #expect(stored.first { $0.recordID == record.id }?.authorUserID == mallory.userID,
+                "the fake server took hers, as the real one does, and did not answer for his")
+
+        try await robin.sync(household)
+        #expect(try robin.store.transaction(record.id)?.merchant == "Changed")
+    }
+
+    /// A re-seal goes out at a fresh Lamport value with this Mac's content. A
+    /// newer version this build cannot read is set aside, so the re-seal never
+    /// moved above it, and sent this Mac's older content over it on every Mac.
+    /// Its queued row waits now, as long as the version it would overwrite.
+    @Test func aReSealWaitsWhileANewerFormatVersionIsSetAside() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let jamie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+        for index in 0 ..< 5 { _ = try robin.spend("Row \(index)", in: groceries) }
+        try await robin.sync(household)
+
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .read, historyAccess: .fromNow,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+        try await robin.sharing.finishInvites(group: household)
+        let budgetID = RecordID(groceries.id.uuid)
+        let reseal = try #require(try robin.store.queuedPush(budgetID))
+
+        // Leslie's newer build writes the budget in a format Robin's cannot read.
+        let current = try leslie.forge(groceries, id: budgetID, type: .budget, group: household,
+                                       budget: nil, lamport: reseal.lamport - 1)
+        let unsigned = RecordEnvelope(
+            version: RecordEnvelope.currentVersion + 1, recordID: current.recordID,
+            recordType: current.recordType, groupID: current.groupID, budgetID: current.budgetID,
+            keyEpoch: current.keyEpoch, ciphersuite: current.ciphersuite,
+            payloadKind: current.payloadKind, nonce: current.nonce, ciphertext: current.ciphertext,
+            lamport: current.lamport, authorUserID: current.authorUserID,
+            authorDeviceID: current.authorDeviceID, membershipSequence: current.membershipSequence,
+            isDeleted: false, signature: Data())
+        let newer = RecordEnvelope(
+            version: unsigned.version, recordID: unsigned.recordID, recordType: unsigned.recordType,
+            groupID: unsigned.groupID, budgetID: unsigned.budgetID, keyEpoch: unsigned.keyEpoch,
+            ciphersuite: unsigned.ciphersuite, payloadKind: unsigned.payloadKind,
+            nonce: unsigned.nonce, ciphertext: unsigned.ciphertext, lamport: unsigned.lamport,
+            authorUserID: unsigned.authorUserID, authorDeviceID: unsigned.authorDeviceID,
+            membershipSequence: unsigned.membershipSequence, isDeleted: false,
+            signature: try leslie.device.signing.signature(for: unsigned.signedBytes()))
+        #expect(try await server.push([newer], group: household).accepted == [budgetID])
+
+        for _ in 0 ..< 2 {
+            let report = try await robin.engine.sync(group: household)
+            #expect(report.rejected == 0, "got \(report)")
+            let stored = try await server.pull(group: household, since: 0, limit: 500).envelopes
+            #expect(stored.first { $0.recordID == budgetID }?.version == RecordEnvelope.currentVersion + 1,
+                    "her newer version is still what everyone has")
+            #expect(try robin.store.queuedPush(budgetID) != nil, "his re-seal waits")
+        }
+    }
+
+    /// A set-aside record whose retry fails for a reason that can pass, such
+    /// as its key not having arrived, stays for a later pull. Its queued row
+    /// went out meanwhile, over the version waiting here. It waits with it
+    /// now.
+    @Test func aRowWaitsWhileItsSetAsideVersionCannotBeRetried() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+        let budgetID = RecordID(groceries.id.uuid)
+
+        // Hers, set aside by an older build, under a key that has not reached him.
+        let later = try RecordCodec.seal(
+            groceries, recordID: budgetID, recordType: .budget, groupID: household, budgetID: nil,
+            scopeKey: ScopedKey.generate(scope: .group(household), epoch: Epoch(1)), lamport: 50,
+            author: leslie.userID, device: leslie.device, membershipSequence: 0)
+        try robin.store.deferEnvelope(later, serverSeq: 1)
+        var renamed = groceries
+        renamed.name = "Food"
+        try robin.store.save(renamed)
+
+        let report = try await robin.engine.sync(group: household)
+        #expect(report.pushed == 0, "got \(report)")
+        #expect(try robin.store.queuedPush(budgetID) != nil, "the rename waits")
+    }
+
+    /// The author's level, the device's registration and, for a format this
+    /// build knows, the signature are all checked before a record is set
+    /// aside. Set aside first, a record from a device nobody registered, or
+    /// one signed with another key, took room on every Mac.
+    @Test func anUnreadableRecordIsSetAsideOnlyWhenItsSenderChecksOut() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        struct Future: Codable { let value: Int }
+        func future(signedBy device: DeviceKeyPair) throws -> RecordEnvelope {
+            try RecordCodec.seal(
+                Future(value: 1), recordID: RecordID(), recordType: RecordType(rawValue: "future"),
+                groupID: household, budgetID: nil,
+                scopeKey: try leslie.keyRing.key(for: .group(household), epoch: .initial),
+                lamport: 10_000, author: leslie.userID, device: device, membershipSequence: 0)
+        }
+        robin.leak.extra = [try future(signedBy: DeviceKeyPair()),
+                            try future(signedBy: DeviceKeyPair(id: leslie.device.id))]
+        let refused = try await robin.sync(household)
+        #expect(refused.ignored == 2 && refused.deferred == 0, "got \(refused)")
+
+        robin.leak.extra = [try future(signedBy: leslie.device)]
+        #expect(try await robin.sync(household).deferred == 1)
     }
 }

@@ -505,6 +505,107 @@ struct MembershipLogTests {
         #expect(try MembershipLog.replay(log.entries, scope: scope).epoch == Epoch(1))
     }
 
+    /// Registering a device leaves the epoch where it is, and its entry
+    /// needs only View. Mallory's named the next epoch, and the server then
+    /// took it for the entry that started that epoch, so it refused the keys
+    /// Robin's real start of it carried. A device entry names the current
+    /// epoch, whoever writes it.
+    @Test func aDeviceEntryNamesTheCurrentEpoch() throws {
+        let scope = KeyScope.group(GroupID())
+        let robin = Person(), mallory = Person()
+        var log = try LogBuilder(scope: scope, founder: robin)
+        try log.append(action: .add, subject: mallory, level: .read, by: robin)
+        let before = log
+
+        try log.appendRaw(.addDevice, subject: mallory.id, device: mallory.device.id,
+                          devicePublicKey: mallory.device.publicKey, epochAfter: Epoch(1), by: mallory)
+        #expect(refusal(log.entries, scope).hasPrefix("epochNotCurrent"))
+
+        log = before
+        let laptop = DeviceKeyPair()
+        try log.appendRaw(.addDevice, subject: robin.id, device: laptop.id,
+                          devicePublicKey: laptop.publicKey, epochAfter: Epoch(1), by: robin)
+        #expect(refusal(log.entries, scope).hasPrefix("epochNotCurrent"), "not even from the founder")
+
+        log = before
+        try log.appendRaw(.addDevice, subject: mallory.id, device: mallory.device.id,
+                          devicePublicKey: mallory.device.publicKey, by: mallory)
+        #expect(refusal(log.entries, scope) == "accepted")
+    }
+
+    /// The server judges who holds an epoch's group key by the entry that
+    /// started that epoch. It took the first entry naming the epoch, so a
+    /// device entry naming it ahead of time stood in for Robin's real start,
+    /// and both the keys sent with it and the budget keys he published later
+    /// were refused. Only entries that move the epoch count. Whoever started
+    /// an epoch can still publish budget keys for it from the key they
+    /// sealed to themselves, which every "from now on" invite depends on.
+    @Test func theEntryThatStartsAnEpochIsOneThatMovesIt() throws {
+        let group = GroupID()
+        let scope = KeyScope.group(group)
+        let robin = Person(), mallory = Person(), jamie = Person()
+        var log = try LogBuilder(scope: scope, founder: robin)
+        try log.append(action: .add, subject: mallory, level: .manage, by: robin)
+        // Written straight into the log, the way a server that skipped the
+        // epoch rule would hold it.
+        try log.appendRaw(.addDevice, subject: mallory.id, device: mallory.device.id,
+                          devicePublicKey: mallory.device.publicKey, epochAfter: Epoch(1), by: mallory)
+        try log.append(action: .add, subject: jamie, level: .read, by: robin, bumpEpoch: true)
+        let start = try #require(log.entries.last)
+
+        let next = ScopedKey.generate(scope: scope, epoch: Epoch(1))
+        func sealed(to person: Person, by sender: Person) throws -> WrappedKey {
+            try KeyWrap.wrapToIdentity(next, recipient: person.keys, recipientUserID: person.id,
+                                       sender: sender.identity, senderUserID: sender.id)
+        }
+        let his = try sealed(to: robin, by: robin)
+        #expect(MembershipLog.entryStarting(Epoch(1), in: log.entries) == start)
+        #expect(MembershipLog.holdsGroupKey(robin.id, of: group, at: Epoch(1), log: log.entries,
+                                            requestEntry: start, sentNow: [his], stored: []),
+                "the keys sent with his start count")
+        #expect(MembershipLog.holdsGroupKey(robin.id, of: group, at: Epoch(1), log: log.entries,
+                                            requestEntry: nil, sentNow: [], stored: [his]),
+                "and the key he sealed to himself counts later")
+        #expect(!MembershipLog.holdsGroupKey(mallory.id, of: group, at: Epoch(1), log: log.entries,
+                                             requestEntry: nil, sentNow: [],
+                                             stored: [try sealed(to: mallory, by: mallory)]),
+                "one she sealed to herself does not")
+        #expect(MembershipLog.holdsGroupKey(mallory.id, of: group, at: Epoch(1), log: log.entries,
+                                            requestEntry: nil, sentNow: [],
+                                            stored: [try sealed(to: mallory, by: robin)]),
+                "one he sealed to her does")
+    }
+
+    /// Servers compare the keys an add carries with the person's sign-up
+    /// keys, and an add with none got round that. Jamie was then a member
+    /// with no keys, whom no invite could add, and a key stored for him with
+    /// that add stayed in his slot after he was removed. An add or a level
+    /// change may leave out keys only for someone the log already has keys
+    /// for.
+    @Test func nobodyIsLeftAMemberWithoutKeys() throws {
+        let scope = KeyScope.group(GroupID())
+        let robin = Person(), leslie = Person(), jamie = Person()
+        var log = try LogBuilder(scope: scope, founder: robin)
+        try log.append(action: .add, subject: leslie, level: .read, by: robin)
+        let before = log
+
+        for action in [MembershipAction.add, .changeLevel] {
+            log = before
+            try log.appendRaw(action, subject: jamie.id, level: .read, by: robin)
+            #expect(refusal(log.entries, scope).hasPrefix("memberWithoutKeys"), "\(action)")
+        }
+
+        log = before
+        try log.appendRaw(.changeLevel, subject: leslie.id, level: .write, by: robin)
+        #expect(refusal(log.entries, scope) == "accepted", "her keys are already in the log")
+
+        log = before
+        try log.appendRaw(.remove, subject: leslie.id, level: .none, by: robin)
+        try log.appendRaw(.add, subject: leslie.id, level: .read, by: robin)
+        #expect(refusal(log.entries, scope).hasPrefix("memberWithoutKeys"),
+                "removing her cleared keys she never signed with")
+    }
+
     /// Why a log was refused, as text, or "accepted".
     private func refusal(_ entries: [MembershipLogEntry], _ scope: KeyScope) -> String {
         do {
@@ -649,5 +750,33 @@ struct LamportTests {
         let tieA = try write("mac", lamport: 9, device: deviceA)
         let tieB = try write("iphone", lamport: 9, device: deviceB)
         #expect(LamportClock.wins(tieA, over: tieB) != LamportClock.wins(tieB, over: tieA))
+    }
+
+    /// Two people can each register one device ID as their own, so a tie on
+    /// the device is broken by who wrote the version. Unknown, the stored
+    /// version stays, and the same author on the same device is a version
+    /// sent again.
+    @Test func aTieOnOneDeviceIsBrokenByTheAuthor() throws {
+        let key = ScopedKey.generate(scope: .budget(BudgetID()))
+        let shared = DeviceKeyPair()
+        let recordID = RecordID()
+        let low = UserID(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+        let high = UserID(UUID(uuidString: "FFFFFFFF-0000-0000-0000-000000000001")!)
+
+        func write(by author: UserID) throws -> RecordEnvelope {
+            try RecordCodec.seal(Note(merchant: "Hilltop", amountCents: 1), recordID: recordID,
+                                 recordType: .transaction, groupID: GroupID(), budgetID: BudgetID(),
+                                 scopeKey: key, lamport: 9, author: author,
+                                 device: shared, membershipSequence: 1)
+        }
+        let hers = try write(by: high), his = try write(by: low)
+
+        #expect(hers.replaces(lamport: 9, device: shared.id, isDeleted: false, author: low))
+        #expect(!his.replaces(lamport: 9, device: shared.id, isDeleted: false, author: high))
+        #expect(!hers.replaces(lamport: 9, device: shared.id, isDeleted: false, author: nil),
+                "an unknown author keeps what is stored")
+        #expect(!hers.replaces(lamport: 9, device: shared.id, isDeleted: false, author: high),
+                "the same author is the same version")
+        #expect(LamportClock.wins(hers, over: his) && !LamportClock.wins(his, over: hers))
     }
 }

@@ -149,6 +149,12 @@ public enum MembershipLogError: Error, Equatable, Sendable {
     /// The epoch moves one step at a time, and only by someone who can hand out
     /// the new keys. A group starts at the first epoch.
     case epochNotNext(atSequence: UInt64)
+    /// Registering a device never moves the epoch, so its entry names the
+    /// current one.
+    case epochNotCurrent(atSequence: UInt64)
+    /// Everyone in a group has keys in its log. An add or a level change that
+    /// leaves someone a member with none is refused.
+    case memberWithoutKeys(atSequence: UInt64)
     /// A device is registered by an entry of its own, never inside an add or a
     /// level change.
     case deviceNotOnItsOwn(atSequence: UInt64)
@@ -324,7 +330,17 @@ public enum MembershipLog {
     ///
     /// The epoch moves one step at a time, and only by a manager, who is the
     /// one who can hand out the new epoch's keys. An epoch nobody holds keys
-    /// for left every member's edits queued for good.
+    /// for left every member's edits queued for good. Registering a device
+    /// leaves the epoch where it is, so its entry must name the current one.
+    /// It needs only View, and one naming the next epoch looked like the
+    /// entry that started it, so the server refused the keys the real start
+    /// of that epoch carried.
+    ///
+    /// Everyone an add or a level change leaves in the group has keys in the
+    /// log. Servers compare the keys an entry carries with the person's
+    /// sign-up keys, and an add with none got round that: the person was
+    /// then a member nobody could invite, and a key stored for them with it
+    /// stayed in their slot after they were removed.
     static func checkWhatItChanges(_ entry: MembershipLogEntry, in state: MembershipState) throws {
         let at = entry.sequence
         switch entry.action {
@@ -339,6 +355,9 @@ public enum MembershipLog {
             if let keys = entry.subjectKeys, let held = state.keys[entry.subjectUserID], held != keys,
                state.signers.contains(entry.subjectUserID) {
                 throw MembershipLogError.keysAlreadyEstablished(atSequence: at)
+            }
+            if entry.level > .none, entry.subjectKeys == nil, state.keys[entry.subjectUserID] == nil {
+                throw MembershipLogError.memberWithoutKeys(atSequence: at)
             }
         default:
             break
@@ -366,10 +385,14 @@ public enum MembershipLog {
             break
         }
 
-        // Adding a device is the one action that leaves the epoch alone
-        // whatever the entry says, so it is the one not checked. The next
-        // epoch is worked out without adding past the top of the range.
-        guard entry.action != .addDevice, entry.epochAfter != state.epoch else { return }
+        // Adding a device is the one action that leaves the epoch alone, so
+        // it names the current one. The next epoch is worked out without
+        // adding past the top of the range.
+        if entry.action == .addDevice {
+            guard entry.epochAfter == state.epoch else { throw MembershipLogError.epochNotCurrent(atSequence: at) }
+            return
+        }
+        guard entry.epochAfter != state.epoch else { return }
         guard state.epoch.value < UInt32.max, entry.epochAfter.value == state.epoch.value + 1 else {
             throw MembershipLogError.epochNotNext(atSequence: at)
         }

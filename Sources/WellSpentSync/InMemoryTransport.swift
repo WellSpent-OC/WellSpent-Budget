@@ -355,9 +355,13 @@ public enum InviteFailure: Error, Equatable {
 extension InMemoryTransport {
     /// A connection as one person. The in-memory server has no sign-in, and the
     /// invite calls need to know who is calling, the way the HTTP server learns it
-    /// from a token.
+    /// from a token. The first keys given for a person are their sign-up keys,
+    /// kept as the real server keeps them; a later session with other keys
+    /// does not change them.
     public func session(for user: UserID, keys: IdentityPublicKeys) -> InMemorySession {
-        withState { $0.people[user] = keys }
+        withState { state in
+            if state.people[user] == nil { state.people[user] = keys }
+        }
         return InMemorySession(server: self, user: user)
     }
 

@@ -113,7 +113,7 @@ extension MembershipLog {
     public static func holdsGroupKey(_ user: UserID, of group: GroupID, at epoch: Epoch,
                                      log: [MembershipLogEntry], requestEntry: MembershipLogEntry?,
                                      sentNow: [WrappedKey], stored: [WrappedKey]) -> Bool {
-        let starter = log.first { $0.epochAfter == epoch }
+        let starter = entryStarting(epoch, in: log)
         if epoch == .initial, starter?.action == .found, starter?.authorUserID == user { return true }
         func sealedToThem(_ key: WrappedKey) -> Bool {
             key.wrapKind == .hpkeToIdentity && key.scope == .group(group) && key.epoch == epoch
@@ -121,5 +121,19 @@ extension MembershipLog {
         }
         if let requestEntry, starter == requestEntry, sentNow.contains(where: sealedToThem) { return true }
         return stored.contains { sealedToThem($0) && ($0.senderUserID != user || starter?.authorUserID == user) }
+    }
+
+    /// The entry that moved the group to `epoch`: the founding entry for the
+    /// first one, otherwise the first entry that changed the epoch to it.
+    /// Only entries that move the epoch count. The first entry merely naming
+    /// an epoch was taken as its start, and a device entry, which needs only
+    /// View, could name the next one before anyone started it.
+    static func entryStarting(_ epoch: Epoch, in log: [MembershipLogEntry]) -> MembershipLogEntry? {
+        var current: Epoch?
+        for entry in log where entry.action != .addDevice && entry.epochAfter != current {
+            if entry.epochAfter == epoch { return entry }
+            current = entry.epochAfter
+        }
+        return nil
     }
 }

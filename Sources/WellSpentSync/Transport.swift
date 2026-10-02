@@ -77,12 +77,15 @@ public struct SyncReport: Sendable, Equatable {
     /// Refused: bad signature, unenrolled device, an author below write, or
     /// contents that do not decode as what the envelope says they are.
     public var ignored = 0
-    /// Set aside, never dropped: made by a newer version of the app, in a type
-    /// or format this one cannot read yet, and applied after an update; or a
-    /// transaction that arrived before its budget, applied once the budget is in.
+    /// Set aside: made by a newer version of the app, in a type or format this
+    /// one cannot read yet, and applied after an update; or a transaction that
+    /// arrived before its budget, applied once the budget is in. Records of a
+    /// type or format this build cannot read are kept only up to a limit per
+    /// sender (`SyncEngine.setAsideLimit`); past it they count as `ignored`.
     public var deferred = 0
     /// Records that passed every check and that this Mac's database would not
-    /// save. Each is kept as a conflict copy, and the sync goes on.
+    /// save, for a reason that will repeat. Each is set aside and tried again
+    /// on later pulls, its queued row waits meanwhile, and the sync goes on.
     public var unsaved = 0
     public var serverSeq: UInt64 = 0
 

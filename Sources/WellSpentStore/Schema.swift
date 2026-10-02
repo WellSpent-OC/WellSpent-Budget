@@ -315,6 +315,18 @@ public final class WellSpentDatabase: Sendable {
             }
         }
 
+        // Who sent each set-aside record, and whether it was set aside because
+        // this build cannot read it. The limit on those is counted per sender,
+        // so one member cannot use up a group's room, and transactions waiting
+        // for their budget are not counted. Rows set aside before this have
+        // neither, and are not counted.
+        m.registerMigration("v8-set-aside-sender") { db in
+            try db.alter(table: "deferredEnvelope") { t in
+                t.add(column: "authorUserId", .text)
+                t.add(column: "unreadable", .boolean).notNull().defaults(to: false)
+            }
+        }
+
         return m
     }
 }

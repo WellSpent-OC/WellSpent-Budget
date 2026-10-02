@@ -165,7 +165,10 @@ member pulling everything met them first. A set-aside row leaves only once it ha
 been dealt with, and one still waiting for its budget is not opened at all. A record
 in a format a newer build writes is set aside too, as an unknown type is, for after
 an update, but only from someone who may write, signed when its format is known, and
-only up to a limit per group (`SyncEngine.setAsideLimit`).
+only up to a limit per sender in each group (`SyncEngine.setAsideLimit`). Past the
+limit such a record is passed over like a refused one, and the pull moves on, so an
+update does not bring it back. A record set aside because this build cannot read
+it keeps its queued row out of the push, as one that cannot be saved does.
 
 A member profile's ID is worked out from the group and the person
 (`RecordID.memberProfile`), so anyone can work out someone else's in advance. The
@@ -223,15 +226,22 @@ keys it carries, so one anywhere later would let any member name herself founder
 The replay also checks what each entry changes (`MembershipLog.checkWhatItChanges`):
 
 - **A person's keys are their own.** Servers take an add or a level change only
-  with the keys the person signed up with, or none, so a manager cannot put keys she
-  made on someone's ID, before they join or before their first sync. Once they have
-  signed an entry, only their own entry can replace their keys in the log: a manager
-  could put her keys in the founder's place, every entry he signed after that was
-  refused, and keys for a new epoch were sealed to her. The log alone lets keys
-  nobody has signed with be replaced by a later add, and a removal clears them; that
-  matters only for a log a server made up, since an honest one holds sign-up keys.
-  An inviter whose add would be refused drops that invite instead of failing every
-  sync.
+  with the keys the person signed up with, so a manager cannot put keys she made on
+  someone's ID, before they join or before their first sync. The log refuses an add
+  or a level change that leaves someone a member with no keys, so one sent without
+  keys cannot get round that check. Such an add left a member nobody could invite,
+  and a key stored for them with it stayed in their slot after they were removed.
+  Once they have signed an entry, only their own entry can replace their keys in
+  the log: a manager could put her keys in the founder's place, every entry he
+  signed after that was refused, and keys for a new epoch were sealed to her. The
+  log alone lets keys nobody has signed with be replaced by a later add, and a
+  removal clears them; that matters only for a log a server made up, since an
+  honest one holds sign-up keys.
+  An inviter whose add would be refused, or is refused by the server, drops that
+  invite instead of failing every sync. Whoever holds a link can answer it with keys
+  that are not theirs, or with someone else's ID, so a refused add counts as the
+  answer's fault. The one exception is a log that moved on while the add was on its
+  way: then the invite stays for the next sync.
 - **A device belongs to the person and the device together** (`DeviceSlot`), and is
   registered only by the founding entry or an entry of its own, never inside an add
   or a level change. A Mac uses one device ID in every group, and every member can
@@ -243,12 +253,18 @@ The replay also checks what each entry changes (`MembershipLog.checkWhatItChange
   anyone's. Because two people can each register one device ID, a record is this
   Mac's own only when it is this person on this device; the servers' "already
   stored" answer compares both, and a tie between versions on one device ID is
-  broken by who wrote it (`RecordEnvelope.replaces`).
+  broken by who wrote it (`RecordEnvelope.replaces`). A server reads who wrote the
+  stored version from its envelope. The app keeps the author with each version it
+  stores. A version stored before it did counts as this person's when it is on this
+  Mac's own device ID, since nobody else could sign under it then.
 - **The epoch starts at the first one and moves one step at a time, and only by a
   manager**, who is the one who can hand out the new epoch's keys. An epoch nobody
   holds keys for left every member's edits queued for good. The next epoch is worked
   out without adding past the top of the 32-bit range: a group founded at the top,
   then any entry that moved the epoch, stopped the server process on every post.
+  Registering a device never moves the epoch, so its entry names the current one.
+  It takes only View, and one naming the next epoch was taken for the entry that
+  started it, so the server refused the keys the real start carried.
 
 ## Keys a Mac takes in
 
@@ -268,9 +284,11 @@ no other group uses (`WrappedKey.refusal`). The first key stored for a scope, ep
 and recipient is the one kept, so every member's app is handed the same one.
 
 The server also takes a budget key only from someone who holds that epoch's group
-key: one it sealed to them, or the first one, which the founder made. A manager
-added "from now on" could otherwise fill an older epoch's empty slot with junk, and
-the real key sent later was dropped.
+key: one someone else sealed to them, one they sealed to themselves with the entry
+that started that epoch, or the first one, which the founder made. The entry that
+started an epoch is the one that moved the group to it, never one that only names
+it. A manager added "from now on" could otherwise fill an older epoch's empty slot
+with junk, and the real key sent later was dropped.
 
 The app takes a group key only for the group being synced, sealed to this person
 by someone who may manage it; the seal proves who sent it. It opens a budget key
@@ -344,15 +362,17 @@ Plausible, dormant, or small:
   moment can both store a key for one slot. Membership entries are serialised by
   their sequence, so only the keys route is exposed.
 - **Set-aside rows have no expiry, and stay when their group is deleted.** Records of
-  a type or format this build cannot read are limited per group; transactions waiting
-  for their budget and saves that keep failing are not. Each is a record on the
-  server, and one waiting for its budget is not opened while it waits.
+  a type or format this build cannot read are limited per sender in each group.
+  Transactions waiting for their budget and saves that keep failing are not limited.
+  Each is a record on the server, and one waiting for its budget is not opened while
+  it waits.
 - **Made-up keys someone has signed with keep that person out, on a server that
-  lies.** An honest server takes only sign-up keys in an add. A server that lies can
-  hold made-up keys on someone's ID, signed with as them; the inviter's add is then
-  dropped rather than failing every sync, and the person cannot join that group. A
-  removal clears keys nobody signed with, but a group key the server stored for them
-  stays in that person's slot.
+  lies.** An honest server takes only sign-up keys in an add, and the log takes no
+  add that leaves someone without keys. A server that lies can hold made-up keys on
+  someone's ID, signed with as them; the inviter's add is then dropped rather than
+  failing every sync, and the person cannot join that group. A removal clears keys
+  nobody signed with, but a group key the server stored for them stays in that
+  person's slot.
 
 ## A version sent twice is stored once
 
@@ -465,10 +485,10 @@ signup, and make it blocking before the first share.
 
 **Merge granularity, decided by the envelope format before anyone notices.** Whole
 record snapshots mean two devices editing different fields of one transaction
-produce two complete ciphertexts and one silently wins. v1 resolves by
-`(lamport, deviceID)` and keeps the loser as a conflict copy. The envelope carries a
-`payloadKind` field, unused, so v2 can move to operation-level sync without a format
-break.
+produce two complete ciphertexts and one silently wins. v1 resolves by Lamport
+value, then device ID, then author, and keeps the loser as a conflict copy. The
+envelope carries a `payloadKind` field, unused, so v2 can move to operation-level
+sync without a format break.
 
 **Key material at rest on Linux.** There is no good answer. The identity key should
 follow the ssh-agent shape: a 0600 file sealed with a scrypt-derived passphrase key,

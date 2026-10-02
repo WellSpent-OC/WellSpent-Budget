@@ -883,6 +883,50 @@ struct EndToEndTests {
             #expect(try robin.store.transaction(spent.id)?.merchant == "Costco")
         }
     }
+
+    /// Whoever holds a link can answer it with keys that are not their
+    /// sign-up keys. The real server refuses the add, and the inviter's sync
+    /// used to stop at the group on every round until the link expired. The
+    /// invite is dropped, and the sync goes on.
+    @Test("an answer the server will not add spoils only its own invite")
+    func aRefusedAnswerSpoilsOnlyItsInvite() async throws {
+        try await withServer { baseURL in
+            let robin = try Peer(baseURL: baseURL), mallory = try Peer(baseURL: baseURL)
+            let leslie = try Peer(baseURL: baseURL)
+            try await robin.register(email: "answer-robin@example.com")
+            try await mallory.register(email: "answer-mallory@example.com")
+            try await leslie.register(email: "answer-leslie@example.com")
+            let (group, _) = try await foundGroup(robin)
+            try robin.store.save(BudgetGroup(id: group, name: "Household"))
+            try await appSync(robin, group)
+
+            let link = try await sharing(robin).createInvite(
+                group: group, groupName: "Household", level: .read, historyAccess: .all,
+                inviterName: "Robin")
+            let secret = try InviteSecret(bytes: link.secret)
+            let lookup = try await mallory.transport.lookupInvite(id: secret.id)
+            let invite = Invite(id: secret.id, scope: .group(lookup.group), level: lookup.level,
+                                historyAccess: lookup.historyAccess, inviterUserID: lookup.inviterUserID,
+                                inviterKeys: lookup.inviterKeys, expiresAt: lookup.expiresAt)
+            let sealed = try InviteCrypto.sealAcceptance(
+                InviteAcceptance(accepterUserID: mallory.userID,
+                                 accepterKeys: IdentityKeyPair.generate().publicKeys,
+                                 displayName: "Mallory"),
+                invite: invite, secret: secret)
+            try await mallory.transport.acceptInvite(id: secret.id, sealed: sealed)
+
+            try await appSync(robin, group)
+            #expect(try await robin.transport.invites(in: group).isEmpty, "the invite was dropped")
+
+            let second = try await sharing(robin).createInvite(
+                group: group, groupName: "Household", level: .read, historyAccess: .all,
+                inviterName: "Robin")
+            try await sharing(leslie).join(InviteLink(parsing: second.url)!, displayName: "Leslie")
+            try await appSync(robin, group)
+            try await appSync(leslie, group)
+            #expect(try leslie.store.pendingJoins().isEmpty, "a real answer still gets in")
+        }
+    }
 }
 
 /// A connection that loses the reply to a push. The server has done the work

@@ -115,8 +115,9 @@ public struct RecordEnvelope: Codable, Sendable, Equatable {
 
     /// Whether this envelope replaces the stored version of the same record.
     ///
-    /// Last write wins: the higher Lamport value, with the device id breaking a
-    /// tie so the server and every device pick the same winner.
+    /// Last write wins: the higher Lamport value, with the device ID and then
+    /// the author breaking a tie, so the server and every device pick the
+    /// same winner.
     ///
     /// A group's own record is the exception, because deleting a group is
     /// final. A delete replaces a live version whatever its Lamport value, and
@@ -317,8 +318,8 @@ public enum RecordCodec {
 /// Wall clocks disagree between machines, and the old API's `updated_at >= ?`
 /// cursor lost records because of exactly that. A counter that only ever moves
 /// forward, bumped past anything it has seen, gives a consistent order without
-/// trusting anyone's clock. Ties break on device id so every device picks the same
-/// winner.
+/// trusting anyone's clock. Ties break on the device ID, and then on who wrote the
+/// version, so every device picks the same winner.
 public struct LamportClock: Sendable, Equatable {
     public private(set) var value: UInt64
 
@@ -333,9 +334,14 @@ public struct LamportClock: Sendable, Equatable {
         value = Swift.max(value, seen)
     }
 
-    /// Later wins. Same counter, higher device id wins. Deterministic everywhere.
+    /// Later wins. On the same counter the higher device ID wins, and on the
+    /// same device the higher author ID, as `RecordEnvelope.replaces` decides
+    /// it. Deterministic everywhere.
     public static func wins(_ a: RecordEnvelope, over b: RecordEnvelope) -> Bool {
         if a.lamport != b.lamport { return a.lamport > b.lamport }
-        return a.authorDeviceID.uuid.uuidString > b.authorDeviceID.uuid.uuidString
+        if a.authorDeviceID != b.authorDeviceID {
+            return a.authorDeviceID.uuid.uuidString > b.authorDeviceID.uuid.uuidString
+        }
+        return a.authorUserID.uuid.uuidString > b.authorUserID.uuid.uuidString
     }
 }

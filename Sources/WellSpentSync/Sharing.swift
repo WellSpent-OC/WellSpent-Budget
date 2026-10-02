@@ -143,6 +143,14 @@ public struct Sharing: Sendable {
     /// Adds everyone who has answered one of this device's invites to `group`.
     /// Returns who was added. An answer that does not open was not sealed with
     /// the link's secret, so it is refused and the spoiled invite removed.
+    ///
+    /// So is one the server refuses to add. An answer is bound to the link's
+    /// secret, not to an account, so whoever holds the link can answer with
+    /// keys that are not their sign-up keys, someone else's ID, or an ID with
+    /// no account. Thrown, the refusal stopped this Mac's sync of the group
+    /// on every round until the link expired. A refusal that came because
+    /// the log moved on while the add was on its way is not the answer's
+    /// fault, so that invite stays for the next sync.
     @discardableResult
     public func finishInvites(group: GroupID, now: Date = Date()) async throws -> [InviteAcceptance] {
         var log = try await verifiedLog(of: group)
@@ -178,7 +186,9 @@ public struct Sharing: Sendable {
                 try await cancelInvite(pending.id)
                 continue
             }
-            guard state.level(of: acceptance.accepterUserID) == AccessLevel.none else {
+            guard state.level(of: acceptance.accepterUserID) == AccessLevel.none,
+                  (try? acceptance.accepterKeys.signingKey) != nil,
+                  (try? acceptance.accepterKeys.kemKey) != nil else {
                 try await cancelInvite(pending.id)
                 continue
             }
@@ -197,7 +207,13 @@ public struct Sharing: Sendable {
                 action: .add, subjectUserID: acceptance.accepterUserID,
                 subjectKeys: acceptance.accepterKeys, level: sent.level, epochAfter: epoch,
                 author: identity, authorUserID: userID)
-            try await transport.appendMembership(entry, group: group, wrappedKeys: keys)
+            do {
+                try await transport.appendMembership(entry, group: group, wrappedKeys: keys)
+            } catch where Self.isRefusal(error) {
+                guard try await verifiedLog(of: group).count == log.count else { break }
+                try await cancelInvite(pending.id)
+                continue
+            }
             // Kept only now the server has the entry. A held key is never
             // replaced, so keys for an epoch that never started would keep
             // out the ones that did. The entry is kept too, as the founding
@@ -213,6 +229,15 @@ public struct Sharing: Sendable {
             added.append(acceptance)
         }
         return added
+    }
+
+    /// Whether a server turned a request down, as opposed to not being
+    /// reached or failing on its side. Signing in again, or waiting out a
+    /// limit, is not a refusal of the request itself.
+    static func isRefusal(_ error: any Error) -> Bool {
+        if error is ServerRefused { return true }
+        guard case HTTPTransport.Failure.http(let status, _) = error else { return false }
+        return (400 ..< 500).contains(status) && status != 401 && status != 429
     }
 
     /// The keys a new member gets.
