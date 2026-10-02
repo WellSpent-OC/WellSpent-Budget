@@ -82,8 +82,10 @@ Designed in `ARCHITECTURE.md`, absent from the code.
   those two paths apart.
 - **The server and the apps judge a record's author at different points in the
   membership log.** The shipping app never lowers a member's level, but a modified
-  app can today, and any member can revoke a device or take one over, so the split
-  can already be caused. It has to be settled before a change-role or remove
+  app at Manage or above can today, and any member can revoke her own device, so
+  the split can already be caused. Below admin, nobody can take or revoke someone
+  else's device any more: a device belongs to its owner (`DeviceSlot`). An admin or
+  the founder still can. It has to be settled before a change-role or remove
   feature ships. See the known gap under "What encryption does not do" in
   ARCHITECTURE.md.
 - **A re-seal after a "from now on" invite can win over an edit another member

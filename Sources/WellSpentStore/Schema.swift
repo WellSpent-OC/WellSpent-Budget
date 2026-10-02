@@ -301,6 +301,20 @@ public final class WellSpentDatabase: Sendable {
             }
         }
 
+        // Who wrote the version on file, next to the device: two people can
+        // each register one device ID as their own, and a tie on the device
+        // is broken by who wrote it. And an import fingerprint cleared on
+        // arrival because this Mac already held it, kept to send back out.
+        m.registerMigration("v7-version-author-held-fingerprint") { db in
+            try db.alter(table: "recordVersion") { t in
+                t.add(column: "authorUserId", .text)
+            }
+            try db.create(table: "heldFingerprint") { t in
+                t.primaryKey("recordId", .text)
+                t.column("fingerprint", .text).notNull()
+            }
+        }
+
         return m
     }
 }

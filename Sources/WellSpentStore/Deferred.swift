@@ -36,6 +36,13 @@ extension Store {
         }
     }
 
+    /// How many records are set aside for a group.
+    public func deferredCount(in group: GroupID) throws -> Int {
+        try database.read { db in
+            try DeferredEnvelopeRow.filter(Column("budgetGroupId") == group.dbValue).fetchCount(db)
+        }
+    }
+
     public func deleteDeferredEnvelope(_ id: RecordID) throws {
         _ = try database.write { db in try DeferredEnvelopeRow.deleteOne(db, key: id.dbValue) }
     }

@@ -115,7 +115,6 @@ struct EndToEndTests {
             scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
             action: .add, subjectUserID: guest.userID, subjectKeys: guest.publicKeys,
             level: level, epochAfter: .initial,
-            deviceID: guest.device.id, devicePublicKey: guest.device.publicKey,
             author: owner.identity, authorUserID: owner.userID
         )
         log.append(entry)
@@ -130,6 +129,17 @@ struct EndToEndTests {
                                                          senderUserID: owner.userID))
         }
         try await owner.transport.appendMembership(entry, group: group, wrappedKeys: wrapped)
+
+        // Their device, registered by their own entry, as their app does.
+        let device = try MembershipLogEntry.signed(
+            scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
+            action: .addDevice, subjectUserID: guest.userID, subjectKeys: nil,
+            level: level, epochAfter: .initial,
+            deviceID: guest.device.id, devicePublicKey: guest.device.publicKey,
+            author: guest.identity, authorUserID: guest.userID
+        )
+        log.append(device)
+        try await guest.transport.appendMembership(device, group: group)
     }
 
     /// What the app does on every sync, around the engine.
@@ -352,7 +362,7 @@ struct EndToEndTests {
                             level: .write, budgets: [])
 
             let fetched = try await leslie.transport.membershipLog(group: group, since: 0)
-            #expect(fetched.count == 2)
+            #expect(fetched.count == 3)
 
             // Replay verifies the hash chain and every signature. If the dates
             // shifted in transit, this throws.
@@ -768,6 +778,109 @@ struct EndToEndTests {
             await #expect(throws: (any Error).self) {
                 _ = try await fresh.signIn(email: "guarded@example.com", password: "wrong")
             }
+        }
+    }
+
+    /// A Mac uses one device ID in every group, and members can read it.
+    /// Mallory, who can only view Household, read Leslie's there and
+    /// registered it as her own in Side Business before Leslie joined. Leslie
+    /// then could never send anything there. A registration now belongs to
+    /// the person and the device together, so hers is still hers.
+    @Test("a device ID taken first in another group stays its owner's")
+    func aDeviceIDTakenFirstStaysItsOwners() async throws {
+        try await withServer { baseURL in
+            let robin = try Peer(baseURL: baseURL), leslie = try Peer(baseURL: baseURL)
+            let mallory = try Peer(baseURL: baseURL)
+            try await robin.register(email: "device-robin@example.com")
+            try await leslie.register(email: "device-leslie@example.com")
+            try await mallory.register(email: "device-mallory@example.com")
+            var (household, householdLog) = try await foundGroup(robin)
+            try await share(household, log: &householdLog, from: robin, to: leslie, level: .write, budgets: [])
+            try await share(household, log: &householdLog, from: robin, to: mallory, level: .read, budgets: [])
+
+            let tools = BudgetID()
+            var (side, sideLog) = try await foundGroup(robin, budgets: [tools])
+            try robin.store.save(BudgetGroup(id: side, name: "Side Business"))
+            try robin.store.save(Budget(id: tools, groupID: side, name: "Tools",
+                                        limit: Money(minorUnits: 50_000)))
+            try await appSync(robin, side)
+            try await share(side, log: &sideLog, from: robin, to: mallory, level: .read, budgets: [tools])
+
+            let seen = try await mallory.transport.membershipLog(group: household, since: 0)
+            let hers = try #require(seen.first {
+                $0.action == .addDevice && $0.subjectUserID == leslie.userID
+            }?.deviceID)
+            let squat = try MembershipLogEntry.signed(
+                scope: .group(side), sequence: UInt64(sideLog.count), previousHash: sideLog.last!.hash,
+                action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .read,
+                epochAfter: .initial, deviceID: hers, devicePublicKey: mallory.device.publicKey,
+                author: mallory.identity, authorUserID: mallory.userID)
+            try await mallory.transport.appendMembership(squat, group: side)
+
+            let link = try await sharing(robin).createInvite(
+                group: side, groupName: "Side Business", level: .write, historyAccess: .all,
+                inviterName: "Robin")
+            try await sharing(leslie).join(InviteLink(parsing: link.url)!, displayName: "Leslie")
+            try await appSync(robin, side)
+            try await appSync(leslie, side)
+
+            let spent = Transaction(budgetID: tools, groupID: side, date: Date(),
+                                    merchant: "Hardware", amount: Money(minorUnits: -4200))
+            try leslie.store.save(spent)
+            try await appSync(leslie, side)
+            try await appSync(robin, side)
+            #expect(try robin.store.transaction(spent.id)?.merchant == "Hardware")
+        }
+    }
+
+    /// Over the wire, with the real client. Mallory can only
+    /// view. She sent keys of her own with the entry that registers her
+    /// laptop, the server kept them, and Robin's app took them in place of
+    /// his. Nothing Leslie sealed opened for him after that, on any sync. The
+    /// server refuses them, and Robin keeps reading what Leslie adds.
+    @Test("a member who can only view cannot hand out keys")
+    func aViewMembersKeysAreRefused() async throws {
+        try await withServer { baseURL in
+            let robin = try Peer(baseURL: baseURL), leslie = try Peer(baseURL: baseURL)
+            let mallory = try Peer(baseURL: baseURL)
+            try await robin.register(email: "keys-robin@example.com")
+            try await leslie.register(email: "keys-leslie@example.com")
+            try await mallory.register(email: "keys-mallory@example.com")
+            let budgetID = BudgetID()
+            var (group, log) = try await foundGroup(robin, budgets: [budgetID])
+            try robin.store.save(BudgetGroup(id: group, name: "Household"))
+            try robin.store.save(Budget(id: budgetID, groupID: group, name: "Groceries",
+                                        limit: Money(minorUnits: 100_000)))
+            try await appSync(robin, group)
+            try await share(group, log: &log, from: robin, to: leslie, level: .write, budgets: [budgetID])
+            try await share(group, log: &log, from: robin, to: mallory, level: .read, budgets: [budgetID])
+            try await appSync(leslie, group)
+            try await appSync(mallory, group)
+
+            let realGroup = try mallory.keyRing.key(for: .group(group), epoch: .initial)
+            let planted = [
+                try KeyWrap.wrapToIdentity(ScopedKey.generate(scope: .group(group), epoch: .initial),
+                                           recipient: robin.publicKeys, recipientUserID: robin.userID,
+                                           sender: mallory.identity, senderUserID: mallory.userID),
+                try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(budgetID), epoch: .initial),
+                                              groupKey: realGroup.material, senderUserID: mallory.userID),
+            ]
+            let laptop = DeviceKeyPair()
+            let hers = try MembershipLogEntry.signed(
+                scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
+                action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .read,
+                epochAfter: .initial, deviceID: laptop.id, devicePublicKey: laptop.publicKey,
+                author: mallory.identity, authorUserID: mallory.userID)
+            await #expect(throws: (any Error).self) {
+                try await mallory.transport.appendMembership(hers, group: group, wrappedKeys: planted)
+            }
+
+            let spent = Transaction(budgetID: budgetID, groupID: group, date: Date(),
+                                    merchant: "Costco", amount: Money(minorUnits: -9900))
+            try leslie.store.save(spent)
+            try await appSync(leslie, group)
+            try await appSync(robin, group)
+            #expect(try robin.store.transaction(spent.id)?.merchant == "Costco")
         }
     }
 }

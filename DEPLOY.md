@@ -102,6 +102,25 @@ has actually been performed once. An untested backup is a belief, not a backup.
 7. Point the Mac app at it: the sign-in sheet has a Server field, which starts
    at `https://sync.wellspent.space`. For a local server, type `http://127.0.0.1:8080` there.
 
+### Upgrading a server that already holds data
+
+Back up first, and check the backup restores. Migrations run at boot, and each
+one is recorded as done only after it finishes.
+
+`AddGroupMaxLamport` adds `groups.max_lamport` and fills it, in one transaction,
+and adds the column only when it is not already there. So a start cut short
+during it is safe to start again. If a server built before that change ever
+loops at boot on `column "max_lamport" of relation "groups" already exists`,
+first check that the migration is not recorded as done:
+`SELECT name FROM _fluent_migrations WHERE name LIKE '%AddGroupMaxLamport%';`
+must return no row. Only then is the recovery this one line, after which the next
+start adds and fills it again. Run once the migration is recorded, it removes a
+column every group request needs.
+
+```sql
+ALTER TABLE groups DROP COLUMN max_lamport;
+```
+
 ## What is verified, and what is not
 
 CI builds this image on Linux and checks the container starts and answers its

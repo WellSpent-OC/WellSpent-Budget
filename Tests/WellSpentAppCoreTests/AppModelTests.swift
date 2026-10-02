@@ -336,6 +336,49 @@ struct AppModelImportTests {
         #expect(try model.store.transactions(in: budgetID).count == 2, "and nothing duplicated")
     }
 
+    /// A row given a budget from another group was filed under the group
+    /// being imported into. Every other member refused it, so it showed on
+    /// this Mac and nowhere else. It is filed under its budget's own group.
+    @Test func anImportedRowIsFiledUnderItsBudgetsGroup() throws {
+        let (model, household, _) = try seededModel()
+        let side = try #require(model.addGroup(named: "Side Business"))
+        let tools = try #require(model.addBudget(named: "Tools", limit: Money(minorUnits: 50_000),
+                                                 in: side))
+        #expect(model.groups.first?.id == household.id, "the import goes to Household")
+        let url = try writeCSV("""
+        Date,Description,Amount
+        09/22/2026,"HARDWARE STORE",-42.00
+        """)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        model.prepareImport(from: url)
+        model.pendingImport?.chosenBudgets = [0: tools]
+        model.commitImport()
+
+        let row = try #require(try model.store.transactions(in: tools).first)
+        #expect(row.groupID == side)
+    }
+
+    /// In a group shared with this person, the keys come from whoever shared
+    /// it, and this Mac never replaces a key it holds. A key made here for
+    /// fingerprints before the real one arrived would be kept, and nothing
+    /// anyone else sealed would open. The import waits for the keys instead.
+    @Test func importingIntoASharedGroupWaitsForItsKeys() throws {
+        let (model, group, _) = try seededModel()
+        try model.store.save(PendingJoin(groupID: group.id, groupName: "Household",
+                                         inviterName: "Robin", displayName: "Leslie", level: .write))
+        let url = try writeCSV("""
+        Date,Description,Amount
+        09/22/2026,"HILLTOP",-10.00
+        """)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        model.prepareImport(from: url)
+        #expect(model.pendingImport == nil)
+        #expect(model.errorMessage?.contains("Sync") == true)
+        #expect(try model.store.cachedKeys(scope: .group(group.id)).isEmpty, "no key made up here")
+    }
+
     // MARK: - Making and removing budgets
 
     @Test func aNewBudgetGoesLastInItsGroupInTheNextColorAndIsSelected() throws {

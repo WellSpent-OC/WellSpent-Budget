@@ -1,0 +1,1250 @@
+import Testing
+import Foundation
+import Crypto
+@testable import WellSpentSync
+@testable import WellSpentCrypto
+import GRDB
+import WellSpentModel
+import WellSpentStore
+
+/// One person on one device, with the whole client, over a shared in-memory
+/// server. Their engine pulls through `leak`, which can also hand over records
+/// the server never stored, the way a server that skips a rule could.
+private final class Member {
+    let userID = UserID()
+    let identity = IdentityKeyPair.generate()
+    let device = DeviceKeyPair()
+    let store: Store
+    let keyRing: KeyRing
+    let session: InMemorySession
+    let leak: Leak
+    let engine: SyncEngine
+    let sharing: Sharing
+
+    init(server: InMemoryTransport) throws {
+        store = Store(database: try WellSpentDatabase.inMemory())
+        keyRing = KeyRing(store: store, identity: identity, userID: userID)
+        session = server.session(for: userID, keys: identity.publicKeys)
+        leak = Leak(session)
+        engine = SyncEngine(store: store, keyRing: keyRing, transport: leak,
+                            identity: identity, device: device, userID: userID)
+        sharing = Sharing(store: store, keyRing: keyRing, transport: session,
+                          identity: identity, device: device, userID: userID)
+    }
+
+    /// What the app does for a group made on this device: found it on the
+    /// server and mint its keys.
+    func found(_ group: GroupID, name: String, budgets: [Budget] = []) async throws {
+        let founding = try MembershipLogEntry.signed(
+            scope: .group(group), sequence: 0, previousHash: MembershipLogEntry.rootHash,
+            action: .found, subjectUserID: userID, subjectKeys: identity.publicKeys,
+            level: .superadmin, epochAfter: .initial,
+            deviceID: device.id, devicePublicKey: device.publicKey,
+            author: identity, authorUserID: userID)
+        try await session.appendMembership(founding, group: group, wrappedKeys: [])
+        try keyRing.remember(ScopedKey.generate(scope: .group(group), epoch: .initial))
+        try store.save(BudgetGroup(id: group, name: name))
+        for budget in budgets {
+            try keyRing.remember(ScopedKey.generate(scope: .budget(budget.id), epoch: .initial))
+            try store.save(budget)
+        }
+    }
+
+    /// What the app does on every sync of a group.
+    @discardableResult
+    func sync(_ group: GroupID) async throws -> SyncReport {
+        try await sharing.prepare(group: group)
+        try await sharing.finishInvites(group: group)
+        var report = try await engine.sync(group: group)
+        if try await sharing.completeJoin(group: group) {
+            report = try await engine.sync(group: group)
+        }
+        return report
+    }
+
+    /// Asks `owner` for a link to `group`, answers it, and syncs both apps
+    /// until this person is in.
+    func join(_ group: GroupID, from owner: Member, level: AccessLevel,
+              history: HistoryAccess = .all) async throws {
+        let link = try await owner.sharing.createInvite(
+            group: group, groupName: "Household", level: level, historyAccess: history,
+            inviterName: "Robin")
+        try await sharing.join(link, displayName: "Someone")
+        try await owner.sync(group)
+        try await sync(group)
+    }
+
+    func spend(_ merchant: String, in budget: Budget) throws -> Transaction {
+        let transaction = Transaction(budgetID: budget.id, groupID: budget.groupID, date: Date(),
+                                      merchant: merchant, amount: Money(minorUnits: -1000))
+        try store.save(transaction)
+        return transaction
+    }
+
+    func keyBytes(_ scope: KeyScope, _ epoch: Epoch = .initial) throws -> Data {
+        try keyRing.key(for: scope, epoch: epoch).rawBytes
+    }
+
+    /// The access history as the server holds it now.
+    func membership(of group: GroupID) async throws -> (log: [MembershipLogEntry], state: MembershipState) {
+        let log = try await session.membershipLog(group: group, since: 0)
+        return (log, try MembershipLog.replay(log, scope: .group(group)))
+    }
+
+    /// A record sealed by hand and signed on this device, the way a modified
+    /// app could.
+    func forge<T: Encodable>(_ value: T, id: RecordID, type: RecordType, group: GroupID,
+                             budget: BudgetID?, lamport: UInt64 = 10_000) throws -> RecordEnvelope {
+        let scope: KeyScope = budget.map { .budget($0) } ?? .group(group)
+        return try RecordCodec.seal(
+            value, recordID: id, recordType: type, groupID: group, budgetID: budget,
+            scopeKey: try keyRing.key(for: scope, epoch: .initial), lamport: lamport,
+            author: userID, device: device, membershipSequence: 0)
+    }
+}
+
+/// A connection that also serves whatever a test hands it, on the next pull.
+private final class Leak: SyncTransport, @unchecked Sendable {
+    let inner: any SyncTransport
+    var extra: [RecordEnvelope] = []
+
+    init(_ inner: any SyncTransport) { self.inner = inner }
+
+    func push(_ envelopes: [RecordEnvelope], group: GroupID) async throws -> PushResult {
+        try await inner.push(envelopes, group: group)
+    }
+    func pull(group: GroupID, since: UInt64, limit: Int) async throws -> PullResult {
+        let page = try await inner.pull(group: group, since: since, limit: limit)
+        defer { extra = [] }
+        return PullResult(envelopes: page.envelopes + extra, serverSeq: page.serverSeq,
+                          hasMore: page.hasMore)
+    }
+    func membershipLog(group: GroupID, since: UInt64) async throws -> [MembershipLogEntry] {
+        try await inner.membershipLog(group: group, since: since)
+    }
+    func wrappedKeys(group: GroupID, for user: UserID) async throws -> [WrappedKey] {
+        try await inner.wrappedKeys(group: group, for: user)
+    }
+}
+
+/// A connection whose membership calls all fail, as when the server refuses
+/// the entry or the network drops.
+private final class RefusingEntries: InviteTransport, @unchecked Sendable {
+    struct Refused: Error {}
+    let inner: InMemorySession
+
+    init(_ inner: InMemorySession) { self.inner = inner }
+
+    func appendMembership(_ entry: MembershipLogEntry, group: GroupID,
+                          wrappedKeys: [WrappedKey]) async throws {
+        throw Refused()
+    }
+    func push(_ envelopes: [RecordEnvelope], group: GroupID) async throws -> PushResult {
+        try await inner.push(envelopes, group: group)
+    }
+    func pull(group: GroupID, since: UInt64, limit: Int) async throws -> PullResult {
+        try await inner.pull(group: group, since: since, limit: limit)
+    }
+    func membershipLog(group: GroupID, since: UInt64) async throws -> [MembershipLogEntry] {
+        try await inner.membershipLog(group: group, since: since)
+    }
+    func wrappedKeys(group: GroupID, for user: UserID) async throws -> [WrappedKey] {
+        try await inner.wrappedKeys(group: group, for: user)
+    }
+    func createInvite(_ invite: NewInvite) async throws { try await inner.createInvite(invite) }
+    func lookupInvite(id: Data) async throws -> InviteLookup { try await inner.lookupInvite(id: id) }
+    func acceptInvite(id: Data, sealed: SealedAcceptance) async throws {
+        try await inner.acceptInvite(id: id, sealed: sealed)
+    }
+    func invites(in group: GroupID) async throws -> [PendingInvite] { try await inner.invites(in: group) }
+    func deleteInvite(id: Data) async throws { try await inner.deleteInvite(id: id) }
+    func uploadKeys(_ keys: [WrappedKey], group: GroupID) async throws {
+        try await inner.uploadKeys(keys, group: group)
+    }
+}
+
+/// A connection that answers a read of the whole log with a made-up chain,
+/// and hands over extra keys, the way a server that lies could. A read that
+/// extends a log already held gets the real entries.
+private final class LyingLog: InviteTransport, @unchecked Sendable {
+    let inner: InMemorySession
+    let madeUp: [MembershipLogEntry]
+    let extraKeys: [WrappedKey]
+
+    init(_ inner: InMemorySession, madeUp: [MembershipLogEntry], extraKeys: [WrappedKey]) {
+        self.inner = inner
+        self.madeUp = madeUp
+        self.extraKeys = extraKeys
+    }
+
+    func membershipLog(group: GroupID, since: UInt64) async throws -> [MembershipLogEntry] {
+        since == 0 ? madeUp : try await inner.membershipLog(group: group, since: since)
+    }
+    func wrappedKeys(group: GroupID, for user: UserID) async throws -> [WrappedKey] {
+        try await inner.wrappedKeys(group: group, for: user) + extraKeys
+    }
+    func appendMembership(_ entry: MembershipLogEntry, group: GroupID,
+                          wrappedKeys: [WrappedKey]) async throws {
+        try await inner.appendMembership(entry, group: group, wrappedKeys: wrappedKeys)
+    }
+    func push(_ envelopes: [RecordEnvelope], group: GroupID) async throws -> PushResult {
+        try await inner.push(envelopes, group: group)
+    }
+    func pull(group: GroupID, since: UInt64, limit: Int) async throws -> PullResult {
+        try await inner.pull(group: group, since: since, limit: limit)
+    }
+    func createInvite(_ invite: NewInvite) async throws { try await inner.createInvite(invite) }
+    func lookupInvite(id: Data) async throws -> InviteLookup { try await inner.lookupInvite(id: id) }
+    func acceptInvite(id: Data, sealed: SealedAcceptance) async throws {
+        try await inner.acceptInvite(id: id, sealed: sealed)
+    }
+    func invites(in group: GroupID) async throws -> [PendingInvite] { try await inner.invites(in: group) }
+    func deleteInvite(id: Data) async throws { try await inner.deleteInvite(id: id) }
+    func uploadKeys(_ keys: [WrappedKey], group: GroupID) async throws {
+        try await inner.uploadKeys(keys, group: group)
+    }
+}
+
+/// Makes this Mac's database refuse to save a transaction with this merchant,
+/// for a test of what a pull does with a save it cannot make.
+private func refuseToSave(merchant: String, in store: Store) throws {
+    try store.database.writer.write { db in
+        try db.execute(sql: """
+            CREATE TRIGGER refuse_\(merchant) BEFORE INSERT ON transactionRecord
+            WHEN NEW.merchant = '\(merchant)' BEGIN SELECT RAISE(ABORT, 'refused here'); END
+            """)
+    }
+}
+
+@Suite("Keys, devices and records nobody may take over")
+struct TrustTests {
+    let server = InMemoryTransport()
+    let household = GroupID()
+
+    private func groceries() -> Budget {
+        Budget(groupID: household, name: "Groceries", limit: Money(minorUnits: 100_000))
+    }
+
+    // MARK: - Keys
+
+    /// Mallory can only view. She sent keys of her own with the entry that
+    /// registers her laptop, and the server kept them. Every member's app then
+    /// took her keys in place of the ones it held, and every record sealed
+    /// with the real ones stopped opening, on every sync. The in-memory
+    /// server refuses them now, as the real one does, and an app handed them
+    /// anyway keeps its own.
+    @Test func aViewMembersKeysNeverReplaceTheOnesHeld() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let mallory = try Member(server: server), jamie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+        try await mallory.join(household, from: robin, level: .read)
+        let groupKey = try robin.keyBytes(.group(household))
+        let budgetKey = try robin.keyBytes(.budget(groceries.id))
+
+        // Her own keys, in place of the group's and Groceries'.
+        let fakeGroup = ScopedKey.generate(scope: .group(household), epoch: .initial)
+        let fakeBudget = ScopedKey.generate(scope: .budget(groceries.id), epoch: .initial)
+        let realGroup = try mallory.keyRing.key(for: .group(household), epoch: .initial)
+        let planted = [
+            try KeyWrap.wrapToIdentity(fakeGroup, recipient: robin.identity.publicKeys,
+                                       recipientUserID: robin.userID, sender: mallory.identity,
+                                       senderUserID: mallory.userID),
+            try KeyWrap.wrapUnderGroupKey(fakeBudget, groupKey: realGroup.material,
+                                          senderUserID: mallory.userID),
+        ]
+        let (log, state) = try await mallory.membership(of: household)
+        let laptop = DeviceKeyPair()
+        let entry = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .read,
+            epochAfter: state.epoch, deviceID: laptop.id, devicePublicKey: laptop.publicKey,
+            author: mallory.identity, authorUserID: mallory.userID)
+        await #expect(throws: (any Error).self, "the server refuses them") {
+            try await mallory.session.appendMembership(entry, group: household, wrappedKeys: planted)
+        }
+
+        // A server that keeps them anyway.
+        server.seed(keys: planted, for: household)
+        try await robin.sync(household)
+        #expect(try robin.keyBytes(.group(household)) == groupKey)
+        #expect(try robin.keyBytes(.budget(groceries.id)) == budgetKey)
+
+        try await jamie.join(household, from: robin, level: .read)
+        #expect(try jamie.keyBytes(.group(household)) == groupKey)
+        #expect(try jamie.keyBytes(.budget(groceries.id)) == budgetKey)
+
+        let hers = try leslie.spend("Costco", in: groceries)
+        try await leslie.sync(household)
+        try await robin.sync(household)
+        try await jamie.sync(household)
+        #expect(try robin.store.transaction(hers.id)?.merchant == "Costco")
+        #expect(try jamie.store.transaction(hers.id)?.merchant == "Costco")
+    }
+
+    /// Only someone who may manage a group hands out its key. A group key
+    /// sealed to Jamie by Mallory, who can only view, is passed over even when
+    /// it comes before the real one, which would otherwise never replace it.
+    @Test func aGroupKeyIsTakenOnlyFromSomeoneWhoMayManage() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .read)
+        try await jamie.join(household, from: robin, level: .read)
+        let state = try await robin.membership(of: household).state
+
+        let real = try robin.keyRing.key(for: .group(household), epoch: .initial)
+        let wraps = [
+            try KeyWrap.wrapToIdentity(ScopedKey.generate(scope: .group(household), epoch: .initial),
+                                       recipient: jamie.identity.publicKeys, recipientUserID: jamie.userID,
+                                       sender: mallory.identity, senderUserID: mallory.userID),
+            try KeyWrap.wrapToIdentity(real, recipient: jamie.identity.publicKeys,
+                                       recipientUserID: jamie.userID, sender: robin.identity,
+                                       senderUserID: robin.userID),
+        ]
+        let newMac = KeyRing(store: Store(database: try WellSpentDatabase.inMemory()),
+                             identity: jamie.identity, userID: jamie.userID)
+        #expect(try newMac.absorb(wraps, in: household, membership: state) == 1)
+        #expect(try newMac.key(for: .group(household), epoch: .initial).rawBytes == real.rawBytes)
+    }
+
+    /// Jamie is in Household and in Book Club, which Mallory founded. She
+    /// published a key for Household's Groceries in Book Club. Opened with
+    /// Book Club's key, it replaced Jamie's key for Groceries, and Household
+    /// stopped syncing for him. The in-memory server refuses it, as the real
+    /// one does, and his app does not take a budget key from a group that
+    /// does not hold the budget.
+    @Test func aBudgetKeyFromAnotherGroupIsNotTakenIn() async throws {
+        let robin = try Member(server: server), jamie = try Member(server: server)
+        let mallory = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await jamie.join(household, from: robin, level: .read)
+        let club = GroupID()
+        try await mallory.found(club, name: "Book Club")
+        try await mallory.sync(club)
+        try await jamie.join(club, from: mallory, level: .read)
+        let before = try jamie.keyBytes(.budget(groceries.id))
+
+        let clubKey = try mallory.keyRing.key(for: .group(club), epoch: .initial)
+        let wrap = try KeyWrap.wrapUnderGroupKey(
+            ScopedKey.generate(scope: .budget(groceries.id), epoch: .initial),
+            groupKey: clubKey.material, senderUserID: mallory.userID)
+        await #expect(throws: (any Error).self, "the server refuses it") {
+            try await mallory.session.uploadKeys([wrap], group: club)
+        }
+
+        server.seed(keys: [wrap], for: club)
+        try await jamie.sync(club)
+        #expect(try jamie.keyBytes(.budget(groceries.id)) == before)
+
+        let his = try robin.spend("Sunrise Cafe", in: groceries)
+        try await robin.sync(household)
+        try await jamie.sync(household)
+        #expect(try jamie.store.transaction(his.id)?.merchant == "Sunrise Cafe")
+    }
+
+    /// Keys for a new epoch are kept once the server has the entry that starts
+    /// it. Kept before, they stayed when the entry was refused, and since a
+    /// key this Mac holds is never replaced, the real keys for that epoch,
+    /// from whoever did start it, could never come in.
+    @Test func keysForAnEpochThatNeverStartedAreNotKept() async throws {
+        let robin = try Member(server: server), jamie = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .read, historyAccess: .fromNow,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+
+        let refusing = Sharing(store: robin.store, keyRing: robin.keyRing,
+                               transport: RefusingEntries(robin.session), identity: robin.identity,
+                               device: robin.device, userID: robin.userID)
+        await #expect(throws: RefusingEntries.Refused.self) {
+            try await refusing.finishInvites(group: household)
+        }
+        #expect(!robin.keyRing.has(scope: .group(household), epoch: Epoch(1)))
+
+        try await robin.sync(household)
+        #expect(robin.keyRing.has(scope: .group(household), epoch: Epoch(1)), "kept once it went in")
+    }
+
+    // MARK: - Records that cannot be saved as they are
+
+    /// A budget edited after its transactions sorts after them on the server.
+    /// Joining with full history pulled a transaction before its budget, and
+    /// saving it failed, so the pull stopped there on every sync and the join
+    /// never finished. The transaction is set aside until its budget is in.
+    @Test func aTransactionPulledBeforeItsBudgetWaitsForIt() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        let his = try robin.spend("Hilltop", in: groceries)
+        try await robin.sync(household)
+        var raised = groceries
+        raised.limit = Money(minorUnits: 120_000)
+        try robin.store.save(raised)
+        try await robin.sync(household)
+
+        let pulled = try await server.pull(group: household, since: 0, limit: 100).envelopes
+        let transactionAt = try #require(pulled.firstIndex { $0.recordID == his.id })
+        let budgetAt = try #require(pulled.firstIndex { $0.recordID == RecordID(groceries.id.uuid) })
+        #expect(transactionAt < budgetAt, "the edited budget sorts after its transaction")
+
+        try await leslie.join(household, from: robin, level: .write)
+        #expect(try leslie.store.pendingJoins().isEmpty, "the join finished")
+        #expect(try leslie.store.transaction(his.id)?.merchant == "Hilltop")
+        #expect(try leslie.store.budget(groceries.id)?.limit.minorUnits == 120_000)
+    }
+
+    /// A member added "from now on" gets the group's budgets sealed again
+    /// under the new key. Transactions Robin had not sent yet went out before
+    /// that re-seal, so they reached Leslie before their budget, and every
+    /// sync of hers failed on saving them. They wait for the budget now.
+    @Test func aFromNowMembersTransactionsWaitForTheirResealedBudget() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        let unsent = [try robin.spend("Hilltop", in: groceries), try robin.spend("Costco", in: groceries)]
+
+        try await leslie.join(household, from: robin, level: .write, history: .fromNow)
+        let pulled = try await server.pull(group: household, since: 0, limit: 100).envelopes
+        let transactionAt = try #require(pulled.firstIndex { $0.recordID == unsent[0].id })
+        let budgetAt = try #require(pulled.firstIndex { $0.recordID == RecordID(groceries.id.uuid) })
+        #expect(transactionAt < budgetAt, "his transactions went out before the re-seal")
+
+        #expect(try leslie.store.pendingJoins().isEmpty, "the join finished")
+        #expect(try leslie.store.budget(groceries.id)?.name == "Groceries")
+        for transaction in unsent {
+            #expect(try leslie.store.transaction(transaction.id)?.merchant == transaction.merchant)
+        }
+        try await robin.sync(household)
+        let again = try await leslie.sync(household)
+        #expect(again.deferred == 0 && again.undecryptable == 0, "got \(again)")
+    }
+
+    /// Leslie can add, and her modified app sends a transaction whose sealed
+    /// contents do not decode. Saving it failed, so every other member's pull
+    /// stopped there on every sync. It is refused, and what comes after it
+    /// still arrives.
+    @Test func aRecordThatDoesNotDecodeIsPassedOver() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        struct Nothing: Codable {}
+        let empty = try leslie.forge(Nothing(), id: RecordID(), type: .transaction,
+                                     group: household, budget: groceries.id)
+        #expect(try await server.push([empty], group: household).accepted == [empty.recordID])
+        let after = try leslie.spend("Costco", in: groceries)
+        try await leslie.sync(household)
+
+        let report = try await robin.sync(household)
+        #expect(report.ignored == 1, "got \(report)")
+        #expect(try robin.store.transaction(after.id)?.merchant == "Costco")
+        #expect(try await robin.sync(household).ignored == 0, "and it is not tried again")
+    }
+
+    /// A record signed by a member, sealed under a key nobody else holds.
+    /// Opening it failed with an error the pull did not expect, so the pull
+    /// stopped there on every sync. It is counted as one that cannot be
+    /// opened, and the pull goes on.
+    @Test func aRecordThatDoesNotOpenIsCountedAndPassedOver() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        let stray = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                merchant: "Stray", amount: Money(minorUnits: -1),
+                                createdBy: leslie.userID)
+        let sealed = try RecordCodec.seal(
+            stray, recordID: stray.id, recordType: .transaction, groupID: household,
+            budgetID: groceries.id,
+            scopeKey: ScopedKey.generate(scope: .budget(groceries.id), epoch: .initial),
+            lamport: 10_000, author: leslie.userID, device: leslie.device, membershipSequence: 0)
+        #expect(try await server.push([sealed], group: household).accepted == [sealed.recordID])
+        let after = try leslie.spend("Costco", in: groceries)
+        try await leslie.sync(household)
+
+        let report = try await robin.sync(household)
+        #expect(report.undecryptable == 1, "got \(report)")
+        #expect(try robin.store.transaction(stray.id) == nil)
+        #expect(try robin.store.transaction(after.id)?.merchant == "Costco")
+    }
+
+    // MARK: - What is sealed must match the envelope
+
+    /// Each of these is refused by one check alone, so removing that check
+    /// fails this test. Leslie can add, and her modified app sends records
+    /// whose sealed contents name something other than their envelope.
+    @Test func eachBindingCheckRefusesWhatOnlyItCatches() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        let eatingOut = Budget(groupID: household, name: "Eating out", limit: Money(minorUnits: 1))
+        try await robin.found(household, name: "Household", budgets: [groceries, eatingOut])
+        let his = try robin.spend("Hilltop", in: groceries)
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        // Judged and sealed as Groceries, and saved in Eating out: only the
+        // budget comparison catches it.
+        let moved = Transaction(budgetID: eatingOut.id, groupID: household, date: Date(),
+                                merchant: "Moved", amount: Money(minorUnits: -1),
+                                createdBy: leslie.userID)
+        // Sent through Household, and saved in another group: only the group
+        // comparison catches it. A statement names no budget.
+        let elsewhere = ImportedStatement(groupID: GroupID(), filename: "march.csv", format: "csv")
+        // On the ID of Robin's transaction, as a receipt in the same group:
+        // only the type half of the held-record check catches it.
+        let retyped = Receipt(id: his.id, groupID: household, filename: "a.jpg", byteCount: 1,
+                              plaintextSHA256: Data([1]))
+        let envelopes = [
+            try leslie.forge(moved, id: moved.id, type: .transaction, group: household,
+                             budget: groceries.id),
+            try leslie.forge(elsewhere, id: elsewhere.id, type: .statement, group: household,
+                             budget: nil),
+            try leslie.forge(retyped, id: his.id, type: .receipt, group: household, budget: nil),
+        ]
+        robin.leak.extra = envelopes
+
+        let report = try await robin.sync(household)
+        #expect(report.ignored == 3, "got \(report)")
+        #expect(try robin.store.transaction(moved.id) == nil)
+        #expect(try robin.store.statements(in: elsewhere.groupID).isEmpty)
+        #expect(try robin.store.receipt(his.id) == nil)
+    }
+
+    // MARK: - The group's name
+
+    /// Add is for transactions, and renaming the group renames it for every
+    /// member. Leslie's app does not send her rename, the server refuses one
+    /// a modified app sends, and Jamie's app ignores one a server let
+    /// through. A manager's rename goes everywhere.
+    @Test func onlyAManagerRenamesTheGroup() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let jamie = try Member(server: server), manager = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+        try await jamie.join(household, from: robin, level: .read)
+        try await manager.join(household, from: robin, level: .manage)
+
+        var hers = try #require(try leslie.store.group(household))
+        hers.name = "Leslie's"
+        try leslie.store.save(hers)
+        let report = try await leslie.sync(household)
+        #expect(report.pushed == 0 && report.rejected == 1, "got \(report)")
+        #expect(try leslie.store.outboxCount(in: household) == 0,
+                "dropped by her app, not refused by the server, which leaves it queued")
+
+        let forged = try leslie.forge(hers, id: RecordID(household.uuid), type: .groupMeta,
+                                      group: household, budget: nil)
+        let refused = try await server.push([forged], group: household)
+        #expect(refused.rejected[forged.recordID] == "only a manager can change the group")
+
+        jamie.leak.extra = [forged]
+        #expect(try await jamie.sync(household).ignored == 1)
+        #expect(try jamie.store.group(household)?.name == "Household")
+
+        var renamed = try #require(try manager.store.group(household))
+        renamed.name = "Home"
+        try manager.store.save(renamed)
+        #expect(try await manager.sync(household).pushed == 1)
+        try await jamie.sync(household)
+        #expect(try jamie.store.group(household)?.name == "Home")
+    }
+
+    // MARK: - Where a record is filed
+
+    /// A transaction filed in one group under another group's budget is
+    /// refused by every other member. It is not sent, and is counted, so this
+    /// Mac does not quietly disagree with everyone else.
+    @Test func aRowFiledUnderAnotherGroupsBudgetIsNotSent() async throws {
+        let robin = try Member(server: server)
+        let groceries = groceries()
+        let club = GroupID()
+        let novels = Budget(groupID: club, name: "Novels", limit: Money(minorUnits: 5_000))
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.found(club, name: "Book Club", budgets: [novels])
+        try await robin.sync(household)
+        try await robin.sync(club)
+
+        let misfiled = Transaction(budgetID: novels.id, groupID: household, date: Date(),
+                                   merchant: "Misfiled", amount: Money(minorUnits: -100))
+        try robin.store.save(misfiled)
+        let report = try await robin.sync(household)
+        #expect(report.pushed == 0 && report.rejected == 1, "got \(report)")
+        #expect(try robin.store.outboxCount(in: household) == 0)
+    }
+
+    /// A group's ID is also its record's ID. Mallory founded a group on Jamie's
+    /// profile ID in Household and sent Robin its link. Robin's Mac then held
+    /// a waiting group there, and ignored Jamie's profile for good. The
+    /// in-memory server refuses to found it, as the real one does, and
+    /// Robin's app refuses a link to it.
+    @Test func aLinkToAGroupOnAnIDThisMacHoldsIsRefused() async throws {
+        let robin = try Member(server: server), jamie = try Member(server: server)
+        let mallory = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        try await jamie.join(household, from: robin, level: .write)
+        try jamie.store.save(MemberProfile(groupID: household, userID: jamie.userID,
+                                           displayName: "Jamie"))
+        try await jamie.sync(household)
+        try await robin.sync(household)
+        #expect(try robin.store.profiles(in: household).map(\.displayName).contains("Jamie"))
+
+        let jamies = GroupID(MemberProfile.recordID(group: household, user: jamie.userID).uuid)
+        await #expect(throws: (any Error).self, "the server will not found it") {
+            try await mallory.found(jamies, name: "Taken")
+        }
+        // A server that founds it anyway.
+        server.seed(log: [try MembershipLogEntry.signed(
+            scope: .group(jamies), sequence: 0, previousHash: MembershipLogEntry.rootHash,
+            action: .found, subjectUserID: mallory.userID, subjectKeys: mallory.identity.publicKeys,
+            level: .superadmin, epochAfter: .initial,
+            deviceID: mallory.device.id, devicePublicKey: mallory.device.publicKey,
+            author: mallory.identity, authorUserID: mallory.userID)], for: jamies)
+        let link = try await mallory.sharing.createInvite(
+            group: jamies, groupName: "Taken", level: .read, historyAccess: .all,
+            inviterName: "Mallory")
+
+        await #expect(throws: SharingError.badLink) {
+            try await robin.sharing.join(link, displayName: "Robin")
+        }
+        #expect(try robin.store.pendingJoins().isEmpty)
+        try await robin.sync(household)
+        #expect(try robin.store.profiles(in: household).map(\.displayName).contains("Jamie"))
+    }
+
+    // MARK: - The in-memory server keeps the real one's rules
+
+    /// The in-memory server says it enforces what the real one does. It took
+    /// budget keys from anyone, while the real server takes them only from a
+    /// manager.
+    @Test func theFakeServerTakesBudgetKeysOnlyFromAManager() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        let groupKey = try leslie.keyRing.key(for: .group(household), epoch: .initial)
+        let budget = Budget(groupID: household, name: "Gas", limit: Money(minorUnits: 1))
+        let wrap = try KeyWrap.wrapUnderGroupKey(
+            ScopedKey.generate(scope: .budget(budget.id), epoch: .initial),
+            groupKey: groupKey.material, senderUserID: leslie.userID)
+        await #expect(throws: (any Error).self) {
+            try await leslie.session.uploadKeys([wrap], group: household)
+        }
+
+        // Her own app never sends one: below Manage it mints no budget keys.
+        try leslie.store.save(budget)
+        let before = try await server.wrappedKeys(group: household, for: leslie.userID).count
+        try await leslie.sharing.prepare(group: household)
+        #expect(try await server.wrappedKeys(group: household, for: leslie.userID).count == before)
+        #expect(!leslie.keyRing.has(scope: .budget(budget.id), epoch: .initial))
+    }
+
+    /// A manager publishes a new budget's key before its record goes out, and
+    /// the key shows the budget's ID. Mallory, who founded Book Club, pushed a
+    /// record there on that ID first, and the budget was refused on every
+    /// sync from then on. The ID now belongs to the group that published it.
+    @Test func aBudgetsIDIsKeptOnceItsKeyIsPublished() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .read)
+        let club = GroupID()
+        try await mallory.found(club, name: "Book Club")
+        try await mallory.sync(club)
+
+        // Robin's next sync publishes the new budget's key, then pushes it.
+        // Mallory's push lands between the two.
+        let gas = Budget(groupID: household, name: "Gas", limit: Money(minorUnits: 20_000))
+        try robin.store.save(gas)
+        try await robin.sharing.prepare(group: household)
+        let published = try await mallory.session.wrappedKeys(group: household, for: mallory.userID)
+        #expect(published.contains { $0.scope == .budget(gas.id) })
+        let squat = try mallory.forge(
+            ImportedStatement(id: RecordID(gas.id.uuid), groupID: club, filename: "x", format: "csv"),
+            id: RecordID(gas.id.uuid), type: .statement, group: club, budget: nil)
+        let refused = try await server.push([squat], group: club)
+        #expect(refused.rejected[squat.recordID] == "another record already has this ID")
+
+        let report = try await robin.sync(household)
+        #expect(report.rejected == 0, "got \(report)")
+        try await mallory.sync(household)
+        #expect(try mallory.store.budget(gas.id)?.name == "Gas")
+    }
+
+    /// A member at Add set her Mac's clock just under the ceiling, and the
+    /// next value the stock app signed left every Mac that pulled it no room
+    /// to save in the group. The in-memory server, as the real one does,
+    /// refuses a value too far ahead of the group's highest, read once per
+    /// push.
+    @Test func theFakeServerRefusesAValueTooFarAheadOfTheGroup() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+        let highest = try #require(try await server.pull(group: household, since: 0, limit: 100)
+            .envelopes.map(\.lamport).max())
+        let lead = UInt64(1) << 24
+
+        func hers(_ lamport: UInt64) throws -> RecordEnvelope {
+            let spent = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                    merchant: "Costco", amount: Money(minorUnits: -1),
+                                    createdBy: leslie.userID)
+            return try leslie.forge(spent, id: spent.id, type: .transaction, group: household,
+                                    budget: groceries.id, lamport: lamport)
+        }
+        let tooFar = try hers(highest + lead + 1)
+        #expect(try await server.push([tooFar], group: household).rejected[tooFar.recordID]
+                    == "the Lamport value is too far ahead of the group")
+
+        // One push cannot climb twice: both are judged against the highest
+        // value stored before it.
+        let first = try hers(highest + lead), second = try hers(highest + 2 * lead)
+        let result = try await server.push([first, second], group: household)
+        #expect(result.accepted == [first.recordID])
+        #expect(result.rejected[second.recordID] == "the Lamport value is too far ahead of the group")
+        #expect(try await server.push([second], group: household).accepted == [second.recordID],
+                "the next push is judged against the new highest")
+    }
+
+    // MARK: - Fingerprints, set-aside records and verified logs
+
+    /// Robin and Leslie both import the same joint-account statement before
+    /// either pulls the other's rows. Each Mac holds one imported row per
+    /// fingerprint, so saving the other's failed, and the pull stopped there
+    /// on every sync. The pulled row is kept without its fingerprint.
+    @Test func twoMembersImportingTheSameStatementBothKeepSyncing() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        func imported(by member: Member) throws -> Transaction {
+            let row = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                  merchant: "Hilltop", amount: Money(minorUnits: -14208),
+                                  source: .statement, importFingerprint: "same-statement-row")
+            try member.store.save(row)
+            return row
+        }
+        let his = try imported(by: robin), hers = try imported(by: leslie)
+        try await robin.sync(household)
+        try await leslie.sync(household)
+        try await robin.sync(household)
+
+        for member in [robin, leslie] {
+            #expect(try member.store.transaction(his.id) != nil)
+            #expect(try member.store.transaction(hers.id) != nil)
+        }
+        #expect(try leslie.store.transaction(his.id)?.importFingerprint == nil)
+        #expect(try leslie.store.transaction(hers.id)?.importFingerprint == "same-statement-row",
+                "her own row keeps it, for her next import")
+    }
+
+    /// A save this Mac's database refuses for a reason that will repeat is
+    /// set aside and counted, and the pull goes on. Thrown, it stopped the
+    /// group syncing here for good. Set aside, it is tried again, and saved
+    /// once it can be.
+    @Test func aRecordThisMacCannotSaveIsKeptAndPassedOver() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+        try refuseToSave(merchant: "Refused", in: robin.store)
+
+        let refused = try leslie.spend("Refused", in: groceries)
+        let after = try leslie.spend("Costco", in: groceries)
+        try await leslie.sync(household)
+
+        let report = try await robin.sync(household)
+        #expect(report.unsaved == 1, "got \(report)")
+        #expect(try robin.store.transaction(after.id)?.merchant == "Costco")
+        #expect(try robin.store.transaction(refused.id) == nil)
+        #expect(try robin.store.deferredEnvelopes(in: household).map(\.0.recordID) == [refused.id],
+                "set aside, not lost")
+
+        try robin.store.database.write { db in try db.execute(sql: "DROP TRIGGER refuse_Refused") }
+        try await robin.sync(household)
+        #expect(try robin.store.transaction(refused.id)?.merchant == "Refused", "saved once it can be")
+        #expect(try robin.store.deferredEnvelopes(in: household).isEmpty)
+    }
+
+    /// A transaction set aside for its budget was deleted before it was
+    /// applied, and any failure in between lost it with nothing counted. It
+    /// leaves only once it has been dealt with, and a save that fails is
+    /// counted and kept as a conflict copy.
+    @Test func aSetAsideTransactionIsNeverLostWithoutACount() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        let refused = try robin.spend("Refused", in: groceries)
+        try await robin.sync(household)
+        var raised = groceries
+        raised.limit = Money(minorUnits: 120_000)
+        try robin.store.save(raised)
+        try await robin.sync(household)
+
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .write, historyAccess: .all,
+            inviterName: "Robin")
+        try await leslie.sharing.join(link, displayName: "Leslie")
+        try await robin.sync(household)
+        try refuseToSave(merchant: "Refused", in: leslie.store)
+        try await leslie.sharing.prepare(group: household)
+        let report = try await leslie.engine.sync(group: household)
+        #expect(report.deferred == 1 && report.unsaved == 1, "got \(report)")
+        #expect(try leslie.store.deferredEnvelopes(in: household).map(\.0.recordID) == [refused.id],
+                "still set aside, to be tried again")
+    }
+
+    /// A transaction whose budget has not arrived stays set aside, untouched,
+    /// for as long as that takes, and is applied once the budget comes.
+    @Test func aTransactionWaitsAsLongAsItsBudgetDoes() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+
+        // A budget whose record has not gone out yet, with its key published.
+        let gas = Budget(groupID: household, name: "Gas", limit: Money(minorUnits: 20_000))
+        try robin.store.save(gas, queue: false)
+        try await robin.sharing.prepare(group: household)
+        let fillUp = try robin.spend("Milepost", in: gas)
+        try await robin.sync(household)
+
+        try await leslie.sync(household)
+        #expect(try leslie.store.deferredEnvelopes(in: household).count == 1, "set aside")
+
+        // While its budget is missing it is not even opened. Here it could
+        // not be: this engine's key ring has nothing in memory, and the key
+        // in the database is the wrong one, which a held key never gets
+        // replaced over. Opening it on every pull, and deleting it first,
+        // lost it the moment that failed.
+        try leslie.store.database.write { db in
+            try db.execute(sql: "UPDATE scopedKey SET material = randomblob(32) WHERE scopeId = ?",
+                           arguments: [gas.id.uuid.uuidString])
+        }
+        let forgetful = SyncEngine(
+            store: leslie.store,
+            keyRing: KeyRing(store: leslie.store, identity: leslie.identity, userID: leslie.userID),
+            transport: leslie.leak, identity: leslie.identity, device: leslie.device, userID: leslie.userID)
+        for _ in 0 ..< 2 {
+            _ = try await forgetful.sync(group: household)
+            #expect(try leslie.store.transaction(fillUp.id) == nil)
+            #expect(try leslie.store.deferredEnvelopes(in: household).count == 1, "still waiting")
+        }
+        try robin.store.save(gas)
+        try await robin.sync(household)
+        try await leslie.sync(household)
+        #expect(try leslie.store.transaction(fillUp.id)?.merchant == "Milepost")
+        #expect(try leslie.store.deferredEnvelopes(in: household).isEmpty)
+    }
+
+    /// A record in a format a newer build writes was refused, so it was
+    /// passed over for good. It is set aside, as an unknown type is, for
+    /// after an update.
+    @Test func aRecordInANewerFormatIsSetAside() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+
+        let spent = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                merchant: "Costco", amount: Money(minorUnits: -1),
+                                createdBy: leslie.userID)
+        let current = try leslie.forge(spent, id: spent.id, type: .transaction, group: household,
+                                       budget: groceries.id)
+        let unsigned = RecordEnvelope(
+            version: RecordEnvelope.currentVersion + 1, recordID: current.recordID,
+            recordType: current.recordType, groupID: current.groupID, budgetID: current.budgetID,
+            keyEpoch: current.keyEpoch, ciphersuite: current.ciphersuite,
+            payloadKind: current.payloadKind, nonce: current.nonce, ciphertext: current.ciphertext,
+            lamport: current.lamport, authorUserID: current.authorUserID,
+            authorDeviceID: current.authorDeviceID, membershipSequence: current.membershipSequence,
+            isDeleted: false, signature: Data())
+        let newer = RecordEnvelope(
+            version: unsigned.version, recordID: unsigned.recordID, recordType: unsigned.recordType,
+            groupID: unsigned.groupID, budgetID: unsigned.budgetID, keyEpoch: unsigned.keyEpoch,
+            ciphersuite: unsigned.ciphersuite, payloadKind: unsigned.payloadKind,
+            nonce: unsigned.nonce, ciphertext: unsigned.ciphertext, lamport: unsigned.lamport,
+            authorUserID: unsigned.authorUserID, authorDeviceID: unsigned.authorDeviceID,
+            membershipSequence: unsigned.membershipSequence, isDeleted: false,
+            signature: try leslie.device.signing.signature(for: unsigned.signedBytes()))
+        robin.leak.extra = [newer]
+
+        let report = try await robin.sync(household)
+        #expect(report.deferred == 1, "got \(report)")
+        #expect(try robin.store.deferredEnvelopes(in: household).map(\.0.recordID) == [spent.id])
+    }
+
+    /// Before each sync, the key step read the whole log and replayed it on
+    /// its own. A server that answered it with a made-up chain, founded with
+    /// keys it made, got Leslie's Mac to take its key for the next epoch, and
+    /// a key held is never replaced: when the group really got there, she
+    /// skipped the real one. The key step now uses the log this Mac has
+    /// verified.
+    @Test func aMadeUpWholeLogPlantsNoKeys() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+
+        let made = IdentityKeyPair.generate(), madeID = UserID()
+        func signed(_ action: MembershipAction, subject: UserID, keys: IdentityPublicKeys? = nil,
+                    level: AccessLevel, epoch: Epoch, device: DeviceKeyPair? = nil,
+                    after log: [MembershipLogEntry]) throws -> MembershipLogEntry {
+            try MembershipLogEntry.signed(
+                scope: .group(household), sequence: UInt64(log.count),
+                previousHash: log.last?.hash ?? MembershipLogEntry.rootHash, action: action,
+                subjectUserID: subject, subjectKeys: keys, level: level, epochAfter: epoch,
+                deviceID: device?.id, devicePublicKey: device?.publicKey,
+                author: made, authorUserID: madeID)
+        }
+        var chain = [try signed(.found, subject: madeID, keys: made.publicKeys, level: .superadmin,
+                                epoch: .initial, after: [])]
+        chain.append(try signed(.add, subject: leslie.userID, keys: leslie.identity.publicKeys,
+                                level: .manage, epoch: .initial, after: chain))
+        chain.append(try signed(.addDevice, subject: leslie.userID, level: .manage,
+                                epoch: .initial, device: leslie.device, after: chain))
+        chain.append(try signed(.rotate, subject: madeID, level: .superadmin, epoch: Epoch(1),
+                                after: chain))
+        let planted = try KeyWrap.wrapToIdentity(
+            ScopedKey.generate(scope: .group(household), epoch: Epoch(1)),
+            recipient: leslie.identity.publicKeys, recipientUserID: leslie.userID,
+            sender: made, senderUserID: madeID)
+
+        let lied = Sharing(store: leslie.store, keyRing: leslie.keyRing,
+                           transport: LyingLog(leslie.session, madeUp: chain, extraKeys: [planted]),
+                           identity: leslie.identity, device: leslie.device, userID: leslie.userID)
+        try await lied.prepare(group: household)
+        _ = try await lied.finishInvites(group: household)
+        #expect(!leslie.keyRing.has(scope: .group(household), epoch: Epoch(1)))
+    }
+
+    /// The server refuses a key for an epoch the group has not reached, so
+    /// one stored ahead of time cannot win over the real one. The app now
+    /// does the same, so a server working with a manager cannot get a key
+    /// for the next epoch kept here early.
+    @Test func aKeyForAnEpochTheLogHasNotReachedIsNotTaken() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .read)
+        let state = try await robin.membership(of: household).state
+
+        let early = try KeyWrap.wrapToIdentity(
+            ScopedKey.generate(scope: .group(household), epoch: Epoch(1)),
+            recipient: leslie.identity.publicKeys, recipientUserID: leslie.userID,
+            sender: robin.identity, senderUserID: robin.userID)
+        #expect(try leslie.keyRing.absorb([early], in: household, membership: state) == 0)
+        #expect(!leslie.keyRing.has(scope: .group(household), epoch: Epoch(1)))
+    }
+
+    /// A budget key is opened only with the synced group's own key, and never
+    /// for a budget this Mac holds in another group. The earlier tests are
+    /// stopped by the rule that a held key is never replaced, so here this
+    /// Mac holds no key for the budget yet.
+    @Test func aBudgetKeyIsTakenOnlyFromItsOwnGroup() async throws {
+        let robin = try Member(server: server), jamie = try Member(server: server)
+        let mallory = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await jamie.join(household, from: robin, level: .read)
+        let club = GroupID()
+        try await mallory.found(club, name: "Book Club")
+        try await mallory.sync(club)
+        try await jamie.join(club, from: mallory, level: .read)
+        let clubState = try await mallory.membership(of: club).state
+        let householdKey = try robin.keyRing.key(for: .group(household), epoch: .initial)
+        let clubKey = try mallory.keyRing.key(for: .group(club), epoch: .initial)
+
+        // A budget Jamie holds in Household, with no key here yet.
+        let gas = Budget(groupID: household, name: "Gas", limit: Money(minorUnits: 1))
+        try jamie.store.save(gas, queue: false)
+        let underClub = try KeyWrap.wrapUnderGroupKey(
+            ScopedKey.generate(scope: .budget(gas.id), epoch: .initial),
+            groupKey: clubKey.material, senderUserID: mallory.userID)
+        #expect(try jamie.keyRing.absorb([underClub], in: club, membership: clubState) == 0,
+                "not for a budget held in another group")
+
+        // A budget he does not hold, sealed under Household's key, served in
+        // Book Club.
+        let elsewhere = try KeyWrap.wrapUnderGroupKey(
+            ScopedKey.generate(scope: .budget(BudgetID()), epoch: .initial),
+            groupKey: householdKey.material, senderUserID: robin.userID)
+        #expect(try jamie.keyRing.absorb([elsewhere], in: club, membership: clubState) == 0,
+                "only with the synced group's own key")
+    }
+
+    /// Mallory, a manager, added Jamie before he joined, with keys she made,
+    /// signed an entry with them as him, and took him out again. Then Robin's
+    /// add of the real Jamie was refused on every sync, and Robin's sync of
+    /// the group failed each time. Servers now take an add only with the
+    /// person's own sign-up keys, so this takes a server that lies, and then
+    /// the invite goes instead and the rest of Robin's sync goes on.
+    @Test func anInviteWhoseKeysClashIsDroppedNotRetriedForever() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .manage)
+
+        let made = IdentityKeyPair.generate(), madeDevice = DeviceKeyPair()
+        let (log, state) = try await mallory.membership(of: household)
+        let squat = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .add, subjectUserID: jamie.userID, subjectKeys: made.publicKeys, level: .read,
+            epochAfter: state.epoch, author: mallory.identity, authorUserID: mallory.userID)
+        await #expect(throws: (any Error).self, "not his sign-up keys") {
+            try await mallory.session.appendMembership(squat, group: household, wrappedKeys: [])
+        }
+        // A server that takes them anyway.
+        server.append(squat, to: household)
+        let asHim = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count + 1), previousHash: squat.hash,
+            action: .addDevice, subjectUserID: jamie.userID, subjectKeys: nil, level: .read,
+            epochAfter: state.epoch, deviceID: madeDevice.id, devicePublicKey: madeDevice.publicKey,
+            author: made, authorUserID: jamie.userID)
+        server.append(asHim, to: household)
+        // Out again, so his ID is free to invite, with the keys still on it.
+        let out = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count + 2), previousHash: asHim.hash,
+            action: .remove, subjectUserID: jamie.userID, subjectKeys: nil, level: .none,
+            epochAfter: state.epoch, author: mallory.identity, authorUserID: mallory.userID)
+        server.append(out, to: household)
+
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .write, historyAccess: .all,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+        try await robin.sync(household)
+        #expect(server.inviteCount == 0, "the invite was dropped")
+        #expect(try await robin.sync(household).rejected == 0, "and his syncs go on")
+    }
+
+    // MARK: - Shared device IDs, failed saves and held fingerprints
+
+    /// A device belongs to a person and a device together, so Mallory could
+    /// register Robin's device ID as her own in the same group. Robin's Mac
+    /// then took what she signed under it for its own records coming back,
+    /// and skipped them, while every other Mac applied them. Ours now means
+    /// this person on this device.
+    @Test func editsUnderAnotherMembersDeviceIDAreNotSkippedAsEchoes() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .write)
+
+        let hers = try mallory.spend("Hilltop", in: groceries)
+        try await mallory.sync(household)
+        try await robin.sync(household)
+        #expect(try robin.store.transaction(hers.id)?.amount.minorUnits == -1000)
+
+        // His device ID, registered as hers, with a key of her own.
+        let borrowed = DeviceKeyPair(id: robin.device.id)
+        let (log, state) = try await mallory.membership(of: household)
+        try await mallory.session.appendMembership(try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .addDevice, subjectUserID: mallory.userID, subjectKeys: nil, level: .write,
+            epochAfter: state.epoch, deviceID: borrowed.id, devicePublicKey: borrowed.publicKey,
+            author: mallory.identity, authorUserID: mallory.userID), group: household, wrappedKeys: [])
+
+        var changed = try #require(try mallory.store.transaction(hers.id))
+        changed.amount = Money(minorUnits: -500_000)
+        let key = try mallory.keyRing.key(for: .budget(groceries.id), epoch: .initial)
+        let envelope = try RecordCodec.seal(
+            changed, recordID: hers.id, recordType: .transaction, groupID: household,
+            budgetID: groceries.id, scopeKey: key, lamport: 50_000, author: mallory.userID,
+            device: borrowed, membershipSequence: 0)
+        #expect(try await server.push([envelope], group: household).accepted == [hers.id])
+
+        try await robin.sync(household)
+        #expect(try robin.store.transaction(hers.id)?.amount.minorUnits == -500_000)
+    }
+
+    /// A save that fails for a reason that can clear up, such as a full disk,
+    /// was set aside and passed over for good. It is thrown as before now, so
+    /// the pull stops before its cursor moves, and the record comes again.
+    @Test func aSaveThatCanSucceedLaterIsNotPassedOver() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .write)
+        let note = String(repeating: "x", count: 2_000)
+        var sent: [Transaction] = []
+        for index in 0 ..< 40 {
+            var row = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                  merchant: "Row \(index)", amount: Money(minorUnits: -1))
+            row.note = note
+            try robin.store.save(row)
+            sent.append(row)
+        }
+        try await robin.sync(household)
+
+        let cursor = try leslie.store.syncState(for: household).serverSeq
+        try leslie.store.database.write { db in
+            let pages = try Int.fetchOne(db, sql: "PRAGMA page_count") ?? 0
+            try db.execute(sql: "PRAGMA max_page_count = \(pages)")
+        }
+        await #expect(throws: (any Error).self, "the disk is full") {
+            try await leslie.engine.sync(group: household)
+        }
+        #expect(try leslie.store.syncState(for: household).serverSeq == cursor, "the cursor did not move")
+        #expect(try leslie.store.deferredEnvelopes(in: household).isEmpty, "nothing was passed over")
+
+        try leslie.store.database.write { db in try db.execute(sql: "PRAGMA max_page_count = 1000000") }
+        try await leslie.sync(household)
+        for row in sent { #expect(try leslie.store.transaction(row.id)?.merchant == row.merchant) }
+    }
+
+    /// A save that fails for good undid moving a queued re-seal above the
+    /// newer version it pulled, and the same sync then sent the re-seal with
+    /// this Mac's old content over that version, on every Mac. Its row now
+    /// waits while the record cannot be saved here.
+    @Test func aReSealWaitsWhileTheVersionItMustCarryCannotBeSaved() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let jamie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+
+        // His clock runs ahead of hers, so his re-seal would outrank her edit.
+        for index in 0 ..< 5 { _ = try robin.spend("Row \(index)", in: groceries) }
+        try await robin.sync(household)
+        var food = try #require(try leslie.store.budget(groceries.id))
+        food.name = "Food"
+        try leslie.store.save(food)
+        try await leslie.sync(household)
+
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .read, historyAccess: .fromNow,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+        try robin.store.database.write { db in
+            try db.execute(sql: """
+                CREATE TRIGGER refuse_food BEFORE UPDATE ON budget WHEN NEW.name = 'Food'
+                BEGIN SELECT RAISE(ABORT, 'refused here'); END
+                """)
+        }
+        let report = try await robin.sync(household)
+        #expect(report.unsaved == 1, "got \(report)")
+
+        let stored = try await server.pull(group: household, since: 0, limit: 500).envelopes
+        let budgetRecord = try #require(stored.first { $0.recordID == RecordID(groceries.id.uuid) })
+        #expect(budgetRecord.authorUserID == leslie.userID, "her edit is still what everyone has")
+        #expect(try robin.store.queuedPush(RecordID(groceries.id.uuid)) != nil, "his re-seal waits")
+    }
+
+    /// A pulled row whose import fingerprint this Mac already held was kept
+    /// without it, and a later save here sent it out that way. The member
+    /// who imported it lost the fingerprint, and their next overlapping
+    /// import added the line again. The fingerprint now goes back out.
+    @Test func aClearedFingerprintGoesBackOutWithTheRow() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+
+        func imported(by member: Member) throws -> Transaction {
+            let row = Transaction(budgetID: groceries.id, groupID: household, date: Date(),
+                                  merchant: "Hilltop", amount: Money(minorUnits: -14208),
+                                  source: .statement, importFingerprint: "same-statement-row")
+            try member.store.save(row)
+            return row
+        }
+        let his = try imported(by: robin)
+        _ = try imported(by: leslie)
+        try await robin.sync(household)
+        try await leslie.sync(household)
+        #expect(try leslie.store.transaction(his.id)?.importFingerprint == nil)
+
+        var noted = try #require(try leslie.store.transaction(his.id))
+        noted.note = "Shared"
+        try leslie.store.save(noted)
+        try await leslie.sync(household)
+        try await robin.sync(household)
+        let mine = try #require(try robin.store.transaction(his.id))
+        #expect(mine.note == "Shared")
+        #expect(mine.importFingerprint == "same-statement-row", "his import still knows the row")
+    }
+
+    /// The inviter kept the keys for a new epoch but not the entry that
+    /// started it. A server that left that entry out of later reads could
+    /// get a second "from now on" invite to start the same epoch again, and
+    /// its keys were written over the first ones.
+    @Test func finishingAnInviteKeepsItsOwnEntry() async throws {
+        let robin = try Member(server: server), jamie = try Member(server: server)
+        try await robin.found(household, name: "Household", budgets: [groceries()])
+        try await robin.sync(household)
+        let link = try await robin.sharing.createInvite(
+            group: household, groupName: "Household", level: .read, historyAccess: .fromNow,
+            inviterName: "Robin")
+        try await jamie.sharing.join(link, displayName: "Jamie")
+        let before = try robin.store.membershipLog(for: household).count
+
+        let added = try await robin.sharing.finishInvites(group: household)
+        #expect(added.count == 1)
+        let kept = try robin.store.membershipLog(for: household)
+        #expect(kept.count == before + 1)
+        #expect(kept.last?.subjectUserID == jamie.userID && kept.last?.epochAfter == Epoch(1))
+    }
+
+    /// A record of a type or format this build cannot read was set aside
+    /// before anyone checked who sent it, and without a limit, so a member at
+    /// View, or a server that lies, could fill every Mac with them. Only
+    /// someone who may write gets one set aside, and only so many per group.
+    @Test func onlySoManyUnreadableRecordsAreSetAsideAndOnlyFromAWriter() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .read)
+
+        struct Future: Codable { let value: Int }
+        func future(from member: Member) throws -> RecordEnvelope {
+            try RecordCodec.seal(
+                Future(value: 1), recordID: RecordID(), recordType: RecordType(rawValue: "future"),
+                groupID: household, budgetID: nil,
+                scopeKey: try member.keyRing.key(for: .group(household), epoch: .initial),
+                lamport: 10_000, author: member.userID, device: member.device, membershipSequence: 0)
+        }
+        robin.leak.extra = [try future(from: mallory)]
+        #expect(try await robin.sync(household).ignored == 1, "she can only view")
+        #expect(try robin.store.deferredEnvelopes(in: household).isEmpty)
+
+        let filler = try JSONEncoder().encode(try future(from: robin))
+        try robin.store.database.write { db in
+            try db.execute(sql: """
+                WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
+                INSERT INTO deferredEnvelope (recordId, budgetGroupId, recordType, envelope, serverSeq)
+                SELECT 'filler-' || i, ?, 'future', ?, 0 FROM n
+                """, arguments: [SyncEngine.setAsideLimit, household.uuid.uuidString, filler])
+        }
+        let leslie = try Member(server: server)
+        try await leslie.join(household, from: robin, level: .write)
+        robin.leak.extra = [try future(from: leslie)]
+        #expect(try await robin.sync(household).ignored == 1, "the group's limit is reached")
+        #expect(try robin.store.deferredCount(in: household) == SyncEngine.setAsideLimit)
+    }
+}

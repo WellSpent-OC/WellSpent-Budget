@@ -620,10 +620,11 @@ private func databaseQuestionMarks(count: Int) -> String {
 public extension Store {
     /// What we last accepted for this record. Used to decide whether an incoming
     /// envelope wins, without having to decrypt it first.
-    func recordVersion(_ id: RecordID) throws -> (lamport: UInt64, device: DeviceID)? {
+    func recordVersion(_ id: RecordID) throws -> (lamport: UInt64, device: DeviceID, author: UserID?)? {
         try database.read { db in
             guard let row = try RecordVersionRow.fetchOne(db, key: id.dbValue) else { return nil }
-            return (UInt64(row.lamport), DeviceID(try RowCoding.uuid(row.authorDeviceId)))
+            return (UInt64(row.lamport), DeviceID(try RowCoding.uuid(row.authorDeviceId)),
+                    try row.authorUserId.map { UserID(try RowCoding.uuid($0)) })
         }
     }
 
@@ -651,10 +652,12 @@ public extension Store {
         }
     }
 
-    func setRecordVersion(_ id: RecordID, lamport: UInt64, device: DeviceID, serverSeq: UInt64) throws {
+    func setRecordVersion(_ id: RecordID, lamport: UInt64, device: DeviceID, author: UserID? = nil,
+                          serverSeq: UInt64) throws {
         try database.write { db in
             try RecordVersionRow(recordId: id.dbValue, lamport: Int64(clamping: lamport),
-                                 authorDeviceId: device.dbValue, serverSeq: Int64(serverSeq)).save(db)
+                                 authorDeviceId: device.dbValue, serverSeq: Int64(serverSeq),
+                                 authorUserId: author?.dbValue).save(db)
         }
     }
 }

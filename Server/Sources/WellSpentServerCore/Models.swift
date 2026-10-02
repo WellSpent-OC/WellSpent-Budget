@@ -81,6 +81,11 @@ final class GroupRow: Model, @unchecked Sendable {
     @ID(custom: "id", generatedBy: .user) var id: UUID?
     @Field(key: "founder_id") var founderID: UUID
     @Field(key: "epoch") var epoch: Int
+    /// The highest Lamport value this group has ever stored. It only goes up,
+    /// even when a group's delete replaces a higher value. A push is judged
+    /// against it (`RecordEnvelope.lamportLead`), and keeping it here saves
+    /// reading every record in the group on each push.
+    @Field(key: "max_lamport") var maxLamport: Int
     @Timestamp(key: "created_at", on: .create) var createdAt: Date?
 
     init() {}
@@ -88,6 +93,7 @@ final class GroupRow: Model, @unchecked Sendable {
         self.id = id
         self.founderID = founderID
         self.epoch = epoch
+        self.maxLamport = 0
     }
 }
 

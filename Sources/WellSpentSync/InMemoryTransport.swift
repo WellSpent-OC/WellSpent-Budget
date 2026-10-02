@@ -25,6 +25,9 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
         var refusals: [(RecordID, String)] = []
         var invites: [Data: StoredInvite] = [:]
         var people: [UserID: IdentityPublicKeys] = [:]
+        /// Each group's highest stored Lamport value, which only goes up, as
+        /// on the real server.
+        var highestLamport: [GroupID: UInt64] = [:]
     }
 
     private struct StoredInvite {
@@ -39,8 +42,8 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var state = State()
 
-    private func withState<T>(_ body: (inout State) -> T) -> T {
-        lock.withLock { body(&state) }
+    private func withState<T>(_ body: (inout State) throws -> T) rethrows -> T {
+        try lock.withLock { try body(&state) }
     }
 
     public init() {}
@@ -83,6 +86,8 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
             let membership = try? MembershipLog.replay(state.logs[group] ?? [], scope: .group(group))
             var accepted: [RecordID] = []
             var rejected: [RecordID: String] = [:]
+            // Read once, before any of this push is stored, as on the real server.
+            let highestBefore = state.highestLamport[group] ?? 0
 
             // Every record is judged on its own. One bad row must not take the
             // batch down with it, which is exactly what the old Ruby API did by
@@ -96,18 +101,12 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                     rejected[envelope.recordID] = "record is not in this group"
                     continue
                 }
-                // As on the real server: a value at or above the ceiling
-                // would leave every app that pulled it no room on its clock.
-                guard envelope.lamport < RecordEnvelope.lamportCeiling else {
-                    rejected[envelope.recordID] = RecordEnvelope.lamportTooLargeRefusal
-                    continue
-                }
                 let level = membership.level(of: envelope.authorUserID)
                 guard level.allows(.write) else {
                     rejected[envelope.recordID] = "author holds \(level), needs write"
                     continue
                 }
-                guard let registration = membership.devices[envelope.authorDeviceID],
+                guard let registration = membership.device(envelope.authorDeviceID, of: envelope.authorUserID),
                       registration.userID == envelope.authorUserID else {
                     rejected[envelope.recordID] = "device is not enrolled for this author"
                     continue
@@ -130,6 +129,11 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                     rejected[envelope.recordID] = "only the founder or an admin can delete the group"
                     continue
                 }
+                // Renaming the group takes a manager, as on the real server.
+                if envelope.recordType == .groupMeta, !envelope.isDeleted, !level.allows(.manage) {
+                    rejected[envelope.recordID] = "only a manager can change the group"
+                    continue
+                }
                 // A budget takes a manager, as on the real server.
                 if envelope.recordType == .budget, !level.allows(.manage) {
                     rejected[envelope.recordID] = "only a manager can change a budget"
@@ -144,13 +148,15 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                     rejected[envelope.recordID] = "that ID belongs to a member profile"
                     continue
                 }
-                // This is where the real server checks the ceiling: after the
-                // rules above. The same check near the top of this loop still
-                // runs first, so an envelope that breaks the ceiling and one of
-                // these rules gets a different reason from each server until
-                // that earlier copy is removed.
+                // As on the real server, and in the same order: a value at or
+                // above the ceiling, and one too far ahead of the group, would
+                // leave every app that pulled it no room on its clock.
                 guard envelope.lamport < RecordEnvelope.lamportCeiling else {
                     rejected[envelope.recordID] = RecordEnvelope.lamportTooLargeRefusal
+                    continue
+                }
+                guard envelope.lamport <= highestBefore + RecordEnvelope.lamportLead else {
+                    rejected[envelope.recordID] = RecordEnvelope.lamportTooFarAheadRefusal
                     continue
                 }
                 // The real server finds a record by its ID alone, in any group,
@@ -161,11 +167,19 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                     rejected[envelope.recordID] = "another record already has this ID"
                     continue
                 }
+                // A new record may not take an ID that a group, or another
+                // group's budget key, already uses.
+                if stored == nil, !Self.claims(on: envelope.recordID.uuid, in: state)
+                    .areFree(forRecordOf: envelope.recordType, in: group.uuid, id: envelope.recordID.uuid) {
+                    rejected[envelope.recordID] = "another record already has this ID"
+                    continue
+                }
                 // The stored version, sent again by the device that wrote it,
                 // as after a lost reply. Taken as already stored, as on the
                 // real server, and nothing changes.
                 if let stored, stored.lamport == envelope.lamport,
                    stored.authorDeviceID == envelope.authorDeviceID,
+                   stored.authorUserID == envelope.authorUserID,
                    stored.isDeleted == envelope.isDeleted {
                     accepted.append(envelope.recordID)
                     continue
@@ -177,7 +191,7 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                 // turns that refusal into a conflict copy and drops the row.
                 if let stored,
                    !envelope.replaces(lamport: stored.lamport, device: stored.authorDeviceID,
-                                      isDeleted: stored.isDeleted) {
+                                      isDeleted: stored.isDeleted, author: stored.authorUserID) {
                     // Only a group's delete is final. Any other record refused
                     // here is older, delete or not, and the app treats only
                     // that reason as one no later sync can change.
@@ -191,6 +205,7 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
                 state.sequence += 1
                 state.records[group, default: [:]][envelope.recordID] =
                     Stored(envelope: envelope, serverSeq: state.sequence)
+                state.highestLamport[group] = max(state.highestLamport[group] ?? 0, envelope.lamport)
                 accepted.append(envelope.recordID)
             }
 
@@ -223,6 +238,111 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
         // group key, so everyone who holds that gets them.
         withState { ($0.keys[group] ?? []).filter { $0.recipientUserID == nil || $0.recipientUserID == user } }
     }
+
+    // MARK: - The log and keys, as the real server takes them
+
+    /// A membership entry from `user`, and the keys sent with it, refused for
+    /// the reasons the real server refuses them. `append` and `seed` skip
+    /// every check, for a test that plays a server that does not.
+    func appendChecked(_ entry: MembershipLogEntry, keys: [WrappedKey], group: GroupID,
+                       by user: UserID) throws {
+        try withState { state in
+            let known = state.logs[group] ?? []
+            if known.isEmpty {
+                guard entry.action == .found, entry.authorUserID == user else {
+                    throw ServerRefused(reason: "first entry must found the group")
+                }
+                guard Self.claims(on: group.uuid, in: state).areFree(forGroup: group.uuid) else {
+                    throw ServerRefused(reason: "that group ID is already in use")
+                }
+            } else {
+                guard entry.authorUserID == user else {
+                    throw ServerRefused(reason: "entry is not authored by the caller")
+                }
+            }
+            // As on the real server: keys put on someone's ID are the ones
+            // they signed up with.
+            if [.add, .changeLevel].contains(entry.action), let keys = entry.subjectKeys,
+               state.people[entry.subjectUserID] != keys {
+                throw ServerRefused(reason: "those are not that person's keys")
+            }
+            let membership: MembershipState
+            do {
+                membership = try MembershipLog.replay(known + [entry], scope: .group(group))
+            } catch {
+                throw ServerRefused(reason: String(describing: error))
+            }
+            if !keys.isEmpty {
+                guard membership.allows(user, .manage) else { throw ServerRefused(reason: "that needs manage") }
+                try Self.check(keys, in: group, sealedToPeople: true, by: user, state: membership,
+                               log: known + [entry], requestEntry: entry, on: state)
+            }
+            state.logs[group] = known + [entry]
+            for key in keys { Self.store(key, in: group, state: &state) }
+        }
+    }
+
+    /// Budget keys from `user`, refused for the reasons the real server
+    /// refuses them.
+    func uploadChecked(_ keys: [WrappedKey], group: GroupID, by user: UserID) throws {
+        try withState { state in
+            guard let membership = try? MembershipLog.replay(state.logs[group] ?? [], scope: .group(group)),
+                  membership.allows(user, .manage) else {
+                throw ServerRefused(reason: "that needs manage")
+            }
+            try Self.check(keys, in: group, sealedToPeople: false, by: user, state: membership,
+                           log: state.logs[group] ?? [], requestEntry: nil, on: state)
+            for key in keys { Self.store(key, in: group, state: &state) }
+        }
+    }
+
+    private static func check(_ keys: [WrappedKey], in group: GroupID, sealedToPeople: Bool,
+                              by user: UserID, state membership: MembershipState,
+                              log: [MembershipLogEntry], requestEntry: MembershipLogEntry?,
+                              on state: State) throws {
+        for key in keys {
+            var claimed: IDClaims?
+            var holds = true
+            if case .budget(let budget) = key.scope {
+                claimed = claims(on: budget.uuid, in: state)
+                holds = MembershipLog.holdsGroupKey(user, of: group, at: key.epoch, log: log,
+                                                    requestEntry: requestEntry, sentNow: keys,
+                                                    stored: state.keys[group] ?? [])
+            }
+            if let why = key.refusal(in: group, sealedToPeople: sealedToPeople, sender: user,
+                                     state: membership, claims: claimed, senderHoldsGroupKey: holds) {
+                throw ServerRefused(reason: why)
+            }
+        }
+    }
+
+    /// The first key for a scope, epoch and recipient stays, as on the real
+    /// server.
+    private static func store(_ key: WrappedKey, in group: GroupID, state: inout State) {
+        let held = (state.keys[group] ?? []).contains {
+            $0.scope == key.scope && $0.epoch == key.epoch && $0.recipientUserID == key.recipientUserID
+        }
+        if !held { state.keys[group, default: []].append(key) }
+    }
+
+    /// What already uses an ID, in any group, as the real server works it out.
+    private static func claims(on id: UUID, in state: State) -> IDClaims {
+        var claims = IDClaims()
+        claims.isGroup = !(state.logs[GroupID(id)] ?? []).isEmpty
+        claims.records = state.records.compactMap { group, records in
+            records[RecordID(id)].map { IDClaims.Record(group: group.uuid, type: $0.envelope.recordType) }
+        }
+        claims.budgetKeys = Set(state.keys.compactMap { group, keys in
+            keys.contains { $0.scope == .budget(BudgetID(id)) } ? group.uuid : nil
+        })
+        return claims
+    }
+}
+
+/// Why the in-memory server refused a membership entry or a key, as the real
+/// server's refusal reads.
+public struct ServerRefused: Error, Equatable, Sendable {
+    public let reason: String
 }
 
 // MARK: - Invites
@@ -284,6 +404,11 @@ extension InMemoryTransport {
 
     /// Every invite, for tests that check one was cleaned up.
     public var inviteCount: Int { withState { $0.invites.count } }
+
+    /// The keys someone signed up with, as the real server keeps them.
+    public func identityKeys(of user: UserID) -> IdentityPublicKeys? {
+        withState { $0.people[user] }
+    }
 }
 
 /// One person's connection to an `InMemoryTransport`.
@@ -310,8 +435,7 @@ public final class InMemorySession: InviteTransport, @unchecked Sendable {
     }
     public func appendMembership(_ entry: MembershipLogEntry, group: GroupID,
                                  wrappedKeys: [WrappedKey]) async throws {
-        server.append(entry, to: group)
-        if !wrappedKeys.isEmpty { server.seed(keys: wrappedKeys, for: group) }
+        try server.appendChecked(entry, keys: wrappedKeys, group: group, by: user)
     }
     public func createInvite(_ invite: NewInvite) async throws {
         server.storeInvite(invite, by: user)
@@ -329,6 +453,6 @@ public final class InMemorySession: InviteTransport, @unchecked Sendable {
         server.removeInvite(id)
     }
     public func uploadKeys(_ keys: [WrappedKey], group: GroupID) async throws {
-        server.seed(keys: keys, for: group)
+        try server.uploadChecked(keys, group: group, by: user)
     }
 }

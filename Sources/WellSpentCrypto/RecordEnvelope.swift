@@ -123,12 +123,20 @@ public struct RecordEnvelope: Codable, Sendable, Equatable {
     /// a live version never replaces a delete. Without this, a rename queued
     /// before the delete arrived could bring the group back for some members
     /// and not others.
+    ///
+    /// Two people can each register the same device ID as their own, so a
+    /// tie on the device is broken by who wrote it, when that is known.
+    /// Otherwise one person's version could win on one Mac and the other's
+    /// on the server.
     public func replaces(lamport stored: UInt64, device storedDevice: DeviceID,
-                         isDeleted storedIsDeleted: Bool) -> Bool {
+                         isDeleted storedIsDeleted: Bool, author storedAuthor: UserID? = nil) -> Bool {
         if recordType == .groupMeta, isDeleted != storedIsDeleted { return isDeleted }
-        return lamport != stored
-            ? lamport > stored
-            : authorDeviceID.uuid.uuidString > storedDevice.uuid.uuidString
+        if lamport != stored { return lamport > stored }
+        if authorDeviceID != storedDevice {
+            return authorDeviceID.uuid.uuidString > storedDevice.uuid.uuidString
+        }
+        guard let storedAuthor, storedAuthor != authorUserID else { return false }
+        return authorUserID.uuid.uuidString > storedAuthor.uuid.uuidString
     }
 
     /// The reason a server gives when it refuses an envelope that does not
@@ -151,6 +159,31 @@ public struct RecordEnvelope: Codable, Sendable, Equatable {
 
     /// The reason a server gives when it refuses a value at or above the ceiling.
     public static let lamportTooLargeRefusal = "the Lamport value is too large"
+
+    /// How far above a group's highest stored Lamport value a pushed value may
+    /// be. Every server refuses one further ahead, judged against the highest
+    /// value stored before the push began, so one push of many records cannot
+    /// climb further than one.
+    ///
+    /// The ceiling alone left a gap. A member at Add could edit her own Mac's
+    /// database to set its clock just under the ceiling, and the stock app then
+    /// signed the next value. Every Mac that pulled it was left with no room to
+    /// save in that group, for good. Now each push can raise a group's highest
+    /// value by this much at most, so reaching the ceiling takes about 2^38
+    /// pushes in a row.
+    ///
+    /// An honest value never comes near it. A Mac's clock for a group is the
+    /// highest value it has pulled from that group, plus one for each save
+    /// since. Everything it pulled was at or below the group's highest value,
+    /// which only goes up. So an honest push is ahead by at most the saves this
+    /// Mac made since its last pull. Months offline, or importing a statement
+    /// of tens of thousands of rows, is far below 2^24, about 16.8 million
+    /// saves. A larger bound would let a forged value climb faster and buy
+    /// nothing for an honest one.
+    public static let lamportLead: UInt64 = 1 << 24
+
+    /// The reason a server gives when it refuses a value too far ahead.
+    public static let lamportTooFarAheadRefusal = "the Lamport value is too far ahead of the group"
 }
 
 public enum EnvelopeError: Error, Equatable, Sendable {
