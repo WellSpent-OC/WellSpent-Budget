@@ -268,11 +268,19 @@ public actor SyncEngine {
     }
 
     /// Whether a version set aside here would still replace the version on
-    /// file, by the rule the server applies.
+    /// file, by the rule the server applies. A group removed from this Mac
+    /// only, with a live re-seal of its record still queued, is weighed as
+    /// live, as `settle` weighs it: it is live for everyone else. Weighed as
+    /// deleted, its held re-seal went out over the version set aside here
+    /// when the group was let go of.
     private func stillNewer(_ envelope: RecordEnvelope) throws -> Bool {
         guard let held = try store.recordVersion(envelope.recordID) else { return true }
-        let deletedHere = try envelope.recordType == .groupMeta
+        let groupIsDeletedHere = try envelope.recordType == .groupMeta
             && store.group(envelope.groupID)?.isDeleted == true
+        let queued = try store.queuedPush(envelope.recordID)
+        let removedHereOnly = groupIsDeletedHere && !envelope.isDeleted
+            && queued?.owesReseal == true && queued?.isDeleted == false
+        let deletedHere = groupIsDeletedHere && !removedHereOnly
         return envelope.replaces(lamport: held.lamport, device: held.device, isDeleted: deletedHere,
                                  author: held.author ?? (held.device == device.id ? userID : nil))
     }

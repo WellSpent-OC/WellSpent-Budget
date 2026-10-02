@@ -171,9 +171,10 @@ update does not bring it back. A record set aside because this build cannot read
 it, or whose retry fails, keeps a queued plain re-seal of it out of the push: the
 re-seal would send this Mac's older content over that version. It waits only while
 that version would still replace the one on file here, so once an edit made here
-has gone out over it, later re-seals go too. Edits and deletes made here always go
-out. Holding them too let any member at Add freeze another member's record for
-good, by sending a copy of it in a made-up format.
+has gone out over it, later re-seals go too. Edits and deletes made here still go
+out, except while a save of that record keeps failing here, as above. Holding them
+for a version this build cannot read let any member at Add freeze another member's
+record for good, by sending a copy of it in a made-up format.
 
 A member profile's ID is worked out from the group and the person
 (`RecordID.memberProfile`), so anyone can work out someone else's in advance. The
@@ -378,21 +379,26 @@ rule above.
 - **A junk group key a Mac took in during a brief membership keeps the real one out
   later.** Servers drop a removed person's group keys, but their Mac keeps what it
   took in, and never replaces a key it holds. A manager with a modified app could
-  add someone with a junk key, remove them, and a later invite would not let them
-  read.
-- **A removal followed at once by a re-add lets a manager refill a current member's
-  slots with junk keys.** The member's current Mac keeps its real keys. A second Mac,
-  or the same one after a reinstall, takes the junk ones for good.
+  add someone with a junk key and remove them. After a later invite, that person
+  cannot read what was sealed under that epoch's key. Other epochs are not affected.
+- **A removal followed at once by a re-add lets a manager refill a member's slots
+  with junk keys.** A Mac keeps the keys it holds, so the member's current Mac keeps
+  its real ones. A second Mac, or the same one after a reinstall, takes the junk
+  ones for good. So does any Mac for an epoch the member never held, such as one
+  before she joined "from now on". That is the same result as the re-add of a
+  current member, which the log now refuses.
 
-Each of these key gaps needs a manager with a modified app, and each leads to
+These last two gaps both need a manager with a modified app, and both lead to
 "cannot read", never to "can read what they should not". A server cannot open a
 key, so it cannot tell a junk one from a real one.
 
 **Key commitments (planned).** The entry that starts an epoch will carry a hash of
 that epoch's group key, and every Mac will refuse a group key that does not match
-it, whoever sent it. That closes the whole class of a manager planting keys: the
-two gaps above, and the re-add route the log now refuses. It changes the format of
-a membership entry, so it is planned for before sharing goes beyond the household.
+it, whoever sent it. A key that matches must also be able to replace one that does
+not, on a server and on a Mac, or a junk key stored first would still win. That
+closes the whole class of a manager planting keys: the two gaps above, and the
+re-add route the log now refuses. It changes the format of a membership entry, so
+it is planned for before a group is shared with members who are not fully trusted.
 
 Plausible, dormant, or small:
 

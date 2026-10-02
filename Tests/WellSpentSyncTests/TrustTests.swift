@@ -1869,6 +1869,89 @@ struct TrustTests {
         #expect(try robin.store.queuedPush(budgetID) == nil)
     }
 
+    /// A group removed from this Mac only is live for everyone else. The
+    /// check of whether a set-aside version is still newer weighed its record
+    /// as deleted, so letting go of the group sent Leslie's held re-seal of it
+    /// over Robin's newer version, set aside here because this build cannot
+    /// read it. It is weighed as live now, as a pull weighs it, and the
+    /// re-seal stays back until letting go drops it.
+    @Test func lettingGoDoesNotSendAHeldReSealOverAnUnreadableVersion() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        for index in 0 ..< 5 { _ = try robin.spend("Row \(index)", in: groceries) }
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+        let groupID = RecordID(household.uuid)
+        func stored() async throws -> RecordEnvelope? {
+            try await server.pull(group: household, since: 0, limit: 500).envelopes
+                .first { $0.recordID == groupID }
+        }
+
+        try leslie.store.queueReseal(of: household, budgets: [])
+        let reseal = try #require(try leslie.store.queuedPush(groupID))
+        let held = try #require(try await stored())
+        #expect(held.lamport + 1 < reseal.lamport)
+
+        // Robin's newer build writes the group record in a format hers cannot read.
+        let current = try robin.forge(BudgetGroup(id: household, name: "Home"), id: groupID,
+                                      type: .groupMeta, group: household, budget: nil,
+                                      lamport: reseal.lamport - 1)
+        let unsigned = RecordEnvelope(
+            version: 99, recordID: current.recordID,
+            recordType: current.recordType, groupID: current.groupID, budgetID: current.budgetID,
+            keyEpoch: current.keyEpoch, ciphersuite: current.ciphersuite,
+            payloadKind: current.payloadKind, nonce: current.nonce, ciphertext: current.ciphertext,
+            lamport: current.lamport, authorUserID: current.authorUserID,
+            authorDeviceID: current.authorDeviceID, membershipSequence: current.membershipSequence,
+            isDeleted: false, signature: Data())
+        let newer = RecordEnvelope(
+            version: unsigned.version, recordID: unsigned.recordID, recordType: unsigned.recordType,
+            groupID: unsigned.groupID, budgetID: unsigned.budgetID, keyEpoch: unsigned.keyEpoch,
+            ciphersuite: unsigned.ciphersuite, payloadKind: unsigned.payloadKind,
+            nonce: unsigned.nonce, ciphertext: unsigned.ciphertext, lamport: unsigned.lamport,
+            authorUserID: unsigned.authorUserID, authorDeviceID: unsigned.authorDeviceID,
+            membershipSequence: unsigned.membershipSequence, isDeleted: false,
+            signature: try robin.device.signing.signature(for: unsigned.signedBytes()))
+        #expect(try await robin.session.push([newer], group: household).accepted == [groupID])
+
+        _ = try await leslie.engine.sync(group: household)
+        #expect(try await stored()?.version == 99, "her re-seal waits")
+
+        // She removes the group from her Mac only, and her app lets go of it.
+        var group = try #require(try leslie.store.group(household))
+        group.isDeleted = true
+        try leslie.store.save(group, queue: false)
+        _ = try await leslie.engine.sync(group: household)
+        #expect(try await stored()?.version == 99, "and still waits while she lets go")
+    }
+
+    /// The fake server takes a budget key from someone it cannot show holds
+    /// that epoch's group key only for a slot that is already filled, where
+    /// the key is dropped anyway, as the real server does. An empty slot
+    /// still needs the check.
+    @Test func theFakeServerChecksTheHolderOnlyForAnEmptySlot() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .manage, history: .fromNow)
+
+        let first = try robin.keyRing.key(for: .group(household), epoch: .initial)
+        let filled = BudgetID(), empty = BudgetID()
+        func budgetKey(_ budget: BudgetID, from member: Member) throws -> WrappedKey {
+            try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(budget), epoch: .initial),
+                                          groupKey: first.material, senderUserID: member.userID)
+        }
+        try await robin.session.uploadKeys([try budgetKey(filled, from: robin)], group: household)
+        try await mallory.session.uploadKeys([try budgetKey(filled, from: mallory)], group: household)
+        await #expect(throws: ServerRefused.self, "she never held the first epoch's key") {
+            try await mallory.session.uploadKeys([try budgetKey(empty, from: mallory)], group: household)
+        }
+        let kept = try await server.wrappedKeys(group: household, for: robin.userID)
+            .filter { $0.scope == .budget(filled) }
+        #expect(kept.map(\.senderUserID) == [robin.userID], "the first key stays")
+    }
+
     /// The author's level, the device's registration and, for a format this
     /// build knows, the signature are all checked before a record is set
     /// aside. Set aside first, a record from a device nobody registered, or
