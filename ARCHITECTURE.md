@@ -140,9 +140,10 @@ record under the IDs it carries at the time, and does not send a transaction or
 receipt filed under another group's budget, which every other member would
 refuse. A statement import files each row under its budget's own group.
 
-A record that cannot be saved as it is never stops a sync. One whose seal does not
-open with the key this Mac holds for its epoch is counted as undecryptable, and one
-whose contents do not decode as what its envelope says is refused. A save this
+A record that can never be saved as it is does not stop a sync for good. One whose
+seal does not open with the key this Mac holds for its epoch is counted as
+undecryptable, and one whose contents do not decode as what its envelope says is
+refused. A save this
 Mac's database refuses for a reason that will repeat, a constraint, is set aside
 and counted (`SyncReport.unsaved`), tried again on later pulls, and that record's
 queued row stays out of the push meanwhile: the failed save also undid moving a
