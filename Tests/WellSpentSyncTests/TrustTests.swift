@@ -1735,6 +1735,140 @@ struct TrustTests {
         #expect(slot.isEmpty, "her empty slot stays empty")
     }
 
+    /// A server takes a group key sealed to the person an add names, and the
+    /// log took an add of someone already in the group. Mallory re-added
+    /// Leslie, who joined "from now on", with a junk key for the epoch before,
+    /// and Leslie's Mac kept it for good. An add is for someone outside the
+    /// group now.
+    @Test func aCurrentMemberCannotBeAddedAgain() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let leslie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        try await robin.sync(household)
+        try await mallory.join(household, from: robin, level: .manage)
+        try await leslie.join(household, from: robin, level: .read, history: .fromNow)
+
+        let (log, state) = try await mallory.membership(of: household)
+        let junk = try KeyWrap.wrapToIdentity(
+            ScopedKey.generate(scope: .group(household), epoch: .initial),
+            recipient: leslie.identity.publicKeys, recipientUserID: leslie.userID,
+            sender: mallory.identity, senderUserID: mallory.userID)
+        let again = try MembershipLogEntry.signed(
+            scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+            action: .add, subjectUserID: leslie.userID, subjectKeys: nil, level: .read,
+            epochAfter: state.epoch, author: mallory.identity, authorUserID: mallory.userID)
+        await #expect(throws: ServerRefused.self) {
+            try await mallory.session.appendMembership(again, group: household, wrappedKeys: [junk])
+        }
+        let slot = try await server.wrappedKeys(group: household, for: leslie.userID)
+            .filter { $0.scope == .group(household) && $0.epoch == .initial }
+        #expect(slot.isEmpty, "the junk key is not stored")
+        try await leslie.sync(household)
+        #expect(!leslie.keyRing.has(scope: .group(household), epoch: .initial), "nor taken in")
+    }
+
+    /// A budget key comes only from someone who holds that epoch's group key,
+    /// which the server judges from the keys it stores for them. Removing
+    /// Mallory dropped hers, so once she was added back "from now on", every
+    /// invite of hers with everything so far was refused, for budget keys
+    /// whose slots were already filled. Those are dropped anyway, so only an
+    /// empty slot needs the check.
+    @Test func aManagerAddedBackCanStillShareEverythingSoFar() async throws {
+        let robin = try Member(server: server), mallory = try Member(server: server)
+        let jamie = try Member(server: server)
+        try await robin.found(household, name: "Household")
+        let groceries = BudgetID()
+        let keys = (0 ... 3).map { ScopedKey.generate(scope: .group(household), epoch: Epoch(UInt32($0))) }
+        func budgetKey(_ epoch: Int, from member: Member) throws -> WrappedKey {
+            try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(groceries), epoch: Epoch(UInt32(epoch))),
+                                          groupKey: keys[epoch].material, senderUserID: member.userID)
+        }
+        func sealed(_ epoch: Int, to members: [Member], from sender: Member) throws -> [WrappedKey] {
+            try members.map {
+                try KeyWrap.wrapToIdentity(keys[epoch], recipient: $0.identity.publicKeys,
+                                           recipientUserID: $0.userID, sender: sender.identity,
+                                           senderUserID: sender.userID)
+            }
+        }
+        func append(_ action: MembershipAction, _ subject: Member, level: AccessLevel, epoch: Int,
+                    by author: Member, keys wrapped: [WrappedKey]) async throws {
+            let (log, state) = try await author.membership(of: household)
+            try await author.session.appendMembership(try MembershipLogEntry.signed(
+                scope: .group(household), sequence: UInt64(log.count), previousHash: state.head,
+                action: action, subjectUserID: subject.userID,
+                subjectKeys: action == .add ? subject.identity.publicKeys : nil, level: level,
+                epochAfter: Epoch(UInt32(epoch)), author: author.identity, authorUserID: author.userID),
+                group: household, wrappedKeys: wrapped)
+        }
+
+        // Mallory joins "from now on", is removed, and is added back the same way.
+        try await append(.add, mallory, level: .manage, epoch: 1, by: robin,
+                         keys: try sealed(1, to: [robin, mallory], from: robin) + [try budgetKey(1, from: robin)])
+        try await append(.remove, mallory, level: .none, epoch: 2, by: robin,
+                         keys: try sealed(2, to: [robin], from: robin) + [try budgetKey(2, from: robin)])
+        try await append(.add, mallory, level: .manage, epoch: 3, by: robin,
+                         keys: try sealed(3, to: [robin, mallory], from: robin) + [try budgetKey(3, from: robin)])
+
+        // Her invite with everything so far: the group keys she holds, sealed
+        // to Jamie, and the budget keys under them.
+        try await append(.add, jamie, level: .read, epoch: 3, by: mallory,
+                         keys: try sealed(1, to: [jamie], from: mallory) + sealed(3, to: [jamie], from: mallory)
+                            + [try budgetKey(1, from: mallory), try budgetKey(3, from: mallory)])
+        #expect(try await server.membershipLog(group: household, since: 0).last?.subjectUserID == jamie.userID)
+    }
+
+    /// An edit made here went out over a version this build cannot read, and
+    /// replaced it on the server. The version stayed set aside here, so every
+    /// later plain re-seal of that record was held back for good. A re-seal
+    /// waits only while the version set aside would still replace the one
+    /// on file.
+    @Test func anEditOverAnUnreadableVersionLetsLaterReSealsGo() async throws {
+        let robin = try Member(server: server), leslie = try Member(server: server)
+        let groceries = groceries()
+        try await robin.found(household, name: "Household", budgets: [groceries])
+        try await robin.sync(household)
+        try await leslie.join(household, from: robin, level: .manage)
+        let budgetID = RecordID(groceries.id.uuid)
+        func stored() async throws -> RecordEnvelope? {
+            try await server.pull(group: household, since: 0, limit: 500).envelopes
+                .first { $0.recordID == budgetID }
+        }
+        let held = try #require(try await stored())
+
+        let current = try leslie.forge(groceries, id: budgetID, type: .budget, group: household,
+                                       budget: nil, lamport: held.lamport + 5)
+        let unsigned = RecordEnvelope(
+            version: 99, recordID: current.recordID,
+            recordType: current.recordType, groupID: current.groupID, budgetID: current.budgetID,
+            keyEpoch: current.keyEpoch, ciphersuite: current.ciphersuite,
+            payloadKind: current.payloadKind, nonce: current.nonce, ciphertext: current.ciphertext,
+            lamport: current.lamport, authorUserID: current.authorUserID,
+            authorDeviceID: current.authorDeviceID, membershipSequence: current.membershipSequence,
+            isDeleted: false, signature: Data())
+        let madeUp = RecordEnvelope(
+            version: unsigned.version, recordID: unsigned.recordID, recordType: unsigned.recordType,
+            groupID: unsigned.groupID, budgetID: unsigned.budgetID, keyEpoch: unsigned.keyEpoch,
+            ciphersuite: unsigned.ciphersuite, payloadKind: unsigned.payloadKind,
+            nonce: unsigned.nonce, ciphertext: unsigned.ciphertext, lamport: unsigned.lamport,
+            authorUserID: unsigned.authorUserID, authorDeviceID: unsigned.authorDeviceID,
+            membershipSequence: unsigned.membershipSequence, isDeleted: false,
+            signature: try leslie.device.signing.signature(for: unsigned.signedBytes()))
+        #expect(try await leslie.session.push([madeUp], group: household).accepted == [budgetID])
+        #expect(try await robin.sync(household).deferred == 1)
+
+        var renamed = groceries
+        renamed.name = "Food"
+        try robin.store.save(renamed)
+        try await robin.sync(household)
+        let edited = try #require(try await stored())
+        #expect(edited.authorUserID == robin.userID && edited.version == RecordEnvelope.currentVersion)
+
+        try robin.store.queueReseal(of: household, budgets: [groceries.id])
+        try await robin.sync(household)
+        #expect(try await stored().map { $0.lamport > edited.lamport } == true, "the later re-seal went out")
+        #expect(try robin.store.queuedPush(budgetID) == nil)
+    }
+
     /// The author's level, the device's registration and, for a format this
     /// build knows, the signature are all checked before a record is set
     /// aside. Set aside first, a record from a device nobody registered, or

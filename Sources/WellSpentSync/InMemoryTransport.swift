@@ -308,14 +308,19 @@ public final class InMemoryTransport: SyncTransport, @unchecked Sendable {
         for key in keys {
             var claimed: IDClaims?
             var holds = true
+            var filled = false
             if case .budget(let budget) = key.scope {
                 claimed = claims(on: budget.uuid, in: state)
+                filled = (state.keys[group] ?? []).contains {
+                    $0.scope == key.scope && $0.epoch == key.epoch && $0.recipientUserID == nil
+                }
                 holds = MembershipLog.holdsGroupKey(user, of: group, at: key.epoch, log: log,
                                                     requestEntry: requestEntry, sentNow: keys,
                                                     stored: state.keys[group] ?? [])
             }
             if let why = key.refusal(in: group, with: requestEntry, log: log, sender: user,
-                                     state: membership, claims: claimed, senderHoldsGroupKey: holds) {
+                                     state: membership, claims: claimed, senderHoldsGroupKey: holds,
+                                     slotIsFilled: filled) {
                 throw ServerRefused(reason: why)
             }
         }

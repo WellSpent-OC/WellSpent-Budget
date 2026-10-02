@@ -77,10 +77,14 @@ extension WrappedKey {
     /// comes only from someone who holds that epoch's group key
     /// (`senderHoldsGroupKey`): a manager who joined "from now on" could fill
     /// an older epoch's empty slot with junk, and the real key sent later was
-    /// dropped.
+    /// dropped. That matters only for an empty slot (`slotIsFilled` false). A
+    /// key for a filled one is dropped anyway, and refusing it refused the
+    /// whole request: a manager whose stored keys were dropped when she was
+    /// removed, and who was added back "from now on", could never again send
+    /// an invite with everything so far.
     public func refusal(in group: GroupID, with entry: MembershipLogEntry?, log: [MembershipLogEntry],
                         sender: UserID, state: MembershipState, claims: IDClaims?,
-                        senderHoldsGroupKey: Bool) -> String? {
+                        senderHoldsGroupKey: Bool, slotIsFilled: Bool) -> String? {
         switch (wrapKind, scope) {
         case (.hpkeToIdentity, .group(let id)) where entry != nil:
             guard id == group, let recipientUserID, state.level(of: recipientUserID) > .none else {
@@ -97,7 +101,7 @@ extension WrappedKey {
             guard let claims, claims.areFree(forBudgetIn: group.uuid, id: budget.uuid) else {
                 return "another record or group already uses that budget's ID"
             }
-            guard senderHoldsGroupKey else {
+            guard senderHoldsGroupKey || slotIsFilled else {
                 return "a budget key comes only from someone who holds that epoch's group key"
             }
         default:

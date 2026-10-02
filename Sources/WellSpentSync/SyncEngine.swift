@@ -218,7 +218,9 @@ public actor SyncEngine {
     /// re-seal would otherwise send this Mac's older content over the version
     /// that waits here, on every Mac. Edits and deletes made here still go:
     /// holding them too let any member at Add freeze another member's record
-    /// for good, by sending a copy of it in a made-up format.
+    /// for good, by sending a copy of it in a made-up format. A re-seal waits
+    /// only while the version set aside would still replace the one on file.
+    /// Once an edit made here has gone out over it, later re-seals go too.
     ///
     /// A row leaves only once it has been dealt with. It was deleted first,
     /// and a failure in between lost it with nothing counted.
@@ -227,7 +229,7 @@ public actor SyncEngine {
         var report = report
         for (envelope, serverSeq) in try store.deferredEnvelopes(in: group) {
             guard envelope.recordType.isKnown, envelope.version == RecordEnvelope.currentVersion else {
-                resealsHeldBack.insert(envelope.recordID)
+                if try stillNewer(envelope) { resealsHeldBack.insert(envelope.recordID) }
                 continue
             }
             if envelope.recordType == .transaction, let budget = envelope.budgetID,
@@ -245,7 +247,7 @@ public actor SyncEngine {
                 // for another reason. It stays, for a later pull, and a
                 // queued re-seal of it waits with it.
                 report.undecryptable += 1
-                resealsHeldBack.insert(envelope.recordID)
+                if try stillNewer(envelope) { resealsHeldBack.insert(envelope.recordID) }
                 continue
             }
             switch outcome {
@@ -263,6 +265,16 @@ public actor SyncEngine {
             }
         }
         return report
+    }
+
+    /// Whether a version set aside here would still replace the version on
+    /// file, by the rule the server applies.
+    private func stillNewer(_ envelope: RecordEnvelope) throws -> Bool {
+        guard let held = try store.recordVersion(envelope.recordID) else { return true }
+        let deletedHere = try envelope.recordType == .groupMeta
+            && store.group(envelope.groupID)?.isDeleted == true
+        return envelope.replaces(lamport: held.lamport, device: held.device, isDeleted: deletedHere,
+                                 author: held.author ?? (held.device == device.id ? userID : nil))
     }
 
     enum ApplyOutcome {

@@ -381,7 +381,7 @@ struct MembershipLogTests {
     /// manager added Jamie, before he joined, with keys she made, and with
     /// keys never changing, the real ones could never go in: every later add
     /// was refused. Keys nobody has signed with can be replaced by a later
-    /// add, and a removal clears them.
+    /// level change, and a removal clears them.
     @Test func keysNobodyHasSignedWithCanBeReplaced() throws {
         let scope = KeyScope.group(GroupID())
         let robin = Person(), mallory = Person(), jamie = Person(), madeUp = Person()
@@ -390,7 +390,7 @@ struct MembershipLogTests {
         try log.appendRaw(.add, subject: jamie.id, keys: madeUp.keys, level: .read, by: mallory)
         let squatted = log
 
-        try log.appendRaw(.add, subject: jamie.id, keys: jamie.keys, level: .write, by: robin)
+        try log.appendRaw(.changeLevel, subject: jamie.id, keys: jamie.keys, level: .write, by: robin)
         try log.append(action: .addDevice, subject: jamie, level: .write, by: jamie)
         #expect(try MembershipLog.replay(log.entries, scope: scope).keys[jamie.id] == jamie.keys)
 
@@ -604,6 +604,32 @@ struct MembershipLogTests {
         try log.appendRaw(.add, subject: leslie.id, level: .read, by: robin)
         #expect(refusal(log.entries, scope).hasPrefix("memberWithoutKeys"),
                 "removing her cleared keys she never signed with")
+    }
+
+    /// A server takes a group key sealed to the person an add names. An add
+    /// of someone already in the group, at the level she holds, let a
+    /// manager attach junk keys for older epochs to it and fill the empty
+    /// slots of a member who joined "from now on". An add is for someone
+    /// outside the group; a member's level changes by a level change.
+    @Test func anAddIsForSomeoneOutsideTheGroup() throws {
+        let scope = KeyScope.group(GroupID())
+        let robin = Person(), mallory = Person(), leslie = Person()
+        var log = try LogBuilder(scope: scope, founder: robin)
+        try log.append(action: .add, subject: mallory, level: .manage, by: robin)
+        try log.append(action: .add, subject: leslie, level: .read, by: robin)
+        let before = log
+
+        try log.appendRaw(.add, subject: leslie.id, level: .read, by: mallory)
+        #expect(refusal(log.entries, scope).hasPrefix("alreadyAMember"))
+
+        log = before
+        try log.appendRaw(.changeLevel, subject: leslie.id, level: .write, by: mallory)
+        #expect(refusal(log.entries, scope) == "accepted", "a level change is how her level moves")
+
+        log = before
+        try log.appendRaw(.remove, subject: leslie.id, level: .none, by: mallory)
+        try log.appendRaw(.add, subject: leslie.id, keys: leslie.keys, level: .read, by: mallory)
+        #expect(refusal(log.entries, scope) == "accepted", "once out, she can be added again")
     }
 
     /// Why a log was refused, as text, or "accepted".

@@ -169,9 +169,11 @@ only up to a limit per sender in each group (`SyncEngine.setAsideLimit`). Past t
 limit such a record is passed over like a refused one, and the pull moves on, so an
 update does not bring it back. A record set aside because this build cannot read
 it, or whose retry fails, keeps a queued plain re-seal of it out of the push: the
-re-seal would send this Mac's older content over that version. Edits and deletes
-made here still go out. Holding them too let any member at Add freeze another
-member's record for good, by sending a copy of it in a made-up format.
+re-seal would send this Mac's older content over that version. It waits only while
+that version would still replace the one on file here, so once an edit made here
+has gone out over it, later re-seals go too. Edits and deletes made here always go
+out. Holding them too let any member at Add freeze another member's record for
+good, by sending a copy of it in a made-up format.
 
 A member profile's ID is worked out from the group and the person
 (`RecordID.memberProfile`), so anyone can work out someone else's in advance. The
@@ -237,9 +239,11 @@ The replay also checks what each entry changes (`MembershipLog.checkWhatItChange
   Once they have signed an entry, only their own entry can replace their keys in
   the log: a manager could put her keys in the founder's place, every entry he
   signed after that was refused, and keys for a new epoch were sealed to her. The
-  log alone lets keys nobody has signed with be replaced by a later add, and a
-  removal clears them; that matters only for a log a server made up, since an
-  honest one holds sign-up keys.
+  log alone lets keys nobody has signed with be replaced by a later level change,
+  and a removal clears them; that matters only for a log a server made up, since an
+  honest one holds sign-up keys. An add is for someone outside the group. A server
+  takes a group key sealed to the person an add names, and an add of a current
+  member let a manager fill her empty older-epoch slots with junk keys.
   An inviter whose add would be refused, or is refused by the server, drops that
   invite instead of failing every sync. Whoever holds a link can answer it with keys
   that are not theirs, or with someone else's ID, so a refused add counts as the
@@ -301,7 +305,10 @@ key: one someone else sealed to them, one they sealed to themselves with the ent
 that started that epoch, or the first one, which the founder made. The entry that
 started an epoch is the one that moved the group to it, never one that only names
 it. A manager added "from now on" could otherwise fill an older epoch's empty slot
-with junk, and the real key sent later was dropped.
+with junk, and the real key sent later was dropped. The check matters only for an
+empty slot. A key for a filled one is dropped anyway, and refusing it refused the
+whole invite: a manager removed and added back "from now on" could never again
+share everything so far, because her stored keys went with the removal.
 
 The app takes a group key only for the group being synced, sealed to this person
 by someone who may manage it; the seal proves who sent it. It opens a budget key
@@ -368,6 +375,24 @@ rule above.
 - **A member at View can make a group's log grow without limit.** Registering the
   same device again, with the same key, is taken each time, and every member's app
   replays every entry.
+- **A junk group key a Mac took in during a brief membership keeps the real one out
+  later.** Servers drop a removed person's group keys, but their Mac keeps what it
+  took in, and never replaces a key it holds. A manager with a modified app could
+  add someone with a junk key, remove them, and a later invite would not let them
+  read.
+- **A removal followed at once by a re-add lets a manager refill a current member's
+  slots with junk keys.** The member's current Mac keeps its real keys. A second Mac,
+  or the same one after a reinstall, takes the junk ones for good.
+
+Each of these key gaps needs a manager with a modified app, and each leads to
+"cannot read", never to "can read what they should not". A server cannot open a
+key, so it cannot tell a junk one from a real one.
+
+**Key commitments (planned).** The entry that starts an epoch will carry a hash of
+that epoch's group key, and every Mac will refuse a group key that does not match
+it, whoever sent it. That closes the whole class of a manager planting keys: the
+two gaps above, and the re-add route the log now refuses. It changes the format of
+a membership entry, so it is planned for before sharing goes beyond the household.
 
 Plausible, dormant, or small:
 
@@ -386,9 +411,13 @@ Plausible, dormant, or small:
   one waiting for its budget is not opened while it waits.
 - **A plain re-seal waits behind a version this build cannot read.** A record with
   such a version set aside here keeps its queued re-seal back until an update can
-  read that version, and letting go of the group drops it. A member added "from now
-  on" cannot read that record until someone edits it. Edits and deletes made here
-  still go out, and are weighed by Lamport value as usual.
+  read that version, or an edit made here goes out over it. Letting go of the group
+  drops the re-seal. A member added "from now on" cannot read that record until
+  someone edits it. Edits and deletes made here still go out, and are weighed by
+  Lamport value as usual.
+- **An edit with a re-seal queued over it can go out over a newer version this build
+  cannot read.** It goes out at the re-seal's fresh Lamport value, not the value the
+  edit was made at. Dormant until a build writes a newer record format.
 - **Made-up keys someone has signed with keep that person out, on a server that
   lies.** An honest server takes only sign-up keys in an add, and the log takes no
   add that leaves someone without keys. A server that lies can hold made-up keys on

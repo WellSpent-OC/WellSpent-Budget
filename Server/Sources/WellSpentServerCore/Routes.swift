@@ -647,8 +647,16 @@ func refusal(forKeys keys: [WrappedKey], groupID: UUID, callerID: UUID,
     for key in keys {
         var claimed: IDClaims?
         var holds = true
+        var filled = false
         if case .budget(let budget) = key.scope {
             claimed = try await claims(on: budget.uuid, db: db)
+            filled = try await WrappedKeyRow.query(on: db)
+                .filter(\.$groupID == groupID)
+                .filter(\.$scopeKind == "budget")
+                .filter(\.$scopeID == budget.uuid)
+                .filter(\.$epoch == Int(key.epoch.value))
+                .filter(\.$recipientUserID == nil)
+                .first() != nil
             let stored = try await WrappedKeyRow.query(on: db)
                 .filter(\.$groupID == groupID)
                 .filter(\.$scopeKind == "group")
@@ -663,7 +671,7 @@ func refusal(forKeys keys: [WrappedKey], groupID: UUID, callerID: UUID,
         }
         if let why = key.refusal(in: GroupID(groupID), with: requestEntry, log: log,
                                  sender: UserID(callerID), state: state, claims: claimed,
-                                 senderHoldsGroupKey: holds) {
+                                 senderHoldsGroupKey: holds, slotIsFilled: filled) {
             return why
         }
     }

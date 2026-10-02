@@ -155,6 +155,9 @@ public enum MembershipLogError: Error, Equatable, Sendable {
     /// Everyone in a group has keys in its log. An add or a level change that
     /// leaves someone a member with none is refused.
     case memberWithoutKeys(atSequence: UInt64)
+    /// An add is for someone outside the group. A member's level changes by a
+    /// level change.
+    case alreadyAMember(atSequence: UInt64)
     /// A device is registered by an entry of its own, never inside an add or a
     /// level change.
     case deviceNotOnItsOwn(atSequence: UInt64)
@@ -341,6 +344,12 @@ public enum MembershipLog {
     /// sign-up keys, and an add with none got round that: the person was
     /// then a member nobody could invite, and a key stored for them with it
     /// stayed in their slot after they were removed.
+    ///
+    /// An add is for someone outside the group. A server takes a group key
+    /// sealed to the person an add names, and an add naming a current member
+    /// let a manager attach junk keys for older epochs, sealed to a member
+    /// who joined "from now on", and fill her empty slots. The app adds only
+    /// people outside the group, so this changes nothing for it.
     static func checkWhatItChanges(_ entry: MembershipLogEntry, in state: MembershipState) throws {
         let at = entry.sequence
         switch entry.action {
@@ -358,6 +367,9 @@ public enum MembershipLog {
             }
             if entry.level > .none, entry.subjectKeys == nil, state.keys[entry.subjectUserID] == nil {
                 throw MembershipLogError.memberWithoutKeys(atSequence: at)
+            }
+            if entry.action == .add, state.level(of: entry.subjectUserID) > .none {
+                throw MembershipLogError.alreadyAMember(atSequence: at)
             }
         default:
             break
