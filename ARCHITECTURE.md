@@ -215,10 +215,8 @@ which loses records on clock skew or a same-second write. Replaced by a
 server-assigned monotonic sequence. This matters more now, because a dropped record
 is ciphertext and shows up as missing data with no error.
 
-Everything in the old auth path. The support backdoor header, the plain `==`
-password comparison, the hardcoded AWS keys in `controllers/EmailController.rb`, the
-transaction IDOR that let any authenticated user rewrite any transaction by id. All
-of it is in the old backend's git history and should be assumed public.
+Everything in the old auth path. Nothing from it is reused: it had serious flaws,
+and its history should be assumed public.
 
 ## Decided since
 
