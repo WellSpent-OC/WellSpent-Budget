@@ -40,8 +40,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: 0.1.0-beta.${{ github.run_number }}
         run: |
-          gh release create "v$VERSION" ".build/app/WellSpent-$VERSION.zip" \
-            --prerelease \
-            --target "$GITHUB_SHA" \
-            --title "WellSpent $VERSION" \
-            --notes "Beta build from main at ${GITHUB_SHA::7}. See the README's Install section for how to open it the first time."
+          zip=".build/app/WellSpent-$VERSION.zip"
+          # A re-run keeps the same run number, so the release may already exist
+          # from the first attempt. Then replace its download instead of failing.
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" "$zip" --clobber
+          else
+            gh release create "v$VERSION" "$zip" \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "WellSpent $VERSION" \
+              --notes "Beta build from main at ${GITHUB_SHA::7}. See the README's Install section for how to open it the first time."
+          fi

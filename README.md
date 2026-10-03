@@ -38,7 +38,9 @@ on Apple silicon and Intel Macs.
    **Always Allow**.
 
 To update, quit WellSpent and replace the app with a newer beta. Your budgets stay:
-they live in `~/Library/Application Support/WellSpent`, not in the app.
+they live in `~/Library/Application Support/WellSpent`, not in the app. Each new beta
+counts as a new app to macOS, so expect steps 3 and 4 again after every update.
+That is normal, not a sign anything broke.
 
 ## Building
 
