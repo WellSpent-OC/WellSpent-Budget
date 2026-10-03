@@ -24,14 +24,11 @@ public enum RecoveryCode {
         case wordlistMissing
     }
 
-    /// Loaded once. 2048 words, verified at load, because a truncated resource
-    /// would otherwise produce codes that decode to the wrong key.
-    public static let wordlist: [String] = {
-        guard let url = Bundle.module.url(forResource: "bip39-english", withExtension: "txt"),
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
-        let words = text.split(whereSeparator: \.isNewline).map(String.init)
-        return words.count == 2048 ? words : []
-    }()
+    /// 2048 words, verified once, because a truncated list would otherwise produce
+    /// codes that decode to the wrong key. Compiled in rather than read from a
+    /// bundled file: SwiftPM looks for its resource bundle beside the app, which a
+    /// packaged .app cannot hold, so sign-up would have stopped the app.
+    public static let wordlist: [String] = englishWords.count == 2048 ? englishWords : []
 
     private static let index: [String: Int] = {
         var m = [String: Int](minimumCapacity: 2048)

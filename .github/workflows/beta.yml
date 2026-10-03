@@ -1,0 +1,47 @@
+name: Beta
+
+# Every change that lands on main becomes a numbered beta: WellSpent.app, built for
+# Apple silicon and Intel Macs, attached to a pre-release on the Releases page.
+# Main only takes changes that passed CI and review, so this workflow only builds.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: beta
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  beta:
+    name: Beta build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build WellSpent.app
+        env:
+          VERSION: 0.1.0-beta.${{ github.run_number }}
+          BUILD: ${{ github.run_number }}
+          ARCHS: arm64 x86_64
+        run: make app
+
+      - name: Zip it
+        run: |
+          cd .build/app
+          ditto -c -k --keepParent WellSpent.app "WellSpent-0.1.0-beta.${{ github.run_number }}.zip"
+
+      - name: Publish the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: 0.1.0-beta.${{ github.run_number }}
+        run: |
+          gh release create "v$VERSION" ".build/app/WellSpent-$VERSION.zip" \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "WellSpent $VERSION" \
+            --notes "Beta build from main at ${GITHUB_SHA::7}. See the README's Install section for how to open it the first time."
