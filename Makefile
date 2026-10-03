@@ -20,7 +20,7 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
          -Xlinker -rpath -Xlinker $(CLT)/Library/Developer/usr/lib
 endif
 
-.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon
+.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app
 
 build:
 	swift build
@@ -80,3 +80,8 @@ icon:
 	@iconset=$$(swift scripts/make-app-icon.swift) && \
 	iconutil -c icns "$$iconset" -o Sources/WellSpentApp/Resources/AppIcon.icns && \
 	echo "Wrote Sources/WellSpentApp/Resources/AppIcon.icns"
+
+# Builds .build/app/WellSpent.app, signed ad hoc. The beta workflow runs this with
+# VERSION, BUILD and ARCHS set; locally it builds for this Mac only.
+app:
+	scripts/make-app.sh
