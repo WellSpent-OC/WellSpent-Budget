@@ -496,7 +496,12 @@ public final class SyncCoordinator {
             log = [try await found(group: group, transport: transport,
                                    identity: identity, device: device, userID: userID)]
         }
-        try mintKeysIfSoleMember(group: group, state: try MembershipLog.replay(log, scope: .group(group)),
+        let engine = SyncEngine(store: store, keyRing: keyRing, transport: transport,
+                                identity: identity, device: device, userID: userID)
+        // Judged on the history this Mac has verified, as sendDelete does:
+        // what it holds plus what extends it. The whole log the server sent
+        // above can be made up.
+        try mintKeysIfSoleMember(group: group, state: try await engine.membership(of: group),
                                  userID: userID)
 
         // Checked again after each wait, so that nobody is added to a group
@@ -510,8 +515,6 @@ public final class SyncCoordinator {
         try await sharing.finishInvites(group: group)
         guard try !isDeleted(group) else { return SyncReport() }
 
-        let engine = SyncEngine(store: store, keyRing: keyRing, transport: transport,
-                                identity: identity, device: device, userID: userID)
         var report = try await engine.sync(group: group)
         if try await sharing.completeJoin(group: group) {
             // No longer waiting, so a delete dialog opened from now on must
@@ -807,11 +810,12 @@ public final class SyncCoordinator {
         return .everyone
     }
 
-    /// Whether this person may add, change or delete budgets in `group`, which
-    /// takes Manage. Read from the membership log as of the last sync, the
-    /// rule every other member's app and the server apply. A group with no log
-    /// has never been synced, so it is this person's own. A group still
-    /// waiting to join has nothing in it to change yet.
+    /// Whether this person may add, change or delete budgets in `group`, or
+    /// rename the group, which takes Manage. Read from the membership log as
+    /// of the last sync, the rule every other member's app and the server
+    /// apply. A group with no log has never been synced, so it is this
+    /// person's own. A group still waiting to join has nothing in it to
+    /// change yet.
     func mayManageBudgets(in group: GroupID) -> Bool {
         if isWaitingToJoin(group) { return false }
         guard let log = try? store.membershipLog(for: group), !log.isEmpty else { return true }
@@ -865,9 +869,19 @@ public final class SyncCoordinator {
     ///
     /// Deleted budgets count too. A budget added and deleted between two syncs
     /// still has its delete queued, and with no key that row would never go.
+    ///
+    /// Only for a group this person founded with their own key, judged on the
+    /// log this Mac has verified. A server can make up a log naming someone
+    /// its only member, and can even put their public keys in it, since those
+    /// are not secret. It cannot sign a founding entry with their key. Minting
+    /// on a made-up log at some later epoch kept keys nobody else had, because
+    /// a key this Mac holds is never replaced.
     private func mintKeysIfSoleMember(group: GroupID, state: MembershipState,
                                       userID: UserID) throws {
-        guard state.members == [userID] else { return }
+        guard state.members == [userID],
+              let founding = try store.membershipLog(for: group).first,
+              founding.subjectUserID == userID,
+              founding.subjectKeys == (try existingIdentity()).publicKeys else { return }
 
         _ = try store.localKey(for: .group(group), epoch: state.epoch)
         for budget in try store.budgets(in: group, includeDeleted: true) {

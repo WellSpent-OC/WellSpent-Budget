@@ -312,7 +312,10 @@ public final class AppModel {
             // The group's own key, kept in the database. A key made fresh at each
             // launch gave the same statement a different fingerprint every time,
             // so re-importing it duplicated every row instead of skipping them.
-            let budgetKey = try store.localKey(for: .group(group.id)).material
+            guard let budgetKey = try fingerprintKey(for: group.id) else {
+                errorMessage = "This group's keys have not arrived yet. Sync, then import again."
+                return
+            }
 
             let context = StatementMatcher.Context(
                 budgetKey: budgetKey,
@@ -374,9 +377,31 @@ public final class AppModel {
         }
     }
 
+    /// The key statement fingerprints are made with: the oldest key this Mac
+    /// holds for the group, or nil when it holds none it may use.
+    ///
+    /// Only a group of this person's own gets a key made here. In a group
+    /// shared with them the keys come from whoever shared it, and this Mac
+    /// never replaces a key it holds. One made here before the real one
+    /// arrived would be kept, and nothing anyone else sealed would open.
+    private func fingerprintKey(for group: GroupID) throws -> SymmetricKey? {
+        if let oldest = try store.cachedKeys(scope: .group(group)).first { return oldest.material }
+        guard try store.pendingJoin(group) == nil else { return nil }
+        let log = try store.membershipLog(for: group)
+        if !log.isEmpty {
+            guard let state = try? MembershipLog.replay(log, scope: .group(group)),
+                  state.members.count <= 1 else { return nil }
+        }
+        return try store.localKey(for: .group(group)).material
+    }
+
+    /// Files the row under its budget's own group. A row given a budget from
+    /// another group, and filed under the group being imported into, was
+    /// shown here and refused by every other member.
     private func write(_ proposal: ImportProposal, into budgetID: BudgetID, group: GroupID) throws {
+        let home = try store.budget(budgetID)?.groupID ?? group
         try store.save(Transaction(
-            budgetID: budgetID, groupID: group, date: proposal.line.date,
+            budgetID: budgetID, groupID: home, date: proposal.line.date,
             merchant: proposal.line.cleanedDescription,
             note: proposal.line.rawDescription,
             amount: proposal.line.amount,

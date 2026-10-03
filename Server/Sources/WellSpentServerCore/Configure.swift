@@ -51,6 +51,7 @@ public func configure(_ app: Application) async throws {
     ContentConfiguration.global.use(decoder: decoder, for: .json)
 
     app.migrations.add(CreateSchema())
+    app.migrations.add(AddGroupMaxLamport())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.

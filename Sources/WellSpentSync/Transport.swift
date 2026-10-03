@@ -69,15 +69,24 @@ public struct SyncReport: Sendable, Equatable {
     /// edit. Also a queued local edit that lost to a newer incoming one, or
     /// that the server refused as older.
     public var conflicts = 0
-    /// Records we could not open because the key for that epoch has not arrived.
+    /// Records we could not open: the key for that epoch has not arrived, or
+    /// the one this Mac holds does not open them.
     public var undecryptable = 0
     /// Our own writes coming back to us. Normal, and not worth showing anyone.
     public var echoes = 0
-    /// Refused: bad signature, unenrolled device, or an author below write.
+    /// Refused: bad signature, unenrolled device, an author below write, or
+    /// contents that do not decode as what the envelope says they are.
     public var ignored = 0
-    /// Made by a newer version of the app, in a type this one cannot read yet.
-    /// Kept and applied after an update, never dropped.
+    /// Set aside: made by a newer version of the app, in a type or format this
+    /// one cannot read yet, and applied after an update; or a transaction that
+    /// arrived before its budget, applied once the budget is in. Records of a
+    /// type or format this build cannot read are kept only up to a limit per
+    /// sender (`SyncEngine.setAsideLimit`); past it they count as `ignored`.
     public var deferred = 0
+    /// Records that passed every check and that this Mac's database would not
+    /// save, for a reason that will repeat. Each is set aside and tried again
+    /// on later pulls, its queued row waits meanwhile, and the sync goes on.
+    public var unsaved = 0
     public var serverSeq: UInt64 = 0
 
     public init() {}

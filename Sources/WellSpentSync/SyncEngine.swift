@@ -24,6 +24,19 @@ public actor SyncEngine {
     private let identity: IdentityKeyPair
     private let device: DeviceKeyPair
     private let userID: UserID
+    /// Records whose pulled version this round could not save. Their queued
+    /// rows wait for a later round rather than go out over that version.
+    private var heldBack: Set<RecordID> = []
+    /// Records with a version set aside here that this build cannot read, or
+    /// whose retry failed. Only a plain re-seal of one waits: it carries this
+    /// Mac's older content and no edit. An edit or a delete made here goes
+    /// out, and the server weighs it by its Lamport value as usual.
+    private var resealsHeldBack: Set<RecordID> = []
+    /// The most records of a type or format this build cannot read that are
+    /// kept from one sender in one group, waiting for an update. Past it,
+    /// another such record from them is passed over like a refused one, and
+    /// the pull moves on.
+    static let setAsideLimit = 10_000
 
     public init(store: Store, keyRing: KeyRing, transport: any SyncTransport,
                 identity: IdentityKeyPair, device: DeviceKeyPair, userID: UserID) {
@@ -38,6 +51,8 @@ public actor SyncEngine {
     @discardableResult
     public func sync(group: GroupID) async throws -> SyncReport {
         var report = SyncReport()
+        heldBack = []
+        resealsHeldBack = []
 
         let membership = try await refreshMembership(group: group)
         guard membership.allows(userID, .read) else { throw SyncError.notAMember(group) }
@@ -124,7 +139,7 @@ public actor SyncEngine {
     private func pullKeys(group: GroupID, membership: MembershipState) async throws {
         let wrapped = try await transport.wrappedKeys(group: group, for: userID)
         guard !wrapped.isEmpty else { return }
-        try keyRing.absorb(wrapped, senders: membership.keys)
+        try keyRing.absorb(wrapped, in: group, membership: membership)
     }
 
     // MARK: - Pull
@@ -132,7 +147,6 @@ public actor SyncEngine {
     private func pull(group: GroupID, membership: MembershipState,
                       into report: SyncReport) async throws -> SyncReport {
         var report = report
-        report = try replayDeferred(group: group, membership: membership, into: report)
         var cursor = try store.syncState(for: group).serverSeq
         var highestLamport = try store.syncState(for: group).lamport
 
@@ -170,6 +184,8 @@ public actor SyncEngine {
                     case .echo:     report.echoes += 1
                     case .ignored:  report.ignored += 1
                     case .deferred: report.deferred += 1
+                    case .undecryptable: report.undecryptable += 1
+                    case .unsaved: report.unsaved += 1
                     }
                 } catch SyncError.noKeyForEpoch {
                     // Expected, and not an error. Either the key is still on its
@@ -183,25 +199,90 @@ public actor SyncEngine {
             if page.envelopes.isEmpty { more = false }
         }
 
+        // Once per pull, after it: a transaction set aside because its budget
+        // had not arrived usually finds it later in the same pull, and a record
+        // an older build set aside is applied now this one can read it.
+        report = try replayDeferred(group: group, membership: membership, into: report)
         try store.recordPull(group: group, serverSeq: cursor, observedLamport: highestLamport)
         return report
     }
 
-    /// Records set aside by an older build of this app, applied now that this
-    /// build knows their type. Ones it still cannot read stay where they are.
+    /// Records set aside, applied now that they can be: ones an older build of
+    /// this app could not read, and transactions that arrived before their
+    /// budget. One that still cannot be applied stays, untouched: a type or a
+    /// format this build cannot read, or a transaction whose budget is still
+    /// missing.
+    ///
+    /// A record that stays because this build cannot read it, or because a
+    /// retry failed, keeps a queued plain re-seal of it out of the push. The
+    /// re-seal would otherwise send this Mac's older content over the version
+    /// that waits here, on every Mac. Edits and deletes made here still go:
+    /// holding them too let any member at Add freeze another member's record
+    /// for good, by sending a copy of it in a made-up format. A re-seal waits
+    /// only while the version set aside would still replace the one on file.
+    /// Once an edit made here has gone out over it, later re-seals go too.
+    ///
+    /// A row leaves only once it has been dealt with. It was deleted first,
+    /// and a failure in between lost it with nothing counted.
     private func replayDeferred(group: GroupID, membership: MembershipState,
                                 into report: SyncReport) throws -> SyncReport {
         var report = report
-        for (envelope, serverSeq) in try store.deferredEnvelopes(in: group)
-        where envelope.recordType.isKnown {
-            switch try? apply(envelope, membership: membership, serverSeq: serverSeq) {
+        for (envelope, serverSeq) in try store.deferredEnvelopes(in: group) {
+            guard envelope.recordType.isKnown, envelope.version == RecordEnvelope.currentVersion else {
+                if try stillNewer(envelope) { resealsHeldBack.insert(envelope.recordID) }
+                continue
+            }
+            if envelope.recordType == .transaction, let budget = envelope.budgetID,
+               try store.budget(budget) == nil {
+                continue
+            }
+            // Set aside earlier in this same pull because it could not be
+            // saved: tried again on the next one.
+            if heldBack.contains(envelope.recordID) { continue }
+            let outcome: ApplyOutcome
+            do {
+                outcome = try apply(envelope, membership: membership, serverSeq: serverSeq)
+            } catch {
+                // Its key has not arrived yet, or this pull cannot settle it
+                // for another reason. It stays, for a later pull, and a
+                // queued re-seal of it waits with it.
+                report.undecryptable += 1
+                if try stillNewer(envelope) { resealsHeldBack.insert(envelope.recordID) }
+                continue
+            }
+            switch outcome {
             case .applied: report.applied += 1
             case .conflict: report.conflicts += 1
-            default: break
+            case .ignored: report.ignored += 1
+            case .undecryptable: report.undecryptable += 1
+            case .unsaved: report.unsaved += 1
+            case .echo, .deferred: break
             }
-            try store.deleteDeferredEnvelope(envelope.recordID)
+            // Set aside again by apply when it is still not ready, or still
+            // cannot be saved, so it stays.
+            if outcome != .deferred && outcome != .unsaved {
+                try store.deleteDeferredEnvelope(envelope.recordID)
+            }
         }
         return report
+    }
+
+    /// Whether a version set aside here would still replace the version on
+    /// file, by the rule the server applies. A group removed from this Mac
+    /// only, with a live re-seal of its record still queued, is weighed as
+    /// live, as `settle` weighs it: it is live for everyone else. Weighed as
+    /// deleted, its held re-seal went out over the version set aside here
+    /// when the group was let go of.
+    private func stillNewer(_ envelope: RecordEnvelope) throws -> Bool {
+        guard let held = try store.recordVersion(envelope.recordID) else { return true }
+        let groupIsDeletedHere = try envelope.recordType == .groupMeta
+            && store.group(envelope.groupID)?.isDeleted == true
+        let queued = try store.queuedPush(envelope.recordID)
+        let removedHereOnly = groupIsDeletedHere && !envelope.isDeleted
+            && queued?.owesReseal == true && queued?.isDeleted == false
+        let deletedHere = groupIsDeletedHere && !removedHereOnly
+        return envelope.replaces(lamport: held.lamport, device: held.device, isDeleted: deletedHere,
+                                 author: held.author ?? (held.device == device.id ? userID : nil))
     }
 
     enum ApplyOutcome {
@@ -209,11 +290,18 @@ public actor SyncEngine {
         case conflict
         /// Our own record coming back. Already local, nothing to do.
         case echo
-        /// A type this build cannot read yet, set aside for after an update.
+        /// Set aside: a type this build cannot read yet, for after an update,
+        /// or a transaction whose budget has not arrived yet.
         case deferred
-        /// Refused: a bad signature, an unenrolled device, or an author who is no
-        /// longer allowed to write.
+        /// Refused: a bad signature, an unenrolled device, an author who is no
+        /// longer allowed to write, or contents that do not decode.
         case ignored
+        /// Signed by someone allowed to write, and does not open with the key
+        /// this Mac holds for its epoch.
+        case undecryptable
+        /// Passed every check, and this Mac's database would not save it, for
+        /// a reason that will repeat. Set aside, to be tried again.
+        case unsaved
     }
 
     private func apply(_ envelope: RecordEnvelope, membership: MembershipState,
@@ -221,8 +309,11 @@ public actor SyncEngine {
         // Our own record coming back, already here. Unless this Mac has since
         // forgotten it: a group brought back after being removed here only is
         // pulled again from the start with no versions on file, and its own
-        // records have to be written again like anyone else's.
-        if envelope.authorDeviceID == device.id,
+        // records have to be written again like anyone else's. Ours means
+        // this person on this device: someone else can register this
+        // device's ID as their own, and what they signed under it was
+        // skipped here as if this Mac had sent it.
+        if envelope.authorDeviceID == device.id, envelope.authorUserID == userID,
            try store.recordVersion(envelope.recordID) != nil || store.isQueued(envelope.recordID) {
             return .echo
         }
@@ -231,37 +322,57 @@ public actor SyncEngine {
         guard (envelope.recordType == .groupMeta) == (envelope.recordID.uuid == envelope.groupID.uuid) else {
             return .ignored
         }
-        guard envelope.recordType.isKnown else {
-            // Made by a newer version of the app. Kept, not dropped: the pull
-            // cursor moves past it now, so once an update teaches this build
-            // the type, `replayDeferred` applies it from here.
-            try store.deferEnvelope(envelope, serverSeq: serverSeq)
-            return .deferred
-        }
-
         let authorLevel = membership.level(of: envelope.authorUserID)
         guard authorLevel.allows(.write) else {
             // Someone who kept the key after being demoted. Honest peers ignore it.
             return .ignored
         }
-        let scope: KeyScope = envelope.budgetID.map { .budget($0) } ?? .group(envelope.groupID)
-        let key = try keyRingKey(scope: scope, epoch: envelope.keyEpoch)
-
         // The signing key comes from the membership log's device registry, not
         // from the envelope. A revoked laptop is simply no longer in there, so
         // anything it signs from now on is ignored.
-        guard let registration = membership.devices[envelope.authorDeviceID],
+        guard let registration = membership.device(envelope.authorDeviceID, of: envelope.authorUserID),
               registration.userID == envelope.authorUserID,
               let signingKey = try? registration.signingKey else {
             return .ignored
         }
 
+        // A type a newer version of the app makes, or a format it writes, is
+        // kept rather than dropped: the pull cursor moves past it now, so once
+        // an update teaches this build to read it, `replayDeferred` applies it
+        // from here. Only from someone who may write, signed when the format
+        // is one this build knows, and only so many from each sender, or any
+        // member or a server that lies could fill this Mac with them. Counted
+        // per sender, one member at Add cannot use up the room other members'
+        // records need.
+        if !envelope.recordType.isKnown || envelope.version != RecordEnvelope.currentVersion {
+            if envelope.version == RecordEnvelope.currentVersion,
+               !envelope.verifySignature(byDeviceKey: signingKey) {
+                return .ignored
+            }
+            guard try store.unreadableCount(in: envelope.groupID, from: envelope.authorUserID,
+                                            except: envelope.recordID) < Self.setAsideLimit else {
+                return .ignored
+            }
+            try store.deferEnvelope(envelope, serverSeq: serverSeq, unreadable: true)
+            return .deferred
+        }
+
+        let scope: KeyScope = envelope.budgetID.map { .budget($0) } ?? .group(envelope.groupID)
+        let key = try keyRingKey(scope: scope, epoch: envelope.keyEpoch)
+
+        // A record that cannot be opened is counted and passed over. Thrown,
+        // it stopped the pull before the cursor moved, so the same record
+        // stopped every later sync of the group, for every member, for good.
         let payload: Data
         do {
             payload = try RecordCodec.openData(from: envelope, scopeKey: key,
                                                deviceKey: signingKey, authorLevel: authorLevel)
-        } catch EnvelopeError.badSignature {
+        } catch EnvelopeError.badSignature, EnvelopeError.unsupportedVersion, EnvelopeError.authorNotEntitled {
             return .ignored
+        } catch {
+            // The seal does not open with the key this Mac holds for its
+            // epoch: sealed under another key, or not sealed properly at all.
+            return .undecryptable
         }
 
         // Everything above judged the envelope. What gets saved is the record
@@ -275,10 +386,41 @@ public actor SyncEngine {
             return .ignored
         }
 
-        return try store.inOneTransaction { store in
-            try settle(envelope, payload: payload, membership: membership,
-                       serverSeq: serverSeq, in: store)
+        // A transaction is saved under its budget, so the budget must be here
+        // first. Pulled from the start, a budget edited since sorts after its
+        // own transactions, and saving one before it failed the whole pull.
+        // Set aside, it is applied once the budget is in, usually at the end
+        // of this same pull.
+        if envelope.recordType == .transaction, let budget = envelope.budgetID,
+           try store.budget(budget) == nil {
+            try store.deferEnvelope(envelope, serverSeq: serverSeq)
+            return .deferred
         }
+
+        // A save this Mac's database refuses for a reason that will repeat,
+        // a constraint, is set aside and counted, and the pull goes on.
+        // Thrown, it stopped the pull before the cursor moved, so the group
+        // stopped syncing here for good. Its queued row stays out of this
+        // round's push: the failed save also undid moving a re-seal above
+        // the newer version, and sending it would put this Mac's old content
+        // over that version on every Mac. Anything else, such as a full
+        // disk, is thrown as before, so the pull stops before its cursor
+        // moves and the record comes again once it can be saved.
+        let outcome: ApplyOutcome
+        do {
+            outcome = try store.inOneTransaction { store in
+                try settle(envelope, payload: payload, membership: membership,
+                           serverSeq: serverSeq, in: store)
+            }
+        } catch where Store.isLastingFailure(error) {
+            try store.deferEnvelope(envelope, serverSeq: serverSeq)
+            heldBack.insert(envelope.recordID)
+            return .unsaved
+        }
+        // A copy of this record set aside earlier is older than this one, or
+        // is this one. Applied later, it would only come back as a conflict.
+        try store.deleteDeferredEnvelope(envelope.recordID)
+        return outcome
     }
 
     /// Weighs an incoming record against what this Mac holds, and keeps the
@@ -318,10 +460,19 @@ public actor SyncEngine {
         let incomingWins: Bool
         if let rival {
             incomingWins = envelope.replaces(lamport: rival.weighedLamport, device: device.id,
-                                             isDeleted: localIsDeleted || rival.isDeleted)
+                                             isDeleted: localIsDeleted || rival.isDeleted,
+                                             author: userID)
         } else {
+            // A version stored before migration v7 has no author on file. One
+            // on this Mac's own device ID is taken as this person's. This Mac
+            // sent it in nearly every case: the builds before v7 skipped most
+            // of what anyone else signed under this ID, as this Mac's own
+            // coming back. The store does not know device IDs this Mac used
+            // before, so a version on one of those keeps the stored one on a
+            // tie, as before.
             incomingWins = try store.recordVersion(envelope.recordID).map {
-                envelope.replaces(lamport: $0.lamport, device: $0.device, isDeleted: localIsDeleted)
+                envelope.replaces(lamport: $0.lamport, device: $0.device, isDeleted: localIsDeleted,
+                                  author: $0.author ?? ($0.device == device.id ? userID : nil))
             } ?? (envelope.isDeleted || !localIsDeleted)
         }
         if !incomingWins {
@@ -362,7 +513,8 @@ public actor SyncEngine {
         try write(payload, type: envelope.recordType, isDeleted: envelope.isDeleted || removedHereOnly,
                   in: store)
         try store.setRecordVersion(envelope.recordID, lamport: envelope.lamport,
-                                   device: envelope.authorDeviceID, serverSeq: serverSeq)
+                                   device: envelope.authorDeviceID, author: envelope.authorUserID,
+                                   serverSeq: serverSeq)
         return outcome
     }
 
@@ -383,7 +535,8 @@ public actor SyncEngine {
     /// - A member profile can only be written by the member it names.
     /// - A group record describes the group it travels in. Only the group's
     ///   founder or an admin may delete it, so a delete from anyone else is
-    ///   refused and the group stays.
+    ///   refused and the group stays. Renaming it takes a manager, as a
+    ///   budget does.
     /// - A budget is made, changed and deleted by a manager. Write is for
     ///   transactions.
     ///
@@ -394,7 +547,9 @@ public actor SyncEngine {
         let author = envelope.authorUserID
         switch envelope.recordType {
         case .transaction:
-            var incoming = try RecordCodec.decoder.decode(Transaction.self, from: payload)
+            guard var incoming = try? RecordCodec.decoder.decode(Transaction.self, from: payload) else {
+                return nil
+            }
             let existing = try store.transaction(envelope.recordID)
             if let owner = existing?.createdBy, incoming.createdBy != owner {
                 return nil   // nobody re-assigns a transaction
@@ -411,18 +566,20 @@ public actor SyncEngine {
             return try RecordCodec.encoder.encode(incoming)
 
         case .memberProfile:
-            let incoming = try RecordCodec.decoder.decode(MemberProfile.self, from: payload)
-            guard incoming.userID == author,
+            guard let incoming = try? RecordCodec.decoder.decode(MemberProfile.self, from: payload),
+                  incoming.userID == author,
                   incoming.groupID == envelope.groupID,
                   envelope.recordID == MemberProfile.recordID(group: envelope.groupID, user: author)
             else { return nil }
             return payload
 
         case .groupMeta:
-            let incoming = try RecordCodec.decoder.decode(BudgetGroup.self, from: payload)
-            guard incoming.id == envelope.groupID else { return nil }
-            if envelope.isDeleted && !membership.mayDeleteGroup(author) { return nil }
-            return payload
+            guard let incoming = try? RecordCodec.decoder.decode(BudgetGroup.self, from: payload),
+                  incoming.id == envelope.groupID else { return nil }
+            if envelope.isDeleted {
+                return membership.mayDeleteGroup(author) ? payload : nil
+            }
+            return authorLevel.allows(.manage) ? payload : nil
 
         case .budget:
             return authorLevel.allows(.manage) ? payload : nil
@@ -442,7 +599,9 @@ public actor SyncEngine {
     /// take it over, or send a budget from another group through a group she
     /// founded and overwrite it there.
     private func belongsHere(_ payload: Data, envelope: RecordEnvelope) throws -> Bool {
-        guard let inside = try RecordBinding(payload, type: envelope.recordType),
+        // Contents that do not decode as the type the envelope names are
+        // refused here, like any other record that does not match.
+        guard let inside = try? RecordBinding(payload, type: envelope.recordType),
               inside.matches(envelope) else { return false }
 
         // A record this Mac already holds keeps its type and its group. One
@@ -477,6 +636,19 @@ public actor SyncEngine {
         case .transaction:
             var value = try decoder.decode(Transaction.self, from: payload)
             value.isDeleted = isDeleted
+            // This Mac holds one imported row per fingerprint in a group. Two
+            // members who import the same statement each send theirs, and
+            // saving the other's failed on every pull. It is kept without the
+            // fingerprint, which only this Mac's next import reads.
+            if let fingerprint = value.importFingerprint,
+               let holder = try store.transaction(withFingerprint: fingerprint, in: value.groupID),
+               holder != value.id {
+                value.importFingerprint = nil
+                // Kept to one side, and sent with the row again, so the
+                // member who imported it still has it when this Mac saves
+                // the row again.
+                try store.holdFingerprint(fingerprint, for: value.id)
+            }
             try store.save(value, queue: false)
         case .receipt:
             var value = try decoder.decode(Receipt.self, from: payload)
@@ -530,7 +702,8 @@ public actor SyncEngine {
         var sealed: [(push: PendingPush, payload: Data)] = []
         var gone: [PendingPush] = []
 
-        for item in pending {
+        for item in pending where !heldBack.contains(item.recordID)
+            && !(item.isReseal && resealsHeldBack.contains(item.recordID)) {
             guard let payload = try payload(for: item, in: store) else {
                 // No record to seal, because it is no longer in this Mac's
                 // database, so there is nothing to send. The row is dropped
@@ -546,6 +719,7 @@ public actor SyncEngine {
             // envelope that does not describe what is inside it.
             guard let inside = try RecordBinding(payload, type: item.recordType),
                   inside.id == item.recordID.uuid, inside.group == item.groupID,
+                  try budgetIsInItsGroup(inside, type: item.recordType),
                   try mayPush(item, membership: membership, in: store) else {
                 // Every other member would refuse it, so sending it would only
                 // leave this device disagreeing with everyone else. The screens
@@ -606,7 +780,7 @@ public actor SyncEngine {
         // A newer row still queued goes out next round and moves this on then.
         for (recordID, lamport) in zip(envelopes.map(\.recordID), envelopes.map(\.lamport))
         where accepted.contains(recordID.uuid) {
-            try store.setRecordVersion(recordID, lamport: lamport, device: device.id,
+            try store.setRecordVersion(recordID, lamport: lamport, device: device.id, author: userID,
                                        serverSeq: result.serverSeq)
         }
 
@@ -614,14 +788,25 @@ public actor SyncEngine {
     }
 
     /// The same rules `authorised` applies to incoming records, applied to our
-    /// own before they leave: someone else's transaction, or any budget, needs
-    /// a manager.
+    /// own before they leave: someone else's transaction, any budget, or a
+    /// change to the group's name needs a manager.
     nonisolated private func mayPush(_ item: PendingPush, membership: MembershipState,
                                      in store: Store) throws -> Bool {
         if item.recordType == .budget { return membership.allows(userID, .manage) }
+        if item.recordType == .groupMeta, !item.isDeleted { return membership.allows(userID, .manage) }
         guard item.recordType == .transaction,
               let owner = try store.transaction(item.recordID)?.createdBy else { return true }
         return owner == userID || membership.allows(userID, .manage)
+    }
+
+    /// Whether a transaction or receipt names a budget in the group it is sent
+    /// to, when this Mac holds that budget. Every member refuses one that does
+    /// not (`belongsHere`), so sending it would leave this Mac showing a
+    /// record nobody else has.
+    private func budgetIsInItsGroup(_ inside: RecordBinding, type: RecordType) throws -> Bool {
+        guard type != .budget, let budget = inside.budget,
+              let home = try store.budget(budget)?.groupID else { return true }
+        return home == inside.group
     }
 
     nonisolated private func payload(for push: PendingPush, in store: Store) throws -> Data? {
@@ -640,6 +825,12 @@ public actor SyncEngine {
                 // pushes it owns it, which on this device is us.
                 value.createdBy = userID
                 try store.save(value, queue: false)
+            }
+            // A fingerprint this Mac cleared on arrival goes back out with the
+            // row. Sent without it, the next overlapping import by the member
+            // who made it added the line again.
+            if value.importFingerprint == nil, let held = try store.heldFingerprint(for: push.recordID) {
+                value.importFingerprint = held
             }
             return try encoder.encode(value)
         case .receipt:

@@ -155,10 +155,17 @@ private struct Fixture {
             scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
             action: .add, subjectUserID: peer.userID, subjectKeys: peer.publicKeys,
             level: level, epochAfter: epoch,
-            deviceID: peer.device.id, devicePublicKey: peer.device.publicKey,
             author: owner.identity, authorUserID: owner.userID
         )
         log.append(entry)
+        // Their device, registered by their own entry, as their app does.
+        log.append(try MembershipLogEntry.signed(
+            scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
+            action: .addDevice, subjectUserID: peer.userID, subjectKeys: nil,
+            level: level, epochAfter: epoch,
+            deviceID: peer.device.id, devicePublicKey: peer.device.publicKey,
+            author: peer.identity, authorUserID: peer.userID
+        ))
         transport.seed(log: log, for: group)
 
         let groupKey = try owner.keyRing.key(for: .group(group), epoch: epoch)
@@ -598,34 +605,50 @@ struct SyncTests {
         #expect(try leslie.store.outboxCount(in: fixture.group) == 0)
     }
 
-    /// The view member's rule again, for the group's own record. Nothing
-    /// stops a view member saving it, and a push would allow it, so only the
-    /// view rule keeps the row from outranking the owner's newer name. The
-    /// budget test above cannot show that, because the Manage rule holds a
-    /// budget back on its own.
-    @Test func aViewMembersMacTakesNewerGroupEdits() async throws {
+    /// The view member's rule again, where only it decides. Leslie could add
+    /// and edited her own transaction offline, several times, after the
+    /// owner lowered her to View. Push sends only for someone who may write,
+    /// so her row will never go, and it must give way to the owner's newer
+    /// edit. Her own transaction passes every other rule, so without the
+    /// view rule her higher Lamport value kept the owner's edit out here.
+    @Test func aMemberLoweredToViewTakesNewerEdits() async throws {
         var fixture = try Fixture()
-        _ = try fixture.makeBudget(named: "Groceries")
+        let budget = try fixture.makeBudget(named: "Groceries")
         _ = try await fixture.owner.engine.sync(group: fixture.group)
-        let jamie = try Peer(transport: fixture.transport)
-        try fixture.add(jamie, level: .read)
-        _ = try await jamie.engine.sync(group: fixture.group)
+        let leslie = try Peer(transport: fixture.transport)
+        try fixture.add(leslie, level: .write, budgets: [budget.id])
+        _ = try await leslie.engine.sync(group: fixture.group)
+        let hers = Transaction(budgetID: budget.id, groupID: fixture.group, date: Date(),
+                               merchant: "Costco", amount: Money(minorUnits: -1000))
+        try leslie.store.save(hers)
+        _ = try await leslie.engine.sync(group: fixture.group)
+        _ = try await fixture.owner.engine.sync(group: fixture.group)
 
-        for name in ["Ours", "Our place"] {
-            var renamed = try #require(try jamie.store.group(fixture.group))
-            renamed.name = name
-            try jamie.store.save(renamed)
+        let lowered = try MembershipLogEntry.signed(
+            scope: .group(fixture.group), sequence: UInt64(fixture.log.count),
+            previousHash: fixture.log.last!.hash, action: .changeLevel,
+            subjectUserID: leslie.userID, subjectKeys: nil, level: .read, epochAfter: fixture.epoch,
+            author: fixture.owner.identity, authorUserID: fixture.owner.userID)
+        fixture.log.append(lowered)
+        fixture.transport.seed(log: fixture.log, for: fixture.group)
+
+        for note in ["a", "b", "c", "d", "e"] {
+            var mine = try #require(try leslie.store.transaction(hers.id))
+            mine.note = note
+            try leslie.store.save(mine)
         }
-        var renamed = try #require(try fixture.owner.store.group(fixture.group))
-        renamed.name = "Home"
-        try fixture.owner.store.save(renamed)
+        var fixed = try #require(try fixture.owner.store.transaction(hers.id))
+        fixed.merchant = "Costco, fixed"
+        try fixture.owner.store.save(fixed)
         _ = try await fixture.owner.engine.sync(group: fixture.group)
+        #expect(try leslie.store.queuedPush(hers.id)!.lamport
+                    > (try fixture.owner.store.recordVersion(hers.id)?.lamport ?? 0),
+                "her row outranks his, so only the view rule decides")
 
-        _ = try await jamie.engine.sync(group: fixture.group)
-        #expect(try jamie.store.group(fixture.group)?.name == "Home", "the owner's name reached him")
-        #expect(try jamie.store.outboxCount(in: fixture.group) == 0)
-        #expect(try jamie.store.conflicts(for: RecordID(fixture.group.uuid))
-            .contains { $0.payloadJSON.contains("Our place") })
+        _ = try await leslie.engine.sync(group: fixture.group)
+        #expect(try leslie.store.transaction(hers.id)?.merchant == "Costco, fixed")
+        #expect(try leslie.store.outboxCount(in: fixture.group) == 0)
+        #expect(try leslie.store.conflicts(for: hers.id).contains { $0.payloadJSON.contains("\"e\"") })
     }
 
     // MARK: - Re-seals
@@ -733,6 +756,8 @@ struct SyncTests {
     /// If a write fails partway, none of it lands. Otherwise her losing edit
     /// left the queue and the record took his text, with no version on file
     /// to say so, and her edit was gone from the screen with nothing sent.
+    /// The failure no longer stops the pull: it is counted, and the record
+    /// that could not be saved is kept as a conflict copy.
     @Test func applyingAPulledRecordLandsWholeOrNotAtAll() async throws {
         var fixture = try Fixture()
         let budget = try fixture.makeBudget(named: "Groceries")
@@ -762,12 +787,18 @@ struct SyncTests {
                     """)
             }
         }
-        await #expect(throws: (any Error).self) { try await leslie.engine.sync(group: fixture.group) }
-
         let recordID = RecordID(budget.id.uuid)
+        let versionBefore = try leslie.store.recordVersion(recordID)?.lamport
+        let report = try await leslie.engine.sync(group: fixture.group)
+        #expect(report.unsaved == 1, "got \(report)")
+
         #expect(try leslie.store.budget(budget.id)?.name == "Hers", "nothing was written over")
+        #expect(try leslie.store.recordVersion(recordID)?.lamport == versionBefore,
+                "and his version is not on file")
         #expect(try leslie.store.queuedPush(recordID) != nil, "her edit is still queued")
         #expect(try leslie.store.conflicts(for: recordID).isEmpty, "and no conflict copy was kept")
+        #expect(try leslie.store.deferredEnvelopes(in: fixture.group).map(\.0.recordID) == [recordID],
+                "his record waits to be tried again")
     }
 
     /// The in-memory server takes the version it holds, sent again by the
@@ -836,7 +867,8 @@ struct SyncTests {
     }
 
     /// The in-memory server refuses a Lamport value at or above the ceiling,
-    /// as the real one does, and takes the one just below it.
+    /// as the real one does. The one just below it is refused too, here, as
+    /// too far ahead of a group whose values are nowhere near it.
     @Test func theFakeServerRefusesALamportValueAtTheCeiling() async throws {
         var fixture = try Fixture()
         let budget = try fixture.makeBudget(named: "Groceries")
@@ -856,8 +888,8 @@ struct SyncTests {
             let result = try await fixture.transport.push([try sealed(lamport)], group: fixture.group)
             #expect(result.rejected[RecordID(budget.id.uuid)] == "the Lamport value is too large")
         }
-        let taken = try await fixture.transport.push([try sealed(ceiling - 1)], group: fixture.group)
-        #expect(taken.accepted == [RecordID(budget.id.uuid)])
+        let ahead = try await fixture.transport.push([try sealed(ceiling - 1)], group: fixture.group)
+        #expect(ahead.rejected[RecordID(budget.id.uuid)] == "the Lamport value is too far ahead of the group")
     }
 
     /// A server without the ceiling can hand over a forged Lamport value at
@@ -891,20 +923,27 @@ struct SyncTests {
     }
 
     /// The highest value a server takes is one below the ceiling. A Mac that
-    /// pulls it still has room on its clock, and its saves go on.
+    /// pulls it still has room on its clock, and its saves go on. A server
+    /// now takes it only in a group whose values have climbed that far, so a
+    /// server that skips that rule hands it over here.
     @Test func aMacHoldingTheHighestTakenValueKeepsSaving() async throws {
         var fixture = try Fixture()
         let budget = try fixture.makeBudget(named: "Groceries")
         _ = try await fixture.owner.engine.sync(group: fixture.group)
-        let leslie = try Peer(transport: fixture.transport)
+        let server = Smuggling(fixture.transport)
+        let leslie = try Peer(transport: server)
         try fixture.add(leslie, level: .write, budgets: [budget.id])
         _ = try await leslie.engine.sync(group: fixture.group)
 
         let highest = (UInt64(1) << 62) - 1
         var renamed = budget
         renamed.name = "Food"
-        try await forge(renamed, id: RecordID(budget.id.uuid), type: .budget, budget: budget.id,
-                        as: fixture.owner, fixture: fixture, lamport: highest)
+        server.extra = [try RecordCodec.seal(
+            renamed, recordID: RecordID(budget.id.uuid), recordType: .budget,
+            groupID: fixture.group, budgetID: budget.id,
+            scopeKey: try fixture.owner.keyRing.key(for: .budget(budget.id), epoch: fixture.epoch),
+            lamport: highest, author: fixture.owner.userID, device: fixture.owner.device,
+            membershipSequence: UInt64(fixture.log.count - 1))]
         _ = try await leslie.engine.sync(group: fixture.group)
         #expect(try leslie.store.budget(budget.id)?.name == "Food")
         #expect(try leslie.store.syncState(for: fixture.group).lamport == highest)
@@ -1929,8 +1968,13 @@ private func bookClub(foundedBy founder: Peer, members: [Peer], on transport: In
             scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
             action: .add, subjectUserID: member.userID, subjectKeys: member.publicKeys,
             level: .read, epochAfter: .initial,
-            deviceID: member.device.id, devicePublicKey: member.device.publicKey,
             author: founder.identity, authorUserID: founder.userID))
+        log.append(try MembershipLogEntry.signed(
+            scope: .group(group), sequence: UInt64(log.count), previousHash: log.last!.hash,
+            action: .addDevice, subjectUserID: member.userID, subjectKeys: nil,
+            level: .read, epochAfter: .initial,
+            deviceID: member.device.id, devicePublicKey: member.device.publicKey,
+            author: member.identity, authorUserID: member.userID))
     }
     transport.seed(log: log, for: group)
 

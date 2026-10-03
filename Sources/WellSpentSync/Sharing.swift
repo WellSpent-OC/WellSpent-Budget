@@ -100,6 +100,14 @@ public struct Sharing: Sendable {
             InviteAcceptance(accepterUserID: userID, accepterKeys: identity.publicKeys,
                              displayName: displayName),
             invite: lookup.invite(id: secret.id), secret: secret)
+        // A group's ID is also its record's ID. On an ID this Mac already
+        // holds as something else, such as a member's profile, the waiting
+        // group hid that record here for good, and every later change to it
+        // was ignored. The app picks random group IDs, so only a modified one
+        // makes a link like this. Refused before the answer goes out.
+        if let held = try store.holder(of: RecordID(lookup.group.uuid)), held.type != .groupMeta {
+            throw SharingError.badLink
+        }
         try await transport.acceptInvite(id: secret.id, sealed: sealed)
 
         let name = link.groupName.isEmpty ? "Shared group" : link.groupName
@@ -135,9 +143,17 @@ public struct Sharing: Sendable {
     /// Adds everyone who has answered one of this device's invites to `group`.
     /// Returns who was added. An answer that does not open was not sealed with
     /// the link's secret, so it is refused and the spoiled invite removed.
+    ///
+    /// So is one the server refuses to add. An answer is bound to the link's
+    /// secret, not to an account, so whoever holds the link can answer with
+    /// keys that are not their sign-up keys, someone else's ID, or an ID with
+    /// no account. Thrown, the refusal stopped this Mac's sync of the group
+    /// on every round until the link expired. A refusal that came because
+    /// the log moved on while the add was on its way is not the answer's
+    /// fault, so that invite stays for the next sync.
     @discardableResult
     public func finishInvites(group: GroupID, now: Date = Date()) async throws -> [InviteAcceptance] {
-        var log = try await transport.membershipLog(group: group, since: 0)
+        var log = try await verifiedLog(of: group)
         guard !log.isEmpty else { return [] }
         var state = try MembershipLog.replay(log, scope: .group(group))
         guard state.allows(userID, .manage) else { return [] }
@@ -162,7 +178,17 @@ public struct Sharing: Sendable {
                 try await cancelInvite(pending.id)
                 continue
             }
-            guard state.level(of: acceptance.accepterUserID) == AccessLevel.none else {
+            // Other keys are already on this person's ID, and someone has
+            // signed with them, so the add would be refused on every sync.
+            // The invite goes instead, and the rest of the sync goes on.
+            if let held = state.keys[acceptance.accepterUserID], held != acceptance.accepterKeys,
+               state.signers.contains(acceptance.accepterUserID) {
+                try await cancelInvite(pending.id)
+                continue
+            }
+            guard state.level(of: acceptance.accepterUserID) == AccessLevel.none,
+                  (try? acceptance.accepterKeys.signingKey) != nil,
+                  (try? acceptance.accepterKeys.kemKey) != nil else {
                 try await cancelInvite(pending.id)
                 continue
             }
@@ -174,14 +200,27 @@ public struct Sharing: Sendable {
             // it is on its way.
             guard let owed = try store.liveBudgets(ifLive: group) else { break }
 
-            let (epoch, keys) = try keysForNewMember(acceptance, group: group, state: state,
-                                                     history: sent.historyAccess)
+            let (epoch, keys, fresh) = try keysForNewMember(acceptance, group: group, state: state,
+                                                            history: sent.historyAccess)
             let entry = try MembershipLogEntry.signed(
                 scope: .group(group), sequence: UInt64(log.count), previousHash: state.head,
                 action: .add, subjectUserID: acceptance.accepterUserID,
                 subjectKeys: acceptance.accepterKeys, level: sent.level, epochAfter: epoch,
                 author: identity, authorUserID: userID)
-            try await transport.appendMembership(entry, group: group, wrappedKeys: keys)
+            do {
+                try await transport.appendMembership(entry, group: group, wrappedKeys: keys)
+            } catch where Self.isRefusal(error) {
+                guard try await verifiedLog(of: group).count == log.count else { break }
+                try await cancelInvite(pending.id)
+                continue
+            }
+            // Kept only now the server has the entry. A held key is never
+            // replaced, so keys for an epoch that never started would keep
+            // out the ones that did. The entry is kept too, as the founding
+            // one is: a server that left it out of later reads could get a
+            // second "from now on" invite to start the same epoch again.
+            try store.append(entry, in: group)
+            for key in fresh { try keyRing.remember(key) }
             try await cancelInvite(pending.id)
             if sent.historyAccess == .fromNow { try resealStructure(of: group, budgets: owed) }
 
@@ -192,6 +231,15 @@ public struct Sharing: Sendable {
         return added
     }
 
+    /// Whether a server turned a request down, as opposed to not being
+    /// reached or failing on its side. Signing in again, or waiting out a
+    /// limit, is not a refusal of the request itself.
+    static func isRefusal(_ error: any Error) -> Bool {
+        if error is ServerRefused { return true }
+        guard case HTTPTransport.Failure.http(let status, _) = error else { return false }
+        return (400 ..< 500).contains(status) && status != 401 && status != 429
+    }
+
     /// The keys a new member gets.
     ///
     /// `.all`: every group key this device holds, sealed to them, and every budget
@@ -199,9 +247,11 @@ public struct Sharing: Sendable {
     ///
     /// `.fromNow`: a new epoch first. Fresh group and budget keys, sealed to every
     /// member including them. They hold nothing older, so they read nothing older.
+    /// The fresh keys come back too, for the caller to keep once the server has
+    /// taken the entry.
     private func keysForNewMember(_ acceptance: InviteAcceptance, group: GroupID,
                                   state: MembershipState,
-                                  history: HistoryAccess) throws -> (Epoch, [WrappedKey]) {
+                                  history: HistoryAccess) throws -> (Epoch, [WrappedKey], [ScopedKey]) {
         let budgets = try store.budgets(in: group, includeDeleted: true).map(\.id)
 
         switch history {
@@ -209,7 +259,8 @@ public struct Sharing: Sendable {
             var members = state.members.compactMap { id in state.keys[id].map { (userID: id, keys: $0) } }
             members.append((userID: acceptance.accepterUserID, keys: acceptance.accepterKeys))
             let epoch = state.epoch.next
-            return (epoch, try keyRing.rotate(group: group, budgets: budgets, to: epoch, members: members))
+            let rotation = try keyRing.rotate(group: group, budgets: budgets, to: epoch, members: members)
+            return (epoch, rotation.wrapped, rotation.keys)
 
         case .all:
             var wrapped: [WrappedKey] = []
@@ -225,7 +276,7 @@ public struct Sharing: Sendable {
                         budgetKey, groupKey: groupKey.material, senderUserID: userID))
                 }
             }
-            return (state.epoch, wrapped)
+            return (state.epoch, wrapped, [])
         }
     }
 
@@ -256,12 +307,12 @@ public struct Sharing: Sendable {
     /// manager adds budgets, so nobody else mints one, and the server refuses
     /// a key from anyone else.
     public func prepare(group: GroupID) async throws {
-        let log = try await transport.membershipLog(group: group, since: 0)
+        let log = try await verifiedLog(of: group)
         guard !log.isEmpty else { return }
         let state = try MembershipLog.replay(log, scope: .group(group))
         guard state.allows(userID, .read) else { return }
 
-        if state.devices[device.id] == nil {
+        if state.device(device.id, of: userID) == nil {
             let entry = try MembershipLogEntry.signed(
                 scope: .group(group), sequence: UInt64(log.count), previousHash: state.head,
                 action: .addDevice, subjectUserID: userID, subjectKeys: nil,
@@ -273,7 +324,7 @@ public struct Sharing: Sendable {
 
         guard state.members.count > 1, state.allows(userID, .manage) else { return }
         try keyRing.absorb(try await transport.wrappedKeys(group: group, for: userID),
-                           senders: state.keys)
+                           in: group, membership: state)
         guard keyRing.has(scope: .group(group), epoch: state.epoch) else { return }
         let groupKey = try keyRing.key(for: .group(group), epoch: state.epoch)
 

@@ -397,4 +397,5 @@ struct RecordVersionRow: Codable, FetchableRecord, PersistableRecord {
     var lamport: Int64
     var authorDeviceId: String
     var serverSeq: Int64
+    var authorUserId: String?
 }

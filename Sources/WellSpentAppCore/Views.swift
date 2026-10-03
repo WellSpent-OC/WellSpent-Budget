@@ -249,7 +249,9 @@ struct SidebarView: View {
         if sync.mayManageBudgets(in: group.id) {
             Button("New Budget in \(group.name)…") { editor = .newBudget(in: group.id) }
         }
-        Button("Rename…") { editor = .renameGroup(group) }
+        if sync.mayManageBudgets(in: group.id) {
+            Button("Rename…") { editor = .renameGroup(group) }
+        }
         Divider()
         Button("Delete…", role: .destructive) {
             pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
@@ -598,7 +600,10 @@ struct ImportRow: View {
                     set: { model.pendingImport?.chosenBudgets[index] = $0 }
                 )) {
                     Text("Choose").tag(BudgetID?.none)
-                    ForEach(model.summaries.values.flatMap(\.self), id: \.budget.id) { summary in
+                    // Only the budgets of the group being imported into. A row
+                    // filed in another group's budget is not in this group.
+                    ForEach(model.groups.first.flatMap { model.summaries[$0.id] } ?? [],
+                            id: \.budget.id) { summary in
                         Text(summary.budget.name).tag(BudgetID?.some(summary.budget.id))
                     }
                 }

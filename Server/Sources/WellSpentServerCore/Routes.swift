@@ -408,6 +408,14 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
             guard body.entry.action == .found, body.entry.authorUserID.uuid == user.id else {
                 throw ServerError.chainRejected("first entry must found the group")
             }
+            // A group's ID is also its record's ID, and an app that holds
+            // something under that ID ignores whatever else arrives on it. A
+            // group founded on someone's profile ID, or on a record's, hid
+            // that record on the Mac of everyone who answered its link. The
+            // app picks random IDs, so only a modified one gets here.
+            guard try await claims(on: groupID, db: request.db).areFree(forGroup: groupID) else {
+                throw ServerError.chainRejected("that group ID is already in use")
+            }
             try await GroupRow(id: groupID, founderID: user.id).save(on: request.db)
         } else {
             guard body.entry.authorUserID.uuid == user.id else {
@@ -423,6 +431,33 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
             throw ServerError.chainRejected(String(describing: error))
         }
 
+        // Keys put on someone's ID must be the ones they signed up with. A
+        // manager could put keys she made on a person before they joined, or
+        // before their first sync, and lock them out of the group: the log
+        // keeps a person's keys once they sign with them.
+        if [.add, .changeLevel].contains(body.entry.action), let keys = body.entry.subjectKeys {
+            guard let person = try await UserRow.find(body.entry.subjectUserID.uuid, on: request.db),
+                  person.identitySigning == keys.signing, person.identityKEM == keys.kem else {
+                throw ServerError.chainRejected("those are not that person's keys")
+            }
+        }
+
+        // Keys travel with an entry when a manager adds someone or starts a new
+        // epoch. Any member could attach them to an entry of her own, such as
+        // registering her device, and every member's app took them in place of
+        // the keys it held.
+        if !body.wrappedKeys.isEmpty {
+            guard state.allows(UserID(user.id), .manage) else {
+                throw ServerError.insufficientLevel(needed: .manage)
+            }
+            if let why = try await refusal(forKeys: body.wrappedKeys,
+                                           groupID: groupID, callerID: user.id, state: state,
+                                           log: combined, requestEntry: body.entry,
+                                           on: request.db) {
+                throw Abort(.badRequest, reason: why)
+            }
+        }
+
         // Entry, keys and epoch in one transaction. A rotation that half applies
         // leaves records that nobody can open.
         try await request.db.transaction { db in
@@ -430,12 +465,17 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
                                          entry: try JSONEncoder().encode(body.entry)).save(on: db)
 
             for key in body.wrappedKeys {
-                let (kind, scopeID) = key.scope.serverParts
-                try await WrappedKeyRow(
-                    groupID: groupID, scopeKind: kind, scopeID: scopeID,
-                    epoch: Int(key.epoch.value), recipientUserID: key.recipientUserID?.uuid,
-                    payload: try JSONEncoder().encode(key)
-                ).save(on: db)
+                try await storeKey(key, groupID: groupID, on: db)
+            }
+            // Someone this entry leaves out of the group loses the group keys
+            // stored for them, so a junk one cannot outlast them and take the
+            // real one's place when they are invited back.
+            if let leaving = MembershipLog.groupKeysDropped(by: body.entry, state: state) {
+                try await WrappedKeyRow.query(on: db)
+                    .filter(\.$groupID == groupID)
+                    .filter(\.$scopeKind == "group")
+                    .filter(\.$recipientUserID == leaving.uuid)
+                    .delete()
             }
 
             try await MembershipRow.query(on: db).filter(\.$groupID == groupID).delete()
@@ -516,20 +556,15 @@ private func registerSharingRoutes(_ routes: any RoutesBuilder) throws {
             throw ServerError.insufficientLevel(needed: .manage)
         }
         let body = try request.content.decode(UploadKeysRequest.self)
-        for key in body.wrappedKeys {
-            guard key.wrapKind == .aesUnderGroupKey, key.recipientUserID == nil,
-                  key.senderUserID.uuid == user.id, !key.scope.isGroupScope else {
-                throw Abort(.badRequest, reason: "only budget keys sealed under the group key")
-            }
+        if let why = try await refusal(forKeys: body.wrappedKeys,
+                                       groupID: groupID, callerID: user.id, state: state,
+                                       log: try await storedLog(groupID: groupID, on: request.db),
+                                       requestEntry: nil, on: request.db) {
+            throw Abort(.badRequest, reason: why)
         }
         try await request.db.transaction { db in
             for key in body.wrappedKeys {
-                let (kind, scopeID) = key.scope.serverParts
-                try await WrappedKeyRow(
-                    groupID: groupID, scopeKind: kind, scopeID: scopeID,
-                    epoch: Int(key.epoch.value), recipientUserID: nil,
-                    payload: try JSONEncoder().encode(key)
-                ).save(on: db)
+                try await storeKey(key, groupID: groupID, on: db)
             }
         }
         return .created
@@ -600,6 +635,88 @@ func storedLog(groupID: UUID, on db: any Database) async throws -> [MembershipLo
     return try rows.map { try decoder.decode(MembershipLogEntry.self, from: $0.entry) }
 }
 
+// MARK: Keys and IDs
+
+/// Why wrapped keys may not be stored in a group, or nil when they may. The
+/// caller has already checked that the sender may manage the group. The rules
+/// themselves are `WrappedKey.refusal`, shared with the in-memory server.
+func refusal(forKeys keys: [WrappedKey], groupID: UUID, callerID: UUID,
+             state: MembershipState, log: [MembershipLogEntry], requestEntry: MembershipLogEntry?,
+             on db: any Database) async throws -> String? {
+    let decoder = JSONDecoder()
+    for key in keys {
+        var claimed: IDClaims?
+        var holds = true
+        var filled = false
+        if case .budget(let budget) = key.scope {
+            claimed = try await claims(on: budget.uuid, db: db)
+            filled = try await WrappedKeyRow.query(on: db)
+                .filter(\.$groupID == groupID)
+                .filter(\.$scopeKind == "budget")
+                .filter(\.$scopeID == budget.uuid)
+                .filter(\.$epoch == Int(key.epoch.value))
+                .filter(\.$recipientUserID == nil)
+                .first() != nil
+            let stored = try await WrappedKeyRow.query(on: db)
+                .filter(\.$groupID == groupID)
+                .filter(\.$scopeKind == "group")
+                .filter(\.$scopeID == groupID)
+                .filter(\.$epoch == Int(key.epoch.value))
+                .filter(\.$recipientUserID == callerID)
+                .all()
+                .map { try decoder.decode(WrappedKey.self, from: $0.payload) }
+            holds = MembershipLog.holdsGroupKey(UserID(callerID), of: GroupID(groupID), at: key.epoch,
+                                                log: log, requestEntry: requestEntry,
+                                                sentNow: keys, stored: stored)
+        }
+        if let why = key.refusal(in: GroupID(groupID), with: requestEntry, log: log,
+                                 sender: UserID(callerID), state: state, claims: claimed,
+                                 senderHoldsGroupKey: holds, slotIsFilled: filled) {
+            return why
+        }
+    }
+    return nil
+}
+
+/// Stores a key unless one is already stored for the same scope, epoch and
+/// recipient. The first one stays, so every member's app holds the same one.
+/// Another, from a manager whose rotation lost a race or from one who means
+/// harm, was handed out next to it in no particular order, and each app kept
+/// whichever it opened last.
+func storeKey(_ key: WrappedKey, groupID: UUID, on db: any Database) async throws {
+    let (kind, scopeID) = key.scope.serverParts
+    var existing = WrappedKeyRow.query(on: db)
+        .filter(\.$groupID == groupID)
+        .filter(\.$scopeKind == kind)
+        .filter(\.$scopeID == scopeID)
+        .filter(\.$epoch == Int(key.epoch.value))
+    if let recipient = key.recipientUserID?.uuid {
+        existing = existing.filter(\.$recipientUserID == recipient)
+    } else {
+        existing = existing.filter(\.$recipientUserID == nil)
+    }
+    guard try await existing.first() == nil else { return }
+    try await WrappedKeyRow(
+        groupID: groupID, scopeKind: kind, scopeID: scopeID,
+        epoch: Int(key.epoch.value), recipientUserID: key.recipientUserID?.uuid,
+        payload: try JSONEncoder().encode(key)
+    ).save(on: db)
+}
+
+/// What already uses an ID, in any group (`IDClaims`).
+func claims(on id: UUID, db: any Database) async throws -> IDClaims {
+    var claims = IDClaims()
+    claims.isGroup = try await GroupRow.find(id, on: db) != nil
+    if let record = try await RecordRow.find(id, on: db) {
+        claims.records = [.init(group: record.groupID, type: RecordType(rawValue: record.recordType))]
+    }
+    claims.budgetKeys = Set(try await WrappedKeyRow.query(on: db)
+        .filter(\.$scopeKind == "budget")
+        .filter(\.$scopeID == id)
+        .all(\.$groupID))
+    return claims
+}
+
 func membershipState(groupID: UUID, on db: any Database) async throws -> MembershipState {
     let log = try await storedLog(groupID: groupID, on: db)
     guard !log.isEmpty else { throw ServerError.notAMember }
@@ -620,6 +737,11 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
     var accepted: [UUID] = []
     var rejected: [String: String] = [:]
     var sequence = try await nextSequence(groupID: groupID, on: db)
+    // Read once, before any of this push is stored, so a push of many records
+    // can raise it by one lead at most, not one lead per record.
+    let group = try await GroupRow.find(groupID, on: db)
+    let highestBefore = UInt64(max(0, group?.maxLamport ?? 0))
+    var highest = highestBefore
 
     for envelope in envelopes {
         // Judged one at a time. The old API used `break` inside this loop, so
@@ -632,7 +754,7 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             rejected[envelope.recordID.uuid.uuidString] = "author does not match the caller"
             continue
         }
-        guard let registration = state.devices[envelope.authorDeviceID],
+        guard let registration = state.device(envelope.authorDeviceID, of: envelope.authorUserID),
               registration.userID.uuid == userID,
               let signing = try? registration.signingKey,
               envelope.verifySignature(byDeviceKey: signing) else {
@@ -653,6 +775,13 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
         if envelope.recordType == .groupMeta, envelope.isDeleted,
            !state.mayDeleteGroup(UserID(userID)) {
             rejected[envelope.recordID.uuid.uuidString] = "only the founder or an admin can delete the group"
+            continue
+        }
+        // Renaming the group renames it for every member, so it takes a
+        // manager, as budgets do. Add is for transactions.
+        if envelope.recordType == .groupMeta, !envelope.isDeleted,
+           !state.allows(UserID(userID), .manage) {
+            rejected[envelope.recordID.uuid.uuidString] = "only a manager can change the group"
             continue
         }
         // A budget is made, changed and deleted by a manager. Write is for
@@ -683,6 +812,13 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             rejected[envelope.recordID.uuid.uuidString] = RecordEnvelope.lamportTooLargeRefusal
             continue
         }
+        // Below the ceiling, a value just under it still left every Mac that
+        // pulled it no room to save in the group. An honest value is never
+        // this far ahead of the group; `lamportLead` says why.
+        guard envelope.lamport <= highestBefore + RecordEnvelope.lamportLead else {
+            rejected[envelope.recordID.uuid.uuidString] = RecordEnvelope.lamportTooFarAheadRefusal
+            continue
+        }
         let lamport = Int(envelope.lamport)
 
         let encoded = try JSONEncoder().encode(envelope)
@@ -702,8 +838,16 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             // the app would send it on every sync. It is already stored, so it
             // is taken and nothing changes. The ciphertext is not compared,
             // because the app seals every send afresh with a new nonce.
+            // The person and the device together: two people can each
+            // register one device ID as their own. Who wrote the stored
+            // version is read from its envelope. The author column was not
+            // updated when a version was replaced before this check read it,
+            // so on older rows it can name whoever first pushed the record.
+            let storedAuthor = (try? JSONDecoder().decode(RecordEnvelope.self, from: existing.envelope))?
+                .authorUserID.uuid ?? existing.authorUserID
             if existing.lamport == lamport,
                existing.authorDeviceID == envelope.authorDeviceID.uuid,
+               storedAuthor == envelope.authorUserID.uuid,
                existing.isDeleted == envelope.isDeleted {
                 accepted.append(envelope.recordID.uuid)
                 continue
@@ -712,7 +856,8 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             // except that a group's delete is final.
             guard envelope.replaces(lamport: UInt64(existing.lamport),
                                     device: DeviceID(existing.authorDeviceID),
-                                    isDeleted: existing.isDeleted) else {
+                                    isDeleted: existing.isDeleted,
+                                    author: UserID(storedAuthor)) else {
                 let reopens = envelope.recordType == .groupMeta && existing.isDeleted && !envelope.isDeleted
                 rejected[envelope.recordID.uuid.uuidString] = reopens
                     ? "the group has been deleted"
@@ -725,8 +870,14 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
             existing.isDeleted = envelope.isDeleted
             existing.envelope = encoded
             existing.authorDeviceID = envelope.authorDeviceID.uuid
+            existing.authorUserID = userID
             try await existing.save(on: db)
         } else {
+            guard try await claims(on: envelope.recordID.uuid, db: db)
+                .areFree(forRecordOf: envelope.recordType, in: groupID, id: envelope.recordID.uuid) else {
+                rejected[envelope.recordID.uuid.uuidString] = "another record already has this ID"
+                continue
+            }
             sequence += 1
             try await RecordRow(
                 id: envelope.recordID.uuid, groupID: groupID,
@@ -736,9 +887,19 @@ private func applyPush(_ envelopes: [RecordEnvelope], groupID: UUID, userID: UUI
                 isDeleted: envelope.isDeleted, envelope: encoded
             ).save(on: db)
         }
+        highest = max(highest, envelope.lamport)
         accepted.append(envelope.recordID.uuid)
     }
 
+    // Raised, never lowered. Two pushes that change one record at the same
+    // moment can both get here, and the second may hold the lower value.
+    if highest > highestBefore {
+        try await GroupRow.query(on: db)
+            .filter(\.$id == groupID)
+            .filter(\.$maxLamport < Int(highest))
+            .set(\.$maxLamport, to: Int(highest))
+            .update()
+    }
     return PushResponse(accepted: accepted, rejected: rejected, serverSeq: sequence)
 }
 
@@ -760,11 +921,6 @@ extension KeyScope {
         case .group(let id): return ("group", id.uuid)
         case .budget(let id): return ("budget", id.uuid)
         }
-    }
-
-    var isGroupScope: Bool {
-        if case .group = self { return true }
-        return false
     }
 }
 

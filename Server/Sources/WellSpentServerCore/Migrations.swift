@@ -1,7 +1,9 @@
 import Foundation
 import Fluent
+import WellSpentCrypto
 
-/// One migration, because nothing has shipped yet.
+/// The schema as first shipped. Later changes are migrations of their own, below,
+/// because databases in use already hold this one.
 ///
 /// Written against `Migration` rather than the raw SQL the old API used. Fluent's
 /// schema builder has no index API at all, only `unique(on:)` and `constraint(_:)`,
@@ -118,5 +120,72 @@ struct CreateSchema: AsyncMigration {
                        TokenRow.schema, EscrowRow.schema, UserRow.schema] {
             try await database.schema(schema).delete()
         }
+    }
+}
+
+/// Each group's highest stored Lamport value, so a push can be judged against
+/// it without reading every record (`RecordEnvelope.lamportLead`).
+///
+/// The first migration to run against a database already in use. It adds one
+/// column with a default, which Postgres and SQLite both do in place, and then
+/// fills it from the records each group already holds. Nothing is deleted or
+/// rewritten.
+///
+/// Both steps run in one transaction, and the column is added only when it is
+/// not there. Fluent records a migration as done only after it returns, so a
+/// start cut short before that tried to add the column again on every start
+/// after, and the server could not start until someone dropped it by hand.
+/// Now a second run finds the column, fills it again, which never lowers a
+/// value, and finishes.
+struct AddGroupMaxLamport: AsyncMigration {
+    func prepare(on database: any Database) async throws {
+        // Asked outside the transaction: on Postgres a failed statement
+        // spoils the transaction it runs in. An empty table answers nil,
+        // which still means the column is there.
+        let hasColumn: Bool
+        do {
+            _ = try await GroupRow.query(on: database).max(\.$maxLamport)
+            hasColumn = true
+        } catch {
+            hasColumn = false
+        }
+        try await database.transaction { database in
+            if !hasColumn {
+                // A raw default rather than Fluent's SQL helper, so this needs
+                // no import beyond Fluent. Both drivers take it as written.
+                try await database.schema(GroupRow.schema)
+                    .field("max_lamport", .int, .required, .custom("DEFAULT 0"))
+                    .update()
+            }
+            try await fillGroupMaxLamport(on: database)
+        }
+    }
+
+    func revert(on database: any Database) async throws {
+        try await database.schema(GroupRow.schema).deleteField("max_lamport").update()
+    }
+}
+
+/// Sets each group's highest stored Lamport value from its records. It never
+/// lowers one. A value at or above the ceiling is left out: one stored before
+/// the ceiling existed would otherwise let every later push through, however
+/// far ahead it was.
+func fillGroupMaxLamport(on database: any Database) async throws {
+    let ceiling = Int(RecordEnvelope.lamportCeiling)
+    for group in try await GroupRow.query(on: database).all() {
+        let highest = try await RecordRow.query(on: database)
+            .filter(\.$groupID == group.requireID())
+            .filter(\.$lamport < ceiling)
+            .max(\.$lamport) ?? 0
+        guard highest > group.maxLamport else { continue }
+        group.maxLamport = highest
+        try await group.save(on: database)
+    }
+    let above = try await RecordRow.query(on: database).filter(\.$lamport >= ceiling).count()
+    if above > 0 {
+        // Not fixed here. Every app now ignores these records, and a Mac that
+        // took one in before the upgrade cannot save in that group. See the
+        // ceiling in ARCHITECTURE.md.
+        database.logger.warning("\(above) stored records have a Lamport value at or above the ceiling")
     }
 }

@@ -139,6 +139,28 @@ public enum MembershipLogError: Error, Equatable, Sendable {
     case cannotRemoveFounder(atSequence: UInt64)
     case foundingEntryNotFirst(atSequence: UInt64)
     case unknownDevice(DeviceID)
+    /// A person's keys, once the log holds them, change only by their own
+    /// signed entry.
+    case keysAlreadyEstablished(atSequence: UInt64)
+    /// A device ID stays with whoever registered it.
+    case deviceTaken(atSequence: UInt64)
+    /// A device is revoked as its own owner's, or not at all.
+    case notTheirDevice(atSequence: UInt64)
+    /// The epoch moves one step at a time, and only by someone who can hand out
+    /// the new keys. A group starts at the first epoch.
+    case epochNotNext(atSequence: UInt64)
+    /// Registering a device never moves the epoch, so its entry names the
+    /// current one.
+    case epochNotCurrent(atSequence: UInt64)
+    /// Everyone in a group has keys in its log. An add or a level change that
+    /// leaves someone a member with none is refused.
+    case memberWithoutKeys(atSequence: UInt64)
+    /// An add is for someone outside the group. A member's level changes by a
+    /// level change.
+    case alreadyAMember(atSequence: UInt64)
+    /// A device is registered by an entry of its own, never inside an add or a
+    /// level change.
+    case deviceNotOnItsOwn(atSequence: UInt64)
 }
 
 /// The replayed result: who is in, at what level, and which epoch is current.
@@ -152,18 +174,41 @@ public struct DeviceRegistration: Sendable, Equatable {
     }
 }
 
+/// A device as one person's.
+///
+/// A Mac uses one device ID in every group, and every member of each can read
+/// it. Registered by the ID alone, a member could take someone else's ID in a
+/// group that person had not joined yet, and they could never send anything
+/// there. So a registration belongs to the person and the device together.
+public struct DeviceSlot: Hashable, Sendable {
+    public let user: UserID
+    public let device: DeviceID
+
+    public init(user: UserID, device: DeviceID) {
+        self.user = user
+        self.device = device
+    }
+}
+
 public struct MembershipState: Sendable, Equatable {
     public internal(set) var levels: [UserID: AccessLevel] = [:]
     public internal(set) var keys: [UserID: IdentityPublicKeys] = [:]
     /// Only these devices can produce a record other people will accept. Revoking
     /// a stolen laptop takes its entry out of here.
-    public internal(set) var devices: [DeviceID: DeviceRegistration] = [:]
+    public internal(set) var devices: [DeviceSlot: DeviceRegistration] = [:]
+    /// Everyone who has signed an entry in this log, which shows they hold the
+    /// keys it has for them.
+    public internal(set) var signers: Set<UserID> = []
     public internal(set) var epoch: Epoch = .initial
     public internal(set) var founder: UserID?
     public internal(set) var sequence: UInt64 = 0
     public internal(set) var head: Data = MembershipLogEntry.rootHash
 
     public func level(of user: UserID) -> AccessLevel { levels[user] ?? .none }
+    /// `device` as `user`'s, if it is registered as theirs.
+    public func device(_ device: DeviceID, of user: UserID) -> DeviceRegistration? {
+        devices[DeviceSlot(user: user, device: device)]
+    }
     public func allows(_ user: UserID, _ required: AccessLevel) -> Bool { level(of: user).allows(required) }
     public var members: [UserID] { levels.filter { $0.value > .none }.map(\.key) }
 
@@ -185,12 +230,18 @@ public enum MembershipLog {
     /// that point. A server that rewrites history fails at the hash, and a server
     /// that invents a member fails at the signature. Only the first entry may
     /// found the group, because a founding entry is the one that vouches for
-    /// itself.
+    /// itself. What an entry changes is checked too (`checkWhatItChanges`):
+    /// someone else's keys, someone else's device, and an epoch skipped or
+    /// moved by someone who cannot hand out its keys.
     public static func replay(_ entries: [MembershipLogEntry], scope: KeyScope) throws -> MembershipState {
         guard let first = entries.first else { throw MembershipLogError.empty }
         guard first.action == .found, first.sequence == 0, first.previousHash == MembershipLogEntry.rootHash else {
             throw MembershipLogError.firstEntryMustFound
         }
+        // Every group starts at the first epoch, as the app founds it. One
+        // founded at the top of the range left no next epoch, and working one
+        // out stopped the server process.
+        guard first.epochAfter == .initial else { throw MembershipLogError.epochNotNext(atSequence: 0) }
 
         var state = MembershipState()
 
@@ -230,9 +281,11 @@ public enum MembershipLog {
                 guard state.allows(entry.authorUserID, needed) else {
                     throw MembershipLogError.authorNotEntitled(atSequence: entry.sequence, needed: needed)
                 }
+                try checkWhatItChanges(entry, in: state)
             }
 
             try apply(entry, to: &state)
+            state.signers.insert(entry.authorUserID)
             state.sequence = entry.sequence
             state.head = entry.hash
         }
@@ -250,6 +303,8 @@ public enum MembershipLog {
         case .found:
             return .superadmin
         case .rotate, .rotateIdentity:
+            // For a new identity, only your own: `checkWhatItChanges`
+            // refuses anyone else's, at any level.
             return .manage
         case .addDevice, .revokeDevice:
             // Enrolling or cutting off your own device needs only the access you
@@ -262,6 +317,102 @@ public enum MembershipLog {
         }
     }
 
+    /// What an entry may change, once its author holds the level it needs.
+    ///
+    /// A person's keys are their own. Once they have signed an entry with
+    /// them, only that person's entry can replace them. A manager could put her
+    /// own keys in the founder's place: every entry he signed after that was
+    /// refused, and the keys for a new epoch were sealed to her instead of him.
+    ///
+    /// A device is registered by its owner's own entry, as theirs, and revoked
+    /// only as theirs. Registering your own device takes only View, and every
+    /// member can read every device ID in the log, so a member at View could
+    /// take the founder's device, or cut it off, and every member then refused
+    /// what it sent. A registration now belongs to the person and the device
+    /// together (`DeviceSlot`).
+    ///
+    /// The epoch moves one step at a time, and only by a manager, who is the
+    /// one who can hand out the new epoch's keys. An epoch nobody holds keys
+    /// for left every member's edits queued for good. Registering a device
+    /// leaves the epoch where it is, so its entry must name the current one.
+    /// It needs only View, and one naming the next epoch looked like the
+    /// entry that started it, so the server refused the keys the real start
+    /// of that epoch carried.
+    ///
+    /// Everyone an add or a level change leaves in the group has keys in the
+    /// log. Servers compare the keys an entry carries with the person's
+    /// sign-up keys, and an add with none got round that: the person was
+    /// then a member nobody could invite, and a key stored for them with it
+    /// stayed in their slot after they were removed.
+    ///
+    /// An add is for someone outside the group. A server takes a group key
+    /// sealed to the person an add names, and an add naming a current member
+    /// let a manager attach junk keys for older epochs, sealed to a member
+    /// who joined "from now on", and fill her empty slots. The app adds only
+    /// people outside the group, so this changes nothing for it.
+    static func checkWhatItChanges(_ entry: MembershipLogEntry, in state: MembershipState) throws {
+        let at = entry.sequence
+        switch entry.action {
+        case .rotateIdentity:
+            guard entry.subjectUserID == entry.authorUserID else {
+                throw MembershipLogError.keysAlreadyEstablished(atSequence: at)
+            }
+        case .add, .changeLevel:
+            // Keys nobody has yet signed with may be replaced, so a manager who
+            // put made-up keys on someone's ID before they joined cannot keep
+            // them out for good.
+            if let keys = entry.subjectKeys, let held = state.keys[entry.subjectUserID], held != keys,
+               state.signers.contains(entry.subjectUserID) {
+                throw MembershipLogError.keysAlreadyEstablished(atSequence: at)
+            }
+            if entry.level > .none, entry.subjectKeys == nil, state.keys[entry.subjectUserID] == nil {
+                throw MembershipLogError.memberWithoutKeys(atSequence: at)
+            }
+            if entry.action == .add, state.level(of: entry.subjectUserID) > .none {
+                throw MembershipLogError.alreadyAMember(atSequence: at)
+            }
+        default:
+            break
+        }
+
+        switch entry.action {
+        case .add, .changeLevel:
+            // The app never sends a device with these. A manager could enrol
+            // a device of her own under someone else's name, and sign records
+            // as them.
+            if entry.deviceID != nil || entry.devicePublicKey != nil {
+                throw MembershipLogError.deviceNotOnItsOwn(atSequence: at)
+            }
+        case .addDevice:
+            if let deviceID = entry.deviceID, let publicKey = entry.devicePublicKey,
+               let held = state.device(deviceID, of: entry.subjectUserID),
+               held.publicKey != publicKey {
+                throw MembershipLogError.deviceTaken(atSequence: at)
+            }
+        case .revokeDevice:
+            if let deviceID = entry.deviceID, state.device(deviceID, of: entry.subjectUserID) == nil {
+                throw MembershipLogError.notTheirDevice(atSequence: at)
+            }
+        default:
+            break
+        }
+
+        // Adding a device is the one action that leaves the epoch alone, so
+        // it names the current one. The next epoch is worked out without
+        // adding past the top of the range.
+        if entry.action == .addDevice {
+            guard entry.epochAfter == state.epoch else { throw MembershipLogError.epochNotCurrent(atSequence: at) }
+            return
+        }
+        guard entry.epochAfter != state.epoch else { return }
+        guard state.epoch.value < UInt32.max, entry.epochAfter.value == state.epoch.value + 1 else {
+            throw MembershipLogError.epochNotNext(atSequence: at)
+        }
+        guard state.allows(entry.authorUserID, .manage) else {
+            throw MembershipLogError.authorNotEntitled(atSequence: at, needed: .manage)
+        }
+    }
+
     static func apply(_ entry: MembershipLogEntry, to state: inout MembershipState) throws {
         switch entry.action {
         case .found:
@@ -269,21 +420,20 @@ public enum MembershipLog {
             state.levels[entry.subjectUserID] = .superadmin
             state.keys[entry.subjectUserID] = entry.subjectKeys
             if let deviceID = entry.deviceID, let publicKey = entry.devicePublicKey {
-                state.devices[deviceID] = DeviceRegistration(userID: entry.subjectUserID, publicKey: publicKey)
+                state.devices[DeviceSlot(user: entry.subjectUserID, device: deviceID)] =
+                    DeviceRegistration(userID: entry.subjectUserID, publicKey: publicKey)
             }
             state.epoch = entry.epochAfter
 
         case .add, .changeLevel:
             state.levels[entry.subjectUserID] = entry.level
             if let keys = entry.subjectKeys { state.keys[entry.subjectUserID] = keys }
-            if let deviceID = entry.deviceID, let publicKey = entry.devicePublicKey {
-                state.devices[deviceID] = DeviceRegistration(userID: entry.subjectUserID, publicKey: publicKey)
-            }
             state.epoch = entry.epochAfter
 
         case .addDevice:
             guard let deviceID = entry.deviceID, let publicKey = entry.devicePublicKey else { break }
-            state.devices[deviceID] = DeviceRegistration(userID: entry.subjectUserID, publicKey: publicKey)
+            state.devices[DeviceSlot(user: entry.subjectUserID, device: deviceID)] =
+                DeviceRegistration(userID: entry.subjectUserID, publicKey: publicKey)
 
         case .remove:
             // The founder holds superadmin, which is an exact match rather than a
@@ -293,16 +443,21 @@ public enum MembershipLog {
             }
             state.levels[entry.subjectUserID] = AccessLevel.none
             // Their devices go too, so nothing they still hold can write.
-            for (id, registration) in state.devices where registration.userID == entry.subjectUserID {
-                state.devices[id] = nil
+            for slot in state.devices.keys where slot.user == entry.subjectUserID {
+                state.devices[slot] = nil
             }
+            // Keys they never signed with go as well, so made-up keys put on
+            // their ID by someone else can be cleared by removing them.
+            if !state.signers.contains(entry.subjectUserID) { state.keys[entry.subjectUserID] = nil }
             state.epoch = entry.epochAfter
 
         case .rotate:
             state.epoch = entry.epochAfter
 
         case .revokeDevice:
-            if let deviceID = entry.deviceID { state.devices[deviceID] = nil }
+            if let deviceID = entry.deviceID {
+                state.devices[DeviceSlot(user: entry.subjectUserID, device: deviceID)] = nil
+            }
             state.epoch = entry.epochAfter
 
         case .rotateIdentity:
@@ -318,9 +473,9 @@ public enum MembershipLog {
     }
 
     /// Look up the key an incoming record must verify against.
-    public static func signingKey(forDevice id: DeviceID, in state: MembershipState) throws
-        -> Curve25519.Signing.PublicKey {
-        guard let registration = state.devices[id] else { throw MembershipLogError.unknownDevice(id) }
+    public static func signingKey(forDevice id: DeviceID, of user: UserID,
+                                  in state: MembershipState) throws -> Curve25519.Signing.PublicKey {
+        guard let registration = state.device(id, of: user) else { throw MembershipLogError.unknownDevice(id) }
         return try registration.signingKey
     }
 }

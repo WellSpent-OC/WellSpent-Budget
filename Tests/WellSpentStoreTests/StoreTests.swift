@@ -443,3 +443,45 @@ struct OutboxTests {
         #expect(try store.budget(budget.id)?.name == "Groceries", "nothing half saved")
     }
 }
+
+@Suite("Local migrations")
+struct LocalMigrationTests {
+    /// v8 adds who sent each set-aside record, and whether it was set aside
+    /// because this build cannot read it. A row set aside before then keeps
+    /// everything it had, has neither, and is not counted against anyone's
+    /// limit. Opening the database again runs nothing.
+    @Test func setAsideRowsFromBeforeV8AreKeptAndNotCounted() throws {
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: configuration)
+        try WellSpentDatabase.migrator.migrate(queue, upTo: "v7-version-author-held-fingerprint")
+
+        let group = GroupID(), author = UserID()
+        let key = ScopedKey.generate(scope: .group(group))
+        let envelope = try RecordCodec.sealData(
+            Data("{}".utf8), recordID: RecordID(), recordType: RecordType(rawValue: "future"),
+            groupID: group, budgetID: nil, scopeKey: key, lamport: 3, author: author,
+            device: DeviceKeyPair(), membershipSequence: 0)
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO deferredEnvelope (recordId, budgetGroupId, recordType, envelope, serverSeq)
+                VALUES (?, ?, 'future', ?, 4)
+                """, arguments: [envelope.recordID.uuid.uuidString, group.uuid.uuidString,
+                                 try JSONEncoder().encode(envelope)])
+        }
+
+        let store = Store(database: try WellSpentDatabase(writer: queue))
+        #expect(try store.deferredEnvelopes(in: group).map(\.0.recordID) == [envelope.recordID])
+        #expect(try store.deferredEnvelopes(in: group).map(\.1) == [4])
+        #expect(try store.unreadableCount(in: group, from: author, except: RecordID()) == 0)
+
+        try store.deferEnvelope(envelope, serverSeq: 5, unreadable: true)
+        #expect(try store.unreadableCount(in: group, from: author, except: RecordID()) == 1)
+        #expect(try store.unreadableCount(in: group, from: author, except: envelope.recordID) == 0,
+                "a new copy of the same record replaces it")
+        #expect(try store.unreadableCount(in: group, from: UserID(), except: RecordID()) == 0)
+
+        _ = try WellSpentDatabase(writer: queue)
+        #expect(try store.deferredCount(in: group) == 1)
+    }
+}

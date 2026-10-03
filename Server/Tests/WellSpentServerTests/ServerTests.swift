@@ -116,22 +116,47 @@ private func foundGroup(_ owner: Account, groupID: UUID, on app: Application) as
     return [entry]
 }
 
+/// Adds someone, with the group key sealed to them when one is given, and
+/// registers their device by their own entry, as their app does.
 private func addMember(_ member: Account, to groupID: UUID, level: AccessLevel,
                        log: inout [MembershipLogEntry], owner: Account,
+                       sealing groupKey: ScopedKey? = nil,
                        on app: Application) async throws {
+    let keys = try groupKey.map {
+        [try KeyWrap.wrapToIdentity($0, recipient: member.publicKeys,
+                                    recipientUserID: UserID(member.userID),
+                                    sender: owner.identity, senderUserID: UserID(owner.userID))]
+    } ?? []
     let entry = try MembershipLogEntry.signed(
         scope: .group(GroupID(groupID)), sequence: UInt64(log.count),
         previousHash: log.last!.hash, action: .add,
         subjectUserID: UserID(member.userID), subjectKeys: member.publicKeys,
         level: level, epochAfter: .initial,
-        deviceID: member.device.id, devicePublicKey: member.device.publicKey,
         author: owner.identity, authorUserID: UserID(owner.userID)
     )
     log.append(entry)
     try await app.testing().test(.POST, "api/v1/groups/\(groupID)/log",
                                  headers: owner.bearer,
                                  beforeRequest: { request in
-        try request.content.encode(LogBody(entry: entry, wrappedKeys: []))
+        try request.content.encode(LogBody(entry: entry, wrappedKeys: keys))
+    }, afterResponse: { response async throws in
+        #expect(response.status == .created)
+    })
+
+    // Their device, registered by their own entry, as their app does.
+    let device = try MembershipLogEntry.signed(
+        scope: .group(GroupID(groupID)), sequence: UInt64(log.count),
+        previousHash: log.last!.hash, action: .addDevice,
+        subjectUserID: UserID(member.userID), subjectKeys: nil,
+        level: level, epochAfter: .initial,
+        deviceID: member.device.id, devicePublicKey: member.device.publicKey,
+        author: member.identity, authorUserID: UserID(member.userID)
+    )
+    log.append(device)
+    try await app.testing().test(.POST, "api/v1/groups/\(groupID)/log",
+                                 headers: member.bearer,
+                                 beforeRequest: { request in
+        try request.content.encode(LogBody(entry: device, wrappedKeys: []))
     }, afterResponse: { response async throws in
         #expect(response.status == .created)
     })
@@ -341,7 +366,7 @@ struct SyncRouteTests {
             try await app.testing().test(.GET, "api/v1/groups/\(groupID)/log",
                                          headers: jamie.bearer) { response async throws in
                 #expect(response.status == .ok)
-                #expect(try response.content.decode([MembershipLogEntry].self).count == 2)
+                #expect(try response.content.decode([MembershipLogEntry].self).count == 3)
             }
         }
     }
@@ -804,7 +829,8 @@ struct SyncRouteTests {
     /// record, and the server keeps answering. Above Int.max, converting it
     /// stopped the server process for every user. At Int.max it was stored,
     /// and every app that pulled it crashed on its next save in that group.
-    /// The value just below the ceiling is still taken.
+    /// The value just below the ceiling is still taken, in a group whose
+    /// values have climbed that far.
     @Test func aLamportValueAtOrAboveTheCeilingIsRefused() async throws {
         try await withConfiguredApp { app in
             var robin = Account(email: "too-large@example.com")
@@ -838,6 +864,9 @@ struct SyncRouteTests {
                 #expect(onTop.rejected[recordID.uuid.uuidString] == "the Lamport value is too large",
                         "\(lamport) on a stored record")
             }
+            let group = try #require(try await GroupRow.find(groupID, on: app.db))
+            group.maxLamport = Int(ceiling - 2)
+            try await group.save(on: app.db)
             #expect(try await push(try sealed(lamport: ceiling - 1), to: groupID, as: robin, on: app)
                 .accepted == [recordID.uuid], "just below the ceiling is taken")
         }
@@ -871,11 +900,11 @@ struct SyncRouteTests {
     }
 
     /// Deleting the group deletes it for every member, so it takes the founder
-    /// or an admin. Write is enough to rename it, and not enough to delete it.
+    /// or an admin. Manage is enough to rename it, and not enough to delete it.
     @Test func onlyTheFounderOrAnAdminDeletesAGroup() async throws {
         try await withConfiguredApp { app in
             var robin = Account(email: "group-founder@example.com")
-            var leslie = Account(email: "group-writer@example.com")
+            var leslie = Account(email: "group-manager@example.com")
             var jamie = Account(email: "group-admin@example.com")
             try await register(&robin, on: app)
             try await register(&leslie, on: app)
@@ -883,7 +912,7 @@ struct SyncRouteTests {
 
             let groupID = UUID()
             var log = try await foundGroup(robin, groupID: groupID, on: app)
-            try await addMember(leslie, to: groupID, level: .write, log: &log, owner: robin, on: app)
+            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin, on: app)
             try await addMember(jamie, to: groupID, level: .admin, log: &log, owner: robin, on: app)
             let key = ScopedKey.generate(scope: .group(GroupID(groupID)))
 
@@ -906,13 +935,13 @@ struct SyncRouteTests {
     @Test func aGroupDeleteIsFinal() async throws {
         try await withConfiguredApp { app in
             var robin = Account(email: "final-founder@example.com")
-            var leslie = Account(email: "final-writer@example.com")
+            var leslie = Account(email: "final-manager@example.com")
             try await register(&robin, on: app)
             try await register(&leslie, on: app)
 
             let groupID = UUID()
             var log = try await foundGroup(robin, groupID: groupID, on: app)
-            try await addMember(leslie, to: groupID, level: .write, log: &log, owner: robin, on: app)
+            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin, on: app)
             let key = ScopedKey.generate(scope: .group(GroupID(groupID)))
 
             let rename = try groupRecord(leslie, groupID: groupID, key: key, lamport: 9, isDeleted: false)
@@ -1527,9 +1556,10 @@ struct SharingRouteTests {
         }
     }
 
-    /// Members who can add may publish a key for a budget they made. Only budget
-    /// keys sealed under the group key: a key sealed to a person is a grant of
-    /// access, and those only travel with the membership entry that allows them.
+    /// A manager may publish a key for a budget she made, and nobody below
+    /// Manage may, because only a manager makes budgets. Only budget keys sealed
+    /// under the group key: a key sealed to a person is a grant of access, and
+    /// those only travel with the membership entry that allows them.
     @Test func membersPublishBudgetKeysButNothingElse() async throws {
         try await withConfiguredApp { app in
             var robin = Account(email: "keys@example.com")
@@ -1541,12 +1571,13 @@ struct SharingRouteTests {
             try await register(&reader, on: app)
             try await register(&adder, on: app)
             let groupID = UUID()
+            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
             var log = try await foundGroup(robin, groupID: groupID, on: app)
-            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin, on: app)
+            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: groupKey, on: app)
             try await addMember(reader, to: groupID, level: .read, log: &log, owner: robin, on: app)
             try await addMember(adder, to: groupID, level: .write, log: &log, owner: robin, on: app)
 
-            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
             let budgetKey = ScopedKey.generate(scope: .budget(BudgetID()))
             let budgetWrap = try KeyWrap.wrapUnderGroupKey(
                 budgetKey, groupKey: groupKey.material, senderUserID: UserID(leslie.userID))
@@ -1574,6 +1605,982 @@ struct SharingRouteTests {
                     #expect(response.status == .forbidden, "below Manage, so cannot add budgets")
                 })
             }
+        }
+    }
+}
+
+/// Keys, devices, IDs and Lamport values: what one member could take from the
+/// others before anything here was checked.
+@Suite("Server, what members may take", .serialized)
+struct TakeoverTests {
+    private struct KeysBody: Content { let wrappedKeys: [WrappedKey] }
+
+    /// Posts an entry to a group's log, with keys, and returns the status and
+    /// the reason given.
+    private func post(_ entry: MembershipLogEntry, keys: [WrappedKey] = [], to groupID: UUID,
+                      as account: Account, on app: Application) async throws
+        -> (status: HTTPResponseStatus, reason: String) {
+        var answer: (HTTPResponseStatus, String)?
+        try await app.testing().test(.POST, "api/v1/groups/\(groupID)/log", headers: account.bearer,
+                                     beforeRequest: { request in
+            try request.content.encode(LogBody(entry: entry, wrappedKeys: keys))
+        }, afterResponse: { response async throws in
+            answer = (response.status, response.body.string)
+        })
+        return try #require(answer)
+    }
+
+    private func upload(_ keys: [WrappedKey], to groupID: UUID, as account: Account,
+                        on app: Application) async throws -> HTTPResponseStatus {
+        var status: HTTPResponseStatus?
+        try await app.testing().test(.POST, "api/v1/groups/\(groupID)/keys", headers: account.bearer,
+                                     beforeRequest: { request in
+            try request.content.encode(KeysBody(wrappedKeys: keys))
+        }, afterResponse: { response async throws in
+            status = response.status
+        })
+        return try #require(status)
+    }
+
+    private func keys(in groupID: UUID, as account: Account, on app: Application) async throws
+        -> [WrappedKey] {
+        var keys: [WrappedKey]?
+        try await app.testing().test(.GET, "api/v1/groups/\(groupID)/keys",
+                                     headers: account.bearer) { response async throws in
+            keys = try response.content.decode([WrappedKey].self)
+        }
+        return try #require(keys)
+    }
+
+    private func push(_ envelopes: [RecordEnvelope], to groupID: UUID, as account: Account,
+                      on app: Application) async throws -> PushReply {
+        var reply: PushReply?
+        try await app.testing().test(.POST, "api/v1/groups/\(groupID)/push", headers: account.bearer,
+                                     beforeRequest: { request in
+            try request.content.encode(PushBody(envelopes: envelopes))
+        }, afterResponse: { response async throws in
+            #expect(response.status == .ok)
+            reply = try response.content.decode(PushReply.self)
+        })
+        return try #require(reply)
+    }
+
+    /// An entry signed by `author`, next in `log`.
+    private func entry(_ action: MembershipAction, subject: Account, keys: IdentityPublicKeys? = nil,
+                       level: AccessLevel = .read, device: DeviceID? = nil, devicePublicKey: Data? = nil,
+                       epochAfter: Epoch = .initial, by author: Account,
+                       after log: [MembershipLogEntry], in groupID: UUID) throws -> MembershipLogEntry {
+        try MembershipLogEntry.signed(
+            scope: .group(GroupID(groupID)), sequence: UInt64(log.count),
+            previousHash: log.last!.hash, action: action, subjectUserID: UserID(subject.userID),
+            subjectKeys: keys, level: level, epochAfter: epochAfter,
+            deviceID: device, devicePublicKey: devicePublicKey,
+            author: author.identity, authorUserID: UserID(author.userID))
+    }
+
+    /// Keys travel only with a manager's entry. Mallory can only view. She sent
+    /// keys of her own with the entry that registers her laptop, the server
+    /// stored them, and every member's app took them in place of its own. A
+    /// manager's keys are checked one by one, and the first key stored for a
+    /// scope, epoch and recipient is the one that stays.
+    @Test func keysTravelOnlyWithAManagersEntry() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-keys-founder@example.com")
+            var leslie = Account(email: "trust-keys-manager@example.com")
+            var mallory = Account(email: "trust-keys-viewer@example.com")
+            var jamie = Account(email: "trust-keys-joiner@example.com")
+            var stranger = Account(email: "trust-keys-stranger@example.com")
+            try await register(&robin, on: app)
+            try await register(&leslie, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            try await register(&stranger, on: app)
+            let groupID = UUID()
+            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: groupKey, on: app)
+            try await addMember(mallory, to: groupID, level: .read, log: &log, owner: robin, on: app)
+
+            let budgetKey = ScopedKey.generate(scope: .budget(BudgetID()))
+            func toPerson(_ recipient: Account, from sender: Account,
+                          key: ScopedKey = groupKey) throws -> WrappedKey {
+                try KeyWrap.wrapToIdentity(key, recipient: recipient.publicKeys,
+                                           recipientUserID: UserID(recipient.userID),
+                                           sender: sender.identity, senderUserID: UserID(sender.userID))
+            }
+            func underGroup(_ key: ScopedKey = budgetKey, from sender: Account) throws -> WrappedKey {
+                try KeyWrap.wrapUnderGroupKey(key, groupKey: groupKey.material,
+                                              senderUserID: UserID(sender.userID))
+            }
+
+            let laptop = DeviceKeyPair()
+            let hers = try entry(.addDevice, subject: mallory, device: laptop.id,
+                                 devicePublicKey: laptop.publicKey, by: mallory, after: log, in: groupID)
+            let planted = try [toPerson(robin, from: mallory), underGroup(from: mallory)]
+            #expect(try await post(hers, keys: planted, to: groupID, as: mallory, on: app).status
+                        == .forbidden)
+            #expect(try await keys(in: groupID, as: robin, on: app).isEmpty, "none was stored")
+            #expect(try await post(hers, to: groupID, as: mallory, on: app).status == .created,
+                    "the entry on its own goes in")
+            log.append(hers)
+
+            let adding = try entry(.add, subject: jamie, keys: jamie.publicKeys, by: leslie,
+                                   after: log, in: groupID)
+            let otherGroup = ScopedKey.generate(scope: .group(GroupID()))
+            let refused: [(String, WrappedKey)] = [
+                ("sent as someone else", try toPerson(jamie, from: robin)),
+                ("for another group", try toPerson(jamie, from: leslie, key: otherGroup)),
+                ("to someone not in the group", try toPerson(stranger, from: leslie)),
+                ("for an epoch not reached", try underGroup(
+                    ScopedKey.generate(scope: .budget(BudgetID()), epoch: Epoch(1)), from: leslie)),
+            ]
+            for (why, key) in refused {
+                #expect(try await post(adding, keys: [key], to: groupID, as: leslie, on: app).status
+                            == .badRequest, "\(why)")
+            }
+            let real = try [toPerson(jamie, from: leslie), underGroup(from: leslie)]
+            #expect(try await post(adding, keys: real, to: groupID, as: leslie, on: app).status == .created)
+
+            #expect(try await upload([try underGroup(from: leslie)], to: groupID, as: leslie, on: app)
+                        == .created)
+            let held = try await keys(in: groupID, as: jamie, on: app)
+            #expect(held.count == 2, "one group key and one budget key, the first of each")
+            #expect(held.first { $0.scope == budgetKey.scope }?.ciphertext == real[1].ciphertext)
+        }
+    }
+
+    /// A budget's ID belongs to the first group that uses it. Mallory founded
+    /// her own group, where she may publish keys. A key there for Household's
+    /// budget took that budget over on the Mac of anyone in both groups, and a
+    /// record there on its ID, pushed between Robin publishing its key and
+    /// pushing it, kept the budget out for good.
+    @Test func aBudgetsIDBelongsToTheGroupThatUsesItFirst() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-budget-founder@example.com")
+            var mallory = Account(email: "trust-budget-squatter@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            let household = UUID(), hers = UUID()
+            _ = try await foundGroup(robin, groupID: household, on: app)
+            _ = try await foundGroup(mallory, groupID: hers, on: app)
+
+            let budgetID = UUID()
+            let budgetKey = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+            func wrap(_ key: ScopedKey, in group: UUID, from account: Account) throws -> WrappedKey {
+                try KeyWrap.wrapUnderGroupKey(
+                    key, groupKey: ScopedKey.generate(scope: .group(GroupID(group))).material,
+                    senderUserID: UserID(account.userID))
+            }
+            #expect(try await upload([try wrap(budgetKey, in: household, from: robin)], to: household,
+                                     as: robin, on: app) == .created)
+
+            #expect(try await upload([try wrap(budgetKey, in: hers, from: mallory)], to: hers,
+                                     as: mallory, on: app) == .badRequest)
+            let profileID = RecordID.memberProfile(group: GroupID(household), user: UserID(robin.userID))
+            for id in [household, profileID.uuid] {
+                let squat = ScopedKey.generate(scope: .budget(BudgetID(id)))
+                #expect(try await upload([try wrap(squat, in: hers, from: mallory)], to: hers,
+                                         as: mallory, on: app) == .badRequest,
+                        "nor on a group's ID or a profile's")
+            }
+
+            struct Payload: Codable { let name: String }
+            func record(_ type: RecordType, in group: UUID, by account: Account,
+                        budget: UUID?) throws -> RecordEnvelope {
+                try RecordCodec.seal(
+                    Payload(name: "Gas"), recordID: RecordID(budgetID), recordType: type,
+                    groupID: GroupID(group), budgetID: budget.map { BudgetID($0) },
+                    scopeKey: budgetKey, lamport: 1, author: UserID(account.userID),
+                    device: account.device, membershipSequence: 0)
+            }
+            let squatted = try await push([try record(.statement, in: hers, by: mallory, budget: nil)],
+                                          to: hers, as: mallory, on: app)
+            #expect(squatted.rejected[budgetID.uuidString] == "another record already has this ID")
+            let retyped = try await push([try record(.transaction, in: household, by: robin,
+                                                     budget: budgetID)],
+                                         to: household, as: robin, on: app)
+            #expect(retyped.rejected[budgetID.uuidString] == "another record already has this ID",
+                    "an ID a budget's key uses is for that budget")
+            let budget = try await push([try record(.budget, in: household, by: robin, budget: budgetID)],
+                                        to: household, as: robin, on: app)
+            #expect(budget.accepted == [budgetID])
+        }
+    }
+
+    /// A manager put her own keys in the founder's place, and a member at View
+    /// took the founder's device or cut it off. Either way every member
+    /// refused what he sent from then on.
+    @Test func aMemberCannotTakeAnotherMembersKeysOrDevice() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-device-founder@example.com")
+            var leslie = Account(email: "trust-device-manager@example.com")
+            var jamie = Account(email: "trust-device-viewer@example.com")
+            try await register(&robin, on: app)
+            try await register(&leslie, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(leslie, to: groupID, level: .manage, log: &log, owner: robin, on: app)
+            try await addMember(jamie, to: groupID, level: .read, log: &log, owner: robin, on: app)
+
+            let attempts: [(Account, MembershipLogEntry, String)] = [
+                (leslie, try entry(.rotateIdentity, subject: robin, keys: leslie.publicKeys,
+                                   by: leslie, after: log, in: groupID), "keysAlreadyEstablished"),
+                (leslie, try entry(.changeLevel, subject: jamie, keys: jamie.publicKeys,
+                                   device: DeviceKeyPair().id, devicePublicKey: leslie.device.publicKey,
+                                   by: leslie, after: log, in: groupID), "deviceNotOnItsOwn"),
+                (jamie, try entry(.revokeDevice, subject: jamie, device: robin.device.id,
+                                  by: jamie, after: log, in: groupID), "notTheirDevice"),
+                (jamie, try entry(.revokeDevice, subject: jamie, device: jamie.device.id,
+                                  epochAfter: Epoch(1), by: jamie, after: log, in: groupID),
+                 "authorNotEntitled"),
+            ]
+            for (account, attempt, why) in attempts {
+                let answer = try await post(attempt, to: groupID, as: account, on: app)
+                #expect(answer.status == .badRequest)
+                #expect(answer.reason.contains(why), "got \(answer.reason)")
+            }
+            // His device ID registered as hers is hers alone, and his stays his.
+            let squat = try entry(.addDevice, subject: jamie, device: robin.device.id,
+                                  devicePublicKey: jamie.device.publicKey, by: jamie,
+                                  after: log, in: groupID)
+            #expect(try await post(squat, to: groupID, as: jamie, on: app).status == .created)
+
+            let budgetID = UUID()
+            let his = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID,
+                                       key: ScopedKey.generate(scope: .budget(BudgetID(budgetID))),
+                                       lamport: 1, text: "Hilltop")
+            #expect(try await push([his], to: groupID, as: robin, on: app).accepted == [his.recordID.uuid],
+                    "his device is still his")
+        }
+    }
+
+    /// A group's ID is also its record's ID. A group founded on someone's
+    /// profile ID, or a record's, hid that record on the Mac of everyone who
+    /// answered the group's link.
+    @Test func aGroupCannotBeFoundedOnAnIDInUse() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-found-founder@example.com")
+            var mallory = Account(email: "trust-found-squatter@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            let household = UUID()
+            _ = try await foundGroup(robin, groupID: household, on: app)
+            let budgetID = UUID()
+            let his = try makeEnvelope(robin, groupID: household, budgetID: budgetID,
+                                       key: ScopedKey.generate(scope: .budget(BudgetID(budgetID))),
+                                       lamport: 1, text: "Hilltop")
+            #expect(try await push([his], to: household, as: robin, on: app).accepted.count == 1)
+
+            let profileID = RecordID.memberProfile(group: GroupID(household), user: UserID(robin.userID))
+            for id in [profileID.uuid, his.recordID.uuid, UUID()] {
+                let founding = try MembershipLogEntry.signed(
+                    scope: .group(GroupID(id)), sequence: 0, previousHash: MembershipLogEntry.rootHash,
+                    action: .found, subjectUserID: UserID(mallory.userID), subjectKeys: mallory.publicKeys,
+                    level: .superadmin, epochAfter: .initial,
+                    deviceID: mallory.device.id, devicePublicKey: mallory.device.publicKey,
+                    author: mallory.identity, authorUserID: UserID(mallory.userID))
+                try await app.testing().test(.POST, "api/v1/groups/\(id)/log", headers: mallory.bearer,
+                                             beforeRequest: { request in
+                    try request.content.encode(LogBody(entry: founding, wrappedKeys: []))
+                }, afterResponse: { response async throws in
+                    if id == profileID.uuid || id == his.recordID.uuid {
+                        #expect(response.status == .badRequest)
+                        #expect(response.body.string.contains("already in use"))
+                    } else {
+                        #expect(response.status == .created, "a fresh ID is fine")
+                    }
+                })
+            }
+        }
+    }
+
+    /// Renaming the group renames it for every member. Add is for
+    /// transactions, so it takes a manager, as a budget does.
+    @Test func renamingTheGroupTakesAManager() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-rename-founder@example.com")
+            var leslie = Account(email: "trust-rename-writer@example.com")
+            var jamie = Account(email: "trust-rename-manager@example.com")
+            try await register(&robin, on: app)
+            try await register(&leslie, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(leslie, to: groupID, level: .write, log: &log, owner: robin, on: app)
+            try await addMember(jamie, to: groupID, level: .manage, log: &log, owner: robin, on: app)
+            let key = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            struct Payload: Codable { let name: String }
+            func renamed(by account: Account, lamport: UInt64) throws -> RecordEnvelope {
+                try RecordCodec.seal(
+                    Payload(name: "Home"), recordID: RecordID(groupID), recordType: .groupMeta,
+                    groupID: GroupID(groupID), budgetID: nil, scopeKey: key, lamport: lamport,
+                    author: UserID(account.userID), device: account.device, membershipSequence: 0)
+            }
+
+            let hers = try await push([try renamed(by: leslie, lamport: 3)], to: groupID, as: leslie, on: app)
+            #expect(hers.rejected[groupID.uuidString] == "only a manager can change the group")
+            let his = try await push([try renamed(by: jamie, lamport: 4)], to: groupID, as: jamie, on: app)
+            #expect(his.accepted == [groupID])
+        }
+    }
+
+    /// A member at Add set her own Mac's clock just under the ceiling, and the
+    /// stock app signed the next value. Every Mac that pulled it had no room
+    /// left to save in the group. A value too far above the group's highest
+    /// is refused, judged against the highest stored before the push.
+    @Test func aLamportValueTooFarAheadOfTheGroupIsRefused() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-lead-founder@example.com")
+            try await register(&robin, on: app)
+            let groupID = UUID()
+            _ = try await foundGroup(robin, groupID: groupID, on: app)
+            let budgetID = UUID()
+            let key = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+            func spent(_ lamport: UInt64) throws -> RecordEnvelope {
+                try makeEnvelope(robin, groupID: groupID, budgetID: budgetID, key: key,
+                                 lamport: lamport, text: "Hilltop")
+            }
+            let lead = UInt64(1) << 24
+            let tooFar = "the Lamport value is too far ahead of the group"
+
+            #expect(try await push([try spent(5)], to: groupID, as: robin, on: app).accepted.count == 1)
+            let ahead = try spent(5 + lead + 1)
+            #expect(try await push([ahead], to: groupID, as: robin, on: app)
+                .rejected[ahead.recordID.uuid.uuidString] == tooFar)
+
+            let first = try spent(5 + lead), second = try spent(5 + 2 * lead)
+            let both = try await push([first, second], to: groupID, as: robin, on: app)
+            #expect(both.accepted == [first.recordID.uuid], "one push climbs once")
+            #expect(both.rejected[second.recordID.uuid.uuidString] == tooFar)
+            #expect(try await push([second], to: groupID, as: robin, on: app).accepted.count == 1,
+                    "the next is judged against the new highest")
+        }
+    }
+
+    /// The migration fills in each group's highest value from the records it
+    /// holds, leaving out any at or above the ceiling, which would let every
+    /// later value through.
+    @Test func theHighestStoredValueIsFilledInFromRecords() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-fill-founder@example.com")
+            try await register(&robin, on: app)
+            let groupID = UUID()
+            _ = try await foundGroup(robin, groupID: groupID, on: app)
+            let budgetID = UUID()
+            let key = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+            for lamport: UInt64 in [3, 9] {
+                let envelope = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID, key: key,
+                                                lamport: lamport, text: "Hilltop")
+                #expect(try await push([envelope], to: groupID, as: robin, on: app).accepted.count == 1)
+            }
+            // Stored before the ceiling existed.
+            let forged = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID, key: key,
+                                          lamport: 1, text: "forged")
+            try await RecordRow(
+                id: forged.recordID.uuid, groupID: groupID, budgetID: budgetID,
+                recordType: RecordType.transaction.rawValue, serverSeq: 100,
+                lamport: Int(RecordEnvelope.lamportCeiling) + 5, authorUserID: robin.userID,
+                authorDeviceID: robin.device.id.uuid, isDeleted: false,
+                envelope: try JSONEncoder().encode(forged)).save(on: app.db)
+
+            let group = try #require(try await GroupRow.find(groupID, on: app.db))
+            group.maxLamport = 0
+            try await group.save(on: app.db)
+            try await fillGroupMaxLamport(on: app.db)
+            #expect(try await GroupRow.find(groupID, on: app.db)?.maxLamport == 9)
+        }
+    }
+
+    // MARK: Epochs, budget-key slots and the migration
+
+    /// The epoch is a 32-bit number. Mallory founded a group at its top value,
+    /// then posted an entry that moves the epoch. Working out the next one
+    /// overflowed and stopped the server process, on every post. A group
+    /// starts at the first epoch, and the next is worked out without
+    /// overflowing.
+    @Test func aGroupAtTheTopEpochCannotStopTheServer() async throws {
+        try await withConfiguredApp { app in
+            var mallory = Account(email: "trust-top-epoch@example.com")
+            try await register(&mallory, on: app)
+            let groupID = UUID()
+            let atTop = try MembershipLogEntry.signed(
+                scope: .group(GroupID(groupID)), sequence: 0, previousHash: MembershipLogEntry.rootHash,
+                action: .found, subjectUserID: UserID(mallory.userID), subjectKeys: mallory.publicKeys,
+                level: .superadmin, epochAfter: Epoch(UInt32.max),
+                deviceID: mallory.device.id, devicePublicKey: mallory.device.publicKey,
+                author: mallory.identity, authorUserID: UserID(mallory.userID))
+            let founding = try await post(atTop, to: groupID, as: mallory, on: app)
+            #expect(founding.status == .badRequest)
+            #expect(founding.reason.contains("epochNotNext"), "got \(founding.reason)")
+
+            let fresh = UUID()
+            let log = try await foundGroup(mallory, groupID: fresh, on: app)
+            let jump = try entry(.rotate, subject: mallory, level: .superadmin,
+                                 epochAfter: Epoch(UInt32.max), by: mallory, after: log, in: fresh)
+            let jumped = try await post(jump, to: fresh, as: mallory, on: app)
+            #expect(jumped.status == .badRequest)
+            #expect(jumped.reason.contains("epochNotNext"), "got \(jumped.reason)")
+            try await app.testing().test(.GET, "health") { response async throws in
+                #expect(response.status == .ok, "still running")
+            }
+        }
+    }
+
+    /// The server keeps the first key for each slot and cannot open a key to
+    /// check it. Mallory, a manager added "from now on", holds no key for the
+    /// first epoch, and filled its empty slot for Groceries with junk. The real
+    /// key sent later was dropped without a word. A budget key now comes only
+    /// from someone who holds that epoch's group key.
+    @Test func aBudgetKeyComesOnlyFromSomeoneHoldingTheGroupKey() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-slot-founder@example.com")
+            var mallory = Account(email: "trust-slot-manager@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+
+            // Mallory joins "from now on": a new epoch, its key sealed to both.
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            let adding = try entry(.add, subject: mallory, keys: mallory.publicKeys, level: .manage,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            #expect(try await post(adding, keys: sealed, to: groupID, as: robin, on: app).status == .created)
+            log.append(adding)
+
+            let groceries = BudgetID()
+            func budgetKey(_ epoch: Epoch, from account: Account) throws -> WrappedKey {
+                try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(groceries), epoch: epoch),
+                                              groupKey: next.material, senderUserID: UserID(account.userID))
+            }
+            #expect(try await upload([try budgetKey(.initial, from: mallory)], to: groupID, as: mallory,
+                                     on: app) == .badRequest, "she never held the first epoch's key")
+            #expect(try await upload([try budgetKey(Epoch(1), from: mallory)], to: groupID, as: mallory,
+                                     on: app) == .created, "she holds this one")
+            #expect(try await upload([try budgetKey(.initial, from: robin)], to: groupID, as: robin,
+                                     on: app) == .created, "he founded it and made the first one")
+        }
+    }
+
+    /// Fluent records a migration as done only after it returns. A start cut
+    /// short after the column went in tried to add it again on every start
+    /// after, and the server could not start. Now a second run finds the
+    /// column and fills every group again, which never lowers a value: a
+    /// group already above its records keeps its value.
+    @Test func theMigrationRunsAgainAfterAStartCutShort() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-rerun-founder@example.com")
+            try await register(&robin, on: app)
+            var highest: [UUID: Int] = [:]
+            for lamports: [UInt64] in [[3, 9], [4], []] {
+                let groupID = UUID()
+                _ = try await foundGroup(robin, groupID: groupID, on: app)
+                let budgetID = UUID()
+                let key = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+                for lamport in lamports {
+                    let envelope = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID,
+                                                    key: key, lamport: lamport, text: "Hilltop")
+                    #expect(try await push([envelope], to: groupID, as: robin, on: app).accepted.count == 1)
+                }
+                let group = try #require(try await GroupRow.find(groupID, on: app.db))
+                let alreadyAbove = lamports == [4]
+                group.maxLamport = alreadyAbove ? 100 : 0
+                try await group.save(on: app.db)
+                highest[groupID] = alreadyAbove ? 100 : Int(lamports.max() ?? 0)
+            }
+
+            try await AddGroupMaxLamport().prepare(on: app.db)
+            for (groupID, value) in highest {
+                #expect(try await GroupRow.find(groupID, on: app.db)?.maxLamport == value)
+            }
+        }
+    }
+
+    // MARK: Shared device IDs, sign-up keys and self-sealed keys
+
+    /// Two people can each register one device ID as their own. Mallory sent
+    /// her version of Robin's record at his Lamport value under his device
+    /// ID, and the server took it as his version sent again: it answered
+    /// that it had it, and kept his. Now the person counts as well as the
+    /// device, and a tie between them is broken by who wrote it, so what the
+    /// server says it took is what it holds.
+    @Test func anotherPersonUnderTheSameDeviceIDIsNotAResend() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-echo-founder@example.com")
+            var mallory = Account(email: "trust-echo-manager@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin, on: app)
+            let borrowed = DeviceKeyPair(id: robin.device.id)
+            let squat = try entry(.addDevice, subject: mallory, device: borrowed.id,
+                                  devicePublicKey: borrowed.publicKey, by: mallory, after: log, in: groupID)
+            #expect(try await post(squat, to: groupID, as: mallory, on: app).status == .created)
+
+            let budgetID = UUID()
+            let key = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+            let his = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID, key: key,
+                                       lamport: 5, text: "Hilltop")
+            #expect(try await push([his], to: groupID, as: robin, on: app).accepted.count == 1)
+            struct Payload: Codable { let merchant: String }
+            let hers = try RecordCodec.seal(
+                Payload(merchant: "Changed"), recordID: his.recordID, recordType: .transaction,
+                groupID: GroupID(groupID), budgetID: BudgetID(budgetID), scopeKey: key, lamport: 5,
+                author: UserID(mallory.userID), device: borrowed, membershipSequence: 0)
+            let reply = try await push([hers], to: groupID, as: mallory, on: app)
+
+            try await app.testing().test(.GET, "api/v1/groups/\(groupID)/pull?since=0",
+                                         headers: robin.bearer) { response async throws in
+                let stored = try response.content.decode(PullReply.self).envelopes
+                    .first { $0.recordID == his.recordID }
+                if reply.accepted.contains(his.recordID.uuid) {
+                    #expect(stored?.authorUserID == UserID(mallory.userID), "taken means stored")
+                } else {
+                    #expect(reply.rejected[his.recordID.uuid.uuidString] == RecordEnvelope.olderVersionRefusal)
+                    #expect(stored?.authorUserID == UserID(robin.userID))
+                }
+            }
+        }
+    }
+
+    /// A manager could put keys she made on someone's ID, before they joined
+    /// or before their first sync, and the log keeps a person's keys once
+    /// they sign with them. An add or a level change now carries the keys
+    /// the person signed up with, or none.
+    @Test func anAddCarriesThePersonsOwnKeys() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-signup-founder@example.com")
+            var jamie = Account(email: "trust-signup-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            let log = try await foundGroup(robin, groupID: groupID, on: app)
+            let made = IdentityKeyPair.generate()
+
+            for action in [MembershipAction.add, .changeLevel] {
+                let squat = try entry(action, subject: jamie, keys: made.publicKeys, level: .read,
+                                      by: robin, after: log, in: groupID)
+                let answer = try await post(squat, to: groupID, as: robin, on: app)
+                #expect(answer.status == .badRequest)
+                #expect(answer.reason.contains("not that person's keys"), "got \(answer.reason)")
+            }
+            let real = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                 by: robin, after: log, in: groupID)
+            #expect(try await post(real, to: groupID, as: robin, on: app).status == .created)
+        }
+    }
+
+    /// The server cannot open a key, so a group key a manager sealed to
+    /// herself in the same request counted as proof she held that epoch. On
+    /// the log route she could attach one for an epoch she never held, and a
+    /// junk budget key with it. Only the entry that starts an epoch can
+    /// bring its own group key.
+    @Test func aGroupKeySealedToOneselfProvesNothingUnlessTheEntryStartsTheEpoch() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-self-founder@example.com")
+            var mallory = Account(email: "trust-self-manager@example.com")
+            var jamie = Account(email: "trust-self-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+
+            // Mallory joins "from now on": a new epoch, its key sealed to both.
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            let adding = try entry(.add, subject: mallory, keys: mallory.publicKeys, level: .manage,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            #expect(try await post(adding, keys: sealed, to: groupID, as: robin, on: app).status == .created)
+            log.append(adding)
+
+            let junk = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: .initial)
+            let keys = [
+                try KeyWrap.wrapToIdentity(junk, recipient: mallory.publicKeys,
+                                           recipientUserID: UserID(mallory.userID),
+                                           sender: mallory.identity, senderUserID: UserID(mallory.userID)),
+                try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(BudgetID()), epoch: .initial),
+                                              groupKey: junk.material, senderUserID: UserID(mallory.userID)),
+            ]
+            let addsJamie = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                      epochAfter: Epoch(1), by: mallory, after: log, in: groupID)
+            #expect(try await post(addsJamie, keys: keys, to: groupID, as: mallory, on: app).status
+                        == .badRequest)
+            #expect(try await post(addsJamie, to: groupID, as: mallory, on: app).status == .created,
+                    "the entry on its own goes in")
+        }
+    }
+
+    // MARK: Who starts an epoch, keyless adds and stored authors
+
+    /// Registering a device needs only View, and its entry could name any
+    /// epoch. Mallory's named the next one, and the server took it for the
+    /// entry that started that epoch. Robin's "from now on" invite was then
+    /// refused, because a budget key comes only from someone who holds the
+    /// epoch's group key, and so was every budget key he published for that
+    /// epoch later. A device entry now names the current epoch, and only an
+    /// entry that moves the epoch starts one.
+    @Test func aDeviceEntryCannotStandInForTheStartOfAnEpoch() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-start-founder@example.com")
+            var mallory = Account(email: "trust-start-viewer@example.com")
+            var jamie = Account(email: "trust-start-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .read, log: &log, owner: robin, on: app)
+
+            let laptop = DeviceKeyPair()
+            let ahead = try entry(.addDevice, subject: mallory, device: laptop.id,
+                                  devicePublicKey: laptop.publicKey, epochAfter: Epoch(1),
+                                  by: mallory, after: log, in: groupID)
+            #expect(try await post(ahead, to: groupID, as: mallory, on: app).status == .badRequest)
+
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            func budgetKey() throws -> WrappedKey {
+                try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(BudgetID()), epoch: Epoch(1)),
+                                              groupKey: next.material, senderUserID: UserID(robin.userID))
+            }
+            let adding = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory, jamie].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            let answer = try await post(adding, keys: sealed + [try budgetKey()], to: groupID, as: robin, on: app)
+            #expect(answer.status == .created, "got \(answer.reason)")
+            #expect(try await upload([try budgetKey()], to: groupID, as: robin, on: app) == .created,
+                    "he started the epoch, so a budget added later gets its key too")
+        }
+    }
+
+    /// Both servers compare the keys an add carries with the person's
+    /// sign-up keys, and an add with none got round that. Mallory added
+    /// Jamie with no keys and a junk group key for him, then removed him.
+    /// When Robin later added him with "Everything so far", the server kept
+    /// her key in Jamie's slot and dropped Robin's, so Jamie read nothing.
+    /// An add that leaves someone a member with no keys is refused now.
+    @Test func anAddWithNoKeysIsRefused() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-keyless-founder@example.com")
+            var mallory = Account(email: "trust-keyless-manager@example.com")
+            var jamie = Account(email: "trust-keyless-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: groupKey, on: app)
+
+            let madeUp = IdentityKeyPair.generate()
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: madeUp.publicKeys,
+                recipientUserID: UserID(jamie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let keyless = try entry(.add, subject: jamie, level: .read, by: mallory, after: log, in: groupID)
+            let answer = try await post(keyless, keys: [junk], to: groupID, as: mallory, on: app)
+            #expect(answer.status == .badRequest)
+            #expect(answer.reason.contains("memberWithoutKeys"), "got \(answer.reason)")
+            if answer.status == .created {
+                log.append(keyless)
+                let out = try entry(.remove, subject: jamie, level: .none, by: mallory, after: log, in: groupID)
+                _ = try await post(out, to: groupID, as: mallory, on: app)
+                log.append(out)
+            }
+
+            let adding = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                   by: robin, after: log, in: groupID)
+            let real = try KeyWrap.wrapToIdentity(groupKey, recipient: jamie.publicKeys,
+                                                  recipientUserID: UserID(jamie.userID),
+                                                  sender: robin.identity, senderUserID: UserID(robin.userID))
+            #expect(try await post(adding, keys: [real], to: groupID, as: robin, on: app).status == .created)
+
+            let held = try #require(try await keys(in: groupID, as: jamie, on: app).first {
+                $0.scope == .group(GroupID(groupID)) && $0.epoch == .initial
+            })
+            #expect(held.senderUserID == UserID(robin.userID), "Robin's key is the one in his slot")
+            let opened = try? KeyWrap.unwrapToIdentity(held, recipient: jamie.identity, sender: robin.publicKeys)
+            #expect(opened?.rawBytes == groupKey.rawBytes)
+        }
+    }
+
+    /// The author column was not updated when a second person's version
+    /// replaced a record, before the resend check and the tie rule read it.
+    /// On such a row the version's own author sending it again after a lost
+    /// reply was refused as older, and the app dropped the row as a
+    /// conflict. Who wrote the stored version is read from its envelope.
+    @Test func aStaleAuthorColumnDoesNotDecideAResend() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-stale-founder@example.com")
+            try await register(&robin, on: app)
+            let groupID = UUID()
+            _ = try await foundGroup(robin, groupID: groupID, on: app)
+            let budgetID = UUID()
+            let key = ScopedKey.generate(scope: .budget(BudgetID(budgetID)))
+            let his = try makeEnvelope(robin, groupID: groupID, budgetID: budgetID, key: key,
+                                       lamport: 5, text: "Hilltop")
+            #expect(try await push([his], to: groupID, as: robin, on: app).accepted.count == 1)
+
+            let row = try #require(try await RecordRow.find(his.recordID.uuid, on: app.db))
+            row.authorUserID = UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")!
+            try await row.save(on: app.db)
+
+            let reply = try await push([his], to: groupID, as: robin, on: app)
+            #expect(reply.accepted == [his.recordID.uuid], "got \(reply.rejected)")
+        }
+    }
+
+    /// Mallory knew Jamie's sign-up keys, so she added him with them and a
+    /// junk group key sealed to him, then removed him without moving the
+    /// epoch. The server keeps the first key for each slot, so when Robin
+    /// later added him with everything so far, Jamie was handed the junk key
+    /// and read nothing. The entry that leaves someone out of the group now
+    /// takes the group keys stored for them, in the same transaction.
+    @Test func aRemovalTakesTheGroupKeysStoredForThePerson() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-cleared-founder@example.com")
+            var mallory = Account(email: "trust-cleared-manager@example.com")
+            var jamie = Account(email: "trust-cleared-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            let groupKey = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: groupKey, on: app)
+
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: jamie.publicKeys,
+                recipientUserID: UserID(jamie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let adding = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                   by: mallory, after: log, in: groupID)
+            #expect(try await post(adding, keys: [junk], to: groupID, as: mallory, on: app).status == .created)
+            log.append(adding)
+            let out = try entry(.remove, subject: jamie, level: .none, by: mallory, after: log, in: groupID)
+            #expect(try await post(out, to: groupID, as: mallory, on: app).status == .created)
+            log.append(out)
+            let left = try await WrappedKeyRow.query(on: app.db)
+                .filter(\.$groupID == groupID).filter(\.$recipientUserID == jamie.userID).count()
+            #expect(left == 0, "his slot is empty again")
+
+            let back = try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                 by: robin, after: log, in: groupID)
+            let real = try KeyWrap.wrapToIdentity(groupKey, recipient: jamie.publicKeys,
+                                                  recipientUserID: UserID(jamie.userID),
+                                                  sender: robin.identity, senderUserID: UserID(robin.userID))
+            #expect(try await post(back, keys: [real], to: groupID, as: robin, on: app).status == .created)
+
+            let held = try #require(try await keys(in: groupID, as: jamie, on: app).first {
+                $0.scope == .group(GroupID(groupID)) && $0.epoch == .initial
+            })
+            let opened = try? KeyWrap.unwrapToIdentity(held, recipient: jamie.identity, sender: robin.publicKeys)
+            #expect(opened?.rawBytes == groupKey.rawBytes, "he reads everything so far")
+        }
+    }
+
+    /// A group key sealed to a member was taken with any entry from a
+    /// manager. Mallory attached a junk key for an epoch Leslie never held,
+    /// since she joined "from now on", to an entry registering her own
+    /// laptop, and filled Leslie's empty slot. A group key now goes only to
+    /// the person an entry adds, or for the epoch the entry starts.
+    @Test func olderGroupKeysTravelOnlyWithTheirOwnEntry() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-older-founder@example.com")
+            var mallory = Account(email: "trust-older-manager@example.com")
+            var leslie = Account(email: "trust-older-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&leslie, on: app)
+            let groupID = UUID()
+            let first = ScopedKey.generate(scope: .group(GroupID(groupID)))
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: first, on: app)
+
+            // Leslie joins "from now on": a new epoch, its key sealed to all three.
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            let adding = try entry(.add, subject: leslie, keys: leslie.publicKeys, level: .read,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory, leslie].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            #expect(try await post(adding, keys: sealed, to: groupID, as: robin, on: app).status == .created)
+            log.append(adding)
+
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: leslie.publicKeys,
+                recipientUserID: UserID(leslie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let laptop = DeviceKeyPair()
+            let hers = try entry(.addDevice, subject: mallory, device: laptop.id,
+                                 devicePublicKey: laptop.publicKey, epochAfter: Epoch(1),
+                                 by: mallory, after: log, in: groupID)
+            let answer = try await post(hers, keys: [junk], to: groupID, as: mallory, on: app)
+            #expect(answer.status == .badRequest)
+            #expect(answer.reason.contains("the person an entry adds"), "got \(answer.reason)")
+            #expect(try await post(hers, to: groupID, as: mallory, on: app).status == .created,
+                    "the entry on its own goes in")
+        }
+    }
+
+    // MARK: Adds of current members, filled budget-key slots, the removal's reach
+
+    /// The server takes a group key sealed to the person an add names, and
+    /// the log took an add of someone already in the group. Mallory re-added
+    /// Leslie, who joined "from now on", with no keys and a junk key for the
+    /// epoch before, and filled her empty slot. An add is for someone outside
+    /// the group now.
+    @Test func aCurrentMemberCannotBeAddedAgain() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-again-founder@example.com")
+            var mallory = Account(email: "trust-again-manager@example.com")
+            var leslie = Account(email: "trust-again-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&leslie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            try await addMember(mallory, to: groupID, level: .manage, log: &log, owner: robin,
+                                sealing: ScopedKey.generate(scope: .group(GroupID(groupID))), on: app)
+
+            let next = ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(1))
+            let adding = try entry(.add, subject: leslie, keys: leslie.publicKeys, level: .read,
+                                   epochAfter: Epoch(1), by: robin, after: log, in: groupID)
+            let sealed = try [robin, mallory, leslie].map {
+                try KeyWrap.wrapToIdentity(next, recipient: $0.publicKeys, recipientUserID: UserID($0.userID),
+                                           sender: robin.identity, senderUserID: UserID(robin.userID))
+            }
+            #expect(try await post(adding, keys: sealed, to: groupID, as: robin, on: app).status == .created)
+            log.append(adding)
+
+            let junk = try KeyWrap.wrapToIdentity(
+                ScopedKey.generate(scope: .group(GroupID(groupID))), recipient: leslie.publicKeys,
+                recipientUserID: UserID(leslie.userID), sender: mallory.identity,
+                senderUserID: UserID(mallory.userID))
+            let again = try entry(.add, subject: leslie, level: .read, epochAfter: Epoch(1),
+                                  by: mallory, after: log, in: groupID)
+            let answer = try await post(again, keys: [junk], to: groupID, as: mallory, on: app)
+            #expect(answer.status == .badRequest)
+            #expect(answer.reason.contains("alreadyAMember"), "got \(answer.reason)")
+            let first = try await WrappedKeyRow.query(on: app.db)
+                .filter(\.$groupID == groupID).filter(\.$recipientUserID == leslie.userID)
+                .filter(\.$epoch == 0).count()
+            #expect(first == 0, "her empty slot stays empty")
+        }
+    }
+
+    /// A budget key comes only from someone who holds that epoch's group key,
+    /// judged from the keys the server stores for them. Removing Mallory
+    /// dropped hers, so once she was added back "from now on", every invite
+    /// of hers with everything so far was refused, for budget keys whose
+    /// slots were already filled. Those are dropped anyway, so only an empty
+    /// slot needs the check.
+    @Test func aManagerAddedBackCanStillShareEverythingSoFar() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-back-founder@example.com")
+            var mallory = Account(email: "trust-back-manager@example.com")
+            var jamie = Account(email: "trust-back-joiner@example.com")
+            try await register(&robin, on: app)
+            try await register(&mallory, on: app)
+            try await register(&jamie, on: app)
+            let groupID = UUID()
+            var log = try await foundGroup(robin, groupID: groupID, on: app)
+            let groceries = BudgetID()
+            let keys = (0 ... 3).map { ScopedKey.generate(scope: .group(GroupID(groupID)), epoch: Epoch(UInt32($0))) }
+            func budgetKey(_ epoch: Int, from account: Account) throws -> WrappedKey {
+                try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(groceries), epoch: Epoch(UInt32(epoch))),
+                                              groupKey: keys[epoch].material, senderUserID: UserID(account.userID))
+            }
+            func sealed(_ epoch: Int, to accounts: [Account], from sender: Account) throws -> [WrappedKey] {
+                try accounts.map {
+                    try KeyWrap.wrapToIdentity(keys[epoch], recipient: $0.publicKeys,
+                                               recipientUserID: UserID($0.userID), sender: sender.identity,
+                                               senderUserID: UserID(sender.userID))
+                }
+            }
+            func send(_ next: MembershipLogEntry, keys wrapped: [WrappedKey], as account: Account) async throws
+                -> HTTPResponseStatus {
+                let status = try await post(next, keys: wrapped, to: groupID, as: account, on: app).status
+                if status == .created { log.append(next) }
+                return status
+            }
+
+            // Mallory joins "from now on", is removed, and is added back the same way.
+            #expect(try await send(try entry(.add, subject: mallory, keys: mallory.publicKeys, level: .manage,
+                                             epochAfter: Epoch(1), by: robin, after: log, in: groupID),
+                                   keys: try sealed(1, to: [robin, mallory], from: robin)
+                                       + [try budgetKey(1, from: robin)], as: robin) == .created)
+            #expect(try await send(try entry(.remove, subject: mallory, level: .none, epochAfter: Epoch(2),
+                                             by: robin, after: log, in: groupID),
+                                   keys: try sealed(2, to: [robin], from: robin) + [try budgetKey(2, from: robin)],
+                                   as: robin) == .created)
+            #expect(try await send(try entry(.add, subject: mallory, keys: mallory.publicKeys, level: .manage,
+                                             epochAfter: Epoch(3), by: robin, after: log, in: groupID),
+                                   keys: try sealed(3, to: [robin, mallory], from: robin)
+                                       + [try budgetKey(3, from: robin)], as: robin) == .created)
+
+            // Her invite with everything so far.
+            let everything = try sealed(1, to: [jamie], from: mallory) + sealed(3, to: [jamie], from: mallory)
+                + [try budgetKey(1, from: mallory), try budgetKey(3, from: mallory)]
+            #expect(try await send(try entry(.add, subject: jamie, keys: jamie.publicKeys, level: .read,
+                                             epochAfter: Epoch(3), by: mallory, after: log, in: groupID),
+                                   keys: everything, as: mallory) == .created)
+        }
+    }
+
+    /// The entry that leaves someone out of the group takes the group keys
+    /// stored for that person in that group, and nothing else: not other
+    /// members' keys, not budget keys, and not their keys in another group.
+    @Test func aRemovalTakesOnlyThatPersonsGroupKeysInThatGroup() async throws {
+        try await withConfiguredApp { app in
+            var robin = Account(email: "trust-reach-founder@example.com")
+            var leslie = Account(email: "trust-reach-member@example.com")
+            var jamie = Account(email: "trust-reach-leaver@example.com")
+            try await register(&robin, on: app)
+            try await register(&leslie, on: app)
+            try await register(&jamie, on: app)
+            let household = UUID(), cabin = UUID()
+            let householdKey = ScopedKey.generate(scope: .group(GroupID(household)))
+            var log = try await foundGroup(robin, groupID: household, on: app)
+            try await addMember(leslie, to: household, level: .read, log: &log, owner: robin,
+                                sealing: householdKey, on: app)
+            try await addMember(jamie, to: household, level: .read, log: &log, owner: robin,
+                                sealing: householdKey, on: app)
+            let budget = try KeyWrap.wrapUnderGroupKey(ScopedKey.generate(scope: .budget(BudgetID())),
+                                                       groupKey: householdKey.material,
+                                                       senderUserID: UserID(robin.userID))
+            #expect(try await upload([budget], to: household, as: robin, on: app) == .created)
+            var cabinLog = try await foundGroup(robin, groupID: cabin, on: app)
+            try await addMember(jamie, to: cabin, level: .read, log: &cabinLog, owner: robin,
+                                sealing: ScopedKey.generate(scope: .group(GroupID(cabin))), on: app)
+
+            let out = try entry(.remove, subject: jamie, level: .none, by: robin, after: log, in: household)
+            #expect(try await post(out, to: household, as: robin, on: app).status == .created)
+
+            func count(_ group: UUID, _ recipient: UUID?) async throws -> Int {
+                try await WrappedKeyRow.query(on: app.db)
+                    .filter(\.$groupID == group).filter(\.$recipientUserID == recipient).count()
+            }
+            #expect(try await count(household, jamie.userID) == 0, "his keys in this group go")
+            #expect(try await count(household, leslie.userID) == 1, "hers stay")
+            #expect(try await count(household, nil) == 1, "the budget key stays")
+            #expect(try await count(cabin, jamie.userID) == 1, "his keys in another group stay")
         }
     }
 }

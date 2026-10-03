@@ -59,50 +59,83 @@ public final class KeyRing: @unchecked Sendable {
         try store.cache(key)
     }
 
-    /// Unwrap whatever the server is holding for us.
+    /// Unwrap whatever the server is holding for us in `group`.
     ///
     /// Group keys first, because budget keys are sealed under them. A wrap we
     /// cannot open is skipped rather than fatal: it may be for an epoch we have no
     /// business reading, which is exactly what `.fromNow` history access produces.
+    ///
+    /// A key this Mac takes in replaces what it reads and seals with, so not
+    /// every wrap is taken:
+    ///
+    /// - A group key must be this group's, sealed to this person by someone
+    ///   who may manage the group. Only a manager adds people or starts a new
+    ///   epoch, and the seal proves who sent it.
+    /// - A budget key is opened only with this group's key for the same epoch,
+    ///   and never for a budget this Mac holds in another group. Opened with
+    ///   any group key it held, a key published in one group replaced the key
+    ///   for another group's budget.
+    /// - A key this Mac already holds is never replaced. Whichever wrap came
+    ///   last used to win, so any member could swap in a key of her own, and
+    ///   every record sealed with the real one stopped opening.
+    /// - Nothing is taken for an epoch beyond the log's, as the server refuses
+    ///   to store one.
+    ///
+    /// `membership` must be the history this Mac has verified: the log it
+    /// holds plus what extends it. A log the server hands over whole can be
+    /// made up, and a key taken on its word would be kept for good.
     @discardableResult
-    public func absorb(_ wrapped: [WrappedKey], senders: [UserID: IdentityPublicKeys]) throws -> Int {
+    public func absorb(_ wrapped: [WrappedKey], in group: GroupID,
+                       membership: MembershipState) throws -> Int {
         var opened = 0
 
-        let groupWraps = wrapped.filter { $0.wrapKind == .hpkeToIdentity }
-        for wrap in groupWraps {
-            guard wrap.recipientUserID == userID else { continue }
-            guard let senderKeys = senders[wrap.senderUserID] else { continue }
-            guard let key = try? KeyWrap.unwrapToIdentity(wrap, recipient: identity, sender: senderKeys) else {
-                continue
-            }
+        // Nothing for an epoch the log has not reached. Held early, a key
+        // would win over the real one when that epoch starts. It is fetched
+        // again once the log gets there.
+        for wrap in wrapped where wrap.wrapKind == .hpkeToIdentity && wrap.epoch <= membership.epoch {
+            guard wrap.scope == .group(group), wrap.recipientUserID == userID,
+                  membership.allows(wrap.senderUserID, .manage),
+                  let senderKeys = membership.keys[wrap.senderUserID],
+                  !has(scope: wrap.scope, epoch: wrap.epoch),
+                  let key = try? KeyWrap.unwrapToIdentity(wrap, recipient: identity, sender: senderKeys)
+            else { continue }
             try remember(key)
             opened += 1
         }
 
-        let budgetWraps = wrapped.filter { $0.wrapKind == .aesUnderGroupKey }
-        for wrap in budgetWraps {
-            // Try every group key we hold. There are at most a handful.
-            lock.lock()
-            let groupKeys = cache.values.filter { $0.scope.isGroup }
-            lock.unlock()
-            for candidate in groupKeys {
-                if let key = try? KeyWrap.unwrapUnderGroupKey(wrap, groupKey: candidate.material) {
-                    try remember(key)
-                    opened += 1
-                    break
-                }
-            }
+        for wrap in wrapped where wrap.wrapKind == .aesUnderGroupKey && wrap.epoch <= membership.epoch {
+            guard case .budget(let budget) = wrap.scope,
+                  !has(scope: wrap.scope, epoch: wrap.epoch),
+                  try mayBeIn(group, budget),
+                  let groupKey = try? key(for: .group(group), epoch: wrap.epoch),
+                  let key = try? KeyWrap.unwrapUnderGroupKey(wrap, groupKey: groupKey.material)
+            else { continue }
+            try remember(key)
+            opened += 1
         }
 
         return opened
     }
 
-    /// Generate a fresh group key and every budget key under it, then seal them for
-    /// each member. This is what removal triggers.
+    /// Whether `budget` can be in `group` as far as this Mac knows: it holds the
+    /// budget there, or holds nothing under its ID yet.
+    private func mayBeIn(_ group: GroupID, _ budget: BudgetID) throws -> Bool {
+        guard let held = try store.holder(of: RecordID(budget.uuid)) else { return true }
+        return held.type == .budget && held.group == group
+    }
+
+    /// A fresh group key and every budget key under it, sealed for each member.
+    /// This is what a new epoch needs.
+    ///
+    /// The keys are returned, not kept. The caller keeps them once the server
+    /// has taken the entry that starts the epoch, because a held key is never
+    /// replaced: keys from an entry the server refused, say because another
+    /// manager started the same epoch first, would stop the real ones arriving.
     public func rotate(group: GroupID, budgets: [BudgetID], to epoch: Epoch,
-                       members: [(userID: UserID, keys: IdentityPublicKeys)]) throws -> [WrappedKey] {
+                       members: [(userID: UserID, keys: IdentityPublicKeys)]) throws
+        -> (keys: [ScopedKey], wrapped: [WrappedKey]) {
         let groupKey = ScopedKey.generate(scope: .group(group), epoch: epoch)
-        try remember(groupKey)
+        var keys = [groupKey]
 
         var wrapped: [WrappedKey] = []
         for member in members {
@@ -113,18 +146,11 @@ public final class KeyRing: @unchecked Sendable {
 
         for budget in budgets {
             let budgetKey = ScopedKey.generate(scope: .budget(budget), epoch: epoch)
-            try remember(budgetKey)
+            keys.append(budgetKey)
             wrapped.append(try KeyWrap.wrapUnderGroupKey(
                 budgetKey, groupKey: groupKey.material, senderUserID: userID))
         }
 
-        return wrapped
-    }
-}
-
-extension KeyScope {
-    var isGroup: Bool {
-        if case .group = self { return true }
-        return false
+        return (keys, wrapped)
     }
 }

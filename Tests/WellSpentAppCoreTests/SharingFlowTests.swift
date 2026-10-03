@@ -208,7 +208,8 @@ struct SharingFlowTests {
     /// A delete goes out without a pull first. A pull applied her rename over
     /// his delete, so the group came back on his Mac and nowhere else.
     @Test func aDeleteIsNotUndoneByAnEditItHadNotSeen() async throws {
-        let (robin, leslie, group, _) = try await sharedHousehold()
+        // Manage, because renaming the group takes Manage.
+        let (robin, leslie, group, _) = try await sharedHousehold(level: .manage)
 
         leslie.model.renameGroup(group, to: "Home")
         await leslie.sync.syncAll()
@@ -394,7 +395,8 @@ struct SharingFlowTests {
     /// had never been sent. A sync that ran first would have sent both, so
     /// the join now lets go first, the same way.
     @Test func whatWasQueuedGoesOutBeforeAGroupComesBack() async throws {
-        let (robin, leslie, group, groceries) = try await sharedHousehold()
+        // Manage, because renaming the group takes Manage.
+        let (robin, leslie, group, groceries) = try await sharedHousehold(level: .manage)
         leslie.model.selectedBudget = groceries
         leslie.model.addTransaction(merchant: "Costco", amount: Money(minorUnits: 9900),
                                     date: Date(), note: "")
