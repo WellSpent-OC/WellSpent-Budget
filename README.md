@@ -48,3 +48,13 @@ CommandLineTools and the Xcode licence has not been accepted. See the Makefile.
 macOS 14 and iOS 17 are the floor, set by HPKE. Mac ships first, then iOS. The core
 package compiles on Linux, so the Linux box gets a terminal client from the same
 code. Android is much later. There is deliberately no web client.
+
+## License
+
+- The app and the shared libraries: GNU General Public License v3.0, in `LICENSE`.
+- The sync server (`Server/`): GNU Affero General Public License v3.0, in
+  `Server/LICENSE`. It also covers anyone who runs a changed copy of the server for
+  other people.
+
+Contributions need a signed contributor agreement before they can be merged. See
+`CONTRIBUTING.md`.
