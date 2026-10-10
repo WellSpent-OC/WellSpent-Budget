@@ -11,7 +11,7 @@ import WellSpentSync
 @MainActor
 private struct Setup {
     let workspace: Workspace
-    let transport: StubAccountTransport
+    let transport: StubReadableTransport
 
     var model: AppModel { workspace.model }
     var sync: SyncCoordinator { workspace.sync }
@@ -19,7 +19,7 @@ private struct Setup {
 
     init(interval: Duration = .seconds(3600)) throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
-        let transport = StubAccountTransport()
+        let transport = StubReadableTransport()
         let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
                                    defaults: isolatedDefaults(),
                                    makeTransport: { _ in transport })
@@ -67,7 +67,7 @@ struct AutoSyncTests {
         await s.autoSync.pending?.value
 
         #expect(s.autoSync.runs == 0)
-        #expect(s.transport.appended.isEmpty)
+        #expect(s.transport.syncRounds == 0)
         #expect(s.sync.state == .signedOut, "a sync nobody asked for must not say \"Sign in first\"")
     }
 
@@ -76,7 +76,7 @@ struct AutoSyncTests {
     @Test func aBackgroundSyncThatFailsKeepsQuiet() async throws {
         let s = try Setup()
         try await s.sync.signUp(email: "robin@example.com", password: "a-long-password")
-        s.transport.failLogRead = .http(status: 503, reason: "database unreachable")
+        s.transport.failSync = .http(status: 503, reason: "database unreachable")
 
         await s.autoSync.syncIfIdle()
         #expect(s.sync.state == .signedIn(email: "robin@example.com"))
@@ -92,10 +92,10 @@ struct AutoSyncTests {
     @Test func aBackgroundSyncThatWorksClearsAnOldError() async throws {
         let s = try Setup()
         try await s.sync.signUp(email: "robin@example.com", password: "a-long-password")
-        s.transport.failLogRead = .http(status: 503, reason: "database unreachable")
+        s.transport.failSync = .http(status: 503, reason: "database unreachable")
         await s.sync.syncAll()
 
-        s.transport.failLogRead = nil
+        s.transport.failSync = nil
         await s.autoSync.syncIfIdle()
 
         #expect(s.sync.state == .signedIn(email: "robin@example.com"))
@@ -168,12 +168,13 @@ struct AppModelChangeTests {
 struct SpinningSyncButtonTests {
 
     @Test func itSpinsOnlyWhileASyncRuns() {
-        #expect(SyncButton.isSpinning(for: .busy("Syncing")))
-        #expect(!SyncButton.isSpinning(for: .signedIn(email: "robin@example.com")))
-        #expect(!SyncButton.isSpinning(for: .signedOut))
-        #expect(!SyncButton.isSpinning(for: .failed("no route to host")))
+        #expect(SyncWording.showsProgress(for: .busy("Syncing")))
+        #expect(!SyncWording.showsProgress(for: .signedIn(email: "robin@example.com")))
+        #expect(!SyncWording.showsProgress(for: .signedOut))
+        #expect(!SyncWording.showsProgress(for: .failed("no route to host")))
     }
 
+    #if canImport(SwiftUI)
     /// One turn a second, clockwise.
     @Test func itTurnsOnceASecond() {
         let start = Date(timeIntervalSinceReferenceDate: 1_000)
@@ -181,4 +182,5 @@ struct SpinningSyncButtonTests {
         #expect(SpinningIcon.angle(at: start.addingTimeInterval(0.25)) == 90)
         #expect(SpinningIcon.angle(at: start.addingTimeInterval(1)) == 0)
     }
+    #endif
 }

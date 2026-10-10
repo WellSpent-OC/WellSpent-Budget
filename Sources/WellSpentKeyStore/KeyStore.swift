@@ -15,6 +15,12 @@ public enum KeyStoreItem: String, Sendable, CaseIterable {
     case serverToken
     /// Set once the person has confirmed their recovery code. A date, never the code.
     case recoveryConfirmedAt
+    /// This device's ID for readable sync, 16 bytes. Not a secret: the server
+    /// sees it on every record this device sends.
+    case clientID
+    /// The readable sync session. Like `serverToken` it lets this device into
+    /// the account, so it is kept here rather than in the database.
+    case session
 }
 
 public enum KeyStoreError: Error, Equatable, Sendable {
@@ -68,6 +74,27 @@ public extension KeyStore {
         let uuid = idBytes.withUnsafeBytes { $0.loadUnaligned(as: uuid_t.self) }
         return DeviceKeyPair(id: DeviceID(UUID(uuid: uuid)),
                              signing: try Curve25519.Signing.PrivateKey(rawRepresentation: keyBytes))
+    }
+
+    /// This device's ID for readable sync. The one saved, if there is one.
+    /// Otherwise the ID in the sealed app's device key, so the versions this
+    /// device recorded, and its check for its own records coming back, still
+    /// match. Otherwise a new one. Saved as 16 bytes either way.
+    ///
+    /// A device key that cannot be read gives a new ID rather than an error:
+    /// the sealed app could not have used it either.
+    func loadOrCreateClientID() throws -> DeviceID {
+        if let raw = try load(.clientID) {
+            guard raw.count == 16 else {
+                throw KeyStoreError.backendFailure("client ID is \(raw.count) bytes, expected 16")
+            }
+            return DeviceID(UUID(uuid: raw.withUnsafeBytes { $0.loadUnaligned(as: uuid_t.self) }))
+        }
+        var sealed: DeviceKeyPair?
+        if (try? load(.deviceSigning)) != nil { sealed = try? loadDevice() }
+        let id = sealed?.id ?? DeviceID()
+        try store(id.bytes, for: .clientID)
+        return id
     }
 }
 

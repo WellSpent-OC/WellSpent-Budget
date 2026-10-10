@@ -3,13 +3,17 @@ import Fluent
 import Vapor
 import WellSpentCrypto
 
-/// Everything the server is allowed to know.
+/// Everything the server stores.
 ///
 /// Read this file as the answer to "what does a stolen database contain?". The
 /// social graph is here in full: who shares money with whom, at what level, from
-/// when. Record ids, sizes and timestamps are here. Amounts, merchants, budget
-/// names and receipt images are not, and cannot be, because the server holds no
-/// key that opens them.
+/// when. Record ids, sizes and timestamps are here.
+///
+/// Since 2026-10-08 the project is moving off end-to-end encryption, so this is
+/// changing. `records` holds sealed records the server cannot open. `sync_records`
+/// holds readable ones: amounts, merchants and budget names, in full. Once every
+/// account has moved, the sealed tables go, and a stolen database holds every
+/// budget. That is why the database's disk and its backups must be encrypted.
 
 final class UserRow: Model, @unchecked Sendable {
     static let schema = "users"
@@ -21,6 +25,10 @@ final class UserRow: Model, @unchecked Sendable {
     @Field(key: "identity_signing") var identitySigning: Data
     @Field(key: "identity_kem") var identityKEM: Data
     @Timestamp(key: "created_at", on: .create) var createdAt: Date?
+    /// When the person proved the address is theirs with an emailed code. A
+    /// password reset goes only to a confirmed address.
+    @OptionalField(key: "email_verified_at") var emailVerifiedAt: Date?
+    @OptionalField(key: "password_changed_at") var passwordChangedAt: Date?
 
     init() {}
     init(id: UUID, email: String, passwordHash: String, identitySigning: Data, identityKEM: Data) {
@@ -87,6 +95,12 @@ final class GroupRow: Model, @unchecked Sendable {
     /// reading every record in the group on each push.
     @Field(key: "max_lamport") var maxLamport: Int
     @Timestamp(key: "created_at", on: .create) var createdAt: Date?
+    /// The last sequence number handed to a readable record in this group.
+    @Field(key: "last_seq") var lastSeq: Int
+    /// The key every member's device uses for statement fingerprints. See
+    /// `AddReadableSync`.
+    @OptionalField(key: "import_key") var importKey: Data?
+    @OptionalField(key: "deleted_at") var deletedAt: Date?
 
     init() {}
     init(id: UUID, founderID: UUID, epoch: Int = 0) {
@@ -94,6 +108,7 @@ final class GroupRow: Model, @unchecked Sendable {
         self.founderID = founderID
         self.epoch = epoch
         self.maxLamport = 0
+        self.lastSeq = 0
     }
 }
 
@@ -225,6 +240,8 @@ final class InviteRow: Model, @unchecked Sendable {
     @Field(key: "expires_at") var expiresAt: Date
     @OptionalField(key: "acceptance") var acceptance: Data?
     @OptionalField(key: "accepted_at") var acceptedAt: Date?
+    /// Who accepted it. Readable invites are accepted by a signed-in account.
+    @OptionalField(key: "accepted_by_user_id") var acceptedByUserID: UUID?
 
     init() {}
     init(id: UUID = UUID(), inviteHash: Data, groupID: UUID, inviterUserID: UUID,
@@ -236,5 +253,116 @@ final class InviteRow: Model, @unchecked Sendable {
         self.level = level
         self.historyAccess = historyAccess
         self.expiresAt = expiresAt
+    }
+}
+
+/// One readable record: a budget, a transaction, a group's name, and the rest.
+///
+/// The server reads `body` to check each change: who owns a transaction, who may
+/// rename a group, and whether the record belongs where it was sent. `server_seq`
+/// orders the pull, as in `records`.
+final class SyncRecordRow: Model, @unchecked Sendable {
+    static let schema = "sync_records"
+
+    @ID(custom: "id", generatedBy: .user) var id: UUID?
+    @Field(key: "group_id") var groupID: UUID
+    @OptionalField(key: "budget_id") var budgetID: UUID?
+    @Field(key: "record_type") var recordType: String
+    /// The record as JSON.
+    @Field(key: "body") var body: String
+    /// Set by the first store and never changed. The owner, for the rule that a
+    /// member at Add may change only their own entries.
+    @Field(key: "created_by_user_id") var createdByUserID: UUID
+    @Field(key: "updated_by_user_id") var updatedByUserID: UUID
+    /// The writing device. Breaks ties between equal Lamport values, nothing more.
+    @Field(key: "client_id") var clientID: UUID
+    @Field(key: "lamport") var lamport: Int
+    @Field(key: "is_deleted") var isDeleted: Bool
+    @Field(key: "server_seq") var serverSeq: Int
+    /// The sequence when first stored. A "from now on" member sees only records
+    /// first stored after they joined.
+    @Field(key: "first_seq") var firstSeq: Int
+    @Timestamp(key: "created_at", on: .create) var createdAt: Date?
+    @Timestamp(key: "updated_at", on: .update) var updatedAt: Date?
+
+    init() {}
+    init(id: UUID, groupID: UUID, budgetID: UUID?, recordType: String, body: String,
+         createdBy: UUID, clientID: UUID, lamport: Int, isDeleted: Bool, serverSeq: Int) {
+        self.id = id
+        self.groupID = groupID
+        self.budgetID = budgetID
+        self.recordType = recordType
+        self.body = body
+        self.createdByUserID = createdBy
+        self.updatedByUserID = createdBy
+        self.clientID = clientID
+        self.lamport = lamport
+        self.isDeleted = isDeleted
+        self.serverSeq = serverSeq
+        self.firstSeq = serverSeq
+    }
+}
+
+/// A signed-in device. Replaces `tokens`.
+///
+/// It renews itself while it is used, so someone who opens the app now and then
+/// stays signed in, and an idle one runs out. Like `tokens`, it holds a SHA-256
+/// of the token, never the token.
+final class SessionRow: Model, @unchecked Sendable {
+    static let schema = "sessions"
+
+    @ID(custom: "id", generatedBy: .user) var id: UUID?
+    @Field(key: "user_id") var userID: UUID
+    @Field(key: "token_hash") var tokenHash: String
+    /// What the device called itself, so a person can tell their sessions apart.
+    @OptionalField(key: "device_label") var deviceLabel: String?
+    @Timestamp(key: "created_at", on: .create) var createdAt: Date?
+    @Field(key: "last_used_at") var lastUsedAt: Date
+    @Field(key: "expires_at") var expiresAt: Date
+    /// The person's `password_changed_at` when this session began. It must
+    /// still match, or the session ended with a password change or reset.
+    @OptionalField(key: "credential_stamp") var credentialStamp: Date?
+
+    init() {}
+    init(id: UUID = UUID(), userID: UUID, tokenHash: String, deviceLabel: String?,
+         lastUsedAt: Date, expiresAt: Date, credentialStamp: Date? = nil) {
+        self.id = id
+        self.userID = userID
+        self.tokenHash = tokenHash
+        self.deviceLabel = deviceLabel
+        self.lastUsedAt = lastUsedAt
+        self.expiresAt = expiresAt
+        self.credentialStamp = credentialStamp
+    }
+}
+
+/// A code sent by email, to confirm an address or to reset a password.
+///
+/// It holds a keyed hash of the code under a secret only the server has, not a
+/// plain hash. A code is short enough that a plain hash in a leaked database
+/// could be reversed in minutes.
+final class EmailCodeRow: Model, @unchecked Sendable {
+    static let schema = "email_codes"
+
+    @ID(custom: "id", generatedBy: .user) var id: UUID?
+    @Field(key: "user_id") var userID: UUID
+    /// "verify" or "reset".
+    @Field(key: "purpose") var purpose: String
+    @Field(key: "code_hmac") var codeHMAC: String
+    @Field(key: "expires_at") var expiresAt: Date
+    @Field(key: "attempts") var attempts: Int
+    @Field(key: "last_sent_at") var lastSentAt: Date
+    @Timestamp(key: "created_at", on: .create) var createdAt: Date?
+
+    init() {}
+    init(id: UUID = UUID(), userID: UUID, purpose: String, codeHMAC: String,
+         expiresAt: Date, lastSentAt: Date) {
+        self.id = id
+        self.userID = userID
+        self.purpose = purpose
+        self.codeHMAC = codeHMAC
+        self.expiresAt = expiresAt
+        self.attempts = 0
+        self.lastSentAt = lastSentAt
     }
 }

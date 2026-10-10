@@ -1,0 +1,45 @@
+#!/bin/sh
+# Installs @NAME@ for this login only. No administrator password is needed.
+#
+#     ./install.sh            installs, or updates an earlier install
+#     ./install.sh --remove   takes it out again; your budgets stay
+#
+# The app goes in ~/.local/opt/@SLUG@, and an entry in the app menu points at it.
+# Budgets are kept apart from the app, in ~/.local/share/@NAME@ (or under
+# $XDG_DATA_HOME when that is set), and sign-ins in
+# the desktop keyring, so removing or updating the app never touches them.
+set -eu
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$HOME/.local/opt/@SLUG@"
+MENU_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
+ENTRY="$MENU_DIR/@SLUG@.desktop"
+
+if [ "${1:-}" = "--remove" ]; then
+    rm -rf "$APP_DIR"
+    rm -f "$ENTRY" "$ICON_DIR/@SLUG@.svg"
+    echo "@NAME@ is removed. Your budgets are still in ${XDG_DATA_HOME:-$HOME/.local/share}/@NAME@."
+    exit 0
+fi
+
+mkdir -p "$APP_DIR" "$MENU_DIR" "$ICON_DIR"
+# Replaced whole, so nothing from an older version is left behind.
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR"
+cp "$HERE/@SLUG@" "$APP_DIR/"
+cp -R "$HERE/WellSpentLinux_WellSpentLinux.resources" "$APP_DIR/"
+cp "$HERE/@SLUG@.svg" "$ICON_DIR/@SLUG@.svg"
+
+cat > "$ENTRY" <<EOF
+[Desktop Entry]
+Type=Application
+Name=@NAME@
+Comment=Budgets you share
+Exec="$APP_DIR/@SLUG@"
+Icon=@SLUG@
+Terminal=false
+Categories=Office;Finance;
+EOF
+
+echo "@NAME@ is installed. It is in the app menu."

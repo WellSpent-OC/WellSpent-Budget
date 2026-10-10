@@ -18,6 +18,9 @@ public final class AppModel {
     public private(set) var summaries: [GroupID: [BudgetSummary]] = [:]
     public private(set) var transactions: [Transaction] = []
     public var errorMessage: String?
+    /// Whether this person may add entries to a group. The workspace answers
+    /// it from the server's levels; a model on its own allows everything.
+    public var mayAddEntries: (GroupID) -> Bool = { _ in true }
 
     public var selectedBudget: BudgetID? {
         didSet { reloadTransactions() }
@@ -103,6 +106,11 @@ public final class AppModel {
 
     public func addTransaction(merchant: String, amount: Money, date: Date, note: String) {
         guard let selectedBudget, let budget = budget(for: selectedBudget) else { return }
+        // A button left showing cannot add what the server would refuse.
+        guard mayAddEntries(budget.groupID) else {
+            errorMessage = SyncWording.viewOnly
+            return
+        }
         do {
             // Stored negative: a budget counts money going out.
             let signed = Money(minorUnits: -abs(amount.minorUnits), currency: amount.currency)
@@ -206,7 +214,9 @@ public final class AppModel {
     /// this Mac and queue nothing:
     /// - `.thisMacOnly` is for a shared group this person may not delete for
     ///   everyone. Their budget and transaction deletes would reach every
-    ///   other member, even though the group's own delete is refused.
+    ///   other member, even though the group's own delete is refused. It asks
+    ///   to leave the group instead, which the next readable sync round does
+    ///   (`GroupAction.leave`).
     /// - `.declinesInvite`, or any group still waiting to join, is only a
     ///   placeholder for someone else's group. Its delete would land on the
     ///   inviter's real group, so its queued rows are dropped as well.
@@ -215,6 +225,7 @@ public final class AppModel {
             guard var group = try store.group(id) else { return }
             let declining = try reach == .declinesInvite || store.pendingJoin(id) != nil
             let queue = !declining && reach.reachesOthersOrNobody
+            if !declining, reach == .thisMacOnly { try store.requestLeave(id) }
             let budgets = try store.budgets(in: id)
             for budget in budgets { try trashBudget(budget.id, queue: queue) }
             group.isDeleted = true
@@ -261,12 +272,12 @@ public final class AppModel {
 
     // MARK: - Members
 
-    /// Everyone with access to the group, from its verified membership log. One
-    /// for a group nobody else has joined, or that has never synced.
+    /// Everyone with access to the group, as the server last listed them.
+    /// One for a group nobody else has joined, or that has never synced.
     public func memberCount(in group: GroupID) -> Int {
-        guard let log = try? store.membershipLog(for: group), !log.isEmpty,
-              let state = try? MembershipLog.replay(log, scope: .group(group)) else { return 1 }
-        return max(1, state.members.count)
+        let members = (try? store.members(in: group)) ?? [:]
+        guard members.isEmpty else { return members.count }
+        return SealedHistory.memberCount(in: group, store: store)
     }
 
     public func isShared(_ group: GroupID) -> Bool { memberCount(in: group) > 1 }
@@ -306,6 +317,10 @@ public final class AppModel {
                 errorMessage = "Make a budget group first."
                 return
             }
+            guard mayAddEntries(group.id) else {
+                errorMessage = SyncWording.viewOnly
+                return
+            }
             let allTransactions = try store.budgets(in: group.id)
                 .flatMap { try store.transactions(in: $0.id) }
 
@@ -313,7 +328,7 @@ public final class AppModel {
             // launch gave the same statement a different fingerprint every time,
             // so re-importing it duplicated every row instead of skipping them.
             guard let budgetKey = try fingerprintKey(for: group.id) else {
-                errorMessage = "This group's keys have not arrived yet. Sync, then import again."
+                errorMessage = "This group is not ready for imports yet. Sync, then import again."
                 return
             }
 
@@ -333,7 +348,7 @@ public final class AppModel {
                                           proposals: proposals,
                                           summary: matcher.summarise(proposals))
         } catch {
-            errorMessage = String(describing: error)
+            errorMessage = ImportWording.words(for: error, file: url.lastPathComponent)
         }
     }
 
@@ -377,16 +392,19 @@ public final class AppModel {
         }
     }
 
-    /// The key statement fingerprints are made with: the oldest key this Mac
-    /// holds for the group, or nil when it holds none it may use.
+    /// The key statement fingerprints are made with: the server's for the
+    /// group once it has one, and the group's first key from before the
+    /// switch until then (`Store.importKey`). Nil when this Mac holds none
+    /// it may use.
     ///
-    /// Only a group of this person's own gets a key made here. In a group
-    /// shared with them the keys come from whoever shared it, and this Mac
-    /// never replaces a key it holds. One made here before the real one
-    /// arrived would be kept, and nothing anyone else sealed would open.
+    /// Only a group of this person's own gets a key made here, and it goes to
+    /// the server when the group is first sent. A group the server lists
+    /// with no key yet waits for its founder's: a key made here would never
+    /// match the one every other member uses, so the same line imported by
+    /// two people would count twice.
     private func fingerprintKey(for group: GroupID) throws -> SymmetricKey? {
-        if let oldest = try store.cachedKeys(scope: .group(group)).first { return oldest.material }
-        guard try store.pendingJoin(group) == nil else { return nil }
+        if let key = try store.importKey(for: group) { return SymmetricKey(data: key) }
+        guard try store.serverGroup(group) == nil, try store.pendingJoin(group) == nil else { return nil }
         let log = try store.membershipLog(for: group)
         if !log.isEmpty {
             guard let state = try? MembershipLog.replay(log, scope: .group(group)),
@@ -466,6 +484,8 @@ public enum GroupDeleteReach: Equatable, Sendable {
     /// Shared, and this person may delete it for every member.
     case everyone
     /// Shared, and only its founder or an admin may delete it for everyone.
+    /// Nothing of the group is deleted for the others. On readable sync this
+    /// person leaves it, on every device of theirs.
     case thisMacOnly
     /// Still waiting to join, so deleting it turns the invite down on this Mac.
     case declinesInvite

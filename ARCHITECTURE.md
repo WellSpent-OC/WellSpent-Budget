@@ -1,33 +1,50 @@
 # Architecture decisions
 
-Written 2026-09-26, updated 2026-09-27. Each entry says what was chosen and why, so
-a later session does not re-open a settled question or silently reverse one.
+Written 2026-09-26, updated 2026-09-27, and marked for readable sync 2026-10-10.
+Each entry says what was chosen and why, so a later session does not re-open a
+settled question or silently reverse one.
 
 > **This file describes intent, not progress.** Some of what follows is built and
 > tested; some is a decision waiting to be implemented. Do not read a paragraph
 > here as evidence that the code exists. **`STATUS.md` is the record of what is
 > actually built**, and it is the one to trust when the two disagree.
 
+> **With readable sync, WellSpent syncs budgets its server can read.** Your budgets
+> sync through WellSpent's server. Connections and backups are encrypted. The server
+> can read your budgets, which is how it checks who may change what and how it
+> resets a forgotten password.
+>
+> Before that, WellSpent sealed every record on the device, and the server kept
+> budgets only as sealed records it could not open. The sections marked "before
+> readable sync" describe that design. They are history, not a claim about the app
+> today. Their code stays only to move existing accounts across. It goes once every
+> account has moved, and this file is rewritten then.
+
 ## The four decisions that shape everything
 
 **Swift core, SwiftUI on Apple.** Mac ships first, iOS second and shares most of the
-view code. The core package (models, store, sync, crypto) compiles on Linux, so the
-Linux box gets a terminal client rather than a second GUI framework. Android comes
-much later as its own app. No web client, deliberately.
+view code. The core package (models, store, sync) compiles on Linux. Linux has a
+desktop app of its own in `Linux/`, drawn from the same shared screens as the Mac.
+Android comes much later as its own app. No web client, deliberately.
 
-**Local-first, end to end encrypted.** Every device holds a full plaintext SQLite
-database. The server holds ciphertext and cannot read amounts, merchants, budget
-names or receipts. This is a selling point, not just a precaution.
+**Local-first, readable sync.** Every device holds a full SQLite copy of its budgets.
+Your budgets sync through WellSpent's server. Connections and backups are encrypted.
+The server can read your budgets, which is how it checks who may change what and how
+it resets a forgotten password. Before readable sync this decision was end-to-end
+encryption, and the sections marked "before readable sync" describe it.
 
 **Sharing is in v1.** Not deferred. Sharing with a spouse and with a business partner
-is the reason for rebuilding, so the schema and the crypto are designed around it
+is the reason for rebuilding, so the schema and the sync are designed around it
 from the first commit.
 
 **Statements arrive as files.** CSV, OFX, QFX, and PDF with OCR. No bank aggregator,
 so no third party holds account access and there is no per-user cost. The importer
 is built so an aggregator could feed the same pipeline later if customers want it.
 
-## Crypto
+## Crypto, before readable sync
+
+*Before readable sync, every record was sealed on the device with the keys below.
+This section describes that design, not the app today.*
 
 **`import Crypto`, never `import CryptoKit`.** swift-crypto re-exports CryptoKit on
 Apple platforms and supplies its own implementation on Linux. One call site, both
@@ -71,7 +88,10 @@ the system generator, so there is nothing to guess and scrypt would only slow do
 legitimate recovery. Scrypt still has a job: the Linux keystore passphrase, where
 the input really is a human guess.
 
-## Invites, and the one genuinely novel part
+## Invites, and the one genuinely novel part, before readable sync
+
+*Before readable sync, an invite also carried the group's keys. This section
+describes that design, not the app today.*
 
 The usual problem: the server hands you a public key and claims it is your partner's,
 and if the server is lying it reads everything. Verification screens do not fix this,
@@ -99,7 +119,11 @@ edit is kept only as a conflict copy on theirs. Neither the server nor a receivi
 tell a re-seal from an edit. Fixing it needs a signed field in the envelope that
 says so, which is a format change every app and the server must understand.
 
-## What encryption does not do
+## What encryption did not do, before readable sync
+
+*Before readable sync, this was how access was split between keys and checks. The
+levels themselves carry over: under readable sync the server checks them
+itself.*
 
 Encryption enforces exactly one rung of the ladder: **read**. Holding the key is
 reading. Anyone who can decrypt can also produce valid ciphertext, so write, manage,
@@ -275,7 +299,10 @@ The replay also checks what each entry changes (`MembershipLog.checkWhatItChange
   It takes only View, and one naming the next epoch was taken for the entry that
   started it, so the server refused the keys the real start carried.
 
-## Keys a Mac takes in
+## Keys a Mac took in, before readable sync
+
+*Before readable sync, each Mac held group and budget keys. This section describes
+that design, not the app today.*
 
 Every app seals and opens records with the group and budget keys it holds, so a
 key from the wrong person, or for the wrong thing, changes what other members'
@@ -338,7 +365,10 @@ hand a new member a wrong budget key before the real one, and that member would
 then not read that budget. Nothing is revealed: the member who made the wrong key
 could already read the budget.
 
-## Known gaps, tracked
+## Known gaps in the sealed design, before readable sync
+
+*These were the known gaps in sharing a sealed group. They concern sealing keys and
+sealed records, which readable sync does not use.*
 
 Known and not fixed yet, each for the reason given. They bear on whether sharing
 is safe, so they are listed here until they are.
@@ -514,8 +544,8 @@ compare. There is a test pinning this, because it looks like a bug and is not.
 
 The `From-Date` sync cursor. `api/sync.rb` pulled with `where('updated_at >= ?')`,
 which loses records on clock skew or a same-second write. Replaced by a
-server-assigned monotonic sequence. This matters more now, because a dropped record
-is ciphertext and shows up as missing data with no error.
+server-assigned monotonic sequence. This mattered more with sealed records, where a
+dropped record showed up as missing data with no error.
 
 Everything in the old auth path. Nothing from it is reused: it had serious flaws,
 and its history should be assumed public.
@@ -534,7 +564,10 @@ and its history should be assumed public.
 - Subscriptions. StoreKit 2 when there is something to sell. The old schema had
   levels 0, 5, 7, 11, 13 and a payments table, which is a starting point.
 
-## The three places this is most likely to go wrong
+## The three places this was most likely to go wrong, before readable sync
+
+*Written before readable sync. Under readable sync a forgotten password is reset by
+email, so the first of these no longer applies.*
 
 **The recovery code, presented too early and never confirmed.** This fails quietly.
 Nothing breaks the day it is skipped. It breaks months later when a drive dies, and

@@ -11,7 +11,7 @@ import WellSpentSync
 @MainActor
 private struct Person {
     let model: AppModel
-    let sync: SyncCoordinator
+    let sync: SealedSyncCoordinator
     let transport: StubAccountTransport
 
     init(server: InMemoryTransport) throws {
@@ -19,7 +19,7 @@ private struct Person {
         model = AppModel(store: store)
         let transport = StubAccountTransport(inner: server)
         self.transport = transport
-        sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
+        sync = SealedSyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
                                defaults: isolatedDefaults(), makeTransport: { _ in transport })
         let model = self.model
         sync.didSync = { model.reload() }

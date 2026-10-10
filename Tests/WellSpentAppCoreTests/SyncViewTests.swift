@@ -1,3 +1,5 @@
+// SwiftUI and ViewInspector exist only on Apple systems.
+#if canImport(SwiftUI)
 import Testing
 import Foundation
 import SwiftUI
@@ -51,11 +53,11 @@ struct SyncViewTests {
         #expect(synced.contains("Last synced at"))
     }
 
-    /// The account button is Sign in or Sign out, never both, and says who is
-    /// signed in.
-    @Test func theAccountButtonTogglesWithTheSession() throws {
+    /// The account button opens the sheet: Sign in when signed out, the
+    /// account when signed in. It never signs out on a click.
+    @Test func theAccountButtonFollowsTheSession() throws {
         #expect(AccountButton.title(account: nil) == "Sign in")
-        #expect(AccountButton.title(account: "robin@example.com") == "Sign out")
+        #expect(AccountButton.title(account: "robin@example.com") == "Account")
         #expect(AccountButton.icon(account: nil) != AccountButton.icon(account: "a@b.c"))
         #expect(AccountButton.help(account: "robin@example.com").contains("robin@example.com"))
 
@@ -63,6 +65,22 @@ struct SyncViewTests {
         let button = AccountButton(sync: sync, showingAccount: .constant(false))
         let labels = try button.inspect().findAll(ViewType.Text.self).map { try $0.string() }
         #expect(labels.contains("Sign in"), "got \(labels)")
+    }
+
+    /// Clicked while signed in, it opens the account and signs nobody out.
+    @Test func theAccountButtonNeverSignsOutOnAClick() async throws {
+        let transport = StubReadableTransport()
+        let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
+                                   keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   makeTransport: { _ in transport })
+        try await sync.signUp(email: "robin@example.com", password: "a-long-password")
+        var shown = false
+        let button = AccountButton(sync: sync, showingAccount: Binding(get: { shown }, set: { shown = $0 }))
+
+        try button.inspect().find(ViewType.Button.self).tap()
+
+        #expect(shown)
+        #expect(sync.account == "robin@example.com")
     }
 
     @Test func theButtonRendersAndIsDisabledWhileWorking() throws {
@@ -75,89 +93,92 @@ struct SyncViewTests {
 
     // MARK: - The account sheet
 
-    /// Checked here so a person is not told by the server what could be seen on
-    /// screen. Ten characters is the server's floor, not a guess.
-    @Test func theSubmitButtonNeedsAnAddressAnEmailAndALongEnoughPassword() {
-        let server = "http://127.0.0.1:8080"
-        #expect(AccountSheet.canSubmit(email: "robin@example.com",
-                                       password: "a-long-password", server: server))
-
-        #expect(!AccountSheet.canSubmit(email: "robin", password: "a-long-password", server: server))
-        #expect(!AccountSheet.canSubmit(email: "@example.com", password: "a-long-password", server: server))
-        #expect(!AccountSheet.canSubmit(email: "robin@", password: "a-long-password", server: server))
-        #expect(!AccountSheet.canSubmit(email: "robin@example.com", password: "short", server: server))
-        #expect(!AccountSheet.canSubmit(email: "robin@example.com",
-                                        password: "a-long-password", server: "wellspent"))
-        #expect(!AccountSheet.canSubmit(email: "robin@example.com",
-                                        password: "a-long-password", server: "ftp://example.com"))
-        #expect(AccountSheet.canSubmit(email: "robin@example.com",
-                                       password: "a-long-password", server: "https://sync.example.com"))
-    }
-
-    @Test func theSheetSaysWhereTheDataGoesAndThatItIsSealedFirst() throws {
+    /// Signed out, the sheet opens at signing in, with the ways to make an
+    /// account or reset a password, and says where budgets go and who can
+    /// read them.
+    @Test func signedOutTheSheetOpensAtSignIn() throws {
         let sync = try idleSync()
         let texts = try AccountSheet(sync: sync).inspect()
             .findAll(ViewType.Text.self).map { try $0.string() }
 
-        #expect(texts.contains { $0.contains("encrypted before they leave this Mac") },
-                "got \(texts)")
-        #expect(texts.contains("Sign in"))
-        #expect(texts.contains("Create an account"))
+        #expect(texts.contains("Sign in"), "got \(texts)")
+        #expect(texts.contains(AccountFlow.Words.createAccount))
+        #expect(texts.contains(AccountFlow.Words.forgotPassword))
+        #expect(texts.contains(AccountFlow.Words.privacy))
+        #expect(!texts.contains { $0.contains("encrypted before") || $0.contains("twelve words") })
     }
 
-    /// A device with no key cannot sign in, and the sheet has to say that before
-    /// the password is typed rather than after it is rejected.
-    @Test func theSheetWarnsWhenThisMacHasNoKey() throws {
+    /// Signed out by the server, the sheet says why.
+    @Test func aPromptOpensTheSheetWithItsReason() throws {
         let sync = try idleSync()
-        #expect(!sync.hasIdentity)
-
+        sync.endSession(reason: SyncCoordinator.sessionEndedReason)
         let texts = try AccountSheet(sync: sync).inspect()
             .findAll(ViewType.Text.self).map { try $0.string() }
-        #expect(texts.contains { $0.contains("pairing a second device is not built") },
-                "got \(texts)")
+
+        #expect(texts.contains(SyncCoordinator.sessionEndedReason), "got \(texts)")
     }
 
-    // MARK: - The recovery code
-
-    @Test func theRecoverySheetShowsAllTwelveWordsAndWhyTheyMatter() throws {
-        let sync = try idleSync()
-        let words = try RecoveryCode.encode(entropy: RecoveryCode.generateEntropy())
-        let enrolment = SyncCoordinator.Enrolment(email: "robin@example.com",
-                                                  recoveryWords: words)
-
-        let texts = try RecoveryWordsSheet(sync: sync, enrolment: enrolment).inspect()
+    /// Signed in, the sheet opens at the account, with the address still to
+    /// confirm and the ways to sign out.
+    @Test func signedInTheSheetOpensAtTheAccount() async throws {
+        let transport = StubReadableTransport()
+        let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
+                                   keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   makeTransport: { _ in transport })
+        try await sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let texts = try AccountSheet(sync: sync).inspect()
             .findAll(ViewType.Text.self).map { try $0.string() }
 
-        for word in words {
-            #expect(texts.contains(word), "word \(word) missing from \(texts)")
-        }
-        for number in 1...12 {
-            #expect(texts.contains("\(number)"))
-        }
-        #expect(texts.contains { $0.contains("only way") }, "the stake, said plainly")
-        #expect(texts.contains { $0.contains("cannot open it") })
-    }
-
-    @Test func anEnrolmentBoxIsIdentifiedByItsAccount() {
-        let box = EnrolmentBox(SyncCoordinator.Enrolment(email: "robin@example.com",
-                                                         recoveryWords: ["a", "b"]))
-        #expect(box.id == "robin@example.com")
+        #expect(texts.contains("Your account"), "got \(texts)")
+        #expect(texts.contains("Signed in as robin@example.com."))
+        #expect(texts.contains(ConfirmEmailScreen.reason))
+        #expect(texts.contains(AccountFlow.Words.signOut))
+        #expect(texts.contains(AccountFlow.Words.signOutEverywhere))
     }
 
     // MARK: - The sidebar footer
 
-    /// "Encrypted on this Mac" was true until syncing existed. Somebody signed in
-    /// should be told their data goes somewhere, and that it is sealed before it
-    /// does.
-    @Test func theFooterChangesOnceDataLeavesThisMac() async throws {
+    /// Somebody signed in is told their budgets go through the server;
+    /// signed out, that they stay on this computer.
+    @Test func theFooterSaysWhereBudgetsAreKept() async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
-        let transport = StubAccountTransport()
+        let transport = StubReadableTransport()
         let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
                                    defaults: isolatedDefaults(),
                                    makeTransport: { _ in transport })
 
-        #expect(SidebarView.footer(for: sync) == "Encrypted on this Mac")
+        #expect(SidebarView.footer(for: sync) == "Kept on this computer only")
         try await sync.signUp(email: "robin@example.com", password: "a-long-password")
-        #expect(SidebarView.footer(for: sync) == "Encrypted here and on the server")
+        #expect(SidebarView.footer(for: sync) == "Syncs through WellSpent's server")
+        // Still signed in when a sync fails, so still syncing through the server.
+        transport.failSync = .http(status: 500, reason: "")
+        await sync.syncAll()
+        #expect(sync.isSignedIn == false, "the state is failed")
+        #expect(SidebarView.footer(for: sync) == "Syncs through WellSpent's server")
+    }
+
+    /// Signed out, the sidebar's foot always offers a way in, whatever the
+    /// window shows and whether a prompt was dismissed.
+    @Test func signedOutTheFooterOffersSignIn() throws {
+        let model = AppModel(store: Store(database: try WellSpentDatabase.inMemory()))
+        let sync = try idleSync()
+        var shown = false
+        let sidebar = SidebarView(model: model, sync: sync, editor: .constant(nil),
+                                  showingAccount: Binding(get: { shown }, set: { shown = $0 }))
+
+        try sidebar.inspect().find(button: "Sign in").tap()
+
+        #expect(shown, "the same account sheet the toolbar opens")
+    }
+
+    /// Groups waiting on their founder count in the sidebar's line only when
+    /// this device holds nothing of them, a deleted copy included.
+    @Test func onlyGroupsHeldNowhereCountAsWaiting() {
+        let held = BudgetGroup(name: "Household", isDeleted: true)
+        let elsewhere = GroupID()
+        #expect(SidebarView.unseenWaiting([held.id, elsewhere], held: [held]) == 1)
+        #expect(SidebarView.unseenWaiting([], held: [held]) == 0)
     }
 }
+
+#endif

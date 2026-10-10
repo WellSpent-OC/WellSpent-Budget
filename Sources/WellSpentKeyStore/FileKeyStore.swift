@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
 import Crypto
 import CryptoExtras
 
@@ -173,7 +178,14 @@ public final class FileKeyStore: KeyStore, @unchecked Sendable {
         let temporary = url.appendingPathExtension("tmp")
         try JSONEncoder().encode(envelope).write(to: temporary, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporary.path)
-        _ = try FileManager.default.replaceItemAt(url, withItemAt: temporary)
+        // rename() replaces the old file in one step, on every system.
+        // Foundation's replaceItemAt does not on Linux: it fails, and leaves the
+        // key file empty, so a second save there would have lost the key.
+        guard rename(temporary.path, url.path) == 0 else {
+            let reason = String(cString: strerror(errno))
+            try? FileManager.default.removeItem(at: temporary)
+            throw KeyStoreError.backendFailure("could not save the key file: \(reason)")
+        }
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 }

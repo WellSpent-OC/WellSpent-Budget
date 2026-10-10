@@ -1,21 +1,20 @@
+// The Mac screens. SwiftUI exists only on Apple systems; the Linux app draws
+// the same shared logic with its own screens.
+#if canImport(SwiftUI)
 import SwiftUI
 import WellSpentCrypto
 
 // MARK: - The toolbar buttons
 
-/// Signed out it opens the account sheet. Signed in it signs out, which keeps the
-/// budgets and the keys on this Mac and forgets only the session.
+/// Opens the account sheet: signing in when signed out, the account when
+/// signed in. Signing out is in the sheet, so a stray click never does it.
 struct AccountButton: View {
     @Bindable var sync: SyncCoordinator
     @Binding var showingAccount: Bool
 
     var body: some View {
         Button {
-            if sync.account != nil {
-                Task { await sync.signOut() }
-            } else {
-                showingAccount = true
-            }
+            showingAccount = true
         } label: {
             Label(Self.title(account: sync.account), systemImage: Self.icon(account: sync.account))
         }
@@ -24,16 +23,15 @@ struct AccountButton: View {
     }
 
     static func title(account: String?) -> String {
-        account == nil ? "Sign in" : "Sign out"
+        SyncWording.accountTitle(signedIn: account != nil)
     }
 
     static func icon(account: String?) -> String {
-        account == nil ? "person.crop.circle.badge.plus" : "rectangle.portrait.and.arrow.right"
+        account == nil ? "person.crop.circle.badge.plus" : "person.crop.circle"
     }
 
     static func help(account: String?) -> String {
-        guard let account else { return "Sign in to sync this Mac with your other devices." }
-        return "Signed in as \(account). Sign out keeps your budgets on this Mac."
+        SyncWording.accountHelp(account: account)
     }
 }
 
@@ -45,7 +43,8 @@ struct SyncButton: View {
 
     var body: some View {
         Button {
-            if sync.isSignedIn {
+            // A session, not the signed-in state: a failed sync is retried.
+            if sync.account != nil {
                 Task { await sync.syncAll() }
             } else {
                 showingAccount = true
@@ -61,11 +60,8 @@ struct SyncButton: View {
         .help(help)
     }
 
-    /// Spins while a sync runs, whoever started it, so a sync nobody clicked for
-    /// is still visible.
     static func isSpinning(for state: SyncCoordinator.State) -> Bool {
-        if case .busy = state { return true }
-        return false
+        SyncWording.showsProgress(for: state)
     }
 
     var title: String { Self.title(for: sync.state) }
@@ -73,12 +69,7 @@ struct SyncButton: View {
     var help: String { Self.help(for: sync.state, lastSyncedAt: sync.lastSyncedAt) }
 
     static func title(for state: SyncCoordinator.State) -> String {
-        switch state {
-        case .signedOut: return "Sign in"
-        case .busy(let what): return what
-        case .signedIn: return "Sync"
-        case .failed: return "Sync failed"
-        }
+        SyncWording.syncTitle(for: state)
     }
 
     static func icon(for state: SyncCoordinator.State) -> String {
@@ -89,18 +80,8 @@ struct SyncButton: View {
         }
     }
 
-    /// The tooltip carries the detail, because a toolbar button has no room for a
-    /// sentence and a failure that says nothing is worse than no button at all.
     static func help(for state: SyncCoordinator.State, lastSyncedAt: Date?) -> String {
-        switch state {
-        case .signedOut: return "Sign in to sync this Mac with your other devices."
-        case .busy(let what): return what
-        case .failed(let why): return why
-        case .signedIn(let email):
-            guard let at = lastSyncedAt else { return "Signed in as \(email). Not synced yet." }
-            return "Signed in as \(email). Last synced at "
-                 + at.formatted(date: .omitted, time: .shortened) + "."
-        }
+        SyncWording.syncHelp(for: state, lastSyncedAt: lastSyncedAt)
     }
 }
 
@@ -126,160 +107,203 @@ struct SpinningIcon: View {
     }
 }
 
-// MARK: - Signing in
+// MARK: - The account sheet
 
+/// Draws `AccountFlow`. What each step holds, checks and says lives there,
+/// shared with every desktop; this is layout only.
 struct AccountSheet: View {
     @Bindable var sync: SyncCoordinator
+    @State private var flow: AccountFlow
     @Environment(\.dismiss) private var dismiss
 
-    @State private var email = ""
-    @State private var password = ""
-    @State private var creating = false
-
-    /// A sign-in needs an address that parses, an email with an @ in it, and a
-    /// password the server will not refuse. The server's floor is ten characters,
-    /// and checking it here saves a round trip to be told so.
-    static func canSubmit(email: String, password: String, server: String) -> Bool {
-        guard email.contains("@"), !email.hasPrefix("@"), !email.hasSuffix("@") else { return false }
-        guard password.count >= 10 else { return false }
-        guard let url = URL(string: server.trimmingCharacters(in: .whitespaces)),
-              url.scheme == "http" || url.scheme == "https", url.host != nil else { return false }
-        return true
+    init(sync: SyncCoordinator) {
+        self.sync = sync
+        _flow = State(initialValue: AccountFlow(actions: sync, email: sync.signInPrompt?.email,
+                                                reason: sync.signInPrompt?.reason,
+                                                afterSigningIn: { await sync.syncAll() }))
     }
 
-    var canSubmit: Bool {
-        Self.canSubmit(email: email, password: password, server: sync.serverAddress)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(creating ? "Create an account" : "Sign in")
-                .font(.system(size: 17, weight: .semibold))
-
-            Picker("", selection: $creating) {
-                Text("Sign in").tag(false)
-                Text("Create an account").tag(true)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-
-            Form {
-                TextField("Email", text: $email)
-                SecureField("Password", text: $password)
-                TextField("Server", text: Binding(get: { sync.serverAddress },
-                                                  set: { sync.serverAddress = $0 }))
-            }
-            .formStyle(.grouped)
-
-            if !creating && !sync.hasIdentity(for: email) {
-                Label("""
-                      This Mac has no key yet. Create the account here, or on the \
-                      Mac that already has it: pairing a second device is not built.
-                      """,
-                      systemImage: "info.circle")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
-            }
-
-            if case .failed(let why) = sync.state {
-                Label(why, systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.warning)
-            }
-
-            HStack {
-                Text("Your budgets are encrypted before they leave this Mac.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
-                Spacer()
-                Button("Cancel") { dismiss() }
-                Button(creating ? "Create" : "Sign in") { submit() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canSubmit || sync.isBusy)
-            }
-        }
-        .padding(20)
-        .frame(width: 440)
-    }
-
-    func submit() {
-        let email = self.email, password = self.password, creating = self.creating
-        Task {
-            do {
-                if creating {
-                    try await sync.signUp(email: email, password: password)
-                } else {
-                    try await sync.signIn(email: email, password: password)
-                }
-                await sync.syncAll()
-                dismiss()
-            } catch {
-                // `sync.state` already carries the reason, and the sheet shows it.
-                // Staying open is the point: a closed sheet with an error behind it
-                // is how people retype a password into nothing.
-            }
-        }
-    }
-}
-
-// MARK: - The recovery code
-
-/// Shown once, right after the account is made.
-///
-/// These twelve words are the only way back into the data if every device is
-/// lost, and nothing on any server can substitute for them. That is what the
-/// encryption buys and what it costs, so the screen says both.
-struct RecoveryWordsSheet: View {
-    @Bindable var sync: SyncCoordinator
-    let enrolment: SyncCoordinator.Enrolment
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var confirmed = false
+    private typealias Words = AccountFlow.Words
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Write these twelve words down")
+            Text(flow.step.title)
                 .font(.system(size: 17, weight: .semibold))
-
-            Text("""
-                 They are the only way to get your budgets back if you lose every \
-                 device. Nobody can reset them for you, including us: the server \
-                 holds your data sealed and cannot open it.
-                 """)
-                .font(.system(size: 12))
+            if let notice = flow.notice {
+                note(notice)
+            }
+            step
+            if let failure = flow.currentFailure {
+                Label(failure, systemImage: "exclamationmark.triangle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(Words.privacy)
+                .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
                 .fixedSize(horizontal: false, vertical: true)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading),
-                                     count: 3),
-                      spacing: 8) {
-                ForEach(Array(enrolment.recoveryWords.enumerated()), id: \.offset) { index, word in
-                    HStack(spacing: 6) {
-                        Text("\(index + 1)")
-                            .font(.money(10, weight: .regular))
-                            .foregroundStyle(Palette.muted)
-                            .frame(width: 16, alignment: .trailing)
-                        Text(word).font(.money(12))
-                    }
-                }
-            }
-            .padding(12)
-            .background(Palette.ground, in: RoundedRectangle(cornerRadius: 8))
-
-            Toggle("I have written them down somewhere safe", isOn: $confirmed)
-                .font(.system(size: 12))
-
-            HStack {
-                Spacer()
-                Button("Done") {
-                    sync.recoveryWordsWereWrittenDown()
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!confirmed)
-            }
+            buttons
         }
         .padding(20)
-        .frame(width: 460)
+        .frame(width: 440)
+        .onChange(of: flow.isFinished) { _, finished in
+            if finished { dismiss() }
+        }
+        .confirmationDialog(Words.signOutEverywhereTitle,
+                            isPresented: Binding(get: { flow.isAskingToSignOutEverywhere },
+                                                 set: { if !$0 { flow.keepDevicesSignedIn() } })) {
+            Button(Words.signOutEverywhereButton, role: .destructive) {
+                flow.signOutEverywhere()
+            }
+            Button(Words.cancel, role: .cancel) { flow.keepDevicesSignedIn() }
+        } message: {
+            Text(Words.signOutEverywhereMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var step: some View {
+        switch flow.step {
+        case .signIn:
+            Form {
+                field(Words.email, Bindable(flow.signIn).email, problem: flow.signIn.problems[.email])
+                field(Words.password, Bindable(flow.signIn).password, secure: true)
+                serverField
+            }
+            .formStyle(.grouped)
+            HStack {
+                Button(Words.createAccount) { flow.go(to: .signUp) }
+                Spacer()
+                Button(Words.forgotPassword) { flow.go(to: .forgotPassword) }
+            }
+            .buttonStyle(.link)
+            .font(.system(size: 12))
+            .disabled(flow.isWorking)
+
+        case .signUp:
+            Form {
+                field(Words.email, Bindable(flow.signUp).email, problem: flow.signUp.problems[.email])
+                field(Words.password, Bindable(flow.signUp).password, secure: true,
+                      problem: flow.signUp.problems[.password])
+                field(Words.confirmation, Bindable(flow.signUp).confirmation, secure: true,
+                      problem: flow.signUp.problems[.confirmation])
+                serverField
+            }
+            .formStyle(.grouped)
+
+        case .forgotPassword:
+            if flow.reset.step == .enterEmail {
+                Form {
+                    field(Words.email, Bindable(flow.reset).email, problem: flow.reset.problems[.email])
+                    serverField
+                }
+                .formStyle(.grouped)
+            } else {
+                note(flow.resetCodeText)
+                Form {
+                    field(Words.code, Bindable(flow.reset).code, problem: flow.reset.problems[.code])
+                    field(Words.newPassword, Bindable(flow.reset).password, secure: true,
+                          problem: flow.reset.problems[.password])
+                    field(Words.confirmation, Bindable(flow.reset).confirmation, secure: true,
+                          problem: flow.reset.problems[.confirmation])
+                }
+                .formStyle(.grouped)
+                Button(Words.startOver) { flow.reset.startOver() }
+                    .buttonStyle(.link)
+                    .font(.system(size: 12))
+                    .disabled(flow.isWorking)
+            }
+
+        case .confirmEmail:
+            note(flow.confirmText)
+            Form {
+                field(Words.code, Bindable(flow.confirm).code)
+            }
+            .formStyle(.grouped)
+            Button(flow.sendCodeLabel) { Task { await flow.sendCode() } }
+                .disabled(!flow.confirm.canSendCode)
+            if let sent = flow.confirm.note {
+                note(sent)
+            }
+
+        case .account:
+            Text(flow.signedInAs)
+                .font(.system(size: 13))
+            if flow.needsConfirming {
+                note(ConfirmEmailScreen.reason)
+                Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
+                    .disabled(flow.isWorking)
+            }
+            HStack {
+                Button(Words.changePassword) { flow.go(to: .changePassword) }
+                Button(Words.signOut) { Task { await flow.signOut() } }
+                Button(Words.signOutEverywhere) { flow.askToSignOutEverywhere() }
+            }
+            .disabled(flow.isWorking)
+
+        case .changePassword:
+            Form {
+                field(Words.currentPassword, Bindable(flow.change).current, secure: true)
+                field(Words.newPassword, Bindable(flow.change).password, secure: true,
+                      problem: flow.change.problems[.password])
+                field(Words.confirmation, Bindable(flow.change).confirmation, secure: true,
+                      problem: flow.change.problems[.confirmation])
+            }
+            .formStyle(.grouped)
+        }
+    }
+
+    private var buttons: some View {
+        HStack {
+            if let back = flow.back {
+                Button(Words.back) { flow.go(to: back) }
+                    .disabled(flow.isWorking)
+            }
+            Spacer()
+            if let label = flow.submitLabel {
+                Button(flow.closeLabel) { flow.close() }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(flow.isWorking)
+                Button(label) { Task { await flow.submit() } }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!flow.canSubmit)
+            } else {
+                // The account step has no main button: closing is the default.
+                Button(flow.closeLabel) { flow.close() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(flow.isWorking)
+            }
+        }
+    }
+
+    private var serverField: some View {
+        TextField(Words.server, text: Binding(get: { sync.serverAddress },
+                                              set: { sync.serverAddress = $0 }))
+    }
+
+    private func field(_ label: String, _ text: Binding<String>, secure: Bool = false,
+                       problem: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if secure {
+                SecureField(label, text: text)
+            } else {
+                TextField(label, text: text)
+            }
+            if let problem {
+                Text(problem)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.warning)
+            }
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12))
+            .foregroundStyle(Palette.muted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+#endif

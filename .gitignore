@@ -13,3 +13,6 @@ Server/.build/
 
 # Production secrets for docker-compose.yml.
 .env
+
+# The Linux app as packaged by Linux/scripts/package.sh.
+Linux/dist/

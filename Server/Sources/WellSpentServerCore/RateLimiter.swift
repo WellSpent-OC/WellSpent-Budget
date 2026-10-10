@@ -29,6 +29,14 @@ public actor RateLimiter {
         public static let signUp = Limit(attempts: 5, window: 60 * 60)
         /// Invite lookup, which is a guessable 128-bit id but still worth slowing.
         public static let inviteLookup = Limit(attempts: 30, window: 60 * 60)
+        /// Anything that sends an email, so nobody can fill an inbox or run up
+        /// the email bill.
+        public static let emailCode = Limit(attempts: 5, window: 60 * 60)
+        /// Sign-in guesses at one account, from anywhere. Looser than per caller,
+        /// because anyone can spend someone else's allowance.
+        public static let signInPerAccount = Limit(attempts: 20, window: 15 * 60)
+        /// Typing an emailed code. Each code also allows only five tries.
+        public static let codeCheck = Limit(attempts: 10, window: 15 * 60)
     }
 
     private var hits: [String: [Date]] = [:]

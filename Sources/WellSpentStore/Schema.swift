@@ -327,6 +327,70 @@ public final class WellSpentDatabase: Sendable {
             }
         }
 
+        // Readable sync. New tables only, so the app from before the switch
+        // still opens this file if someone goes back to it.
+        //
+        // `serverGroup` is what the server last said about a group this
+        // account belongs to, and `movedAt` says this Mac has sent its data
+        // up once after the switch. No foreign key: the server can list a
+        // group before this Mac holds anything of it.
+        // `setAsideRecord` holds readable records this build cannot use yet,
+        // the way `deferredEnvelope` holds sealed ones.
+        // `moveCheck` holds the before-and-after totals of that one-time move.
+        // `readablePull` is how far readable sync has pulled each group. The
+        // sealed app's place stays in `syncState`, so going back to the old
+        // app finds it where it left it: the two servers number differently.
+        m.registerMigration("v9-readable-sync") { db in
+            try db.create(table: "serverGroup") { t in
+                t.primaryKey("budgetGroupId", .text)
+                t.column("founderId", .text).notNull()
+                t.column("level", .integer).notNull()
+                t.column("importKey", .blob).notNull()
+                t.column("historyFloor", .integer).notNull().defaults(to: 0)
+                t.column("deletedOnServer", .boolean).notNull().defaults(to: false)
+                t.column("movedAt", .datetime)
+                t.column("removedAt", .datetime)
+                t.column("refreshedAt", .datetime).notNull()
+            }
+            try db.create(table: "groupMember") { t in
+                t.column("budgetGroupId", .text).notNull()
+                t.column("userId", .text).notNull()
+                t.column("level", .integer).notNull()
+                t.primaryKey(["budgetGroupId", "userId"])
+            }
+            try db.create(table: "setAsideRecord") { t in
+                t.primaryKey("recordId", .text)
+                t.column("budgetGroupId", .text).notNull().indexed()
+                t.column("recordType", .text).notNull()
+                t.column("recordJSON", .text).notNull()
+                t.column("serverSeq", .integer).notNull()
+                t.column("authorUserId", .text)
+                t.column("unreadable", .boolean).notNull().defaults(to: false)
+            }
+            try db.create(table: "readablePull") { t in
+                t.primaryKey("budgetGroupId", .text)
+                t.column("serverSeq", .integer).notNull().defaults(to: 0)
+            }
+            try db.create(table: "moveCheck") { t in
+                t.primaryKey("budgetGroupId", .text)
+                t.column("attempts", .integer).notNull().defaults(to: 0)
+                t.column("matches", .boolean).notNull()
+                t.column("reportJSON", .text).notNull()
+                t.column("checkedAt", .datetime).notNull()
+            }
+        }
+
+        // Readable sync: a shared group a member deleted here, which the next
+        // round leaves on the server. Only a delete made with readable sync
+        // asks for that. One made by the sealed app hid the group on that Mac
+        // only, and leaves nothing. A new table, as for v9.
+        m.registerMigration("v10-leave-request") { db in
+            try db.create(table: "leaveRequest") { t in
+                t.primaryKey("budgetGroupId", .text)
+                t.column("requestedAt", .datetime).notNull()
+            }
+        }
+
         return m
     }
 }

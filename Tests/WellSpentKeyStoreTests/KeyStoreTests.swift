@@ -37,6 +37,70 @@ struct InMemoryKeyStoreTests {
         try store.removeAll()
         #expect(try store.load(.serverToken) == nil)
     }
+
+    /// A device with nothing saved gets a new ID, and keeps it.
+    @Test func aNewDeviceGetsAClientIDAndKeepsIt() throws {
+        let store = InMemoryKeyStore()
+        let id = try store.loadOrCreateClientID()
+        #expect(try store.load(.clientID) == id.bytes)
+        #expect(try store.loadOrCreateClientID() == id)
+    }
+
+    /// A device the sealed app set up keeps its ID, so the versions it
+    /// recorded still say they were written here.
+    @Test func theSealedDeviceIDCarriesOver() throws {
+        let store = InMemoryKeyStore()
+        let device = DeviceKeyPair()
+        try store.storeDevice(device)
+        #expect(try store.loadOrCreateClientID() == device.id)
+        #expect(try store.load(.clientID)?.count == 16)
+        #expect(try store.loadDevice().id == device.id, "the sealed key is left as it was")
+
+        let unreadable = InMemoryKeyStore()
+        try unreadable.store(Data([1, 2, 3]), for: .deviceSigning)
+        #expect(try unreadable.loadOrCreateClientID() != device.id)
+    }
+
+    /// The sealed device key refused, as a Mac's keychain does when someone
+    /// clicks Deny on its prompt: a new ID, not a sign-in that fails on every
+    /// try. The sealed key is only reused to keep old versions matching, and
+    /// the move sends everything again under the new ID anyway.
+    @Test func aRefusedSealedDeviceKeyGivesANewID() throws {
+        let store = RefusingKeyStore(refusing: .deviceSigning)
+        let id = try store.loadOrCreateClientID()
+        #expect(try store.load(.clientID) == id.bytes)
+        #expect(try store.loadOrCreateClientID() == id)
+    }
+
+    /// A saved ID wins over the sealed device key, and a damaged one is an
+    /// error rather than a quiet new identity.
+    @Test func aSavedClientIDWins() throws {
+        let store = InMemoryKeyStore()
+        let saved = DeviceID()
+        try store.store(saved.bytes, for: .clientID)
+        try store.storeDevice(DeviceKeyPair())
+        #expect(try store.loadOrCreateClientID() == saved)
+
+        try store.store(Data([1, 2, 3]), for: .clientID)
+        #expect(throws: KeyStoreError.self) { try store.loadOrCreateClientID() }
+    }
+}
+
+/// Answers every read of one item with `.locked`, the way the keychain answers
+/// a prompt that was denied.
+private final class RefusingKeyStore: KeyStore, @unchecked Sendable {
+    private let inner = InMemoryKeyStore()
+    private let refused: KeyStoreItem
+
+    init(refusing item: KeyStoreItem) { refused = item }
+
+    func store(_ data: Data, for item: KeyStoreItem) throws { try inner.store(data, for: item) }
+    func load(_ item: KeyStoreItem) throws -> Data? {
+        guard item != refused else { throw KeyStoreError.locked }
+        return try inner.load(item)
+    }
+    func delete(_ item: KeyStoreItem) throws { try inner.delete(item) }
+    func removeAll() throws { try inner.removeAll() }
 }
 
 @Suite("File key store")

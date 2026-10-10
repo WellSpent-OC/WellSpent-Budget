@@ -1,17 +1,22 @@
 # Running the sync server for real
 
-Written 2026-09-29.
+Written 2026-09-29, updated 2026-10-10 for readable sync.
 
 ## What the server is, and is not
 
-It stores sealed records it cannot read, and it enforces who may write them. It
-never holds a key that opens anything. That shapes everything below: a breach of
-this server leaks the social graph and metadata, not anyone's money.
+Your budgets sync through WellSpent's server. Connections and backups are
+encrypted. The server can read your budgets, which is how it checks who may change
+what and how it resets a forgotten password.
 
-It also means **the server is not the only copy of anything, except one thing.**
-Every device holds the full plaintext. What only lives here is the identity
-escrow blob, and losing it means a customer who also loses every device cannot
-recover, even with their twelve words. Back it up accordingly.
+It stores every group's budgets, entries and members in a form it can read, and it
+decides who may change what. That shapes everything below: a breach of this
+server, or of its backups, exposes budgets in full, amounts, merchants and budget
+names included, and who shares money with whom. **So the database's disk and its
+backups must be encrypted.**
+
+Each device also keeps a full copy of its own groups, so the server is not the only
+copy. Until every account has moved off the sealed design from before readable
+sync, the server also keeps that design's tables, which a later migration removes.
 
 ## Before you put anyone else's data in it
 
@@ -53,8 +58,13 @@ Locally, with no database at all:
 |---|---|
 | `DATABASE_URL` | Postgres connection string. **Required in production**; the server refuses to start without it rather than guessing localhost |
 | `WELLSPENT_SQLITE_PATH` | Development only. Where the SQLite file goes |
+| `WELLSPENT_ENVIRONMENT` | `live`, `staging` or `development`. `/health` reports it, and the app checks it before signing in, so a staging build never signs in to the live server or the reverse. Unset, it is `live` in production and `development` otherwise. Any other value stops the server |
 | `SKIP_AUTO_MIGRATE` | Set before running more than one instance, then run `WellSpentServer migrate --yes` as a release step. **Not on an empty database:** `configure` still purges expired tokens afterwards, which queries a `tokens` table the skipped migration would have created, so the process dies before `migrate` can run. `--yes` is not optional either, because the command otherwise waits on a confirmation a release machine cannot answer |
 | `TRUSTED_PROXY` | Set only when the app really is behind a proxy you control, and then always set it. Behind one, every request arrives from the proxy, so without this the rate limiter has a single shared bucket and ten failed sign-ins from anywhere locks out everybody. With it, the caller is read from `CF-Connecting-IP` or `Fly-Client-IP`, or failing those the **last** `X-Forwarded-For` hop, because both proxies append what they saw and the first hop is whatever the client typed |
+| `EMAIL_CODE_KEY` | 32 bytes in base64 (`openssl rand -base64 32`). The secret emailed codes are hashed under. **Required in production**; development and tests use a public key. Changing it voids codes already sent, nothing else |
+| `RESEND_API_KEY` | A **sending-only** key from Resend. **Required on a live production server**, which refuses to start without one; a server with `WELLSPENT_ENVIRONMENT=staging` writes codes to its log instead, because staging has no internet access. Whoever can read Resend's sent mail can read every code |
+| `MAIL_FROM` | Optional. Defaults to `WellSpent <no-reply@wellspent.space>`, which must be on a domain verified in Resend |
+| `LEGACY_API` | `on` or `off`. Docker Compose passes `off` unless `.env` sets it, so a server built from readable sync closes the old API by itself: every `/api/v1` request then answers 401 asking the person to update, and the old app keeps everything it has queued. Set `on` only to roll back. The server logs which it is at start. Run outside Compose, an unset value means `on`, which the tests rely on. Anything else stops the server |
 
 ## Where to host it
 
@@ -82,10 +92,10 @@ instance being the normal case rather than something to fight.
 
 **Backups, tested by restoring one.**
 
-The server holds the identity escrow blobs. If Postgres is lost and the backups
-do not restore, then any customer who has also lost their devices has lost their
-data permanently, twelve words or not. Encryption does not help; it is the reason
-you cannot help them.
+The server holds every budget. If Postgres is lost and the backups do not restore,
+anyone who has also lost their devices has lost their budgets for good. The backups
+hold the same budgets in full, so they need the same care as the database:
+encrypted, and kept where only the people running the server can reach them.
 
 Managed Postgres with point-in-time recovery covers this, but only if a restore
 has actually been performed once. An untested backup is a belief, not a backup.
@@ -95,12 +105,16 @@ has actually been performed once. An untested backup is a belief, not a backup.
 1. `docker build -t wellspent-server .` and check it starts locally.
 2. Create the Postgres instance. Note the connection string.
 3. Set `DATABASE_URL`. Deploy. Migrations run at boot on a single instance.
-4. Check `GET /health` answers `{"status":"ok"}`.
+4. Check `GET /health` answers `{"status":"ok","environment":"live"}`, or the
+   environment you set in `WELLSPENT_ENVIRONMENT`.
 5. Sign up a throwaway account and run one sync from the Mac app against it.
 6. **Take a backup and restore it into a scratch database.** Do this before the
    first real account, not after.
 7. Point the Mac app at it: the sign-in sheet has a Server field, which starts
-   at `https://sync.wellspent.space`. For a local server, type `http://127.0.0.1:8080` there.
+   at `https://sync.wellspent.space` in the live app and at
+   `https://staging.wellspent.space` in WellSpent Staging. Each refuses the other's
+   server. For a local server, type `http://127.0.0.1:8080` into WellSpent Staging,
+   which `make run` builds. The live app refuses a development server.
 
 ### Upgrading a server that already holds data
 

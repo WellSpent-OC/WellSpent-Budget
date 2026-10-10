@@ -13,7 +13,38 @@ func purgeExpiredTokens(_ app: Application) async throws {
     app.logger.info("purged expired tokens")
 }
 
+/// Which WellSpent server this is. `/health` reports it, so an app can check that
+/// it is talking to the server it was built for before anyone signs in.
+public enum ServerEnvironment: String, Sendable, Equatable {
+    case live, staging, development
+
+    /// `WELLSPENT_ENVIRONMENT` when it is set. Otherwise live in production and
+    /// development everywhere else, so the live server needs no new setting. A
+    /// name that is not one of the three stops the server: a staging server that
+    /// starts up calling itself live is the mistake this exists to catch.
+    public static func resolve(_ variable: String?,
+                               appEnvironment: Vapor.Environment) throws -> ServerEnvironment {
+        guard let variable, !variable.isEmpty else {
+            return appEnvironment == .production ? .live : .development
+        }
+        guard let named = ServerEnvironment(rawValue: variable) else {
+            throw Abort(.internalServerError,
+                        reason: "WELLSPENT_ENVIRONMENT must be live, staging or development, not \(variable)")
+        }
+        return named
+    }
+}
+
+struct ServerEnvironmentKey: StorageKey {
+    typealias Value = ServerEnvironment
+}
+
 public func configure(_ app: Application) async throws {
+    let serverEnvironment = try ServerEnvironment.resolve(
+        Environment.get("WELLSPENT_ENVIRONMENT"), appEnvironment: app.environment)
+    app.storage[ServerEnvironmentKey.self] = serverEnvironment
+    app.logger.notice("environment: \(serverEnvironment.rawValue)")
+
     // Three ways to get a database, in order of precedence.
     //
     // DATABASE_URL wins everywhere, so production and staging are explicit.
@@ -52,6 +83,7 @@ public func configure(_ app: Application) async throws {
 
     app.migrations.add(CreateSchema())
     app.migrations.add(AddGroupMaxLamport())
+    app.migrations.add(AddReadableSync())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
@@ -76,7 +108,18 @@ public func configure(_ app: Application) async throws {
     // the Housekeeping timer below, which also bounds the rate limiter.
     app.databases.default(to: Environment.get("DATABASE_URL") != nil ? .psql : .sqlite)
     try await purgeExpiredTokens(app)
+    try await purgeExpiredSessions(on: app.db)
+    try await purgeExpiredEmailCodes(on: app.db)
     app.lifecycle.use(Housekeeping())
+
+    // Both refuse to start a production server that is missing what readable
+    // accounts need, rather than run one that cannot confirm an address or
+    // reset a password.
+    try app.configureMailer()
+    try app.configureEmailCodeKey()
+    app.legacyAPIOpen = try LegacyAPIGate.parse(Environment.get("LEGACY_API"))
+    // Said either way, so a deploy shows at a glance whether the switch took.
+    app.logger.notice(app.legacyAPIOpen ? "api/v1 is open" : "api/v1 is closed: old apps are asked to update")
 
     try registerRoutes(app)
 }
@@ -103,8 +146,14 @@ final class Housekeeping: LifecycleHandler, @unchecked Sendable {
                 // Sleep first: configure() has already purged once by now.
                 try? await Task.sleep(for: interval)
                 if Task.isCancelled { return }
-                try? await purgeExpiredTokens(app)
+                // The limiter first: it is in memory and instant, so it is
+                // never held up behind the database work.
                 await app.rateLimiter.sweep(olderThan: sweepWindow)
+                try? await purgeExpiredTokens(app)
+                if Task.isCancelled { return }
+                try? await purgeExpiredSessions(on: app.db)
+                if Task.isCancelled { return }
+                try? await purgeExpiredEmailCodes(on: app.db)
             }
         }
     }

@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import AppKit
 import SwiftUI
 import WellSpentAppCore
@@ -23,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             workspace = try Workspace.launch()
         } catch {
             let alert = NSAlert()
-            alert.messageText = "WellSpent could not open its database"
+            alert.messageText = "\(AppEnvironment.current.appName) could not open its database"
             alert.informativeText = String(describing: error)
             alert.runModal()
             NSApp.terminate(nil)
@@ -35,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
-        window.title = "WellSpent"
+        window.title = workspace.environment.appName
         window.center()
         // Each WellSpent account keeps its own budgets and its own keychain items,
         // so several can share this Mac login. See `AccountDirectory`.
@@ -44,6 +45,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.window = window
         self.workspace = workspace
         workspace.autoSync.start()
+        // The banner says it inside the window. This says it in the Dock and the
+        // app switcher, where two WellSpents side by side look otherwise alike.
+        if workspace.environment == .staging {
+            NSApp.dockTile.badgeLabel = "STAGING"
+        }
 
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -60,15 +66,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// A process launched this way gets no menu bar, and the menu is where Cmd-Q
 /// lives. This is the application menu a new Xcode project starts with.
 func makeMainMenu() -> NSMenu {
+    let name = AppEnvironment.current.appName
     let appMenu = NSMenu()
-    appMenu.addItem(withTitle: "Hide WellSpent", action: #selector(NSApplication.hide(_:)),
+    appMenu.addItem(withTitle: "Hide \(name)", action: #selector(NSApplication.hide(_:)),
                     keyEquivalent: "h")
     let hideOthers = appMenu.addItem(withTitle: "Hide Others",
                                      action: #selector(NSApplication.hideOtherApplications(_:)),
                                      keyEquivalent: "h")
     hideOthers.keyEquivalentModifierMask = [.command, .option]
     appMenu.addItem(.separator())
-    appMenu.addItem(withTitle: "Quit WellSpent", action: #selector(NSApplication.terminate(_:)),
+    appMenu.addItem(withTitle: "Quit \(name)", action: #selector(NSApplication.terminate(_:)),
                     keyEquivalent: "q")
 
     let appItem = NSMenuItem()
@@ -99,3 +106,8 @@ application.setActivationPolicy(.regular)
 // After the policy, so the process has a Dock tile for the icon to land on.
 if let icon = appIcon() { application.applicationIconImage = icon }
 application.run()
+
+#else
+// The Mac app. On Linux the WellSpent app is the separate Linux package.
+print("This is the Mac app. On Linux, run the Linux app.")
+#endif

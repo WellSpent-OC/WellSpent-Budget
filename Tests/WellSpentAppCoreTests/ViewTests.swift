@@ -1,3 +1,5 @@
+// SwiftUI and ViewInspector exist only on Apple systems.
+#if canImport(SwiftUI)
 import Testing
 import SwiftUI
 import ViewInspector
@@ -77,14 +79,14 @@ struct ViewTests {
         model.addBudget(named: "Eating out", limit: Money(minorUnits: 30_000), in: group.id)
         model.addGroup(named: "Side Business")
 
-        let sidebar = SidebarView(model: model, sync: idleSync(model), editor: .constant(nil))
+        let sidebar = SidebarView(model: model, sync: idleSync(model), editor: .constant(nil), showingAccount: .constant(false))
         let texts = try sidebar.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
         #expect(texts.contains("HOUSEHOLD"), "group headers are upper-cased, got \(texts)")
         #expect(texts.contains("SIDE BUSINESS"))
         #expect(texts.contains("Groceries"))
         #expect(texts.contains("Eating out"))
-        #expect(texts.contains { $0.contains("Encrypted") }, "the reassurance line should be there")
+        #expect(texts.contains(SyncWording.footer(signedIn: false)), "the line saying where budgets are kept")
         #expect(texts.contains("Add Budget"), "the way to make a budget is always on screen")
     }
 
@@ -125,16 +127,16 @@ struct ViewTests {
         let household = BudgetGroup(name: "Household")
         #expect(PendingDelete.group(household, budgets: 2, reach: .everyone).message
                     .contains("Everyone you share it with loses it too"))
+        // A member who may not delete it for everyone leaves it.
         let mine = PendingDelete.group(household, budgets: 2, reach: .thisMacOnly).message
-        #expect(mine.contains("this Mac only"))
+        #expect(mine == SyncWording.leaveGroupMessage)
+        #expect(mine.contains("You leave the group"))
         #expect(mine.contains("Other members keep it"))
-        // What was saved before still goes out once, so the dialog does not
-        // promise that nothing in it changes for them.
-        #expect(mine.contains("not synced yet"))
-        #expect(!mine.contains("keep it and everything in it"))
-        // A budget made since the last sync has no key anyone else holds, so
-        // it cannot go, and the dialog says so.
-        #expect(mine.contains("except a budget you added since your last sync"))
+        #expect(mine.contains("new invite link"))
+        #expect(mine.contains("on this device that has not synced yet still goes to them first"),
+                "edits saved here before the leave still go")
+        #expect(mine.contains("other devices that have not synced yet do not reach them"),
+                "another device's queue is dropped when it finds the group gone")
         #expect(PendingDelete.group(household, budgets: 0, reach: .declinesInvite).message
                     .contains("may still add you"))
         #expect(!PendingDelete.group(household, budgets: 2, reach: .justYou).message.contains("member"))
@@ -239,7 +241,7 @@ struct ViewTests {
         #expect(texts.contains("Needs a budget"))
         #expect(texts.contains("3"))
         #expect(texts.contains("6"))
-        #expect(texts.contains { $0.contains("Nothing was uploaded") },
+        #expect(texts.contains(SyncWording.importNote),
                 "the privacy line is the point of this screen, got \(texts)")
     }
 
@@ -258,7 +260,10 @@ struct ViewTests {
 
         for (decision, expected) in cases {
             let proposal = ImportProposal(line: line, decision: decision, fingerprint: "x")
-            let row = ImportRow(index: 0, proposal: proposal, model: model)
+            model.pendingImport = AppModel.PendingImport(filename: "s.csv", proposals: [proposal],
+                                                         summary: StatementMatcher().summarise([proposal]))
+            let shown = try #require(ImportReviewScreen(model: model).rows.first)
+            let row = ImportRow(row: shown, choices: [], choose: { _ in })
             let texts = try row.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
             #expect(texts.contains(expected), "for \(decision) got \(texts)")
@@ -305,3 +310,5 @@ struct ViewTests {
         #expect(Palette.budgetColor(0) == Palette.accent)
     }
 }
+
+#endif

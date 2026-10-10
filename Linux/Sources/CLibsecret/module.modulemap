@@ -1,0 +1,5 @@
+module CLibsecret [system] {
+    header "shim.h"
+    link "secret-1"
+    export *
+}

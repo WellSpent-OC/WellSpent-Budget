@@ -1,3 +1,5 @@
+// SwiftUI and ViewInspector exist only on Apple systems.
+#if canImport(SwiftUI)
 import Testing
 import Foundation
 import SwiftUI
@@ -134,3 +136,5 @@ struct SheetTests {
         #expect(InviteRole.describing(.manage) == "manage this group")
     }
 }
+
+#endif

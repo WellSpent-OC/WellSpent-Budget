@@ -4,6 +4,16 @@ Updated 2026-09-29. This file exists because `ARCHITECTURE.md` reads like a
 specification for a finished system and is not one. Architecture describes intent.
 This describes reality.
 
+> **Out of date since readable sync.** Your budgets sync through WellSpent's
+> server. Connections and backups are encrypted. The server can read your budgets,
+> which is how it checks who may change what and how it resets a forgotten password.
+>
+> This file was last brought up to date on 2026-09-29, before that change and
+> before the alpha's screens on Mac and Linux. Its rows about keys, sealing, the
+> twelve-word recovery code and the membership log describe the sealed design from
+> before readable sync, not the app today. It is rewritten once every account has
+> moved.
+
 **Rule for this file: a row says "built" only if code runs and a test covers it.**
 
 Totals: **248 tests passing, 0 stubs.** No `TODO`, no

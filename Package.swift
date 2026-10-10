@@ -41,8 +41,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
-            ],
-            resources: [.process("Resources")]
+            ]
         ),
         .target(
             name: "WellSpentKeyStore",
@@ -101,7 +100,12 @@ let package = Package(
         .testTarget(name: "WellSpentImportTests", dependencies: ["WellSpentImport"]),
         .testTarget(
             name: "WellSpentAppCoreTests",
-            dependencies: ["WellSpentAppCore", .product(name: "ViewInspector", package: "ViewInspector")]
+            dependencies: [
+                "WellSpentAppCore",
+                // It inspects SwiftUI, which exists only on Apple systems. The
+                // SwiftUI test files are fenced off on Linux to match.
+                .product(name: "ViewInspector", package: "ViewInspector", condition: .when(platforms: [.macOS])),
+            ]
         ),
     ]
 )

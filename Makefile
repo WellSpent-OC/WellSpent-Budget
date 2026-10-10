@@ -20,7 +20,7 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
          -Xlinker -rpath -Xlinker $(CLT)/Library/Developer/usr/lib
 endif
 
-.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon
+.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app
 
 build:
 	swift build
@@ -29,6 +29,12 @@ build:
 # runs it. `swift run` leaves the app unsigned, so every rebuild looks like a new
 # app to the keychain and it asks for the login password again. A stable
 # signature means one "Always Allow" per key, once, not once per build.
+#
+# This is WellSpent Staging: a bare executable has no Info.plist saying live, so
+# it keeps its own data, keychain items and settings, and never connects to the
+# live server. It is signed as staging too, so the keychain does not hand it
+# items that trust the live signature without asking first. Real budgets belong
+# in the live beta, or `WELLSPENT_ENV=live make app`.
 run:
 	swift build --product WellSpentApp
 	@identity=$$(security find-identity -v -p codesigning | awk '/Apple Development/ {print $$2; exit}'); \
@@ -36,7 +42,7 @@ run:
 		echo "No Apple Development certificate on this Mac. Xcode, Settings, Accounts, Manage Certificates, then +."; \
 		exit 1; \
 	fi; \
-	codesign --force --sign "$$identity" --identifier app.wellspent.mac .build/debug/WellSpentApp
+	codesign --force --sign "$$identity" --identifier app.wellspent.mac.staging .build/debug/WellSpentApp
 	.build/debug/WellSpentApp
 
 test:
@@ -80,3 +86,9 @@ icon:
 	@iconset=$$(swift scripts/make-app-icon.swift) && \
 	iconutil -c icns "$$iconset" -o Sources/WellSpentApp/Resources/AppIcon.icns && \
 	echo "Wrote Sources/WellSpentApp/Resources/AppIcon.icns"
+
+# Builds ".build/app/WellSpent Staging.app", signed ad hoc. WELLSPENT_ENV=live
+# builds .build/app/WellSpent.app instead. The beta workflow runs this as live,
+# with VERSION, BUILD and ARCHS set; locally it builds for this Mac only.
+app:
+	scripts/make-app.sh

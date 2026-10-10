@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import WellSpentStore
+import WellSpentSync
 
 /// What the window shows: one account's budgets, or "This Mac"'s, and the sync
 /// that goes with them. Signing in or out swaps the budgets underneath.
@@ -12,6 +13,9 @@ public final class Workspace {
     }
     public let sync: SyncCoordinator
     public let autoSync: AutoSync
+    /// Which build this is. A staging window has an orange banner, and its Dock
+    /// icon a badge.
+    public var environment: AppEnvironment { sync.environment }
 
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil) {
         self.model = model
@@ -24,25 +28,39 @@ public final class Workspace {
         watchForEdits()
     }
 
-    /// Every edit syncs a moment later. Set again whenever the model is replaced,
+    /// Every edit syncs a moment later, and what this person may add comes
+    /// from the server's levels. Set again whenever the model is replaced,
     /// because signing in to another account brings a new one.
     private func watchForEdits() {
         model.didChange = { [weak self] in self?.autoSync.localChange() }
+        model.mayAddEntries = { [sync] group in sync.mayAddEntries(in: group) }
     }
 
     /// The real app: every account's budgets in Application Support, keys in the
-    /// keychain, and whoever was signed in last signed in again.
+    /// keychain, and whoever was signed in last signed in again. All of it named
+    /// for this build, live or staging, so the two never share anything.
     public static func launch() throws -> Workspace {
-        try launch(accounts: try AccountDirectory.standard())
+        let environment = AppEnvironment.current
+        if environment == .live, let bareRun = UserDefaults(suiteName: AppEnvironment.bareRunSuiteName) {
+            AppEnvironment.carryOver(from: bareRun, into: environment.defaults)
+        }
+        return try launch(accounts: try AccountDirectory.standard(for: environment),
+                          defaults: environment.defaults, environment: environment)
     }
 
-    static func launch(accounts: AccountDirectory, defaults: UserDefaults = .standard,
-                       makeTransport: (@Sendable (URL) -> any AccountTransport)? = nil) throws -> Workspace {
+    /// With no `defaults`, the environment's own. Public for the Linux app,
+    /// which hands in its own folder, settings and keyring, and then starts up
+    /// exactly as the Mac app does.
+    public static func launch(accounts: AccountDirectory, defaults: UserDefaults? = nil,
+                       environment: AppEnvironment = .current,
+                       makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil) throws -> Workspace {
+        let defaults = defaults ?? environment.defaults
         let sync: SyncCoordinator
         if let makeTransport {
-            sync = try SyncCoordinator(accounts: accounts, defaults: defaults, makeTransport: makeTransport)
+            sync = try SyncCoordinator(accounts: accounts, defaults: defaults,
+                                       environment: environment, makeTransport: makeTransport)
         } else {
-            sync = try SyncCoordinator(accounts: accounts, defaults: defaults)
+            sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
         let model = AppModel(store: sync.store)
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {

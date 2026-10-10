@@ -213,6 +213,58 @@ jobs:
         working-directory: Server
         run: swift test --no-parallel --filter WellSpentServerTests
 
+  # The Linux app shares everything below its screens with the Mac app. This
+  # proves that shared code builds and passes its tests on Linux, so a change
+  # that only works on the Mac cannot land. The Mac screens and their tests
+  # are fenced off with `#if canImport(SwiftUI)`.
+  linux-client-tests:
+    name: Linux client tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the SQLite headers GRDB needs
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends libsqlite3-dev
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-linux-client-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-linux-client-
+
+      - name: Build and test
+        run: swift build --build-tests && swift test --skip-build --no-parallel
+
+  # The Linux desktop app in Linux/. It draws the shared screen models, so a
+  # change to them that breaks the Linux screens fails here, not on the box.
+  linux-app-build:
+    name: Linux app builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the GTK 4, libsecret and SQLite headers
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends libgtk-4-dev libsecret-1-dev libsqlite3-dev pkg-config
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Linux/.build
+          key: spm-linux-app-${{ hashFiles('Linux/Package.resolved', 'Package.resolved') }}
+          restore-keys: spm-linux-app-
+
+      - name: Build
+        run: swift build --package-path Linux
+
   # Gate enforcement, without branch protection.
   #
   # Branch protection and rulesets both need GitHub Pro on a private repo, so
@@ -235,7 +287,7 @@ jobs:
   # secret. Or pay for GitHub Pro, which makes this whole job unnecessary.
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -250,7 +302,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -270,7 +322,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}

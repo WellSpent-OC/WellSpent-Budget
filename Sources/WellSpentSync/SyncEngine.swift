@@ -489,7 +489,7 @@ public actor SyncEngine {
             // An edit made here that loses, or that this Mac would never
             // send. Either way the server will not take it, so it is kept as
             // a conflict copy.
-            if !queued.isReseal, let mine = try self.payload(for: queued, in: store) {
+            if !queued.isReseal, let mine = try store.outgoingPayload(for: queued, userID: userID) {
                 try store.recordConflict(
                     recordID: queued.recordID, recordType: queued.recordType,
                     payloadJSON: String(decoding: mine, as: UTF8.self),
@@ -510,8 +510,8 @@ public actor SyncEngine {
             }
         }
 
-        try write(payload, type: envelope.recordType, isDeleted: envelope.isDeleted || removedHereOnly,
-                  in: store)
+        try store.applyPulled(payload, type: envelope.recordType,
+                              isDeleted: envelope.isDeleted || removedHereOnly)
         try store.setRecordVersion(envelope.recordID, lamport: envelope.lamport,
                                    device: envelope.authorDeviceID, author: envelope.authorUserID,
                                    serverSeq: serverSeq)
@@ -619,56 +619,6 @@ public actor SyncEngine {
         return true
     }
 
-    /// Decode and save, without queueing an outbound copy. A record we just
-    /// received must not bounce straight back to the server.
-    nonisolated private func write(_ payload: Data, type: RecordType, isDeleted: Bool,
-                                   in store: Store) throws {
-        let decoder = RecordCodec.decoder
-        switch type {
-        case .groupMeta:
-            var value = try decoder.decode(BudgetGroup.self, from: payload)
-            value.isDeleted = isDeleted
-            try store.save(value, queue: false)
-        case .budget:
-            var value = try decoder.decode(Budget.self, from: payload)
-            value.isDeleted = isDeleted
-            try store.save(value, queue: false)
-        case .transaction:
-            var value = try decoder.decode(Transaction.self, from: payload)
-            value.isDeleted = isDeleted
-            // This Mac holds one imported row per fingerprint in a group. Two
-            // members who import the same statement each send theirs, and
-            // saving the other's failed on every pull. It is kept without the
-            // fingerprint, which only this Mac's next import reads.
-            if let fingerprint = value.importFingerprint,
-               let holder = try store.transaction(withFingerprint: fingerprint, in: value.groupID),
-               holder != value.id {
-                value.importFingerprint = nil
-                // Kept to one side, and sent with the row again, so the
-                // member who imported it still has it when this Mac saves
-                // the row again.
-                try store.holdFingerprint(fingerprint, for: value.id)
-            }
-            try store.save(value, queue: false)
-        case .receipt:
-            var value = try decoder.decode(Receipt.self, from: payload)
-            value.isDeleted = isDeleted
-            try store.save(value, queue: false)
-        case .statement:
-            var value = try decoder.decode(ImportedStatement.self, from: payload)
-            value.isDeleted = isDeleted
-            try store.save(value, queue: false)
-        case .memberProfile:
-            var value = try decoder.decode(MemberProfile.self, from: payload)
-            value.isDeleted = isDeleted
-            try store.save(value, queue: false)
-        default:
-            // Unreachable: `apply` sets aside any type this build cannot read
-            // before it gets here.
-            break
-        }
-    }
-
     // MARK: - Push
 
     /// How many queued rows go to the server in one request.
@@ -704,7 +654,7 @@ public actor SyncEngine {
 
         for item in pending where !heldBack.contains(item.recordID)
             && !(item.isReseal && resealsHeldBack.contains(item.recordID)) {
-            guard let payload = try payload(for: item, in: store) else {
+            guard let payload = try store.outgoingPayload(for: item, userID: userID) else {
                 // No record to seal, because it is no longer in this Mac's
                 // database, so there is nothing to send. The row is dropped
                 // here. Only rows the server takes are cleared below, so
@@ -807,46 +757,6 @@ public actor SyncEngine {
         guard type != .budget, let budget = inside.budget,
               let home = try store.budget(budget)?.groupID else { return true }
         return home == inside.group
-    }
-
-    nonisolated private func payload(for push: PendingPush, in store: Store) throws -> Data? {
-        let encoder = RecordCodec.encoder
-        switch push.recordType {
-        case .groupMeta:
-            guard let value = try store.group(GroupID(push.recordID.uuid)) else { return nil }
-            return try encoder.encode(value)
-        case .budget:
-            guard let value = try store.budget(BudgetID(push.recordID.uuid)) else { return nil }
-            return try encoder.encode(value)
-        case .transaction:
-            guard var value = try store.transaction(push.recordID) else { return nil }
-            if value.createdBy == nil {
-                // Made before signing in, or before owners existed. Whoever first
-                // pushes it owns it, which on this device is us.
-                value.createdBy = userID
-                try store.save(value, queue: false)
-            }
-            // A fingerprint this Mac cleared on arrival goes back out with the
-            // row. Sent without it, the next overlapping import by the member
-            // who made it added the line again.
-            if value.importFingerprint == nil, let held = try store.heldFingerprint(for: push.recordID) {
-                value.importFingerprint = held
-            }
-            return try encoder.encode(value)
-        case .receipt:
-            guard let value = try store.receipt(push.recordID) else { return nil }
-            return try encoder.encode(value)
-        case .statement:
-            let all = try store.statements(in: push.groupID)
-            guard let value = all.first(where: { $0.id == push.recordID }) else { return nil }
-            return try encoder.encode(value)
-        case .memberProfile:
-            guard let value = try store.profile(push.recordID) else { return nil }
-            return try encoder.encode(value)
-        default:
-            // This build only ever queues types it knows.
-            return nil
-        }
     }
 
     private func keyRingKey(scope: KeyScope, epoch: Epoch) throws -> ScopedKey {

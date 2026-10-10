@@ -1,0 +1,76 @@
+name: Beta
+
+# A numbered beta: WellSpent.app, built for Apple silicon and Intel Macs,
+# attached to a pre-release on the Releases page. Main only takes changes that
+# passed CI and review, so this workflow only builds.
+#
+# Started by hand for now, from the Actions tab. Until the server switches to
+# readable sync, every change merged to main would otherwise publish a live
+# app that the next server no longer accepts.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: beta
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  beta:
+    name: Beta build
+    # Started by hand, it could be pointed at any branch, which would then be
+    # tagged and published as if it were main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Public betas are where people keep their real budgets, so they are live.
+      - name: Build WellSpent.app
+        env:
+          WELLSPENT_ENV: live
+          VERSION: 0.1.0-beta.${{ github.run_number }}
+          BUILD: ${{ github.run_number }}
+          ARCHS: arm64 x86_64
+        run: make app
+
+      # The app decides which build it is from its Info.plist, and anything but
+      # live is staging. A beta that came out as staging would not open anyone's
+      # real budgets, and would point them at the staging server. So nothing is
+      # published unless this passes. A missing key fails it too.
+      - name: Check it is the live app
+        run: |
+          plist=.build/app/WellSpent.app/Contents/Info.plist
+          environment=$(/usr/libexec/PlistBuddy -c "Print :WellSpentEnvironment" "$plist")
+          bundle_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist")
+          echo "environment: $environment, bundle ID: $bundle_id"
+          if [ "$environment" != "live" ] || [ "$bundle_id" != "app.wellspent.mac" ]; then
+            echo "::error::A beta must be live with bundle ID app.wellspent.mac."
+            exit 1
+          fi
+
+      - name: Zip it
+        run: |
+          cd .build/app
+          ditto -c -k --keepParent WellSpent.app "WellSpent-0.1.0-beta.${{ github.run_number }}.zip"
+
+      - name: Publish the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: 0.1.0-beta.${{ github.run_number }}
+        run: |
+          zip=".build/app/WellSpent-$VERSION.zip"
+          # A re-run keeps the same run number, so the release may already exist
+          # from the first attempt. Then replace its download instead of failing.
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" "$zip" --clobber
+          else
+            gh release create "v$VERSION" "$zip" \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "WellSpent $VERSION" \
+              --notes "Beta build from main at ${GITHUB_SHA::7}. See the README's Install section for how to open it the first time."
+          fi

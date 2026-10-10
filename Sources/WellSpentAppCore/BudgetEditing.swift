@@ -1,3 +1,6 @@
+// The Mac screens. SwiftUI exists only on Apple systems; the Linux app draws
+// the same shared logic with its own screens.
+#if canImport(SwiftUI)
 import SwiftUI
 import WellSpentCrypto
 import WellSpentImport
@@ -14,6 +17,7 @@ enum EditorSheet: Identifiable {
     case renameGroup(BudgetGroup)
     case share(BudgetGroup)
     case join
+    case members(BudgetGroup)
 
     var id: String {
         switch self {
@@ -23,109 +27,42 @@ enum EditorSheet: Identifiable {
         case .renameGroup(let group): return "rename-group-\(group.id)"
         case .share(let group): return "share-\(group.id)"
         case .join: return "join"
-        }
-    }
-}
-
-/// What a delete is waiting on the person to confirm.
-enum PendingDelete: Identifiable {
-    case budget(Budget, transactions: Int)
-    case group(BudgetGroup, budgets: Int, reach: GroupDeleteReach)
-
-    var id: String {
-        switch self {
-        case .budget(let budget, _): return "budget-\(budget.id)"
-        case .group(let group, _, _): return "group-\(group.id)"
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .budget(let budget, _): return "Delete \u{201C}\(budget.name)\u{201D}?"
-        case .group(let group, _, _): return "Delete \u{201C}\(group.name)\u{201D}?"
-        }
-    }
-
-    var message: String {
-        switch self {
-        case .budget(_, let count):
-            return count == 0
-                ? "This cannot be undone."
-                : "Its \(count) transaction\(count == 1 ? "" : "s") will be deleted too. This cannot be undone."
-        case .group(_, let count, let reach):
-            let contents = count == 0
-                ? ""
-                : "Its \(count) budget\(count == 1 ? "" : "s") and their transactions will be deleted too. "
-            switch reach {
-            case .justYou:
-                return contents + "This cannot be undone."
-            case .everyone:
-                return "Everyone you share it with loses it too. " + contents + "This cannot be undone."
-            case .thisMacOnly:
-                return "It is removed from this Mac only. Other members keep it. "
-                    + "Changes you made to it that have not synced yet, deletes included, still go to them, "
-                    + "except a budget you added since your last sync, which is dropped with everything in it. "
-                    + "Only the person who made it, or an admin, can delete it for everyone. "
-                    + "To get it back, ask for a new invite link."
-            case .declinesInvite:
-                return "This removes the group from this Mac. Your answer to the invite has already "
-                    + "been sent, so the person who invited you may still add you. Nothing of theirs "
-                    + "changes. To get it back, ask for a new invite link."
-            }
+        case .members(let group): return "members-\(group.id)"
         }
     }
 }
 
 // MARK: - Budget
 
+/// Draws BudgetEditor. What it checks and says lives there, shared with every
+/// desktop; this is layout only.
 struct BudgetSheet: View {
-    @Bindable var model: AppModel
-    /// Nil when adding.
-    let editing: Budget?
-    /// The groups a new budget can go in: the ones this person manages.
-    let groups: [BudgetGroup]
+    @State private var editor: BudgetEditor
     @Environment(\.dismiss) private var dismiss
+    private typealias Words = BudgetEditor.Words
 
-    @State private var name: String
-    @State private var amountText: String
-    @State private var groupID: GroupID?
-    @State private var newGroupName = "Personal"
-
-    init(model: AppModel, editing: Budget? = nil, group: GroupID? = nil,
-         groups: [BudgetGroup]? = nil) {
-        self.model = model
-        self.editing = editing
-        self.groups = groups ?? model.groups
-        _name = State(initialValue: editing?.name ?? "")
-        _amountText = State(initialValue: editing.map { $0.limit.magnitude.description } ?? "")
-        _groupID = State(initialValue: editing?.groupID ?? group ?? self.groups.first?.id)
+    init(model: AppModel, editing: Budget? = nil, group: GroupID? = nil, groups: [BudgetGroup]? = nil) {
+        _editor = State(initialValue: BudgetEditor(model: model, editing: editing, group: group, groups: groups))
     }
 
-    /// A name, and an amount above zero. Lifted out so it can be tested without
-    /// driving `@State`.
     static func canSave(name: String, amountText: String) -> Bool {
-        guard !name.trimmingCharacters(in: .whitespaces).isEmpty,
-              let amount = StatementParser.parseAmount(amountText, currency: .usd) else { return false }
-        return amount.minorUnits != 0
+        BudgetEditor.canSave(name: name, amountText: amountText)
     }
-
-    /// With no group of their own to put it in, a new budget gets a new group.
-    private var needsNewGroup: Bool { editing == nil && groups.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(editing == nil ? "New Budget" : "Edit Budget")
+            Text(editor.title)
                 .font(.system(size: 17, weight: .semibold))
 
             Form {
-                TextField("Name", text: $name, prompt: Text("Groceries"))
-                TextField("Each month", text: $amountText, prompt: Text("500.00"))
+                TextField(Words.name, text: Bindable(editor).name, prompt: Text(Words.namePrompt))
+                TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(Words.amountPrompt))
                     .font(.money(13, weight: .regular))
-                if needsNewGroup {
-                    TextField("Group", text: $newGroupName)
-                } else if editing == nil {
-                    Picker("Group", selection: $groupID) {
-                        ForEach(groups) { group in
+                if editor.needsNewGroup {
+                    TextField(Words.group, text: Bindable(editor).newGroupName)
+                } else if editor.showsGroupPicker {
+                    Picker(Words.group, selection: Bindable(editor).groupID) {
+                        ForEach(editor.groups) { group in
                             Text(group.name).tag(GroupID?.some(group.id))
                         }
                     }
@@ -133,87 +70,69 @@ struct BudgetSheet: View {
             }
             .formStyle(.grouped)
 
-            Text("Starts again on the 1st of each month.")
+            Text(Words.resets)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(editing == nil ? "Add" : "Save") {
-                    save()
+                Button(editor.saveLabel) {
+                    editor.save()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(!Self.canSave(name: name, amountText: amountText)
-                          || (needsNewGroup && newGroupName.trimmingCharacters(in: .whitespaces).isEmpty))
+                .disabled(!editor.canSave)
             }
         }
         .padding(20)
         .frame(width: 400)
     }
-
-    private func save() {
-        guard let amount = StatementParser.parseAmount(amountText, currency: .usd) else { return }
-        if let editing {
-            model.updateBudget(editing.id, name: name, limit: amount)
-            return
-        }
-        let group = needsNewGroup ? model.addGroup(named: newGroupName) : groupID
-        guard let group else { return }
-        model.addBudget(named: name, limit: amount, in: group)
-    }
 }
 
 // MARK: - Group
 
+/// Draws GroupEditor; layout only.
 struct GroupSheet: View {
-    @Bindable var model: AppModel
-    /// Nil when adding.
-    let renaming: BudgetGroup?
+    @State private var editor: GroupEditor
     @Environment(\.dismiss) private var dismiss
-
-    @State private var name: String
+    private typealias Words = GroupEditor.Words
 
     init(model: AppModel, renaming: BudgetGroup? = nil) {
-        self.model = model
-        self.renaming = renaming
-        _name = State(initialValue: renaming?.name ?? "")
+        _editor = State(initialValue: GroupEditor(model: model, renaming: renaming))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(renaming == nil ? "New Group" : "Rename Group")
+            Text(editor.title)
                 .font(.system(size: 17, weight: .semibold))
 
             Form {
-                TextField("Name", text: $name, prompt: Text("Household"))
+                TextField(Words.name, text: Bindable(editor).name, prompt: Text(Words.namePrompt))
             }
             .formStyle(.grouped)
 
-            Text("A group holds budgets you track together. It is also what you will share with someone else.")
+            Text(Words.explanation)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button(renaming == nil ? "Add" : "Save") {
-                    if let renaming {
-                        model.renameGroup(renaming.id, to: name)
-                    } else {
-                        model.addGroup(named: name)
-                    }
+                Button(editor.saveLabel) {
+                    editor.save()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(!editor.canSave)
             }
         }
         .padding(20)
         .frame(width: 400)
     }
 }
+
+#endif

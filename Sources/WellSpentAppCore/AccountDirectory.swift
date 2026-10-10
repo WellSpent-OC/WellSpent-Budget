@@ -17,9 +17,9 @@ public final class AccountDirectory {
     public typealias KeyStoreMaker = (_ namespace: String?) -> any KeyStore
 
     /// Nil keeps every database in memory, for tests.
-    private let root: URL?
+    let root: URL?
     private let makeKeyStore: KeyStoreMaker
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
     private var open: [String: WellSpentDatabase] = [:]
     private var keyStores: [String: any KeyStore] = [:]
 
@@ -33,17 +33,30 @@ public final class AccountDirectory {
         self.makeKeyStore = makeKeyStore
     }
 
-    /// The real one: Application Support, and the keychain.
-    public static func standard() throws -> AccountDirectory {
+    /// The real one: Application Support, the keychain and the settings, each
+    /// named for this build. Live keeps the names it has always had, so its data
+    /// never moves. Staging's are all different, so it never sees live's.
+    public static func standard(for environment: AppEnvironment = .current) throws -> AccountDirectory {
         let base = try FileManager.default.url(for: .applicationSupportDirectory,
                                                in: .userDomainMask,
                                                appropriateFor: nil, create: true)
-        return AccountDirectory(root: base.appendingPathComponent("WellSpent")) { namespace in
-            #if canImport(Security)
-            KeychainKeyStore(service: namespace.map { "app.wellspent.keys.\($0)" } ?? "app.wellspent.keys")
-            #else
-            InMemoryKeyStore()
-            #endif
+        #if canImport(Security)
+        return standard(for: environment, in: base) { service in KeychainKeyStore(service: service) }
+        #else
+        // Keys only in memory would vanish at quit, signing this device out at
+        // every launch. The Linux app hands in its keyring instead, through
+        // init(root:defaults:makeKeyStore:).
+        throw AccountDirectoryError.noKeychainHere
+        #endif
+    }
+
+    /// The same, with Application Support and the keychain handed in, so a test
+    /// can see which names each build uses without touching the real ones.
+    static func standard(for environment: AppEnvironment, in applicationSupport: URL,
+                         keychain: @escaping (_ service: String) -> any KeyStore) -> AccountDirectory {
+        AccountDirectory(root: applicationSupport.appendingPathComponent(environment.dataFolderName),
+                         defaults: environment.defaults) { namespace in
+            keychain(environment.keychainService(for: namespace))
         }
     }
 
@@ -110,13 +123,35 @@ public final class AccountDirectory {
     /// The account to reopen at launch.
     public var lastAccount: String? {
         get { defaults.string(forKey: Self.lastAccountKey) }
-        set { defaults.set(newValue, forKey: Self.lastAccountKey) }
+        set {
+            defaults.set(newValue, forKey: Self.lastAccountKey)
+            defaults.saveNow()
+        }
     }
 
     /// The sample budgets go into "This Mac" once, on a fresh install, and never
     /// come back after someone has signed in and taken them with them.
     public var samplesSeeded: Bool {
         get { defaults.bool(forKey: Self.samplesSeededKey) }
-        set { defaults.set(newValue, forKey: Self.samplesSeededKey) }
+        set {
+            defaults.set(newValue, forKey: Self.samplesSeededKey)
+            defaults.saveNow()
+        }
+    }
+}
+
+/// Why an account directory could not be made.
+public enum AccountDirectoryError: Error, Equatable, Sendable {
+    /// There is no system keychain on this platform; pass a key store in.
+    case noKeychainHere
+}
+
+extension UserDefaults {
+    /// Writes settings to disk now. Apple systems do this by themselves; Linux
+    /// keeps them in memory until asked, so a quit forgot who was signed in.
+    func saveNow() {
+        #if !canImport(Darwin)
+        synchronize()
+        #endif
     }
 }

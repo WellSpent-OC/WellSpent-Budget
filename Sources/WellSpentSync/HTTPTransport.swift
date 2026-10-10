@@ -36,13 +36,17 @@ public actor HTTPTransport: SyncTransport {
     }
 
     private let baseURL: URL
+    /// The server itself, without /api/v1, where `/health` lives.
+    private let rootURL: URL
     private let session: URLSession
     private var credentials: Credentials?
 
     public init(baseURL: URL, session: URLSession = .shared, credentials: Credentials? = nil) {
         // Everything hangs off /api/v1, so accept either form of base URL.
-        self.baseURL = baseURL.lastPathComponent == "v1" ? baseURL
-                                                         : baseURL.appendingPathComponent("api/v1")
+        let prefixed = baseURL.lastPathComponent == "v1"
+        self.baseURL = prefixed ? baseURL : baseURL.appendingPathComponent("api/v1")
+        self.rootURL = prefixed ? baseURL.deletingLastPathComponent().deletingLastPathComponent()
+                                : baseURL
         self.session = session
         self.credentials = credentials
     }
@@ -64,6 +68,29 @@ public actor HTTPTransport: SyncTransport {
         var request = try request(.post, "signout", query: [], authenticated: true)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         _ = try await perform(request)
+    }
+
+    /// What `GET /health` says.
+    public struct Health: Sendable, Decodable, Equatable {
+        public let status: String
+        /// "live", "staging" or "development". Nil from a server that predates the
+        /// field.
+        public let environment: String?
+
+        public init(status: String, environment: String?) {
+            self.status = status
+            self.environment = environment
+        }
+    }
+
+    /// Asks the server which one it is, so the app can refuse the wrong one before
+    /// a password goes to it. Unauthenticated, and outside /api/v1, where the
+    /// server has always kept it.
+    public func health() async throws -> Health {
+        var request = URLRequest(url: rootURL.appendingPathComponent("health"))
+        request.httpMethod = Method.get.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return try decode(try await perform(request))
     }
 
     // MARK: - Coding

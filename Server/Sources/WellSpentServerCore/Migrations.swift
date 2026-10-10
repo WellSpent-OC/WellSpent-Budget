@@ -166,20 +166,166 @@ struct AddGroupMaxLamport: AsyncMigration {
     }
 }
 
+/// The tables and columns for readable sync, added beside the sealed ones.
+///
+/// On 2026-10-08 the project dropped end-to-end encryption: the server will store
+/// records it can read, check who may change what itself, and let any device sign
+/// in. This migration only adds. Nothing that runs today reads or writes what it
+/// adds, so a server with it applied behaves exactly as before. The sealed tables
+/// go in a later migration, after every account has moved.
+///
+/// Safe to run again after a start cut short, like `AddGroupMaxLamport`: each
+/// table is created only if missing, and each added column is added only if
+/// missing.
+struct AddReadableSync: AsyncMigration {
+    func prepare(on database: any Database) async throws {
+        try await database.schema(SyncRecordRow.schema)
+            .field("id", .uuid, .identifier(auto: false))
+            .field("group_id", .uuid, .required)
+            .field("budget_id", .uuid)
+            .field("record_type", .string, .required)
+            // The record itself, as JSON the server reads to check it.
+            .field("body", .string, .required)
+            // Who first stored it. Set once and never changed, because "a member
+            // at Add may change only their own entries" needs an owner nobody can
+            // rewrite. The sealed table overwrote its author on every update.
+            .field("created_by_user_id", .uuid, .required)
+            .field("updated_by_user_id", .uuid, .required)
+            // Which device wrote it. It only breaks ties between equal Lamport
+            // values, so the server does not trust it for anything else.
+            .field("client_id", .uuid, .required)
+            .field("lamport", .int, .required)
+            .field("is_deleted", .bool, .required)
+            .field("server_seq", .int, .required)
+            // The sequence it was first stored at. A member who joined "from now
+            // on" sees records first stored after they joined, and an old record
+            // edited later stays hidden from them.
+            .field("first_seq", .int, .required)
+            .field("created_at", .datetime)
+            .field("updated_at", .datetime)
+            // The pull cursor, as in `records`: the database refuses a repeated
+            // sequence, and on Postgres this index makes the pull a range scan.
+            .unique(on: "group_id", "server_seq")
+            .ignoreExisting()
+            .create()
+
+        try await database.schema(SessionRow.schema)
+            .field("id", .uuid, .identifier(auto: false))
+            .field("user_id", .uuid, .required)
+            .field("token_hash", .string, .required)
+            .field("device_label", .string)
+            .field("created_at", .datetime)
+            .field("last_used_at", .datetime, .required)
+            .field("expires_at", .datetime, .required)
+            // The person's password_changed_at when the session began. A
+            // session counts only while the two still match, so a sign-in that
+            // was checking the old password while a reset ran cannot outlive it.
+            .field("credential_stamp", .datetime)
+            .unique(on: "token_hash")
+            .ignoreExisting()
+            .create()
+
+        try await database.schema(EmailCodeRow.schema)
+            .field("id", .uuid, .identifier(auto: false))
+            .field("user_id", .uuid, .required)
+            .field("purpose", .string, .required)
+            .field("code_hmac", .string, .required)
+            .field("expires_at", .datetime, .required)
+            .field("attempts", .int, .required)
+            .field("last_sent_at", .datetime, .required)
+            .field("created_at", .datetime)
+            // One live code per person per purpose. Asking again replaces it;
+            // the per-address limits on asking keep that from being abused.
+            .unique(on: "user_id", "purpose")
+            .ignoreExisting()
+            .create()
+
+        // Columns on tables already in use. Each one is looked for outside the
+        // transaction, because on Postgres a failed statement spoils the
+        // transaction it runs in.
+        let users = await answers { try await UserRow.query(on: database).count(\.$emailVerifiedAt) }
+        let groups = await answers { try await GroupRow.query(on: database).max(\.$lastSeq) }
+        let invites = await answers { try await InviteRow.query(on: database).count(\.$acceptedByUserID) }
+        // One column per statement: SQLite adds or drops only one at a time.
+        try await database.transaction { database in
+            if !users {
+                try await database.schema(UserRow.schema)
+                    .field("email_verified_at", .datetime).update()
+                try await database.schema(UserRow.schema)
+                    .field("password_changed_at", .datetime).update()
+            }
+            if !groups {
+                // The next sequence number, handed out by one update rather than
+                // by reading the highest and retrying on a clash.
+                try await database.schema(GroupRow.schema)
+                    .field("last_seq", .int, .required, .custom("DEFAULT 0")).update()
+                // A per-group key for statement fingerprints, so a bank line
+                // imported once is never imported again. Readable on purpose:
+                // every member's device needs it, and it opens nothing.
+                try await database.schema(GroupRow.schema)
+                    .field("import_key", .data).update()
+                try await database.schema(GroupRow.schema)
+                    .field("deleted_at", .datetime).update()
+            }
+            if !invites {
+                try await database.schema(InviteRow.schema)
+                    .field("accepted_by_user_id", .uuid).update()
+            }
+        }
+    }
+
+    /// In one transaction, so a revert cut short leaves everything in place
+    /// rather than half of it, which `prepare` could not tell apart from done.
+    func revert(on database: any Database) async throws {
+        try await database.transaction { database in try await revertAll(on: database) }
+    }
+
+    private func revertAll(on database: any Database) async throws {
+        let columns = [(InviteRow.schema, "accepted_by_user_id"),
+                       (GroupRow.schema, "deleted_at"), (GroupRow.schema, "import_key"),
+                       (GroupRow.schema, "last_seq"),
+                       (UserRow.schema, "password_changed_at"), (UserRow.schema, "email_verified_at")]
+        for (schema, column) in columns {
+            try await database.schema(schema).deleteField(.string(column)).update()
+        }
+        for schema in [EmailCodeRow.schema, SessionRow.schema, SyncRecordRow.schema] {
+            try await database.schema(schema).delete()
+        }
+    }
+
+    /// Whether a query naming a new column runs. An empty table still answers
+    /// (with 0 or nil), so only a missing column fails.
+    private func answers<T: Sendable>(_ query: () async throws -> T) async -> Bool {
+        do {
+            _ = try await query()
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
 /// Sets each group's highest stored Lamport value from its records. It never
 /// lowers one. A value at or above the ceiling is left out: one stored before
 /// the ceiling existed would otherwise let every later push through, however
 /// far ahead it was.
 func fillGroupMaxLamport(on database: any Database) async throws {
     let ceiling = Int(RecordEnvelope.lamportCeiling)
-    for group in try await GroupRow.query(on: database).all() {
+    // Only the two columns this needs. A migration runs before the ones after
+    // it, so it must not read columns they add: loading whole rows here broke
+    // every new database once `AddReadableSync` gave groups a new column.
+    let groups = try await GroupRow.query(on: database).field(\.$id).field(\.$maxLamport).all()
+    for group in groups {
+        let id = try group.requireID()
         let highest = try await RecordRow.query(on: database)
-            .filter(\.$groupID == group.requireID())
+            .filter(\.$groupID == id)
             .filter(\.$lamport < ceiling)
             .max(\.$lamport) ?? 0
         guard highest > group.maxLamport else { continue }
-        group.maxLamport = highest
-        try await group.save(on: database)
+        try await GroupRow.query(on: database)
+            .filter(\.$id == id)
+            .set(\.$maxLamport, to: highest)
+            .update()
     }
     let above = try await RecordRow.query(on: database).filter(\.$lamport >= ceiling).count()
     if above > 0 {

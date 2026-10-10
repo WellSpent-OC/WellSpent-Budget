@@ -40,6 +40,16 @@ services:
       # email address and a password hash.
       LOG_LEVEL: info
       TRUSTED_PROXY: "1"
+      # Readable sync. Set both in .env: a production server refuses to start
+      # without them, rather than run unable to confirm an address or reset a
+      # password. Make the code key with: openssl rand -base64 32
+      EMAIL_CODE_KEY: ${EMAIL_CODE_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # The old sealed API. Closed unless .env says "on", so a server built
+      # from this branch never leaves it open by accident: old apps are asked
+      # to update. See DEPLOY.md.
+      LEGACY_API: ${LEGACY_API:-off}
       # Do not set SKIP_AUTO_MIGRATE. purgeExpiredTokens runs before migrate
       # would, and dies on the missing tokens table.
 

@@ -115,6 +115,35 @@ struct HTTPTransportTests {
         #expect(StubURLProtocol.recorded.first?.url?.path.contains("v1/api") == false)
     }
 
+    /// The app asks this before sign-in. It lives at the server's root, not
+    /// under /api/v1, and needs no token.
+    @Test func healthIsAskedAtTheServersRootWithoutAToken() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { _ in (200, Data(#"{"status":"ok","environment":"staging"}"#.utf8)) }
+
+        let transport = HTTPTransport(baseURL: URL(string: "https://example.test/api/v1")!,
+                                      session: stubbedSession(), credentials: anyCredentials)
+        let health = try await transport.health()
+
+        #expect(health == HTTPTransport.Health(status: "ok", environment: "staging"))
+        let request = try #require(StubURLProtocol.recorded.first)
+        #expect(request.url?.absoluteString == "https://example.test/health")
+        #expect(request.httpMethod == "GET")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    /// Today's live server answers without the field. That has to read as "says
+    /// nothing", not as an error, for live builds to keep signing in.
+    @Test func aServerOlderThanTheFieldNamesNoEnvironment() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { _ in (200, Data(#"{"status":"ok"}"#.utf8)) }
+
+        let health = try await makeTransport().health()
+
+        #expect(health.environment == nil)
+        #expect(StubURLProtocol.recorded.first?.url?.path == "/health")
+    }
+
     @Test func authenticatedCallsSendABearerToken() async throws {
         StubURLProtocol.reset()
         StubURLProtocol.handler = { _ in (200, Data("[]".utf8)) }

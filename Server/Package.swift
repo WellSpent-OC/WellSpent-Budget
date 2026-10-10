@@ -22,6 +22,8 @@ let package = Package(
             name: "WellSpentServerCore",
             dependencies: [
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
+                // The record types, so the server can read and check what it stores.
+                .product(name: "WellSpentModel", package: "WellSpentBudget"),
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),

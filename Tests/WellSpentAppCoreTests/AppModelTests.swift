@@ -265,6 +265,40 @@ struct AppModelImportTests {
         #expect(try model.store.transactions(in: budget.id).isEmpty)
     }
 
+    /// A statement that cannot be used is named and explained. Raw error text,
+    /// such as "Error Domain=NSCocoaErrorDomain Code=260", never shows.
+    @Test func aStatementThatCannotBeUsedIsExplainedInWords() throws {
+        let (model, _, _) = try seededModel()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("wellspent-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        func problem(_ name: String, _ contents: Data?) throws -> String {
+            let url = folder.appendingPathComponent(name)
+            if let contents { try contents.write(to: url) }
+            model.dismissError()
+            model.prepareImport(from: url)
+            #expect(model.pendingImport == nil)
+            let message = model.errorMessage ?? ""
+            #expect(!message.contains("Error Domain") && !message.contains("ImportError"), "\(message)")
+            return message
+        }
+        let download = "Download a CSV, OFX or QFX file from your bank and import that."
+
+        #expect(try problem("gone.csv", nil)
+                == "\u{201C}gone.csv\u{201D} is not there any more. It may have been moved or deleted.")
+        #expect(try problem("notes.txt", Data("just some words".utf8))
+                == "\u{201C}notes.txt\u{201D} is not a statement this app can read. \(download)")
+        #expect(try problem("header.csv", Data("Date,Description,Amount\n".utf8))
+                == "\u{201C}header.csv\u{201D} has no entries to import.")
+        #expect(try problem("columns.csv", Data("Date,Payee\n09/22/2026,HILLTOP".utf8))
+                == "Line 1 of \u{201C}columns.csv\u{201D} could not be read: no amount column. \(download)")
+        // Not UTF-8. Foundation's error code for this differs by platform, so
+        // only the start of the sentence is fixed.
+        #expect(try problem("latin.csv", Data([0x44, 0x61, 0xFF, 0xFE, 0x2C, 0x0A]))
+                .hasPrefix("\u{201C}latin.csv\u{201D} could not"))
+    }
+
     @Test func aFileThatIsNotAStatementReportsRatherThanCrashing() throws {
         let (model, _, _) = try seededModel()
         let url = try writeCSV("this is not a statement")

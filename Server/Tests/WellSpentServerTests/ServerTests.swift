@@ -246,7 +246,30 @@ struct AccountTests {
         try await withConfiguredApp { app in
             try await app.testing().test(.GET, "health") { response async throws in
                 #expect(response.status == .ok)
+                let body = try response.content.decode([String: String].self)
+                #expect(body["status"] == "ok")
+                #expect(body["environment"] == "development",
+                        "a test server is neither live nor staging")
             }
+        }
+    }
+
+    /// The app checks this before sign-in, so a staging build cannot sign in to the
+    /// live server, and the reverse. The live server must keep answering "live"
+    /// with no new setting, and a misspelt name must stop a server, not start one
+    /// that calls itself something it is not.
+    @Test func theServerSaysWhichEnvironmentItIs() throws {
+        #expect(try ServerEnvironment.resolve(nil, appEnvironment: .production) == .live)
+        #expect(try ServerEnvironment.resolve("", appEnvironment: .production) == .live)
+        #expect(try ServerEnvironment.resolve(nil, appEnvironment: .development) == .development)
+        #expect(try ServerEnvironment.resolve(nil, appEnvironment: .testing) == .development)
+        #expect(try ServerEnvironment.resolve("staging", appEnvironment: .production) == .staging)
+        #expect(try ServerEnvironment.resolve("live", appEnvironment: .development) == .live)
+        #expect(throws: (any Error).self) {
+            try ServerEnvironment.resolve("Staging", appEnvironment: .production)
+        }
+        #expect(throws: (any Error).self) {
+            try ServerEnvironment.resolve("prod", appEnvironment: .production)
         }
     }
 

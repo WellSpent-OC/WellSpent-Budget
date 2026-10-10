@@ -21,13 +21,7 @@ private final class Mac {
         keychains[key] = store
         return store
     }
-    let server = InMemoryTransport()
-    let transport: StubAccountTransport
-
-    init() {
-        transport = StubAccountTransport(inner: server)
-        transport.idsFromEmail = true
-    }
+    let transport = StubReadableTransport()
 
     func launch() throws -> Workspace {
         let transport = self.transport
@@ -64,9 +58,6 @@ struct AccountsTests {
         // Back to Robin: his, not hers.
         try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
         #expect(app.model.groups.map(\.name) == robins)
-        #expect(app.sync.hasIdentity(for: "leslie@example.com"))
-        #expect(app.sync.hasIdentity(for: "robin@example.com"))
-        #expect(!app.sync.hasIdentity(for: "nobody@example.com"))
     }
 
     @Test func theLastAccountIsStillSignedInAfterAQuit() async throws {
@@ -97,7 +88,8 @@ struct AccountsTests {
         let app = try mac.launch()
         app.model.addGroup(named: "From before")
 
-        mac.transport.refuseSignIn = .http(status: 401, reason: "email or password is wrong")
+        mac.transport.server.seedAccount(email: "robin@example.com", password: "a-long-password")
+        mac.transport.refuseSignIn = .badCredentials
         await #expect(throws: (any Error).self) {
             try await app.sync.signIn(email: "robin@example.com", password: "wrong-password")
         }
@@ -112,15 +104,61 @@ struct AccountsTests {
         #expect(app.model.groups.map(\.name).contains("From before"), "and the budgets came too")
     }
 
-    @Test func aRefusedSignUpLeavesNoKeysBehind() async throws {
+    @Test func aRefusedSignUpLeavesNothingBehind() async throws {
         let mac = Mac()
         let app = try mac.launch()
         mac.transport.refuseSignUp = .http(status: 409, reason: "that email already has an account")
         await #expect(throws: (any Error).self) {
             try await app.sync.signUp(email: "taken@example.com", password: "a-long-password")
         }
-        #expect(!app.sync.hasIdentity(for: "taken@example.com"))
+        let keys = mac.accounts.keyStore(for: AccountDirectory.namespace(for: "taken@example.com"))
+        #expect(try keys.load(.session) == nil)
+        #expect(app.sync.account == nil)
         #expect(!app.model.groups.isEmpty, "This Mac's budgets stay put")
+    }
+
+    /// The point of readable sync: an account made on one Mac signs in on
+    /// another, with no keys to carry over, and finds its budgets there.
+    @Test func anAccountSignsInOnASecondMacAndFindsItsBudgets() async throws {
+        let laptop = Mac()
+        let first = try laptop.launch()
+        try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let names = first.model.groups.map(\.name).sorted()
+        await first.sync.syncAll()
+
+        let desktop = Mac()
+        let second = StubReadableTransport(server: laptop.transport.server)
+        let app = try Workspace.launch(accounts: desktop.accounts, defaults: desktop.defaults,
+                                       makeTransport: { _ in second })
+        try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await app.sync.syncAll()
+        #expect(app.sync.state == .signedIn(email: "robin@example.com"))
+        #expect(app.model.groups.map(\.name).sorted() == names)
+    }
+
+    /// A confirmed address is still known as confirmed after a quit.
+    @Test func aConfirmedAddressStaysConfirmedAfterAQuit() async throws {
+        let mac = Mac()
+        let first = try mac.launch()
+        try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let code = try #require(mac.transport.server.lastCode(for: "robin@example.com", purpose: .verify))
+        try await first.sync.verifyEmail(code: code)
+        let second = try mac.launch()
+        #expect(second.sync.emailVerified)
+    }
+
+    /// Signed out by the server, the next launch still says whose budgets
+    /// these are and why to sign in.
+    @Test func anEndedSessionAsksAgainAfterAQuit() async throws {
+        let mac = Mac()
+        let first = try mac.launch()
+        try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        mac.transport.server.endSessions(of: try #require(first.sync.userID))
+        await first.sync.syncAll()
+        let second = try mac.launch()
+        #expect(second.sync.account == nil)
+        #expect(second.sync.signInPrompt == SyncCoordinator.SignInPrompt(email: "robin@example.com",
+                                                                          reason: SyncCoordinator.sessionEndedReason))
     }
 
     @Test func anAccountsFilesAreNamedWithoutItsEmail() {

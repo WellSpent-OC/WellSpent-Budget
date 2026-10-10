@@ -103,6 +103,21 @@ final class StubAccountTransport: AccountTransport, @unchecked Sendable {
         return credentials()
     }
 
+    /// What `/health` names. Staging, because the tests run as a staging build:
+    /// a test runner has no Info.plist saying live.
+    var serverEnvironment: String? = "staging"
+    /// Thrown by `/health` instead of answering, as a server that cannot be
+    /// reached does.
+    var healthError: (any Error)?
+    private var _healthChecks = 0
+    var healthChecks: Int { lock.withLock { _healthChecks } }
+
+    func health() async throws -> HTTPTransport.Health {
+        lock.withLock { _healthChecks += 1 }
+        if let healthError { throw healthError }
+        return HTTPTransport.Health(status: "ok", environment: serverEnvironment)
+    }
+
     /// Counts revocations, so a sign-out that never reaches the server is a
     /// test failure rather than something nobody notices.
     private var _signOuts = 0
@@ -283,7 +298,7 @@ private struct Fixture {
     let model: AppModel
     let keyStore: InMemoryKeyStore
     let transport: StubAccountTransport
-    let sync: SyncCoordinator
+    let sync: SealedSyncCoordinator
     let group: BudgetGroup
     let budget: Budget
 
@@ -294,7 +309,7 @@ private struct Fixture {
         self.keyStore = keyStore
         self.transport = transport
         let captured = transport
-        sync = SyncCoordinator(store: store, keyStore: keyStore,
+        sync = SealedSyncCoordinator(store: store, keyStore: keyStore,
                                defaults: isolatedDefaults(),
                                makeTransport: { _ in captured })
 
@@ -306,9 +321,9 @@ private struct Fixture {
     }
 }
 
-@Suite("Sync coordinator", .serialized)
+@Suite("Sealed sync coordinator", .serialized)
 @MainActor
-struct SyncCoordinatorTests {
+struct SealedSyncCoordinatorTests {
 
     // MARK: - Accounts
 
@@ -352,7 +367,7 @@ struct SyncCoordinatorTests {
         let f = try Fixture()
         #expect(!f.sync.hasIdentity)
 
-        await #expect(throws: SyncCoordinator.Failure.noIdentityOnThisDevice) {
+        await #expect(throws: SealedSyncCoordinator.Failure.noIdentityOnThisDevice) {
             try await f.sync.signIn(email: "robin@example.com", password: "a-long-password")
         }
         guard case .failed(let why) = f.sync.state else {
@@ -427,7 +442,7 @@ struct SyncCoordinatorTests {
     @Test func aKeyStoreThatRefusesSaysSoInWords() async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let transport = StubAccountTransport()
-        let sync = SyncCoordinator(store: store, keyStore: RefusingKeyStore(),
+        let sync = SealedSyncCoordinator(store: store, keyStore: RefusingKeyStore(),
                                    defaults: isolatedDefaults(),
                                    makeTransport: { _ in transport })
 
@@ -457,7 +472,7 @@ struct SyncCoordinatorTests {
     @Test func aTokenThatCannotBeSavedLeavesNoAccount() async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let transport = StubAccountTransport()
-        let sync = SyncCoordinator(store: store, keyStore: TokenRefusingKeyStore(),
+        let sync = SealedSyncCoordinator(store: store, keyStore: TokenRefusingKeyStore(),
                                    defaults: isolatedDefaults(),
                                    makeTransport: { _ in transport })
 
@@ -635,15 +650,15 @@ struct SyncCoordinatorTests {
     /// Letting go keeps a deleted group's queue through failures that clear
     /// up by themselves, and gives up only on the others.
     @Test func onlyFailuresThatClearUpKeepAQueueForLater() {
-        #expect(SyncCoordinator.mayClearUp(URLError(.notConnectedToInternet)))
-        #expect(SyncCoordinator.mayClearUp(CancellationError()))
-        #expect(SyncCoordinator.mayClearUp(HTTPTransport.Failure.notAuthenticated))
+        #expect(SealedSyncCoordinator.mayClearUp(URLError(.notConnectedToInternet)))
+        #expect(SealedSyncCoordinator.mayClearUp(CancellationError()))
+        #expect(SealedSyncCoordinator.mayClearUp(HTTPTransport.Failure.notAuthenticated))
         for status in [401, 408, 429, 500, 503] {
-            #expect(SyncCoordinator.mayClearUp(HTTPTransport.Failure.http(status: status, reason: "")),
+            #expect(SealedSyncCoordinator.mayClearUp(HTTPTransport.Failure.http(status: status, reason: "")),
                     "\(status)")
         }
-        #expect(!SyncCoordinator.mayClearUp(HTTPTransport.Failure.http(status: 400, reason: "")))
-        #expect(!SyncCoordinator.mayClearUp(HTTPTransport.Failure.malformedResponse("unreadable")))
+        #expect(!SealedSyncCoordinator.mayClearUp(HTTPTransport.Failure.http(status: 400, reason: "")))
+        #expect(!SealedSyncCoordinator.mayClearUp(HTTPTransport.Failure.malformedResponse("unreadable")))
     }
 
     /// A deleted group with more than a page queued. The push sends every
@@ -769,19 +784,24 @@ struct SyncCoordinatorTests {
         let defaults = isolatedDefaults()
         let store = Store(database: try WellSpentDatabase.inMemory())
 
-        let first = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
-                                    defaults: defaults)
+        let first = SealedSyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
+                                    defaults: defaults, environment: .live)
         #expect(first.serverAddress == "https://sync.wellspent.space", "the hosted default")
         first.serverAddress = "http://127.0.0.1:8080"
 
-        let next = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
-                                   defaults: defaults)
+        let next = SealedSyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
+                                   defaults: defaults, environment: .live)
         #expect(next.serverAddress == "http://127.0.0.1:8080")
+
+        defaults.removeObject(forKey: SealedSyncCoordinator.serverAddressKey)
+        let staging = SealedSyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
+                                      defaults: defaults, environment: .staging)
+        #expect(staging.serverAddress == "https://staging.wellspent.space")
     }
 
     @Test func syncingOneGroupWhileSignedOutThrows() async throws {
         let f = try Fixture()
-        await #expect(throws: SyncCoordinator.Failure.notSignedIn) {
+        await #expect(throws: SealedSyncCoordinator.Failure.notSignedIn) {
             _ = try await f.sync.sync(group: f.group.id)
         }
     }

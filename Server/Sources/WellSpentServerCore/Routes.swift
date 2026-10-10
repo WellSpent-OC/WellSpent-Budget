@@ -93,6 +93,8 @@ enum ServerError: Error, AbortError {
     case inviteNotFound
     case inviteExpired
     case inviteAlreadyAccepted
+    case passwordTooLong
+    case badCode
 
     var status: HTTPResponseStatus {
         switch self {
@@ -104,6 +106,7 @@ enum ServerError: Error, AbortError {
         case .inviteNotFound: return .notFound
         case .inviteExpired: return .gone
         case .inviteAlreadyAccepted: return .conflict
+        case .passwordTooLong, .badCode: return .badRequest
         }
     }
 
@@ -122,6 +125,10 @@ enum ServerError: Error, AbortError {
         case .inviteNotFound: return "no such invite"
         case .inviteExpired: return "that invite has expired"
         case .inviteAlreadyAccepted: return "that invite has already been accepted"
+        case .passwordTooLong: return "a password can have at most \(AccountRules.maxPasswordLength) characters"
+        // One answer for a wrong code, an expired one, a used one and an
+        // unknown address, so it never says which.
+        case .badCode: return "that code is wrong or has expired"
         }
     }
 }
@@ -139,16 +146,24 @@ public func registerRoutes(_ app: Application) throws {
             request.logger.error("health check could not reach the database: \(error)")
             throw Abort(.serviceUnavailable, reason: "database unreachable")
         }
-        return ["status": "ok"]
+        let environment = request.application.storage[ServerEnvironmentKey.self] ?? .development
+        return ["status": "ok", "environment": environment.rawValue]
     }
 
-    let api = app.grouped("api", "v1")
+    // Closed at the switch to readable sync; see `LegacyAPIGate`.
+    let api = app.grouped("api", "v1").grouped(LegacyAPIGate())
     try registerAccountRoutes(api)
 
     let authed = api.grouped(TokenAuthenticator())
     try registerSessionRoutes(authed)
     try registerSyncRoutes(authed)
     try registerSharingRoutes(authed)
+
+    // Readable sync. Unused until the apps move to it at the switch.
+    let v2 = app.grouped("api", "v2")
+    try registerAccountRoutesV2(v2)
+    try registerGroupRoutesV2(v2)
+    try registerSyncRoutesV2(v2)
 }
 
 // MARK: Accounts

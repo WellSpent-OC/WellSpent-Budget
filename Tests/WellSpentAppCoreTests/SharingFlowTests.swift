@@ -11,7 +11,7 @@ import WellSpentSync
 @MainActor
 private struct App {
     let model: AppModel
-    let sync: SyncCoordinator
+    let sync: SealedSyncCoordinator
     let transport: StubAccountTransport
 
     init(server: InMemoryTransport) throws {
@@ -19,7 +19,7 @@ private struct App {
         model = AppModel(store: store)
         let transport = StubAccountTransport(inner: server)
         self.transport = transport
-        sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
+        sync = SealedSyncCoordinator(store: store, keyStore: InMemoryKeyStore(),
                                defaults: isolatedDefaults(), makeTransport: { _ in transport })
         let model = self.model
         sync.didSync = { model.reload() }
@@ -96,22 +96,16 @@ struct SharingFlowTests {
     }
 
     @Test func theSheetsOnlyGoAheadWithWhatTheyNeed() {
-        #expect(ShareSheet.canCreate(myName: "Robin", signedIn: true))
-        #expect(!ShareSheet.canCreate(myName: " ", signedIn: true))
-        #expect(!ShareSheet.canCreate(myName: "Robin", signedIn: false))
+        #expect(SharingRules.canCreate(myName: "Robin", signedIn: true))
+        #expect(!SharingRules.canCreate(myName: " ", signedIn: true))
+        #expect(!SharingRules.canCreate(myName: "Robin", signedIn: false))
 
         let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
                               inviterName: "Robin").url
-        #expect(JoinSheet.canJoin(linkText: link, myName: "Leslie", signedIn: true))
-        #expect(!JoinSheet.canJoin(linkText: "not a link", myName: "Leslie", signedIn: true))
-        #expect(!JoinSheet.canJoin(linkText: link, myName: "", signedIn: true))
-        #expect(!JoinSheet.canJoin(linkText: link, myName: "Leslie", signedIn: false))
-    }
-
-    @Test func theWaitingLineNamesWhoItIsWaitingOn() {
-        let join = PendingJoin(groupID: GroupID(), groupName: "Household", inviterName: "Robin",
-                               displayName: "Leslie", level: .write)
-        #expect(SidebarView.waiting(for: join) == "Waiting for Robin to add you")
+        #expect(SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: true))
+        #expect(!SharingRules.canJoin(linkText: "not a link", myName: "Leslie", signedIn: true))
+        #expect(!SharingRules.canJoin(linkText: link, myName: "", signedIn: true))
+        #expect(!SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: false))
     }
 
     // MARK: - Deleting a shared group
@@ -879,7 +873,7 @@ struct SharingFlowTests {
         leslie.transport.failEveryPush = (group, unreadable)
         leslie.model.deleteGroup(group, reach: .thisMacOnly)
 
-        for round in 1 ..< SyncCoordinator.letGoAttempts {
+        for round in 1 ..< SealedSyncCoordinator.letGoAttempts {
             await leslie.sync.syncAll()
             #expect(!leslie.sync.isSignedIn, "round \(round) still fails")
             #expect(try leslie.model.store.outboxCount(in: group) > 0, "and keeps the queue")
@@ -950,8 +944,9 @@ struct SharingFlowTests {
         let (robin, leslie, group, groceries) = try await sharedHousehold()
         let household = try #require(leslie.model.group(named: group))
 
-        SidebarView.confirm(.group(household, budgets: 1, reach: .justYou),
-                            model: leslie.model, sync: leslie.sync)
+        // What the dialog's Delete does (`PendingDelete.confirm`), on the sealed coordinator.
+        leslie.model.deleteGroup(household.id,
+                                 reach: GroupDeleteReach.justYou.stricter(leslie.sync.deleteReach(of: household.id)))
         #expect(try leslie.model.store.outboxCount(in: group) == 0)
         await leslie.sync.syncAll()
         await robin.sync.syncAll()
@@ -1043,4 +1038,12 @@ struct SharingFlowTests {
 @MainActor
 private final class Seen {
     var reach: GroupDeleteReach?
+}
+
+extension SealedSyncCoordinator {
+    /// The reason the last action failed, as the screens read it.
+    var failureMessage: String? {
+        if case .failed(let why) = state { return why }
+        return nil
+    }
 }
