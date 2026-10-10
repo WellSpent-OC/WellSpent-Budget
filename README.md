@@ -85,10 +85,12 @@ Mac. Android is much later. There is deliberately no web client.
 
 ## License
 
-- The app and the shared libraries: GNU General Public License v3.0, in `LICENSE`.
-- The sync server (`Server/`): GNU Affero General Public License v3.0, in
-  `Server/LICENSE`. It also covers anyone who runs a changed copy of the server for
-  other people.
+MIT, for everything here: the app, the shared libraries, the Linux app and the sync
+server. The text is in `LICENSE`, with a copy in `Server/LICENSE` because the
+server is its own package.
 
-Contributions need a signed contributor agreement before they can be merged. See
-`CONTRIBUTING.md`.
+Earlier versions were published under the GNU General Public License v3.0 (the app)
+and the GNU Affero General Public License v3.0 (the server). Copies taken then keep
+those terms.
+
+How to contribute: `CONTRIBUTING.md`.
