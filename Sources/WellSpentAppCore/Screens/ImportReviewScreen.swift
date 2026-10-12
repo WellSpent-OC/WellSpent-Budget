@@ -45,7 +45,8 @@ public struct ImportReviewScreen {
 
     /// Whether there is a statement to review.
     public var isOpen: Bool { model.pendingImport != nil }
-    public var title: String { Words.title }
+    /// Names the group, so the person sees where the statement goes.
+    public var title: String { model.pendingImport.map { Words.title(into: $0.groupName) } ?? Words.title }
     public var filename: String { model.pendingImport?.filename ?? "" }
     public var note: String { SyncWording.importNote }
 
@@ -72,7 +73,7 @@ public struct ImportReviewScreen {
     /// The budgets a line may be filed in: those of the group the statement
     /// goes into. A line filed in another group's budget is not in this group.
     public var budgetChoices: [Budget] {
-        model.groups.first.flatMap { model.summaries[$0.id] }?.map(\.budget) ?? []
+        model.pendingImport.flatMap { model.summaries[$0.groupID] }?.map(\.budget) ?? []
     }
 
     /// Files a line that needs a budget; nil takes the choice back.
@@ -95,6 +96,7 @@ public struct ImportReviewScreen {
 
     public enum Words {
         public static let title = "Import a statement"
+        public static func title(into group: String) -> String { "Import a statement into \u{201C}\(group)\u{201D}" }
         public static let matched = "Matched"
         public static let toAdd = "To add"
         public static let alreadyImported = "Already imported"

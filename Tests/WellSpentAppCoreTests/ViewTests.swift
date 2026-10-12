@@ -218,9 +218,9 @@ struct ViewTests {
     // MARK: - Import review
 
     @Test func theImportSheetShowsACountForEachOutcome() throws {
-        let (model, _, budget) = try modelWithData()
+        let (model, group, budget) = try modelWithData()
         model.pendingImport = AppModel.PendingImport(
-            filename: "statement.csv",
+            filename: "statement.csv", groupID: group.id, groupName: group.name,
             proposals: [],
             summary: {
                 var s = ImportSummary()
@@ -246,7 +246,7 @@ struct ViewTests {
     }
 
     @Test func eachImportRowLabelsWhatWillHappenToIt() throws {
-        let (model, _, budget) = try modelWithData()
+        let (model, group, budget) = try modelWithData()
         let line = StatementLine(date: Date(), rawDescription: "HILLTOP #17 SPRING HILL OH",
                                  amount: Money(minorUnits: -14208))
 
@@ -260,7 +260,8 @@ struct ViewTests {
 
         for (decision, expected) in cases {
             let proposal = ImportProposal(line: line, decision: decision, fingerprint: "x")
-            model.pendingImport = AppModel.PendingImport(filename: "s.csv", proposals: [proposal],
+            model.pendingImport = AppModel.PendingImport(filename: "s.csv", groupID: group.id, groupName: group.name,
+                                                         proposals: [proposal],
                                                          summary: StatementMatcher().summarise([proposal]))
             let shown = try #require(ImportReviewScreen(model: model).rows.first)
             let row = ImportRow(row: shown, choices: [], choose: { _ in })

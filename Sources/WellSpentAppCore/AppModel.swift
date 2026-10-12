@@ -39,6 +39,9 @@ public final class AppModel {
     public struct PendingImport: Identifiable {
         public let id = UUID()
         public let filename: String
+        /// The group it goes into, chosen when it was read.
+        public let groupID: GroupID
+        public let groupName: String
         public var proposals: [ImportProposal]
         public var summary: ImportSummary
         public var chosenBudgets: [Int: BudgetID] = [:]
@@ -313,7 +316,7 @@ public final class AppModel {
             let contents = try String(contentsOf: url, encoding: .utf8)
             let lines = try StatementParser.parse(contents: contents, filename: url.lastPathComponent)
 
-            guard let group = groups.first else {
+            guard let group = importGroup else {
                 errorMessage = "Make a budget group first."
                 return
             }
@@ -345,6 +348,7 @@ public final class AppModel {
             let matcher = StatementMatcher()
             let proposals = matcher.propose(lines, context: context)
             pendingImport = PendingImport(filename: url.lastPathComponent,
+                                          groupID: group.id, groupName: group.name,
                                           proposals: proposals,
                                           summary: matcher.summarise(proposals))
         } catch {
@@ -352,9 +356,19 @@ public final class AppModel {
         }
     }
 
-    /// Writes what the review sheet agreed to.
+    /// The group a statement goes into: the one whose budget is open, so a
+    /// business statement read from a business budget goes into the business
+    /// group. The first group only when no budget is open.
+    var importGroup: BudgetGroup? {
+        if let selectedBudget, let id = budget(for: selectedBudget)?.groupID, let open = group(named: id) {
+            return open
+        }
+        return groups.first
+    }
+
+    /// Writes what the review sheet agreed to, into the group it was read for.
     public func commitImport() {
-        guard let pending = pendingImport, let group = groups.first else { return }
+        guard let pending = pendingImport else { return }
         do {
             var added = 0
             var skipped = 0
@@ -371,18 +385,18 @@ public final class AppModel {
                     skipped += 1
 
                 case .add(let budgetID):
-                    try write(proposal, into: budgetID, group: group.id)
+                    try write(proposal, into: budgetID, group: pending.groupID)
                     added += 1
 
                 case .needsBudget:
                     guard let chosen = pending.chosenBudgets[index] else { continue }
-                    try write(proposal, into: chosen, group: group.id)
+                    try write(proposal, into: chosen, group: pending.groupID)
                     added += 1
                 }
             }
 
             try store.save(ImportedStatement(
-                groupID: group.id, filename: pending.filename, format: "auto",
+                groupID: pending.groupID, filename: pending.filename, format: "auto",
                 rowCount: pending.proposals.count, addedCount: added, skippedCount: skipped))
 
             pendingImport = nil

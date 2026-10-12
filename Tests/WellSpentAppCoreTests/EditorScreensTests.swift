@@ -178,7 +178,7 @@ struct EditorScreensTests {
         #expect(!screen.isOpen && screen.rows.isEmpty && screen.tiles.isEmpty)
         model.prepareImport(from: url)
         #expect(screen.isOpen)
-        #expect(screen.title == "Import a statement")
+        #expect(screen.title == "Import a statement into \u{201C}Household\u{201D}")
         #expect(screen.filename == url.lastPathComponent)
         #expect(screen.note == "Read on this computer. Nothing is sent until you add it.")
         #expect(screen.tiles.map(\.label) == ["Matched", "To add", "Already imported", "Needs a budget"])

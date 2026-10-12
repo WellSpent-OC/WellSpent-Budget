@@ -252,6 +252,47 @@ struct AppModelImportTests {
         #expect(try model.store.transactions(in: budget.id).count == 2)
     }
 
+    /// A statement goes into the group whose budget is open. It always went into
+    /// the first group, so a shop statement read from a shop budget landed in
+    /// the household, and the shop's own lines were never found as duplicates.
+    @Test func aStatementGoesIntoTheGroupOfTheOpenBudget() throws {
+        let model = try makeModel()
+        let household = try #require(model.addGroup(named: "Household"))
+        let shop = try #require(model.addGroup(named: "Shop"))
+        #expect(model.groups.first?.id == household, "the shop is not the first group")
+        let groceries = try #require(model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: household))
+        let supplies = try #require(model.addBudget(named: "Supplies", limit: Money(minorUnits: 50_000), in: shop))
+        let url = try writeCSV("Date,Description,Amount\n09/22/2026,\"OFFICE DEPOT\",-42.10")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        model.selectedBudget = supplies
+        model.prepareImport(from: url)
+        #expect(model.pendingImport?.groupID == shop)
+        let screen = ImportReviewScreen(model: model)
+        #expect(screen.title == "Import a statement into \u{201C}Shop\u{201D}")
+        #expect(screen.budgetChoices.map(\.name) == ["Supplies"])
+
+        screen.choose(supplies, for: 0)
+        screen.commit()
+        #expect(try model.store.transactions(in: supplies).count == 1)
+        #expect(try model.store.transactions(in: groceries).isEmpty)
+
+        // The same statement again, from the shop: its line is found as already in.
+        model.prepareImport(from: url)
+        #expect(screen.rows.map(\.status) == ["Already imported"])
+        screen.cancel()
+
+        // Adding is judged for the group the statement goes into.
+        model.mayAddEntries = { $0 == household }
+        model.prepareImport(from: url)
+        #expect(model.errorMessage == "You can view this group but not add to it.")
+        #expect(model.pendingImport == nil)
+        model.dismissError()
+        model.selectedBudget = groceries
+        model.prepareImport(from: url)
+        #expect(model.pendingImport?.groupID == household)
+    }
+
     @Test func cancellingThrowsTheProposalAway() throws {
         let (model, _, budget) = try seededModel()
         let url = try writeCSV("Date,Description,Amount\n09/22/2026,HILLTOP,-10.00")
