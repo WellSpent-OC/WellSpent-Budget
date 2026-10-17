@@ -160,6 +160,7 @@ struct StagingBanner: View {
             .padding(.vertical, 4)
             .background(Color.orange)
             .help("A test build, with its own budgets. It never connects to the live server.")
+            .accessibilityIdentifier(AccessibilityID.stagingBanner)
     }
 }
 
@@ -215,6 +216,7 @@ struct SidebarView: View {
                     }
                     ForEach(section.budgets, id: \.budget.id) { summary in
                         BudgetRow(summary: summary)
+                            .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
                             .tag(summary.budget.id)
                             .contextMenu { menu(screen.budgetMenu(summary.budget)) }
                     }
@@ -264,6 +266,7 @@ struct SidebarView: View {
             }
             .contentShape(Rectangle())
         }
+        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
         .buttonStyle(.plain)
         .help(section.toggleHelp)
         .contextMenu { menu(screen.groupMenu(section.group)) }
@@ -295,6 +298,7 @@ struct SidebarView: View {
                 perform(screen.addButton.action)
             }
             .menuStyle(.borderlessButton)
+            .accessibilityIdentifier(AccessibilityID.sidebarAdd)
             .fixedSize()
             Spacer()
         }
@@ -333,6 +337,7 @@ struct SidebarView: View {
                 // window shows and whether or not a prompt was dismissed.
                 if !screen.showsSync {
                     Button(screen.accountTitle) { showingAccount = true }
+                        .accessibilityIdentifier(AccessibilityID.sidebarSignIn)
                         .buttonStyle(.link)
                         .font(.system(size: 11))
                 }
@@ -388,12 +393,14 @@ struct BudgetDetailView: View {
                     } label: {
                         Label(BudgetScreen.Words.importStatement, systemImage: "square.and.arrow.down")
                     }
+                    .accessibilityIdentifier(AccessibilityID.budgetImport)
                     Button {
                         showingAddTransaction = true
                     } label: {
                         Label(BudgetScreen.Words.add, systemImage: "plus")
                     }
                     .keyboardShortcut("n", modifiers: .command)
+                    .accessibilityIdentifier(AccessibilityID.budgetAdd)
                 }
                 if sync.account != nil {
                     SyncButton(sync: sync, showingAccount: $showingAccount)
@@ -522,10 +529,14 @@ struct AddTransactionSheet: View {
 
             Form {
                 TextField(Words.merchant, text: Bindable(editor).merchant)
+                    .accessibilityIdentifier(AccessibilityID.entryMerchant)
                 TextField(Words.amount, text: Bindable(editor).amountText)
                     .font(.money(13, weight: .regular))
+                    .accessibilityIdentifier(AccessibilityID.entryAmount)
                 DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
+                    .accessibilityIdentifier(AccessibilityID.entryDate)
                 TextField(Words.note, text: Bindable(editor).note)
+                    .accessibilityIdentifier(AccessibilityID.entryNote)
             }
             .formStyle(.grouped)
 
@@ -533,12 +544,14 @@ struct AddTransactionSheet: View {
                 Spacer()
                 Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.entryCancel)
                 Button(Words.add) {
                     editor.add()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!editor.canAdd)
+                .accessibilityIdentifier(AccessibilityID.entryAdd)
             }
         }
         .padding(20)

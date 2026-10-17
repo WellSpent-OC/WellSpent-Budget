@@ -285,9 +285,76 @@ jobs:
   # To make it block, create a fine-grained personal access token with
   # "Pull requests: write" on this repository and save it as the GATE_TOKEN
   # secret. Or pay for GitHub Pro, which makes this whole job unnecessary.
+  # Gate 7. The real Mac window, driven by XCUITest against staging. The build
+  # half runs on every pull request. The run half needs the two staging test
+  # accounts, which live in this repository's secrets: a pull request from a
+  # fork has none, so there only the build is checked. The project rule (2026-10-15):
+  # the UI test gates every commit like the other checks. The four account values
+  # go into the secrets only after the test's first green run on a Mac, so a test
+  # that has never passed cannot block a merge (project rule, 2026-10-15).
+  mac-ui-test:
+    name: Mac UI test
+    needs: unit-tests
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      HAS_UI_TEST_ACCOUNTS: ${{ secrets.WELLSPENT_UI_TEST_EMAIL != '' && secrets.WELLSPENT_UI_TEST_EMAIL_2 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: |
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build the app and the UI test
+        run: make ui-test-build
+
+      - name: Run the UI test against staging
+        if: env.HAS_UI_TEST_ACCOUNTS == 'true'
+        env:
+          WELLSPENT_UI_TEST_EMAIL: ${{ secrets.WELLSPENT_UI_TEST_EMAIL }}
+          WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
+          WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
+          WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
+        run: make ui-test
+
+      - name: Say why the run was skipped
+        if: env.HAS_UI_TEST_ACCOUNTS != 'true'
+        run: echo "::notice::The UI test ran its build only. The staging test accounts are not available to this pull request, which is expected for a fork."
+
+      # The whole result bundle never leaves the runner: XCUITest's activity log
+      # records the text typed into the sign-in fields, and here that text is a
+      # secret. Only the screenshots are kept (project rule, 2026-10-15).
+      - name: Pull the screenshots out of a failed run
+        if: failure() && env.HAS_UI_TEST_ACCOUNTS == 'true'
+        run: |
+          if [ -d .build/xcode/ui-test.xcresult ]; then
+            xcrun xcresulttool export attachments --path .build/xcode/ui-test.xcresult --output-path .build/xcode/ui-test-screenshots
+            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+          fi
+
+      - name: Keep the screenshots when the test fails
+        if: failure() && env.HAS_UI_TEST_ACCOUNTS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-screenshots
+          path: .build/xcode/ui-test-screenshots
+          if-no-files-found: ignore
+
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -302,7 +369,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -322,7 +389,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}

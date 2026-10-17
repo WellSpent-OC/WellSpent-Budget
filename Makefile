@@ -20,7 +20,8 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
          -Xlinker -rpath -Xlinker $(CLT)/Library/Developer/usr/lib
 endif
 
-.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app
+.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
+        ui-test-project ui-test-build ui-test
 
 build:
 	swift build
@@ -92,3 +93,56 @@ icon:
 # with VERSION, BUILD and ARCHS set; locally it builds for this Mac only.
 app:
 	scripts/make-app.sh
+
+# The Mac UI test: the real window, driven by XCUITest against the staging
+# server with two test accounts (Tests/WellSpentUITests). It needs Xcode and
+# xcodegen (brew install xcodegen), and these four variables in the shell,
+# exported from a file kept outside the repo and sourced by hand first:
+#   WELLSPENT_UI_TEST_EMAIL    WELLSPENT_UI_TEST_PASSWORD
+#   WELLSPENT_UI_TEST_EMAIL_2  WELLSPENT_UI_TEST_PASSWORD_2
+# WELLSPENT_UI_TEST_SERVER is optional and defaults to https://staging.wellspent.space.
+# Both accounts must exist on staging with their addresses confirmed. The values
+# reach the test runner as TEST_RUNNER_ variables, never on a command line.
+#
+# The app's window opens on screen for the whole run, so run it when nobody is
+# using this Mac for anything else. The first run asks once to let Xcode's test
+# manager control the app.
+#
+# Xcode/project.yml is the source; the .xcodeproj it generates is ignored.
+# Everything xcodebuild writes stays under .build/, including the result bundle
+# with the screenshots XCUITest takes when a step fails.
+UI_TEST_PROJECT := Xcode/WellSpentMac.xcodeproj
+UI_TEST_VARS := WELLSPENT_UI_TEST_EMAIL WELLSPENT_UI_TEST_PASSWORD WELLSPENT_UI_TEST_EMAIL_2 WELLSPENT_UI_TEST_PASSWORD_2
+ifeq ($(findstring Xcode.app,$(DEVELOPER_DIR_PATH)),Xcode.app)
+UI_TEST_DEVELOPER_DIR := $(DEVELOPER_DIR_PATH)
+else
+UI_TEST_DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
+endif
+UI_TEST_XCODEBUILD := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild \
+	-project $(UI_TEST_PROJECT) -scheme WellSpentUITests -destination 'platform=macOS' \
+	-derivedDataPath .build/xcode -clonedSourcePackagesDirPath .build/xcode-packages
+
+# Generates the Xcode project from Xcode/project.yml.
+ui-test-project:
+	@command -v xcodegen >/dev/null || { echo "xcodegen is not installed. brew install xcodegen"; exit 1; }
+	xcodegen generate --spec Xcode/project.yml --quiet
+
+# Compiles the app and the test without running anything. No window opens.
+ui-test-build: ui-test-project
+	$(UI_TEST_XCODEBUILD) build-for-testing
+
+ui-test: ui-test-project
+	@for name in $(UI_TEST_VARS); do \
+		eval "value=\$$$$name"; \
+		if [ -z "$$value" ]; then \
+			echo "$$name is not set. Source the file that exports the four test account variables first."; \
+			exit 1; \
+		fi; \
+	done
+	rm -rf .build/xcode/ui-test.xcresult
+	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult

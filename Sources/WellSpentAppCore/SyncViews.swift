@@ -20,6 +20,7 @@ struct AccountButton: View {
         }
         .disabled(sync.isBusy)
         .help(Self.help(account: sync.account))
+        .accessibilityIdentifier(AccessibilityID.toolbarAccount)
     }
 
     static func title(account: String?) -> String {
@@ -58,6 +59,7 @@ struct SyncButton: View {
         }
         .disabled(sync.isBusy)
         .help(help)
+        .accessibilityIdentifier(AccessibilityID.toolbarSync)
     }
 
     static func isSpinning(for state: SyncCoordinator.State) -> Bool {
@@ -167,15 +169,19 @@ struct AccountSheet: View {
         switch flow.step {
         case .signIn:
             Form {
-                field(Words.email, Bindable(flow.signIn).email, problem: flow.signIn.problems[.email])
-                field(Words.password, Bindable(flow.signIn).password, secure: true)
+                field(Words.email, Bindable(flow.signIn).email, id: AccessibilityID.accountEmail,
+                      problem: flow.signIn.problems[.email])
+                field(Words.password, Bindable(flow.signIn).password, id: AccessibilityID.accountPassword,
+                      secure: true)
                 serverField
             }
             .formStyle(.grouped)
             HStack {
                 Button(Words.createAccount) { flow.go(to: .signUp) }
+                    .accessibilityIdentifier(AccessibilityID.accountCreateAccount)
                 Spacer()
                 Button(Words.forgotPassword) { flow.go(to: .forgotPassword) }
+                    .accessibilityIdentifier(AccessibilityID.accountForgotPassword)
             }
             .buttonStyle(.link)
             .font(.system(size: 12))
@@ -183,11 +189,12 @@ struct AccountSheet: View {
 
         case .signUp:
             Form {
-                field(Words.email, Bindable(flow.signUp).email, problem: flow.signUp.problems[.email])
-                field(Words.password, Bindable(flow.signUp).password, secure: true,
-                      problem: flow.signUp.problems[.password])
-                field(Words.confirmation, Bindable(flow.signUp).confirmation, secure: true,
-                      problem: flow.signUp.problems[.confirmation])
+                field(Words.email, Bindable(flow.signUp).email, id: AccessibilityID.accountEmail,
+                      problem: flow.signUp.problems[.email])
+                field(Words.password, Bindable(flow.signUp).password, id: AccessibilityID.accountPassword,
+                      secure: true, problem: flow.signUp.problems[.password])
+                field(Words.confirmation, Bindable(flow.signUp).confirmation, id: AccessibilityID.accountConfirmation,
+                      secure: true, problem: flow.signUp.problems[.confirmation])
                 serverField
             }
             .formStyle(.grouped)
@@ -195,21 +202,25 @@ struct AccountSheet: View {
         case .forgotPassword:
             if flow.reset.step == .enterEmail {
                 Form {
-                    field(Words.email, Bindable(flow.reset).email, problem: flow.reset.problems[.email])
+                    field(Words.email, Bindable(flow.reset).email, id: AccessibilityID.accountEmail,
+                          problem: flow.reset.problems[.email])
                     serverField
                 }
                 .formStyle(.grouped)
             } else {
                 note(flow.resetCodeText)
                 Form {
-                    field(Words.code, Bindable(flow.reset).code, problem: flow.reset.problems[.code])
-                    field(Words.newPassword, Bindable(flow.reset).password, secure: true,
-                          problem: flow.reset.problems[.password])
-                    field(Words.confirmation, Bindable(flow.reset).confirmation, secure: true,
+                    field(Words.code, Bindable(flow.reset).code, id: AccessibilityID.accountCode,
+                          problem: flow.reset.problems[.code])
+                    field(Words.newPassword, Bindable(flow.reset).password, id: AccessibilityID.accountNewPassword,
+                          secure: true, problem: flow.reset.problems[.password])
+                    field(Words.confirmation, Bindable(flow.reset).confirmation,
+                          id: AccessibilityID.accountConfirmation, secure: true,
                           problem: flow.reset.problems[.confirmation])
                 }
                 .formStyle(.grouped)
                 Button(Words.startOver) { flow.reset.startOver() }
+                    .accessibilityIdentifier(AccessibilityID.accountStartOver)
                     .buttonStyle(.link)
                     .font(.system(size: 12))
                     .disabled(flow.isWorking)
@@ -218,11 +229,12 @@ struct AccountSheet: View {
         case .confirmEmail:
             note(flow.confirmText)
             Form {
-                field(Words.code, Bindable(flow.confirm).code)
+                field(Words.code, Bindable(flow.confirm).code, id: AccessibilityID.accountCode)
             }
             .formStyle(.grouped)
             Button(flow.sendCodeLabel) { Task { await flow.sendCode() } }
                 .disabled(!flow.confirm.canSendCode)
+                .accessibilityIdentifier(AccessibilityID.accountSendCode)
             if let sent = flow.confirm.note {
                 note(sent)
             }
@@ -234,20 +246,26 @@ struct AccountSheet: View {
                 note(ConfirmEmailScreen.reason)
                 Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
                     .disabled(flow.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.accountConfirmEmail)
             }
             HStack {
                 Button(Words.changePassword) { flow.go(to: .changePassword) }
+                    .accessibilityIdentifier(AccessibilityID.accountChangePassword)
                 Button(Words.signOut) { Task { await flow.signOut() } }
+                    .accessibilityIdentifier(AccessibilityID.accountSignOut)
                 Button(Words.signOutEverywhere) { flow.askToSignOutEverywhere() }
+                    .accessibilityIdentifier(AccessibilityID.accountSignOutEverywhere)
             }
             .disabled(flow.isWorking)
 
         case .changePassword:
             Form {
-                field(Words.currentPassword, Bindable(flow.change).current, secure: true)
-                field(Words.newPassword, Bindable(flow.change).password, secure: true,
-                      problem: flow.change.problems[.password])
-                field(Words.confirmation, Bindable(flow.change).confirmation, secure: true,
+                field(Words.currentPassword, Bindable(flow.change).current,
+                      id: AccessibilityID.accountCurrentPassword, secure: true)
+                field(Words.newPassword, Bindable(flow.change).password, id: AccessibilityID.accountNewPassword,
+                      secure: true, problem: flow.change.problems[.password])
+                field(Words.confirmation, Bindable(flow.change).confirmation,
+                      id: AccessibilityID.accountConfirmation, secure: true,
                       problem: flow.change.problems[.confirmation])
             }
             .formStyle(.grouped)
@@ -259,20 +277,24 @@ struct AccountSheet: View {
             if let back = flow.back {
                 Button(Words.back) { flow.go(to: back) }
                     .disabled(flow.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.accountBack)
             }
             Spacer()
             if let label = flow.submitLabel {
                 Button(flow.closeLabel) { flow.close() }
                     .keyboardShortcut(.cancelAction)
                     .disabled(flow.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.accountClose)
                 Button(label) { Task { await flow.submit() } }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!flow.canSubmit)
+                    .accessibilityIdentifier(AccessibilityID.accountSubmit)
             } else {
                 // The account step has no main button: closing is the default.
                 Button(flow.closeLabel) { flow.close() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(flow.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.accountClose)
             }
         }
     }
@@ -280,15 +302,20 @@ struct AccountSheet: View {
     private var serverField: some View {
         TextField(Words.server, text: Binding(get: { sync.serverAddress },
                                               set: { sync.serverAddress = $0 }))
+            .accessibilityIdentifier(AccessibilityID.accountServer)
     }
 
-    private func field(_ label: String, _ text: Binding<String>, secure: Bool = false,
+    /// `id` is the name the UI test finds the field by. It goes on the field
+    /// itself, not on the stack around it.
+    private func field(_ label: String, _ text: Binding<String>, id: String, secure: Bool = false,
                        problem: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if secure {
                 SecureField(label, text: text)
+                    .accessibilityIdentifier(id)
             } else {
                 TextField(label, text: text)
+                    .accessibilityIdentifier(id)
             }
             if let problem {
                 Text(problem)

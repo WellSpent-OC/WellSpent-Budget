@@ -50,16 +50,19 @@ struct ShareSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Form {
                 TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
+                    .accessibilityIdentifier(AccessibilityID.shareName)
                 if !screen.roles.isEmpty {
                     Picker(Words.role, selection: Bindable(screen).role) {
                         ForEach(screen.roles) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
+                    .accessibilityIdentifier(AccessibilityID.shareRole)
                 }
                 Picker(Words.history, selection: Bindable(screen).history) {
                     Text(Words.historyAll).tag(HistoryAccess.all)
                     Text(Words.historyFromNow).tag(HistoryAccess.fromNow)
                 }
+                .accessibilityIdentifier(AccessibilityID.shareHistory)
             }
             .formStyle(.grouped)
 
@@ -80,9 +83,11 @@ struct ShareSheet: View {
                 Spacer()
                 Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.shareCancel)
                 Button(screen.createLabel) { Task { await screen.create() } }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!screen.canCreate)
+                    .accessibilityIdentifier(AccessibilityID.shareCreate)
             }
         }
     }
@@ -92,6 +97,7 @@ struct ShareSheet: View {
             Text(link.url)
                 .font(.money(11, weight: .regular))
                 .textSelection(.enabled)
+                .accessibilityIdentifier(AccessibilityID.shareLink)
                 .lineLimit(3)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -109,9 +115,11 @@ struct ShareSheet: View {
                 } label: {
                     Label(Words.copyLink, systemImage: "doc.on.doc")
                 }
+                .accessibilityIdentifier(AccessibilityID.shareCopyLink)
                 Spacer()
                 Button(Words.done) { dismiss() }
                     .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier(AccessibilityID.shareDone)
             }
         }
     }
@@ -147,7 +155,9 @@ struct JoinSheet: View {
             Form {
                 TextField(Words.link, text: Bindable(screen).linkText, prompt: Text(Words.linkPrompt))
                     .font(.money(12, weight: .regular))
+                    .accessibilityIdentifier(AccessibilityID.joinLink)
                 TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
+                    .accessibilityIdentifier(AccessibilityID.joinName)
             }
             .formStyle(.grouped)
 
@@ -172,11 +182,13 @@ struct JoinSheet: View {
                 Spacer()
                 Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.joinCancel)
                 Button(screen.joinLabel) {
                     Task { if await screen.join() { dismiss() } }
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!screen.canJoin)
+                .accessibilityIdentifier(AccessibilityID.joinJoin)
             }
         }
         .padding(20)
