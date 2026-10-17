@@ -151,6 +151,12 @@ struct AppEnvironmentTests {
             #expect(script.contains("\"\(environment.appName)\""))
         }
         #expect(workflow.contains(AppEnvironment.live.bundleIdentifier))
+
+        // The App Store build is sandboxed, so macOS must move the live data folder
+        // into the app's container on the first launch, or the app opens empty.
+        #expect(script.contains("<key>com.apple.security.app-sandbox</key><true/>"))
+        #expect(script.contains("container-migration.plist"))
+        #expect(script.contains("{ApplicationSupport}/\(AppEnvironment.live.dataFolderName)</string>"))
     }
 
     // MARK: - Refusals

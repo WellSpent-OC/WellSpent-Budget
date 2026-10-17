@@ -59,6 +59,8 @@ That is normal, not a sign anything broke.
     make run            # WellSpent Staging, signed so the keychain stops asking
     make ui-test-build  # compiles the Mac UI test through Xcode; no window opens
     make ui-test        # runs it: the real window against staging, two test accounts
+    make testflight         # WellSpent.app signed for the Mac App Store, in a signed .pkg, checked by App Store Connect
+    make testflight-upload  # uploads the .pkg that make testflight checked
 
 `make test` carries extra flags because this machine has `xcode-select` pointed at
 CommandLineTools and the Xcode licence has not been accepted. See the Makefile.
@@ -71,6 +73,11 @@ them in a file outside the repo and source it first. The test launches the app w
 `WELLSPENT_DATA_ROOT` set, which a staging build reads to keep its databases in that
 folder and its keys in memory, so nothing reaches Application Support or the
 keychain. The window opens on screen for the run.
+
+`make testflight` needs Xcode and four things that stay outside the repo: the Mac App
+Store provisioning profile, the two certificate names, and the App Store Connect API
+key id and issuer id. The scripts say which variables name them and where they are
+read from by default.
 
 ## Layout
 
