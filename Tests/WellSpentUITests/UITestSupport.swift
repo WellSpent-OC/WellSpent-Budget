@@ -109,6 +109,23 @@ final class TestApp {
         target.click()
     }
 
+    /// Clicks into a field and pastes, replacing whatever was there: the text
+    /// goes on the clipboard, then Command-V. Writing the clipboard from the
+    /// test needs no permission (only reading it would), and it is emptied
+    /// again straight after.
+    func paste(_ text: String, into identifier: String) {
+        let field = element(identifier)
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
+        waitUntilHittable(field, identifier)
+        field.click()
+        field.typeKey("a", modifierFlags: .command)
+        let clipboard = NSPasteboard.general
+        clipboard.clearContents()
+        clipboard.setString(text, forType: .string)
+        field.typeKey("v", modifierFlags: .command)
+        clipboard.clearContents()
+    }
+
     /// Clicks into a field and types, replacing whatever was there.
     func type(_ text: String, into identifier: String) {
         let field = element(identifier)
@@ -165,8 +182,13 @@ final class TestApp {
         if (serverField.value as? String) != server {
             type(server, into: AccessibilityID.accountServer)
         }
-        type(email, into: AccessibilityID.accountEmail)
-        type(password, into: AccessibilityID.accountPassword)
+        // Pasted, not typed, the way people sign in with an address and a
+        // password copied from somewhere else. A sign-in that goes through
+        // proves the password field pasted too.
+        paste(email, into: AccessibilityID.accountEmail)
+        XCTAssertEqual(element(AccessibilityID.accountEmail).value as? String, email,
+                       "Command-V did not paste the address")
+        paste(password, into: AccessibilityID.accountPassword)
         click(AccessibilityID.accountSubmit)
 
         let signedIn = app.staticTexts[SyncWording.footer(signedIn: true)]
