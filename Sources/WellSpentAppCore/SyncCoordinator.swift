@@ -453,7 +453,12 @@ public final class SyncCoordinator {
     /// server makes it: trimmed, one Unicode form, lower case. A plain
     /// address is unchanged, so an account's files stay where they are.
     static func normalised(email: String) -> String {
-        email.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping.lowercased()
+        var email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An address copied from a link arrives as "mailto:name@example.com".
+        // The server drops the prefix the same way, so the account is the
+        // plain address, which is the one the person types next time.
+        if email.lowercased().hasPrefix("mailto:") { email = String(email.dropFirst("mailto:".count)) }
+        return email.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping.lowercased()
     }
 
     /// The name this device shows in the account's list of signed-in devices.

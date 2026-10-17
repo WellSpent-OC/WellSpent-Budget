@@ -83,8 +83,14 @@ enum AccountRules {
     /// files on each device are named from the same form.
     static func normaliseEmail(_ raw: String) throws -> String {
         // One Unicode form, so the same address typed two ways is one account.
-        let email = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            .precomposedStringWithCanonicalMapping.lowercased()
+        var typed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An address copied from a link arrives as "mailto:name@example.com".
+        // Kept as typed, it made an account nobody could sign in to with the
+        // plain address (the go/no-go test, 2026-10-15).
+        if typed.lowercased().hasPrefix("mailto:") {
+            typed = String(typed.dropFirst("mailto:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let email = typed.precomposedStringWithCanonicalMapping.lowercased()
         let parts = email.split(separator: "@", omittingEmptySubsequences: false)
         guard email.count <= maxEmailLength, parts.count == 2,
               let local = parts.first, let domain = parts.last,
