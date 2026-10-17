@@ -63,28 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
-/// A process launched this way gets no menu bar, and the menu is where Cmd-Q
-/// lives. This is the application menu a new Xcode project starts with.
-func makeMainMenu() -> NSMenu {
-    let name = AppEnvironment.current.appName
-    let appMenu = NSMenu()
-    appMenu.addItem(withTitle: "Hide \(name)", action: #selector(NSApplication.hide(_:)),
-                    keyEquivalent: "h")
-    let hideOthers = appMenu.addItem(withTitle: "Hide Others",
-                                     action: #selector(NSApplication.hideOtherApplications(_:)),
-                                     keyEquivalent: "h")
-    hideOthers.keyEquivalentModifierMask = [.command, .option]
-    appMenu.addItem(.separator())
-    appMenu.addItem(withTitle: "Quit \(name)", action: #selector(NSApplication.terminate(_:)),
-                    keyEquivalent: "q")
-
-    let appItem = NSMenuItem()
-    appItem.submenu = appMenu
-    let mainMenu = NSMenu()
-    mainMenu.addItem(appItem)
-    return mainMenu
-}
-
 /// The Dock icon. A process with no .app bundle has no Info.plist to name one, so
 /// it is set here instead, from the icon SwiftPM copies next to the executable.
 ///
@@ -99,7 +77,7 @@ func appIcon() -> NSImage? {
 let application = NSApplication.shared
 let delegate = AppDelegate()
 application.delegate = delegate
-application.mainMenu = makeMainMenu()
+application.mainMenu = MacMenu.make(appName: AppEnvironment.current.appName)
 // Without this the process runs as a background accessory with no Dock icon and
 // no way to focus the window.
 application.setActivationPolicy(.regular)
