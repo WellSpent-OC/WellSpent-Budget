@@ -30,12 +30,12 @@ public final class AccountDirectory {
     /// out of Application Support and the keychain: every database goes under
     /// the folder it names, keys stay in memory, and settings go in the suite
     /// named by `testDefaultsSuiteName`. A live build never reads it.
-    public static let dataRootVariable = "WELLSPENT_DATA_ROOT"
+    nonisolated public static let dataRootVariable = "WELLSPENT_DATA_ROOT"
 
     /// Where a build started with `dataRootVariable` keeps its settings.
     /// UserDefaults cannot be pointed at a folder, so a suite of its own is the
     /// nearest thing; the UI test wipes it before and after a run.
-    public static let testDefaultsSuiteName = "app.wellspent.uitest"
+    nonisolated public static let testDefaultsSuiteName = "app.wellspent.uitest"
 
     public init(root: URL?, defaults: UserDefaults = .standard,
                 makeKeyStore: @escaping KeyStoreMaker) {

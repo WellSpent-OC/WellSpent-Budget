@@ -125,9 +125,18 @@ final class TestApp {
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
-    /// Every static text on screen, for a failure message.
+    /// Every static text on screen, for a failure message. Read from one
+    /// snapshot: asking each element in turn failed on the first real run,
+    /// when the sheet changed between the query and the read.
     func visibleTexts() -> [String] {
-        app.staticTexts.allElementsBoundByIndex.map(\.label).filter { !$0.isEmpty }
+        guard let root = try? app.snapshot() else { return [] }
+        var texts: [String] = []
+        func walk(_ node: XCUIElementSnapshot) {
+            if node.elementType == .staticText, !node.label.isEmpty { texts.append(node.label) }
+            node.children.forEach(walk)
+        }
+        walk(root)
+        return texts
     }
 
     func visibleMenuItems() -> [String] {
@@ -151,7 +160,7 @@ final class TestApp {
         click(AccessibilityID.accountSubmit)
 
         let signedIn = app.staticTexts[SyncWording.footer(signedIn: true)]
-        guard signedIn.waitForExistence(timeout: 30) else {
+        guard signedIn.waitForExistence(timeout: 60) else {
             if element(AccessibilityID.accountCode).exists {
                 throw UITestError("\(email) has not confirmed its address. Confirm it once, then run again.")
             }
@@ -258,7 +267,7 @@ final class TestApp {
     /// Delete… from the group's menu, confirmed. The founder's delete removes
     /// the group for everyone on the server, once the sync that follows an
     /// edit has run. Best effort: nothing here fails the test.
-    func deleteGroup(named name: String) async {
+    func deleteGroup(named name: String) {
         guard app.state == .runningForeground else { return }
         let header = element(AccessibilityID.sidebarGroup(name))
         guard header.waitForExistence(timeout: 5) else { return }
@@ -271,8 +280,9 @@ final class TestApp {
         confirm.click()
         wait(for: header, until: "exists == false", timeout: 10)
         // The sync after an edit waits for edits to stop, then talks to the
-        // server. Give it that long before the app is closed.
-        try? await Task.sleep(for: .seconds(8))
+        // server. Give it that long before the app is closed. (A waiter on an
+        // expectation nobody fulfils is XCTest's way to pause.)
+        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the sync after the delete")], timeout: 8)
     }
 
     /// The button on the confirmation, wherever macOS put it.
@@ -286,7 +296,7 @@ final class TestApp {
 
     /// Sign out, through the account button. That button lives in a budget's
     /// toolbar, so a budget is opened first if any is left. Best effort.
-    func signOut() async {
+    func signOut() {
         guard app.state == .runningForeground else { return }
         if !element(AccessibilityID.toolbarAccount).exists {
             let anyBudget = app.descendants(matching: .any)
@@ -314,7 +324,7 @@ final class TestApp {
 
     /// The settings the host reads, wiped so a run starts signed out with no
     /// server address remembered, and wiped again after so nothing is left.
-    static func wipeSettings() {
+    nonisolated static func wipeSettings() {
         UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName)?
             .removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
     }

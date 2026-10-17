@@ -15,24 +15,35 @@ import WellSpentSync
 /// Every run makes a group of its own, named with the time, and deletes it
 /// at the end for everyone.
 final class SignInBudgetShareSyncTests: XCTestCase {
+    /// The run's data folder, for tearDown.
+    nonisolated(unsafe) private static var dataRootPath: String?
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    /// Runs after the test, passed or halted, with no await in it: on the
+    /// first real run an awaiting teardown block never finished after the
+    /// test halted. The app is closed and nothing of the run stays on this
+    /// Mac. The staging side (the run's group, the sessions) is tidied at
+    /// the end of the test itself, so a halted run can leave a group named
+    /// "UI Test <time>" on staging.
+    override func tearDown() {
+        let app = XCUIApplication()
+        if app.state != .notRunning { app.terminate() }
+        TestApp.wipeSettings()
+        if let path = Self.dataRootPath { try? FileManager.default.removeItem(atPath: path) }
+        Self.dataRootPath = nil
+        super.tearDown()
     }
 
     @MainActor
     func testSignInBudgetShareSync() async throws {
         let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
         let second = try SecondAccount(server: accounts.server)
         let groupName = "UI Test \(Self.stamp())"
-        // Whatever happened: the group goes, both sessions end, and nothing of
-        // the run stays on this Mac. Each step gives up quietly if it cannot.
-        addTeardownBlock {
-            await run.deleteGroup(named: groupName)
-            await run.signOut()
-            await second.cleanUp()
-            await run.cleanUp()
-        }
 
         // 1. A staging build, signed out.
         run.launch()
@@ -73,6 +84,11 @@ final class SignInBudgetShareSyncTests: XCTestCase {
                       "the second person's entry did not arrive. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.app.staticTexts["Leslie"].waitForExistence(timeout: 15),
                       "the Added by column does not name her")
+
+        // 9. Tidy: the group goes for everyone, both sessions end.
+        run.deleteGroup(named: groupName)
+        run.signOut()
+        await second.cleanUp()
     }
 
     /// Part of the group's name, so runs never share one.
