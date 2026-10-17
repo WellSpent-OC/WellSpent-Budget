@@ -57,9 +57,16 @@ That is normal, not a sign anything broke.
     make server-build   # Vapor server, separate package
     make server-test    # server tests
     make run            # WellSpent Staging, signed so the keychain stops asking
+    make testflight         # WellSpent.app signed for the Mac App Store, in a signed .pkg, checked by App Store Connect
+    make testflight-upload  # uploads the .pkg that make testflight checked
 
 `make test` carries extra flags because this machine has `xcode-select` pointed at
 CommandLineTools and the Xcode licence has not been accepted. See the Makefile.
+
+`make testflight` needs Xcode and four things that stay outside the repo: the Mac App
+Store provisioning profile, the two certificate names, and the App Store Connect API
+key id and issuer id. The scripts say which variables name them and where they are
+read from by default.
 
 ## Layout
 
