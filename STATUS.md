@@ -112,7 +112,7 @@ Designed in `ARCHITECTURE.md`, absent from the code.
 
 ## Coverage
 
-**90.0% line coverage**, floored at 85% in CI (`make coverage`, `scripts/coverage.sh`).
+**90.0% line coverage**, floored at 90% (raised from 85 on 2026-10-15) in CI (`make coverage`, `scripts/coverage.sh`).
 
 Two things it still excludes:
 
