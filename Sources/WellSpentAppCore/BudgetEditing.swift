@@ -56,16 +56,20 @@ struct BudgetSheet: View {
 
             Form {
                 TextField(Words.name, text: Bindable(editor).name, prompt: Text(Words.namePrompt))
+                    .accessibilityIdentifier(AccessibilityID.budgetEditorName)
                 TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(Words.amountPrompt))
                     .font(.money(13, weight: .regular))
+                    .accessibilityIdentifier(AccessibilityID.budgetEditorAmount)
                 if editor.needsNewGroup {
                     TextField(Words.group, text: Bindable(editor).newGroupName)
+                        .accessibilityIdentifier(AccessibilityID.budgetEditorGroup)
                 } else if editor.showsGroupPicker {
                     Picker(Words.group, selection: Bindable(editor).groupID) {
                         ForEach(editor.groups) { group in
                             Text(group.name).tag(GroupID?.some(group.id))
                         }
                     }
+                    .accessibilityIdentifier(AccessibilityID.budgetEditorGroup)
                 }
             }
             .formStyle(.grouped)
@@ -78,12 +82,14 @@ struct BudgetSheet: View {
                 Spacer()
                 Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.budgetEditorCancel)
                 Button(editor.saveLabel) {
                     editor.save()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!editor.canSave)
+                .accessibilityIdentifier(AccessibilityID.budgetEditorSave)
             }
         }
         .padding(20)
@@ -110,6 +116,7 @@ struct GroupSheet: View {
 
             Form {
                 TextField(Words.name, text: Bindable(editor).name, prompt: Text(Words.namePrompt))
+                    .accessibilityIdentifier(AccessibilityID.groupEditorName)
             }
             .formStyle(.grouped)
 
@@ -122,12 +129,14 @@ struct GroupSheet: View {
                 Spacer()
                 Button(Words.cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.groupEditorCancel)
                 Button(editor.saveLabel) {
                     editor.save()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!editor.canSave)
+                .accessibilityIdentifier(AccessibilityID.groupEditorSave)
             }
         }
         .padding(20)

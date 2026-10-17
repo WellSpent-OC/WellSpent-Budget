@@ -66,7 +66,7 @@ Designed in `ARCHITECTURE.md`, absent from the code.
 | Receipt blob storage and upload | Receipt records exist; the image bytes have nowhere to go |
 | OCR | `ExtractedField` is populated by hand or by a test |
 | iOS app, Linux client, Android | Nothing beyond the shared core compiling |
-| XCUITest, driving the built app | Needs an Xcode project, a bundled `.app` and `xcodebuild`. The UI tests here inspect the SwiftUI hierarchy in process instead, which catches rendering and wiring but not window behaviour, focus or real clicks |
+| XCUITest, driving the built app | One test exists, in `Tests/WellSpentUITests`: it signs in, makes a group and a budget, adds two entries, shares the group, and sees an entry a second account adds arrive after a sync, all in the real window against the staging server. `make ui-test` runs it through the Xcode project `Xcode/project.yml` generates. It compiles but has not yet run green on a Mac. In CI the `mac-ui-test` job builds it on every pull request and gates the merge; it runs the test once the two staging accounts are in the repository's secrets, which happens only after the first green run on a Mac. Until that run, the ViewInspector tests, which inspect the SwiftUI hierarchy in process, are what covers the Mac screens |
 | Subscriptions, StoreKit | No monetisation of any kind |
 | Getting back in with the twelve words | The words are shown when an account is made and can be checked in code. No screen takes them back and rebuilds the identity, so they are only useful once pairing exists |
 | Automatic syncing | Sync runs when the button is pressed. Nothing syncs on a timer, on a change, or at launch |

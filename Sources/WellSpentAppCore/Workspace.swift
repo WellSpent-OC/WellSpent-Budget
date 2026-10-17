@@ -39,13 +39,20 @@ public final class Workspace {
     /// The real app: every account's budgets in Application Support, keys in the
     /// keychain, and whoever was signed in last signed in again. All of it named
     /// for this build, live or staging, so the two never share anything.
-    public static func launch() throws -> Workspace {
+    ///
+    /// `processEnvironment` is the process's own unless a test hands one in. A
+    /// staging build with `AccountDirectory.dataRootVariable` set keeps all of
+    /// it under that folder instead; see `AccountDirectory.standard`.
+    public static func launch(processEnvironment: [String: String] = ProcessInfo.processInfo.environment)
+        throws -> Workspace {
         let environment = AppEnvironment.current
         if environment == .live, let bareRun = UserDefaults(suiteName: AppEnvironment.bareRunSuiteName) {
             AppEnvironment.carryOver(from: bareRun, into: environment.defaults)
         }
-        return try launch(accounts: try AccountDirectory.standard(for: environment),
-                          defaults: environment.defaults, environment: environment)
+        let accounts = try AccountDirectory.standard(for: environment, processEnvironment: processEnvironment)
+        // The directory's own settings, which are this build's unless a UI
+        // test pointed it at a folder. The same thing for a normal launch.
+        return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment)
     }
 
     /// With no `defaults`, the environment's own. Public for the Linux app,

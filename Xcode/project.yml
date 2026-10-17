@@ -1,0 +1,109 @@
+# The Xcode project for the Mac UI test.
+#
+# WellSpentMac.xcodeproj is generated next to this file by `make ui-test`
+# (xcodegen generate --spec Xcode/project.yml) and is ignored by git, like every
+# .xcodeproj here. The Swift package at the repo root stays the source of truth.
+# This only wraps it, because XCUITest needs an Xcode project, a bundled .app
+# and xcodebuild, none of which a package has.
+#
+# Two targets:
+# - WellSpentUITestHost is the Mac app, built from the package's own main.swift
+#   as a staging build (WellSpentEnvironment: staging below), signed ad hoc.
+#   Its bundle id is app.wellspent.mac.uitest on purpose, never
+#   app.wellspent.mac.staging: launching the test first kills any running app
+#   with the host's bundle id, and this way it can never kill a real WellSpent
+#   Staging. The app only uses the staging bundle id in scripts/make-app.sh, so
+#   a different id changes nothing at run time.
+# - WellSpentUITests is the XCUITest bundle in Tests/WellSpentUITests. SwiftPM
+#   ignores that folder because Package.swift does not declare it.
+name: WellSpentMac
+options:
+  minimumXcodeGenVersion: "2.40.0"
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    # Ad hoc, like scripts/make-app.sh. No team, no entitlements.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  WellSpentBudget:
+    path: ..
+
+targets:
+  WellSpentUITestHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: ../Sources/WellSpentApp/main.swift
+    dependencies:
+      - package: WellSpentBudget
+        product: WellSpentAppCore
+      - package: WellSpentBudget
+        product: WellSpentKeyStore
+      - package: WellSpentBudget
+        product: WellSpentStore
+    # Written by xcodegen into the ignored .build folder. WellSpentEnvironment is
+    # what the app reads to decide which build it is: anything but "live" is
+    # staging, with the orange banner, the STAGING badge, and the live server
+    # refused.
+    info:
+      path: ../.build/xcodegen/WellSpentUITestHost-Info.plist
+      properties:
+        CFBundleName: WellSpent UI Test Host
+        CFBundleDisplayName: WellSpent UI Test Host
+        CFBundleShortVersionString: 0.0.0-uitest
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "14.0"
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+        WellSpentEnvironment: staging
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.uitest
+        PRODUCT_NAME: WellSpentUITestHost
+        GENERATE_INFOPLIST_FILE: NO
+
+  WellSpentUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: ../Tests/WellSpentUITests
+    # The host, and the package products the headless second account uses.
+    dependencies:
+      - target: WellSpentUITestHost
+      - package: WellSpentBudget
+        product: WellSpentAppCore
+      - package: WellSpentBudget
+        product: WellSpentSync
+      - package: WellSpentBudget
+        product: WellSpentStore
+      - package: WellSpentBudget
+        product: WellSpentKeyStore
+      - package: WellSpentBudget
+        product: WellSpentModel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.uitests
+        TEST_TARGET_NAME: WellSpentUITestHost
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  WellSpentUITests:
+    build:
+      targets:
+        WellSpentUITestHost: all
+        WellSpentUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WellSpentUITests
