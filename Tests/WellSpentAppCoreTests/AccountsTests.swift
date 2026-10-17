@@ -190,4 +190,70 @@ struct AccountsTests {
         #expect(FileManager.default.fileExists(
             atPath: root.appendingPathComponent("accounts/\(namespace)/budget.sqlite").path))
     }
+
+    // MARK: - A folder of its own, for a UI test
+
+    /// A staging build started with the variable keeps everything under the
+    /// folder it names: databases there, keys in memory, settings in the test
+    /// suite. Nothing reaches Application Support or the keychain.
+    @Test func aStagingBuildKeepsItsDataWhereTheVariableSays() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+        let accounts = try AccountDirectory.standard(
+            for: .staging, processEnvironment: [AccountDirectory.dataRootVariable: root.path])
+        let namespace = AccountDirectory.namespace(for: "robin@example.com")
+
+        _ = try accounts.database(for: nil)
+        _ = try accounts.database(for: namespace)
+        #expect(accounts.root?.path == root.path)
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("budget.sqlite").path))
+        #expect(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("accounts/\(namespace)/budget.sqlite").path))
+        #expect(accounts.keyStore(for: nil) is InMemoryKeyStore)
+        #expect(accounts.keyStore(for: namespace) is InMemoryKeyStore)
+
+        // Its settings are the test suite's: what it writes is read back from
+        // that suite by name, and never from live's standard defaults.
+        #expect(accounts.defaults !== UserDefaults.standard)
+        accounts.lastAccount = "robin@example.com"
+        #expect(suite.string(forKey: AccountDirectory.lastAccountKey) == "robin@example.com")
+    }
+
+    /// Only a staging build reads the variable. Unset or empty, or on a live
+    /// build whatever is set, the real places are used.
+    @Test func onlyAStagingBuildReadsTheVariable() {
+        let folder = "/tmp/wellspent-somewhere"
+        let set = [AccountDirectory.dataRootVariable: folder]
+        #expect(AccountDirectory.testRoot(for: .staging, in: set)?.path == folder)
+        #expect(AccountDirectory.testRoot(for: .live, in: set) == nil, "no variable moves the live app's budgets")
+        #expect(AccountDirectory.testRoot(for: .staging, in: [:]) == nil)
+        #expect(AccountDirectory.testRoot(for: .staging, in: [AccountDirectory.dataRootVariable: ""]) == nil)
+        // The UI test and the Makefile use these by name.
+        #expect(AccountDirectory.dataRootVariable == "WELLSPENT_DATA_ROOT")
+        #expect(AccountDirectory.testDefaultsSuiteName == "app.wellspent.uitest")
+    }
+
+    /// The app itself, launched the way main.swift launches it, with the
+    /// variable set: its budgets land in the folder and its settings in the
+    /// test suite, with nothing asked of the keychain.
+    @Test func theAppLaunchesIntoTheFolderTheVariableNames() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        // `swift test` is a bare executable with no Info.plist, so a staging launch.
+        let app = try Workspace.launch(processEnvironment: [AccountDirectory.dataRootVariable: root.path])
+        #expect(app.environment == .staging)
+        #expect(app.sync.account == nil)
+        #expect(!app.model.groups.isEmpty, "a fresh folder starts with the samples")
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("budget.sqlite").path))
+        #expect(suite.bool(forKey: AccountDirectory.samplesSeededKey), "its settings are the test suite's")
+        #expect(app.sync.serverAddress == AppEnvironment.staging.defaultServerAddress)
+    }
 }

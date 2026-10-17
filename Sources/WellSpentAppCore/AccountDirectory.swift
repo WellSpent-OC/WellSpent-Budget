@@ -26,6 +26,17 @@ public final class AccountDirectory {
     static let lastAccountKey = "WellSpentLastAccount"
     static let samplesSeededKey = "WellSpentSamplesSeeded"
 
+    /// The environment variable a UI test sets to keep a staging build's data
+    /// out of Application Support and the keychain: every database goes under
+    /// the folder it names, keys stay in memory, and settings go in the suite
+    /// named by `testDefaultsSuiteName`. A live build never reads it.
+    nonisolated public static let dataRootVariable = "WELLSPENT_DATA_ROOT"
+
+    /// Where a build started with `dataRootVariable` keeps its settings.
+    /// UserDefaults cannot be pointed at a folder, so a suite of its own is the
+    /// nearest thing; the UI test wipes it before and after a run.
+    nonisolated public static let testDefaultsSuiteName = "app.wellspent.uitest"
+
     public init(root: URL?, defaults: UserDefaults = .standard,
                 makeKeyStore: @escaping KeyStoreMaker) {
         self.root = root
@@ -36,7 +47,16 @@ public final class AccountDirectory {
     /// The real one: Application Support, the keychain and the settings, each
     /// named for this build. Live keeps the names it has always had, so its data
     /// never moves. Staging's are all different, so it never sees live's.
-    public static func standard(for environment: AppEnvironment = .current) throws -> AccountDirectory {
+    ///
+    /// A staging build started with `dataRootVariable` set uses that folder
+    /// instead, for a UI test. `processEnvironment` is the process's own unless
+    /// a test hands one in.
+    public static func standard(for environment: AppEnvironment = .current,
+                                processEnvironment: [String: String] = ProcessInfo.processInfo.environment)
+        throws -> AccountDirectory {
+        if let root = testRoot(for: environment, in: processEnvironment) {
+            return testing(at: root)
+        }
         let base = try FileManager.default.url(for: .applicationSupportDirectory,
                                                in: .userDomainMask,
                                                appropriateFor: nil, create: true)
@@ -48,6 +68,27 @@ public final class AccountDirectory {
         // init(root:defaults:makeKeyStore:).
         throw AccountDirectoryError.noKeychainHere
         #endif
+    }
+
+    /// The folder `dataRootVariable` names, for a staging build. Nil when it
+    /// is unset or empty, and always nil for a live build, so no variable can
+    /// point the live app's budgets anywhere else.
+    static func testRoot(for environment: AppEnvironment, in processEnvironment: [String: String]) -> URL? {
+        guard environment == .staging, let path = processEnvironment[dataRootVariable], !path.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// Everything under one folder, for a UI test. Keys in memory rather than
+    /// in a file: a file store needs a passphrase first, and nothing here
+    /// outlives the run anyway. No keychain means no password prompt can stop
+    /// a run, and a relaunch asks to sign in again.
+    static func testing(at root: URL) -> AccountDirectory {
+        guard let defaults = UserDefaults(suiteName: testDefaultsSuiteName) else {
+            preconditionFailure("could not open the \(testDefaultsSuiteName) defaults")
+        }
+        return AccountDirectory(root: root, defaults: defaults) { _ in InMemoryKeyStore() }
     }
 
     /// The same, with Application Support and the keychain handed in, so a test

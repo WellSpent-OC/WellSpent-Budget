@@ -57,9 +57,20 @@ That is normal, not a sign anything broke.
     make server-build   # Vapor server, separate package
     make server-test    # server tests
     make run            # WellSpent Staging, signed so the keychain stops asking
+    make ui-test-build  # compiles the Mac UI test through Xcode; no window opens
+    make ui-test        # runs it: the real window against staging, two test accounts
 
 `make test` carries extra flags because this machine has `xcode-select` pointed at
 CommandLineTools and the Xcode licence has not been accepted. See the Makefile.
+
+`make ui-test` needs Xcode and xcodegen (`brew install xcodegen`), and four
+variables exported in the shell: `WELLSPENT_UI_TEST_EMAIL`,
+`WELLSPENT_UI_TEST_PASSWORD`, `WELLSPENT_UI_TEST_EMAIL_2` and
+`WELLSPENT_UI_TEST_PASSWORD_2`, two confirmed accounts on the staging server. Keep
+them in a file outside the repo and source it first. The test launches the app with
+`WELLSPENT_DATA_ROOT` set, which a staging build reads to keep its databases in that
+folder and its keys in memory, so nothing reaches Application Support or the
+keychain. The window opens on screen for the run.
 
 ## Layout
 
