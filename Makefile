@@ -20,7 +20,7 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
          -Xlinker -rpath -Xlinker $(CLT)/Library/Developer/usr/lib
 endif
 
-.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app
+.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app testflight testflight-upload
 
 build:
 	swift build
@@ -92,3 +92,31 @@ icon:
 # with VERSION, BUILD and ARCHS set; locally it builds for this Mac only.
 app:
 	scripts/make-app.sh
+
+# The TestFlight build: WellSpent.app sandboxed and signed for the Mac App Store,
+# inside a signed installer package, checked by App Store Connect. It never
+# uploads. The profile, the certificate names and the API key info live outside
+# the repo in a folder each machine sets up. scripts/make-app.sh and
+# scripts/testflight.sh list the variables. It needs Xcode, not just the command
+# line tools, so DEVELOPER_DIR is set for every step. The build number is the UTC
+# minute, which only ever goes up, as App Store Connect requires.
+XCODE ?= /Applications/Xcode.app/Contents/Developer
+APPLE_DIR ?= $(HOME)/.config/wellspent/apple
+PROFILE ?= $(APPLE_DIR)/WellSpent_Mac_App_Store.provisionprofile
+KEYINFO ?= $(APPLE_DIR)/keyinfo.txt
+TESTFLIGHT_VERSION ?= 0.1.0
+TESTFLIGHT_BUILD ?= $(shell date -u +%Y%m%d%H%M)
+TESTFLIGHT_OUT := .build/testflight
+TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
+TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
+
+testflight:
+	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=live SIGN=appstore VERSION=$(TESTFLIGHT_VERSION) BUILD=$(TESTFLIGHT_BUILD) \
+		OUT=$(TESTFLIGHT_OUT) SCRATCH=.build/appstore PROFILE="$(PROFILE)" KEYINFO="$(KEYINFO)" scripts/make-app.sh
+	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh package "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_PKG)"
+	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh validate "$(TESTFLIGHT_PKG)"
+
+# Uploads the package make testflight validated, and nothing else. App Store
+# Connect takes a few minutes to process it, then it shows under TestFlight.
+testflight-upload:
+	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh upload "$(TESTFLIGHT_PKG)"
