@@ -119,6 +119,13 @@ public struct InviteLink: Sendable, Equatable {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("\(Self.scheme)://join#") else { return nil }
         let fragment = String(trimmed.dropFirst("\(Self.scheme)://join#".count))
+        // Foundation stops the whole app on a fragment that is not valid
+        // percent-encoding, such as a link typed or pasted halfway through
+        // ("...g=Vegas%"). So the fragment is checked first, and anything that
+        // would not survive the setter is simply not a link.
+        guard fragment.removingPercentEncoding != nil,
+              fragment.unicodeScalars.allSatisfy({ CharacterSet.urlQueryAllowed.contains($0) || $0 == "%" })
+        else { return nil }
         var components = URLComponents()
         components.percentEncodedQuery = fragment
         let items = components.queryItems ?? []
