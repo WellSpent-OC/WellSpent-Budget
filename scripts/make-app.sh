@@ -188,6 +188,11 @@ EOF
     # quarantine attribute App Store Connect rejects, so attributes go before signing.
     cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
     xattr -cr "$APP"
+    # The installer puts the app in place as root, so every file must be readable by
+    # everyone, or macOS cannot check the signature for the person running it. The
+    # profile's own copy outside the repo is private, and cp kept that mode. App
+    # Store Connect refuses such a package (error 90255).
+    chmod -R u+rwX,go+rX,go-w "$APP"
 
     # The sandbox, the two things the app does outside it (talk to the server and
     # read a statement the person picked), and the two identifiers TestFlight
