@@ -372,6 +372,18 @@ struct SharingTests {
         #expect(Sharing.levelNeededToAdd(at: .manage) == .admin)
     }
 
+    /// A link typed in, or pasted halfway, passes through text that is not valid
+    /// percent-encoding. That must read as "not a link", never stop the app.
+    @Test func aLinkTypedOrPastedHalfwayIsNotALink() {
+        for text in ["wellspent://join#s=abc&g=Vegas%", "wellspent://join#s=abc&g=Vegas%2",
+                     "wellspent://join#%zz", "wellspent://join#%", "wellspent://join#s=abc&g=Vegas Test"] {
+            #expect(InviteLink(parsing: text) == nil, "\(text)")
+        }
+        let link = InviteLink(secret: Data(repeating: 7, count: 32), groupName: "Vegas Test", inviterName: "Robin")
+        #expect(InviteLink(parsing: link.url) == link, "a whole link, with an encoded space, still parses")
+        #expect(InviteLink(parsing: "  \(link.url)\n") == link)
+    }
+
     @Test func aLinkThatIsNotOursDoesNotParse() {
         #expect(InviteLink(parsing: "https://example.com/join#s=abc") == nil)
         #expect(InviteLink(parsing: "wellspent://join#s=tooshort") == nil)
