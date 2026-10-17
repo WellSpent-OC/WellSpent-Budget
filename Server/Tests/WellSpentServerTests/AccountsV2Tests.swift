@@ -331,9 +331,12 @@ struct AccountsV2Tests {
     /// address, so the person can sign in by typing it.
     @Test func anAddressCopiedFromALinkIsThePlainAddress() async throws {
         try await withV2App { app, _ in
-            _ = try await v2SignUp("mailto:Robin@Example.com", on: app)
-            #expect(try await v2SignIn("robin@example.com", v2Password, on: app).0 == .ok)
-            #expect(try await v2SignIn("mailto:robin@example.com", v2Password, on: app).0 == .ok)
+            // An address of this test's own: on Postgres every test shares one
+            // database, and signUpThenSignIn already owns robin@example.com.
+            let tag = UUID().uuidString.prefix(8).lowercased()
+            _ = try await v2SignUp("mailto:Linked.\(tag)@Example.com", on: app)
+            #expect(try await v2SignIn("linked.\(tag)@example.com", v2Password, on: app).0 == .ok)
+            #expect(try await v2SignIn("mailto:linked.\(tag)@example.com", v2Password, on: app).0 == .ok)
         }
     }
 
