@@ -150,8 +150,11 @@ public final class InMemoryReadableServer: @unchecked Sendable {
     }
 
     private static func normalise(_ raw: String) throws -> String {
-        let email = raw.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
-            .lowercased()
+        var typed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if typed.lowercased().hasPrefix("mailto:") {
+            typed = String(typed.dropFirst("mailto:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let email = typed.precomposedStringWithCanonicalMapping.lowercased()
         let parts = email.split(separator: "@", omittingEmptySubsequences: false)
         guard email.count <= 254, parts.count == 2, !parts[0].isEmpty, parts[1].count >= 3,
               parts[1].contains("."), !parts[1].hasPrefix("."), !parts[1].hasSuffix("."),
