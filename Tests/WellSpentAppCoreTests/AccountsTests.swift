@@ -39,11 +39,12 @@ struct AccountsTests {
         let app = try mac.launch()
         #expect(app.sync.account == nil)
         #expect(!app.model.groups.isEmpty, "a fresh install starts with the samples")
+        app.model.addGroup(named: "Robin's")
 
-        // Robin signs up from "This Mac", taking its budgets with him.
+        // Robin signs up from "This Mac", taking his own budgets with him.
         try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
         let robins = app.model.groups.map(\.name)
-        #expect(!robins.isEmpty)
+        #expect(robins == ["Robin's"])
 
         // Signed out is "This Mac", now empty.
         await app.sync.signOut()
@@ -123,7 +124,9 @@ struct AccountsTests {
         let laptop = Mac()
         let first = try laptop.launch()
         try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        first.model.addGroup(named: "Holiday")
         let names = first.model.groups.map(\.name).sorted()
+        #expect(names == ["Holiday"])
         await first.sync.syncAll()
 
         let desktop = Mac()
@@ -189,5 +192,79 @@ struct AccountsTests {
         #expect(try Store(database: try reopened.database(for: nil)).groups().isEmpty)
         #expect(FileManager.default.fileExists(
             atPath: root.appendingPathComponent("accounts/\(namespace)/budget.sqlite").path))
+    }
+}
+
+/// The sample budgets are something to look at before signing in. Nobody's
+/// real account should start with made-up budgets, or hold two groups
+/// called Household once they join a shared one.
+@Suite("Sample budgets and a new account", .serialized)
+@MainActor
+struct SampleBudgetTests {
+
+    @Test func aNewAccountStartsWithoutTheSampleBudgets() async throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        let samples = app.model.groups.map(\.id)
+        #expect(samples.count == 2, "a fresh install starts with the samples")
+
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(app.model.groups.isEmpty, "the samples stayed behind")
+
+        await app.sync.syncAll()
+        #expect(try await mac.transport.groups().isEmpty, "the server lists no group for him")
+        for id in samples {
+            #expect(mac.transport.server.records(in: id).isEmpty, "and holds nothing of the samples")
+        }
+
+        // His first entry takes the row a sample entry had. Search must find
+        // it by its own name, and not by that sample's.
+        let trip = try #require(app.model.addGroup(named: "Road trip"))
+        app.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip)
+        app.model.addTransaction(merchant: "Gas station", amount: .dollars(45), date: Date(), note: "")
+        #expect(try app.model.store.searchTransactions("Gas").map(\.merchant) == ["Gas station"])
+        #expect(try app.model.store.searchTransactions("Hilltop").isEmpty)
+    }
+
+    @Test func aGroupMadeBeforeSigningUpComesAlongAndTheSamplesDoNot() async throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        let trip = try #require(app.model.addGroup(named: "Road trip"))
+        app.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip)
+        app.model.addTransaction(merchant: "Gas station", amount: .dollars(45), date: Date(), note: "")
+
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(app.model.groups.map(\.id) == [trip])
+
+        await app.sync.syncAll()
+        #expect(try await mac.transport.groups().map(\.id) == [trip], "only his own group reached the server")
+        #expect(mac.transport.server.records(in: trip).contains { $0.type == .transaction }, "with its entry")
+    }
+
+    @Test func aSampleGroupGivenAnEntryComesAlongWithIt() async throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        let household = try #require(app.model.groups.first { $0.name == "Household" })
+        app.model.selectedBudget = try #require(
+            app.model.summaries[household.id]?.first { $0.budget.name == "Groceries" }?.budget.id)
+        app.model.addTransaction(merchant: "Farmers market", amount: .dollars(25), date: Date(), note: "")
+        let entry = try #require(app.model.transactions.first { $0.merchant == "Farmers market" })
+
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(app.model.groups.map(\.id) == [household.id], "the untouched Side Business stayed behind")
+
+        await app.sync.syncAll()
+        #expect(try await mac.transport.groups().map(\.id) == [household.id])
+        #expect(mac.transport.server.records(in: household.id).map(\.id).contains(entry.id))
+    }
+
+    @Test func aSampleGroupRenamedBeforeSigningUpComesAlong() async throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        let business = try #require(app.model.groups.first { $0.name == "Side Business" })
+        app.model.renameGroup(business.id, to: "Pottery")
+
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(app.model.groups.map(\.name) == ["Pottery"], "the untouched Household stayed behind")
     }
 }

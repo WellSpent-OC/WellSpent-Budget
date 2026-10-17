@@ -40,6 +40,24 @@ public struct Store: Sendable {
         try database.read { db in try GroupRow.fetchOne(db, key: id.dbValue)?.model() }
     }
 
+    /// Removes a group that never left this device, with everything filed
+    /// under it, and queues nothing. Only for a group no server has seen.
+    /// One that was sent is deleted with `save(_:queue:)` instead, so every
+    /// other device learns that it went away. Entries go first, and the
+    /// search index drops each one as it goes.
+    public func removeUnsentGroup(_ id: GroupID) throws {
+        try database.write { db in
+            let group = id.dbValue
+            for table in ["transactionRecord", "budget", "receipt", "importedStatement", "memberProfile",
+                          "outbox", "syncState"] {
+                try db.execute(sql: "DELETE FROM \(table) WHERE budgetGroupId = ?", arguments: [group])
+            }
+            let (kind, scope) = KeyScope.group(id).parts
+            _ = try ScopedKeyRow.filter(Column("scopeKind") == kind && Column("scopeId") == scope).deleteAll(db)
+            _ = try GroupRow.deleteOne(db, key: group)
+        }
+    }
+
     // MARK: - Budgets
 
     public func save(_ budget: Budget, queue: Bool = true) throws {

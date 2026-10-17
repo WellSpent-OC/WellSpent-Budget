@@ -447,8 +447,10 @@ public final class AppModel {
     // MARK: - First run
 
     /// Something to look at on a fresh install. Replaced the moment real data
-    /// arrives, and never written over an existing database.
-    func seedFirstRun() throws {
+    /// arrives, and never written over an existing database. Returns the
+    /// groups it made, so that untouched ones can stay out of an account.
+    @discardableResult
+    func seedFirstRun() throws -> [GroupID] {
         let household = BudgetGroup(name: "Household")
         try store.save(household)
 
@@ -480,6 +482,7 @@ public final class AppModel {
                                        merchant: merchant, amount: Money(minorUnits: cents)))
         }
         reload()
+        return [household.id, business.id]
     }
 }
 

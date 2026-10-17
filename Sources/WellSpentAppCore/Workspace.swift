@@ -64,7 +64,7 @@ public final class Workspace {
         }
         let model = AppModel(store: sync.store)
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {
-            try model.seedFirstRun()
+            try accounts.noteSamples(try model.seedFirstRun(), in: model.store)
         }
         // Set either way: an older install that already has budgets has had its
         // first run, and must not get samples after its data moves to an account.

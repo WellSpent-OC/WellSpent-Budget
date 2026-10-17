@@ -1,5 +1,6 @@
 import Foundation
 import Crypto
+import WellSpentCrypto
 import WellSpentKeyStore
 import WellSpentStore
 
@@ -25,6 +26,7 @@ public final class AccountDirectory {
 
     static let lastAccountKey = "WellSpentLastAccount"
     static let samplesSeededKey = "WellSpentSamplesSeeded"
+    static let sampleGroupsKey = "WellSpentSampleGroups"
 
     public init(root: URL?, defaults: UserDefaults = .standard,
                 makeKeyStore: @escaping KeyStoreMaker) {
@@ -95,13 +97,49 @@ public final class AccountDirectory {
 
     /// Moves everything in "This Mac" into an account and leaves "This Mac"
     /// empty. Copying and then emptying, rather than moving the file, because
-    /// the "This Mac" database is open while this runs.
+    /// the "This Mac" database is open while this runs. Sample groups nobody
+    /// touched are removed first, so they never reach the account.
     public func moveThisMacData(into namespace: String) throws {
         let source = try database(for: nil)
         let target = try database(for: namespace)
+        try removeUntouchedSamples(from: Store(database: source))
         try source.writer.backup(to: target.writer)
         try WellSpentDatabase.inMemory().writer.backup(to: source.writer)
         samplesSeeded = true
+    }
+
+    /// Notes which groups in "This Mac" are the samples, each with its change
+    /// count as seeding left it. The count is the group's Lamport clock.
+    /// Every saved change to the group, or to a budget or entry in it, adds
+    /// one. It is a counter, not a time, so nothing here depends on the clock.
+    func noteSamples(_ groups: [GroupID], in thisMac: Store) throws {
+        var counts: [GroupID: UInt64] = [:]
+        for group in groups { counts[group] = try thisMac.syncState(for: group).lamport }
+        defaults.set(try JSONEncoder().encode(counts), forKey: Self.sampleGroupsKey)
+        defaults.saveNow()
+    }
+
+    /// A sample whose count still reads as seeding left it was never touched,
+    /// and is removed. One the person changed or added to is theirs, and moves
+    /// with the rest. While signed out nothing else moves the count, because
+    /// pulls and re-seals run only when signed in.
+    ///
+    /// An install seeded by an older build kept no note. Nothing is removed
+    /// there, so its samples move with everything else, as they always did.
+    /// A note that cannot be read is treated the same way. A group is never
+    /// judged by its name. The note is cleared after every move.
+    private func removeUntouchedSamples(from thisMac: Store) throws {
+        var counts: [GroupID: UInt64] = [:]
+        if let note = defaults.data(forKey: Self.sampleGroupsKey) {
+            counts = (try? JSONDecoder().decode([GroupID: UInt64].self, from: note)) ?? [:]
+        }
+        for (group, count) in counts {
+            if try thisMac.syncState(for: group).lamport == count {
+                try thisMac.removeUnsentGroup(group)
+            }
+        }
+        defaults.removeObject(forKey: Self.sampleGroupsKey)
+        defaults.saveNow()
     }
 
     /// Hands the keys from before accounts had their own to this account, if it
@@ -130,7 +168,7 @@ public final class AccountDirectory {
     }
 
     /// The sample budgets go into "This Mac" once, on a fresh install, and never
-    /// come back after someone has signed in and taken them with them.
+    /// come back after "This Mac" has moved into an account.
     public var samplesSeeded: Bool {
         get { defaults.bool(forKey: Self.samplesSeededKey) }
         set {
