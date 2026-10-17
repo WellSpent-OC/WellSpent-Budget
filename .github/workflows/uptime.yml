@@ -1,0 +1,32 @@
+# Is the live sync server reachable from the internet? Every 15 minutes, from
+# GitHub's machines, outside the network the server runs on. A server that is off,
+# or a home connection that is down, fails this run, and GitHub emails whoever last
+# changed this schedule. Public repositories run Actions free.
+#
+# GitHub turns scheduled workflows off after 60 days without any change to the
+# repository. If that happens, the Actions tab offers to turn it back on.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  live:
+    name: Live server answers
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask https://sync.wellspent.space/health
+        run: |
+          for attempt in 1 2 3; do
+            body=$(curl -fsS --max-time 15 -A "WellSpent-Uptime-Check/1" https://sync.wellspent.space/health) \
+              && echo "$body" | grep -q "\"environment\":\"live\"" && echo "$body" | grep -q "\"status\":\"ok\"" && { echo "live: $body"; exit 0; }
+            echo "attempt $attempt: ${body:-no answer}"
+            sleep 20
+          done
+          echo "::error::The live sync server did not answer from the internet."
+          exit 1
