@@ -15,7 +15,7 @@
 # pretending it covers the app would not be.
 set -euo pipefail
 
-MINIMUM="${COVERAGE_MINIMUM:-85}"
+MINIMUM="${COVERAGE_MINIMUM:-90}"
 cd "$(dirname "$0")/.."
 
 echo "Running tests with coverage..."
