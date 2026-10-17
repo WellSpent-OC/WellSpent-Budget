@@ -105,6 +105,7 @@ final class TestApp {
     func click(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout), "nothing called \(identifier) to click")
+        waitUntilHittable(target, identifier)
         target.click()
     }
 
@@ -112,9 +113,18 @@ final class TestApp {
     func type(_ text: String, into identifier: String) {
         let field = element(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
+        waitUntilHittable(field, identifier)
         field.click()
         field.typeKey("a", modifierFlags: .command)
         field.typeText(text)
+    }
+
+    /// A control inside a sheet exists before the sheet has finished sliding
+    /// in, and a click then fails as "not hittable" (seen on the first real
+    /// runs). So every click waits for the control to be hittable first.
+    func waitUntilHittable(_ target: XCUIElement, _ identifier: String) {
+        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 10),
+                      "\(identifier) is on screen but cannot be clicked. On screen: \(visibleTexts())")
     }
 
     /// Waits for a condition on an element, such as "isEnabled == true" or
