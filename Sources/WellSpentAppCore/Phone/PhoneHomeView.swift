@@ -1,0 +1,178 @@
+// The iPhone's screens, built the iPhone's way. Layout only.
+#if os(iOS)
+import SwiftUI
+import WellSpentCrypto
+import WellSpentModel
+
+/// Home: the groups and their budgets, and the bar at the foot with Account,
+/// the sync line and +. Pull down to sync. Draws `MainScreen`. Layout only.
+struct PhoneHomeView: View {
+    let screen: MainScreen
+    let perform: (MainScreen.Action) -> Void
+    @Binding var showingAccount: Bool
+
+    var body: some View {
+        List {
+            if screen.detail == .noBudgets {
+                empty
+            }
+            ForEach(screen.sections) { section in
+                Section {
+                    if let note = section.note {
+                        Text(note)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.muted)
+                    }
+                    ForEach(section.budgets, id: \.budget.id) { summary in
+                        NavigationLink(value: summary.budget.id) {
+                            PhoneBudgetRow(summary: summary)
+                        }
+                        .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
+                        .contextMenu { PhoneMenu(parts: screen.budgetMenu(summary.budget), perform: perform) }
+                    }
+                    if !section.isCollapsed, let newBudget = newBudget(in: section.group) {
+                        Button {
+                            perform(newBudget)
+                        } label: {
+                            Label(BudgetEditor.Words.newTitle, systemImage: "plus")
+                                .font(.subheadline)
+                        }
+                    }
+                } header: {
+                    header(section)
+                }
+                .listRowBackground(Palette.surface)
+            }
+            if let note = screen.waitingNote {
+                Text(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.muted)
+                    .listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Palette.ground)
+        .foregroundStyle(Palette.ink)
+        .refreshable { await screen.syncNow() }
+        .safeAreaInset(edge: .bottom) { foot }
+        .navigationTitle(AppEnvironment.current.appName)
+    }
+
+    /// A group's name hides or shows its budgets. A long press holds its menu,
+    /// with hiding in it too.
+    private func header(_ section: MainScreen.Section) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(section.title)
+                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
+                    .font(.caption2.weight(.semibold))
+                Spacer()
+            }
+            .foregroundStyle(Palette.muted)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+        .accessibilityHint(section.toggleHelp)
+        .contextMenu {
+            PhoneMenu(parts: screen.groupMenu(section.group), perform: perform)
+            Divider()
+            Button(section.toggleHelp) { screen.toggle(section.group.id) }
+        }
+    }
+
+    /// The group's New Budget, when its menu offers one.
+    private func newBudget(in group: BudgetGroup) -> MainScreen.Action? {
+        screen.groupMenu(group).joined().first { item in
+            if case .newBudget = item.action { return true }
+            return false
+        }?.action
+    }
+
+    private var empty: some View {
+        ContentUnavailableView {
+            Label(MainScreen.Words.noBudgetsTitle, systemImage: "tray")
+        } description: {
+            Text(MainScreen.Words.noBudgetsText)
+        } actions: {
+            Button {
+                perform(screen.addButton.action)
+            } label: {
+                Text(screen.addButton.title)
+                    .foregroundStyle(Palette.ground)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .listRowBackground(Color.clear)
+    }
+
+    /// Account on the left, the sync line in the middle, and + on the right in
+    /// thumb reach.
+    private var foot: some View {
+        HStack(spacing: 12) {
+            Button(screen.accountTitle) { showingAccount = true }
+                .buttonStyle(.bordered)
+                .disabled(screen.isBusy)
+                .accessibilityIdentifier(screen.showsSync ? AccessibilityID.toolbarAccount
+                                                          : AccessibilityID.sidebarSignIn)
+            Text(syncLine)
+                .font(.caption)
+                .foregroundStyle(screen.syncFailure == nil ? Palette.muted : Palette.warning)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            Menu {
+                ForEach(addItems) { item in
+                    Button(item.title) { perform(item.action) }
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.title3.weight(.semibold))
+                    // White would not read on the dark mode green.
+                    .foregroundStyle(Palette.ground)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Palette.accent))
+            }
+            .accessibilityLabel(screen.addButton.title)
+            .accessibilityIdentifier(AccessibilityID.sidebarAdd)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    /// Add Budget first, then the rarer ones.
+    private var addItems: [MainScreen.MenuItem] {
+        ([screen.addButton] + screen.addMenu).filter(\.action.isOnThePhone)
+    }
+
+    /// Why the last sync failed, or that one is running, or where the budgets
+    /// are kept.
+    private var syncLine: String {
+        screen.syncFailure ?? (screen.syncShowsProgress ? screen.syncTitle : screen.footer)
+    }
+}
+
+/// One budget on Home: its colour, its name and what is left, or how far over
+/// it is.
+struct PhoneBudgetRow: View {
+    let summary: BudgetSummary
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(summary.isOverspent ? Palette.warning : Palette.budgetColor(summary.budget.colorIndex))
+                .frame(width: 8, height: 8)
+            Text(summary.budget.name)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Text(summary.remaining.display)
+                .font(.body.monospacedDigit())
+                .foregroundStyle(summary.isOverspent ? Palette.warning : Palette.muted)
+        }
+    }
+}
+
+#endif
