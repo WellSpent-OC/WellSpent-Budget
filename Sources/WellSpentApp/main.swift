@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             workspace = try Workspace.launch()
         } catch {
             let alert = NSAlert()
-            alert.messageText = "\(AppEnvironment.current.appName) could not open its database"
+            alert.messageText = MainScreen.Words.couldNotOpen(AppEnvironment.current.appName)
             alert.informativeText = String(describing: error)
             alert.runModal()
             NSApp.terminate(nil)

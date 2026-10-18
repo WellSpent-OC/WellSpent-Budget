@@ -130,6 +130,12 @@ struct MainScreenTests {
         #expect(device.screen.selectedBudget == groceries, "a hidden group's budgets are not on the list")
     }
 
+    /// Each app's shell says it in place of the window, the Mac in an alert.
+    /// These are the words the Mac's alert has always used.
+    @Test func whenTheBudgetsCannotOpenTheAppSaysSo() {
+        #expect(MainScreen.Words.couldNotOpen("WellSpent Staging") == "WellSpent Staging could not open its database")
+    }
+
     // MARK: - Menus
 
     /// A group only on this device is its owner's: every item, and a delete.

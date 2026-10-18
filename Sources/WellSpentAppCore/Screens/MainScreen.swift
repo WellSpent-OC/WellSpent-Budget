@@ -374,5 +374,7 @@ public final class MainScreen {
         public static let cancel = "Cancel"
         /// The title of the window's alert when something fails.
         public static let errorTitle = "Something went wrong"
+        /// Shown in place of the window when the budgets cannot be opened at all.
+        public static func couldNotOpen(_ appName: String) -> String { "\(appName) could not open its database" }
     }
 }
