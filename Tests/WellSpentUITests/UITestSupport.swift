@@ -465,7 +465,9 @@ final class TestApp {
     /// review opens once the file is read.
     func importStatement(at url: URL) {
         click(AccessibilityID.budgetImport)
-        let open = app.buttons["Open"].firstMatch
+        // Only the panel's button: on a Mac with a Touch Bar, the bar shows an
+        // Open button too, and a click on that one fails.
+        let open = app.windows.buttons["Open"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 10), "the open panel did not show. On screen: \(visibleTexts())")
         app.typeKey("g", modifierFlags: [.command, .shift])
         // The Go to field slides in. Keys typed before it has the keyboard go

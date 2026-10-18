@@ -614,8 +614,10 @@ struct EntrySheet: View {
         } message: { pending in
             Text(pending.message)
         }
-        // Escape closes a read-only sheet too. Elsewhere Cancel takes it.
-        .onExitCommand(perform: editor.isReadOnly ? { dismiss() } : nil)
+        // Escape closes the sheet without saving, as Cancel and Done do. Cancel
+        // also carries Escape as its shortcut, but a focused text field can
+        // take the key first, so the sheet answers it too.
+        .onExitCommand { dismiss() }
     }
 
     private var heading: some View {
