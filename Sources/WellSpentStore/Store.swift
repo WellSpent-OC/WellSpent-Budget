@@ -259,6 +259,12 @@ public struct Store: Sendable {
     }
 
     /// Which of these fingerprints have already been imported into this group.
+    ///
+    /// A line someone deleted still counts while its budget is there, so
+    /// importing its statement again leaves it deleted. It used to count as
+    /// new, and filing it again failed partway, because the database keeps
+    /// one row per mark in a group, deleted rows included. The lines of a
+    /// deleted budget no longer count, so they can be filed in another one.
     public func existingFingerprints(_ fingerprints: [String], in group: GroupID) throws -> Set<String> {
         guard !fingerprints.isEmpty else { return [] }
         return try database.read { db in
@@ -266,8 +272,10 @@ public struct Store: Sendable {
             var arguments: [any DatabaseValueConvertible] = [group.dbValue]
             arguments.append(contentsOf: fingerprints)
             let rows = try String.fetchAll(db, sql: """
-                SELECT importFingerprint FROM transactionRecord
-                WHERE budgetGroupId = ? AND isDeleted = 0 AND importFingerprint IN (\(placeholders))
+                SELECT t.importFingerprint FROM transactionRecord t
+                JOIN budget b ON b.id = t.budgetId
+                WHERE t.budgetGroupId = ? AND t.importFingerprint IN (\(placeholders))
+                  AND (t.isDeleted = 0 OR b.isDeleted = 0)
                 """, arguments: StatementArguments(arguments))
             return Set(rows)
         }
@@ -570,7 +578,7 @@ public struct Store: Sendable {
         try database.write { db in
             try ConflictCopyRow(id: nil, recordId: recordID.dbValue, recordType: recordType.rawValue,
                                 payloadJSON: payloadJSON, lamport: Int64(lamport),
-                                authorDeviceId: device.dbValue, seenAt: Date()).save(db)
+                                authorDeviceId: device.dbValue, seenAt: Date(), noticedAt: nil).save(db)
         }
     }
 
@@ -581,6 +589,33 @@ public struct Store: Sendable {
                 .order(Column("seenAt").desc)
                 .fetchAll(db)
                 .map { ($0.payloadJSON, UInt64($0.lamport), $0.seenAt) }
+        }
+    }
+
+    /// Which of these records have a copy kept from `device`, because its
+    /// change lost or was refused, that nobody has noticed yet. One query,
+    /// for a whole list.
+    public func unnoticedCopies(among ids: [RecordID], from device: DeviceID) throws -> Set<RecordID> {
+        guard !ids.isEmpty else { return [] }
+        return try database.read { db in
+            var arguments: [any DatabaseValueConvertible] = [device.dbValue]
+            arguments.append(contentsOf: ids.map(\.dbValue))
+            let found = try String.fetchAll(db, sql: """
+                SELECT DISTINCT recordId FROM conflictCopy
+                WHERE authorDeviceId = ? AND noticedAt IS NULL
+                  AND recordId IN (\(databaseQuestionMarks(count: ids.count)))
+                """, arguments: StatementArguments(arguments))
+            return Set(try found.map { RecordID(try RowCoding.uuid($0)) })
+        }
+    }
+
+    /// Notes that the person has seen what became of their change to this
+    /// record. The copies stay. This is kept on this computer only and
+    /// never syncs.
+    public func markCopiesNoticed(of id: RecordID, at date: Date = Date()) throws {
+        try database.write { db in
+            try db.execute(sql: "UPDATE conflictCopy SET noticedAt = ? WHERE recordId = ? AND noticedAt IS NULL",
+                           arguments: [date, id.dbValue])
         }
     }
 }

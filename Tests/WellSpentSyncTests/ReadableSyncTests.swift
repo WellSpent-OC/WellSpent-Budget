@@ -449,6 +449,8 @@ struct ReadableSyncTests {
         #expect(report.conflicts == 1)
         #expect(try desktop.store.outboxCount(in: home.group.id) == 0)
         #expect(try desktop.store.conflicts(for: lunch.id).count == 1)
+        #expect(try desktop.store.transaction(lunch.id)?.merchant == "Stale",
+                "a send that skips the pull on purpose reads nothing back either")
 
         // The next pull starts over and puts back the server's copy.
         try await desktop.sync(home.group.id)
@@ -525,6 +527,28 @@ struct ReadableSyncTests {
 
         try await writer.sync(home.group.id, level: .write)
         #expect(try writer.store.receipt(receipt.id)?.filename == "till.jpg")
+    }
+
+    /// A refused edit is kept as a conflict copy, and the server's copy comes
+    /// back in the same round. It came back only at the next round, up to two
+    /// minutes later, and meanwhile the refused edit was what showed.
+    @Test func aRefusedEditIsReplacedByTheServersCopyInTheSameRound() async throws {
+        let home = try await Household()
+        let writer = try await home.member("writer@example.com", level: .write)
+        let lunch = home.spend(-1_250, by: home.founder.user)
+        try home.founder.store.save(lunch)
+        try await home.founder.sync(home.group.id)
+        try await writer.sync(home.group.id, level: .write)
+
+        var renamed = try #require(try writer.store.transaction(lunch.id))
+        renamed.merchant = "Not mine to rename"
+        try writer.store.save(renamed)
+        let refused = try await writer.sync(home.group.id, level: .write)
+
+        #expect(refused.rejected == 1 && refused.conflicts == 1)
+        #expect(try writer.store.transaction(lunch.id)?.merchant == "Market")
+        #expect(try writer.store.conflicts(for: lunch.id).count == 1)
+        #expect(try writer.store.outboxCount(in: home.group.id) == 0)
     }
 
     /// A row the server finds too far ahead of the group stays queued.

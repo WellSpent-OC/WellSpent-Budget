@@ -391,6 +391,18 @@ public final class WellSpentDatabase: Sendable {
             }
         }
 
+        // When a change made here lost, or was refused, the app says so
+        // once: a note on the row until the entry is opened. That needs to
+        // know which kept copies have been noticed. The app never showed
+        // the copies kept before this, so they count as noticed, and no old
+        // notes show up.
+        m.registerMigration("v11-conflict-noticed") { db in
+            try db.alter(table: "conflictCopy") { t in
+                t.add(column: "noticedAt", .datetime)
+            }
+            try db.execute(sql: "UPDATE conflictCopy SET noticedAt = seenAt")
+        }
+
         return m
     }
 }

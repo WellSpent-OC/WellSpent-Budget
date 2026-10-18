@@ -23,6 +23,9 @@ public actor ReadableSyncEngine {
     /// Records whose pulled version this round could not save. Their queued
     /// rows wait for a later round rather than go out over that version.
     private var heldBack: Set<RecordID> = []
+    /// Set when this round's send had a change refused, by the server or by
+    /// this Mac's own reading of the server's rules.
+    private var refused = false
 
     /// The most records of a type this build cannot read that are kept from
     /// one sender in one group, waiting for an update. Past it, more from
@@ -40,12 +43,20 @@ public actor ReadableSyncEngine {
 
     /// Takes in, then sends if `level` may write. `level` is this person's
     /// level in the group as the server last said; the server checks again.
+    ///
+    /// A change refused while sending is kept as a conflict copy, and only
+    /// the server's copy can replace it here. So the group is read again
+    /// before the round ends. Left to the next round, up to two minutes
+    /// later, the refused change was what showed meanwhile, under a note
+    /// saying it didn't go through.
     @discardableResult
     public func sync(group: GroupID, level: AccessLevel) async throws -> SyncReport {
         heldBack = []
+        refused = false
         var report = try await pull(group: group, level: level, into: SyncReport())
         if level.allows(.write) {
             report = try await push(group: group, level: level, into: report)
+            if refused { report = try await pull(group: group, level: level, into: report) }
         }
         return report
     }
@@ -58,7 +69,7 @@ public actor ReadableSyncEngine {
         return try await pull(group: group, level: level, into: SyncReport())
     }
 
-    /// Sends what is queued without taking anything in first.
+    /// Sends what is queued without taking anything in first, or after.
     public func pushWithoutPulling(group: GroupID, level: AccessLevel) async throws -> SyncReport {
         heldBack = []
         guard level.allows(.write) else { return SyncReport() }
@@ -370,7 +381,7 @@ public actor ReadableSyncEngine {
         }
         try store.clearOutbox(gone)
         guard !records.isEmpty else {
-            if startOver { try store.resetPullCursor(in: group) }
+            if startOver { try startPullOver(in: group) }
             return report
         }
 
@@ -417,8 +428,15 @@ public actor ReadableSyncEngine {
                 startOver = true
             }
         }
-        if startOver { try store.resetPullCursor(in: group) }
+        if startOver { try startPullOver(in: group) }
         return report
+    }
+
+    /// After a refusal: the next pull starts from the beginning, so the
+    /// server's copy replaces the refused change.
+    private func startPullOver(in group: GroupID) throws {
+        try store.resetPullCursor(in: group)
+        refused = true
     }
 
     private func keepAsConflict(_ item: PendingPush, body: String, into report: inout SyncReport) throws {

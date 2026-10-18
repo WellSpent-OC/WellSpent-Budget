@@ -255,6 +255,59 @@ struct LocalStoreTests {
         #expect(throws: (any Error).self) { try store.save(duplicate) }
     }
 
+    /// A line someone deleted stays deleted when its statement comes in
+    /// again: its mark still counts while its budget is there. A line whose
+    /// budget was deleted counts no more, so it can be filed again.
+    @Test func aDeletedLineCountsAsImportedWhileItsBudgetIsLive() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+        let line = Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 10, 2),
+                               merchant: "Trader Joes", amount: Money(minorUnits: -5420),
+                               source: .statement, importFingerprint: "LINE-1")
+        try store.save(line)
+        try store.trash(line)
+
+        #expect(try store.existingFingerprints(["LINE-1"], in: group.id) == ["LINE-1"])
+
+        var gone = budget
+        gone.isDeleted = true
+        try store.save(gone)
+        #expect(try store.existingFingerprints(["LINE-1"], in: group.id).isEmpty)
+    }
+
+    /// Filed again, the line takes its mark from the deleted row, which keeps
+    /// it to one side to send, as a live row from the server does. Saved
+    /// plainly, the two clashed and the import stopped partway.
+    @Test func aLineFiledAgainTakesTheMarkFromItsDeletedRow() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+        let other = Budget(groupID: group.id, name: "Eating out", limit: Money(minorUnits: 20_000))
+        try store.save(other)
+        let line = Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 10, 2),
+                               merchant: "Trader Joes", amount: Money(minorUnits: -5420),
+                               source: .statement, importFingerprint: "LINE-1")
+        try store.save(line)
+        try store.trash(line)
+        let again = Transaction(budgetID: other.id, groupID: group.id, date: day(2026, 10, 2),
+                                merchant: "Trader Joes", amount: Money(minorUnits: -5420),
+                                source: .statement, importFingerprint: "LINE-1")
+
+        try store.saveImported(again)
+
+        #expect(try store.transaction(again.id)?.importFingerprint == "LINE-1")
+        #expect(try store.transaction(line.id)?.importFingerprint == nil)
+        #expect(try store.heldFingerprint(for: line.id) == "LINE-1", "kept to one side, and sent with the row")
+        #expect(try store.transaction(line.id)?.isDeleted == true)
+        #expect(try store.queuedPush(again.id) != nil, "the new row syncs")
+        #expect(try store.existingFingerprints(["LINE-1"], in: group.id) == ["LINE-1"])
+
+        let plain = Transaction(budgetID: other.id, groupID: group.id, date: day(2026, 10, 3),
+                                merchant: "Corner Bakery", amount: Money(minorUnits: -1200),
+                                source: .statement, importFingerprint: "LINE-2")
+        try store.saveImported(plain)
+        #expect(try store.transaction(plain.id)?.importFingerprint == "LINE-2", "a new line saves as ever")
+    }
+
     @Test func manualRowsDoNotCollideOnNullFingerprints() throws {
         let store = try makeStore()
         let (group, budget) = try seedHousehold(store)
@@ -483,5 +536,42 @@ struct LocalMigrationTests {
 
         _ = try WellSpentDatabase(writer: queue)
         #expect(try store.deferredCount(in: group) == 1)
+    }
+
+    /// v11 lets a copy kept from a change that lost, or was refused, be
+    /// noticed. Copies kept before it count as noticed already, so no old
+    /// notes show up. A new one from this device shows until it is noticed,
+    /// and one from another device never does here.
+    @Test func conflictCopiesFromBeforeV11ShowNoNote() throws {
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: configuration)
+        try WellSpentDatabase.migrator.migrate(queue, upTo: "v10-leave-request")
+        let entry = RecordID(), thisDevice = DeviceID()
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO conflictCopy (recordId, recordType, payloadJSON, lamport, authorDeviceId, seenAt)
+                VALUES (?, 'transaction', '{}', 3, ?, ?)
+                """, arguments: [entry.uuid.uuidString, thisDevice.uuid.uuidString, day(2026, 10, 1)])
+        }
+
+        let store = Store(database: try WellSpentDatabase(writer: queue))
+        #expect(try store.unnoticedCopies(among: [entry], from: thisDevice).isEmpty)
+        #expect(try store.conflicts(for: entry).count == 1, "kept")
+
+        let other = RecordID()
+        try store.recordConflict(recordID: entry, recordType: .transaction, payloadJSON: "{}", lamport: 4,
+                                 device: thisDevice)
+        try store.recordConflict(recordID: other, recordType: .transaction, payloadJSON: "{}", lamport: 4,
+                                 device: DeviceID())
+        #expect(try store.unnoticedCopies(among: [entry, other, RecordID()], from: thisDevice) == [entry])
+        #expect(try store.unnoticedCopies(among: [], from: thisDevice).isEmpty)
+
+        try store.markCopiesNoticed(of: entry)
+        #expect(try store.unnoticedCopies(among: [entry], from: thisDevice).isEmpty)
+        #expect(try store.conflicts(for: entry).count == 2, "noticed, not thrown away")
+
+        _ = try WellSpentDatabase(writer: queue)
+        #expect(try queue.read { db in try WellSpentDatabase.migrator.hasCompletedMigrations(db) })
     }
 }

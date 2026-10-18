@@ -16,6 +16,24 @@ public extension Store {
         }
     }
 
+    /// Saves a row imported from a statement. A deleted row holding the
+    /// same mark, such as one whose budget was deleted, gives it up first
+    /// and keeps it to one side to send, as it does for a live row arriving
+    /// from the server. Saved plainly, the two clashed and the import
+    /// stopped partway.
+    func saveImported(_ transaction: Transaction) throws {
+        try inOneTransaction { store in
+            if let fingerprint = transaction.importFingerprint,
+               let holder = try store.transaction(withFingerprint: fingerprint, in: transaction.groupID),
+               holder != transaction.id, var held = try store.transaction(holder), held.isDeleted {
+                held.importFingerprint = nil
+                try store.save(held, queue: false)
+                try store.holdFingerprint(fingerprint, for: holder)
+            }
+            try store.save(transaction)
+        }
+    }
+
     /// Keeps a fingerprint this Mac cleared from a pulled transaction, because
     /// it already held another row with it. It goes back out with the row.
     func holdFingerprint(_ fingerprint: String, for id: RecordID) throws {

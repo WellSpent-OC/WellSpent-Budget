@@ -386,6 +386,8 @@ struct ConflictCopyRow: Codable, FetchableRecord, PersistableRecord {
     var lamport: Int64
     var authorDeviceId: String
     var seenAt: Date
+    /// When the person saw the note about it. Nil until then.
+    var noticedAt: Date?
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 }
