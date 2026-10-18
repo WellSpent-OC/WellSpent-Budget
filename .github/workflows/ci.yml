@@ -349,6 +349,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-test-screenshots
+          # A failure on the sign-in screen can show the test account's
+          # email, and artifacts on a public repo are public. Kept briefly.
+          retention-days: 3
           path: .build/xcode/ui-test-screenshots
           if-no-files-found: ignore
 
@@ -428,6 +431,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: iphone-ui-test-screenshots
+          # A failure on the sign-in screen can show the test account's
+          # email, and artifacts on a public repo are public. Kept briefly.
+          retention-days: 3
           path: .build/xcode-iphone/screenshots-*
           if-no-files-found: ignore
 

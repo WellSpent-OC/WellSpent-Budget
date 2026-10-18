@@ -326,12 +326,23 @@ final class PhoneTestApp {
 }
 
 extension SecondAccount {
-    /// Deletes groups of this person's own that an earlier, halted run left
-    /// on staging: those named "UI Test " and a time. Only ever the test
-    /// accounts' groups. Best effort.
+    /// What every iPhone run's group names start with: "UI Phone " and the
+    /// run's time, like the Mac's "UI <word> <time>", so staging's cleanup
+    /// knows them.
+    static let phoneRunPrefix = "UI Phone "
+
+    /// Deletes groups of this person's own that an earlier, halted iPhone run
+    /// left on staging. Other runs may be going at the same time, on the Mac
+    /// or in another pull request's CI, so only groups more than an hour old
+    /// go, and only the iPhone's. Best effort.
     func deleteLeftoverRuns() async {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let anHourAgo = Date().addingTimeInterval(-3600)
         let model = AppModel(store: sync.store)
-        for group in model.groups where group.name.hasPrefix("UI Test ") {
+        for group in model.groups where group.name.hasPrefix(Self.phoneRunPrefix) {
+            let stamp = String(group.name.dropFirst(Self.phoneRunPrefix.count))
+            guard let made = formatter.date(from: stamp), made < anHourAgo else { continue }
             model.deleteGroup(group.id, reach: sync.deleteReach(of: group.id))
         }
         await sync.syncAll()

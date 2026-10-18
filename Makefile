@@ -176,15 +176,20 @@ iphone-ui-test-build: iphone-project
 # is left in the app. It runs headless: no Simulator window opens, and the
 # Mac's screen is never taken. The tests that sign in read the same four
 # WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and skip
-# without them. The rest need no account and no server.
-IPHONE_UI_TEST_DEVICE ?= iPhone 17
+# without them. The rest need no account and no server. The simulator is the
+# newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
+# one, such as "iPhone 17".
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
 	runtime=$$($(IPHONE_SIMCTL) list runtimes available | grep '^iOS ' | tail -1 | awk '{print $$NF}'); \
+	device="$(IPHONE_UI_TEST_DEVICE)"; \
+	if [ -z "$$device" ]; then \
+		device=$$($(IPHONE_SIMCTL) list devicetypes | grep -E '^iPhone [0-9]+ \(' | sort -k2,2n | tail -1 | sed -E 's/.*\((.*)\)$$/\1/'); \
+	fi; \
 	for look in light dark; do \
-		udid=$$($(IPHONE_SIMCTL) create "wellspent-ui-test-$$look" "$(IPHONE_UI_TEST_DEVICE)" "$$runtime"); \
+		udid=$$($(IPHONE_SIMCTL) create "wellspent-ui-test-$$look" "$$device" "$$runtime"); \
 		$(IPHONE_SIMCTL) boot "$$udid"; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
 		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \

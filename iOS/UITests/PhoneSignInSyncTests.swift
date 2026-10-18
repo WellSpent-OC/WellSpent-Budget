@@ -13,7 +13,8 @@ import WellSpentSync
 /// and skips without them. Both accounts must exist on staging with their
 /// addresses confirmed, since joining needs a confirmed address. Every run
 /// makes a group of its own, named with the time, and deletes it at the end
-/// for everyone.
+/// for everyone. Other runs may share the accounts at the same time, so it
+/// never assumes the groups it sees are its own.
 final class PhoneSignInSyncTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
 
@@ -24,7 +25,7 @@ final class PhoneSignInSyncTests: XCTestCase {
     /// No await in it: an awaiting teardown never finished after a halted
     /// test on the Mac's first runs. The staging side is tidied at the end of
     /// the test itself, so a halted run can leave a group named
-    /// "UI Test <time>" on staging.
+    /// "UI Phone <time>" on staging, which a later run clears.
     override func tearDown() {
         let app = XCUIApplication()
         if app.state != .notRunning { app.terminate() }
@@ -40,7 +41,7 @@ final class PhoneSignInSyncTests: XCTestCase {
         Self.dataRootPath = run.dataRoot.path
         let leslie = try SecondAccount(server: accounts.server)
         let robinsOtherDevice = try SecondAccount(server: accounts.server, settingsSuite: "app.wellspent.uitest.robin")
-        let groupName = "UI Test \(PhoneTestApp.stamp())"
+        let groupName = SecondAccount.phoneRunPrefix + PhoneTestApp.stamp()
         run.launch()
 
         // Scenario PASTE-02, ACCT-08
