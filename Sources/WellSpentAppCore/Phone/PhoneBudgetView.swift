@@ -81,7 +81,9 @@ struct PhoneBudgetView: View {
     private func header(_ screen: BudgetScreen) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(screen.spent)
-                .font(.system(.largeTitle, design: .monospaced).weight(.medium))
+                // The system font with even-width digits, as for every amount
+                // on the phone, so figures line up without reading like code.
+                .font(.largeTitle.weight(.medium).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             HStack(alignment: .firstTextBaseline) {
