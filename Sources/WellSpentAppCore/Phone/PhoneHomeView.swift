@@ -17,6 +17,14 @@ struct PhoneHomeView: View {
                 empty
             }
             ForEach(screen.sections) { section in
+                // The group's name is a row of its own above its budgets, not
+                // the section's header: a list's header takes no long press,
+                // so the group's menu could never open there.
+                Section {
+                    header(section)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 0, trailing: 4))
+                }
                 Section {
                     if let note = section.note {
                         Text(note)
@@ -38,8 +46,6 @@ struct PhoneHomeView: View {
                                 .font(.subheadline)
                         }
                     }
-                } header: {
-                    header(section)
                 }
                 .listRowBackground(Palette.surface)
             }
@@ -51,6 +57,7 @@ struct PhoneHomeView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .listSectionSpacing(.compact)
         .scrollContentBackground(.hidden)
         .background(Palette.ground)
         .foregroundStyle(Palette.ink)
@@ -60,28 +67,29 @@ struct PhoneHomeView: View {
     }
 
     /// A group's name hides or shows its budgets. A long press holds its menu,
-    /// with hiding in it too.
+    /// with hiding in it too. Not a Button, which takes a long press as a tap.
     private func header(_ section: MainScreen.Section) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
-        } label: {
-            HStack(spacing: 4) {
-                Text(section.title)
-                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
-                    .font(.caption2.weight(.semibold))
-                Spacer()
-            }
-            .foregroundStyle(Palette.muted)
-            .contentShape(Rectangle())
+        HStack(spacing: 4) {
+            // In capitals, as on the Mac and in the design.
+            Text(section.title.uppercased())
+            Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
+                .font(.caption2.weight(.semibold))
+            Spacer()
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-        .accessibilityHint(section.toggleHelp)
+        .foregroundStyle(Palette.muted)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+        }
         .contextMenu {
             PhoneMenu(parts: screen.groupMenu(section.group), perform: perform)
             Divider()
             Button(section.toggleHelp) { screen.toggle(section.group.id) }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(section.toggleHelp)
+        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
     }
 
     /// The group's New Budget, when its menu offers one.
