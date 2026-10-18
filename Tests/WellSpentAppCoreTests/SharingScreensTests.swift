@@ -128,6 +128,19 @@ struct SharingScreensTests {
         #expect(join.canJoin)
     }
 
+    /// A pasted link that a message app cut short says part of it is
+    /// missing, as a clicked one does, not that it is no link at all.
+    @Test func aPastedLinkWithPartOfItMissingSaysSo() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await Person("leslie@example.com", on: server)
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin")
+        let join = JoinScreen(actions: leslie.sync, linkText: String(link.url.prefix(30)))
+        #expect(join.linkProblem == "Part of that invite link is missing. Ask the person who sent it to send it again.")
+        #expect(join.invitation == nil)
+        join.myName = "Leslie"
+        #expect(!join.canJoin)
+    }
+
     /// An address not confirmed yet is said before anything is sent, and the
     /// refusal is in words if Join is pressed anyway.
     @Test func joiningNeedsAConfirmedEmail() async throws {
@@ -319,7 +332,8 @@ struct SharingScreensTests {
             JoinScreen.Words.title, JoinScreen.Words.link, JoinScreen.Words.linkPrompt, JoinScreen.Words.name,
             JoinScreen.Words.namePrompt, JoinScreen.Words.notALink, JoinScreen.Words.signInToJoin,
             JoinScreen.Words.confirmToJoin, JoinScreen.Words.confirmEmail, JoinScreen.Words.join,
-            JoinScreen.Words.joining, JoinScreen.Words.cancel,
+            JoinScreen.Words.joining, JoinScreen.Words.cancel, JoinScreen.Words.notWhole, JoinScreen.Words.signIn,
+            JoinScreen.Words.joinsAt("Add"), JoinScreen.Words.sees(.all), JoinScreen.Words.sees(.fromNow),
             MembersScreen.Words.title("Household"), MembersScreen.Words.someone, MembersScreen.Words.you("Robin"),
             MembersScreen.Words.level, MembersScreen.Words.remove, MembersScreen.Words.removeTitle("Leslie"),
             MembersScreen.Words.removeMessage("Leslie", "Household"), MembersScreen.Words.removeButton,
@@ -361,6 +375,7 @@ private final class StubSharing: SharingActions {
     func share(group: GroupID, groupName: String, level: AccessLevel, historyAccess: HistoryAccess,
                myName: String) async throws -> InviteLink { throw CancellationError() }
     func join(_ link: InviteLink, myName: String) async throws -> PendingJoin { throw CancellationError() }
+    func preview(_ link: InviteLink) async throws -> InviteTerms { throw CancellationError() }
     func members(of group: GroupID) -> [UserID: AccessLevel] { list }
     func memberNames(in group: GroupID) -> [UserID: String] { names }
     func founder(of group: GroupID) -> UserID? { founderID }

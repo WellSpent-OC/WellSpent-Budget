@@ -778,6 +778,25 @@ public final class SyncCoordinator {
         }
     }
 
+    /// What a link's invite offers, before joining: the level, and how much
+    /// of the group's past. The server answers anyone holding the link, so
+    /// someone signed out can see what they would join before they make an
+    /// account. Signed out, it asks the server set now, which `serverURL`
+    /// checks is this build's. Quiet: the sync's state stays as it was.
+    public func preview(_ link: InviteLink) async throws -> InviteTerms {
+        let server: any ReadableAccountTransport
+        if let transport {
+            server = transport
+        } else {
+            server = makeTransport(try serverURL())
+        }
+        do {
+            return try await server.previewInvite(token: link.token)
+        } catch ReadableTransportError.http(let status, _) where [404, 410].contains(status) {
+            throw Failure.server(Self.inviteProblem(status))
+        }
+    }
+
     /// The group `link` invites to, when the server still lists this person
     /// in it and it is hidden here. Nil otherwise, or when the link no longer
     /// says which group it is for, or when this person's delete of it for

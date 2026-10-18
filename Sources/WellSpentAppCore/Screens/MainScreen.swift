@@ -141,14 +141,15 @@ public final class MainScreen {
         defaults.saveNow()
     }
 
-    /// The budget picked on the left, and none while a group's page shows.
-    /// Picking one opens it in place of the page. The list letting go of its
-    /// pick is not a click on a budget, so the page stays.
+    /// The budget picked on the left, and none while a group's page or an
+    /// invitation shows. Picking one opens it in place of either. The list
+    /// letting go of its pick is not a click on a budget, so they stay.
     public var selectedBudget: BudgetID? {
-        get { openGroup == nil ? model.selectedBudget : nil }
+        get { openGroup == nil && invitation == nil ? model.selectedBudget : nil }
         set {
-            if newValue == nil, openGroup != nil { return }
+            if newValue == nil, openGroup != nil || invitation != nil { return }
             page = nil
+            workspace.closeInvitation()
             model.selectedBudget = newValue
         }
     }
@@ -159,16 +160,20 @@ public final class MainScreen {
     /// people, and what this person may change about them. A click on the
     /// group's name opens it, and so does People… in its menu. It closes
     /// when a budget opens, picked on the left or opened on its own as a
-    /// new one is, and once the group is gone from here.
+    /// new one is, and once the group is gone from here. An invitation
+    /// shows in its place.
     public var openGroup: BudgetGroup? {
-        guard let page, page.over == model.selectedBudget else { return nil }
+        guard invitation == nil, let page, page.over == model.selectedBudget else { return nil }
         return model.group(named: page.group)
     }
 
     /// The group whose page is open, and the budget that was open under it.
     private var page: (group: GroupID, over: BudgetID?)?
 
+    /// Opens a group's page, in place of whatever shows on the right, an
+    /// invitation included.
     public func openPage(of group: GroupID) {
+        workspace.closeInvitation()
         page = (group, model.selectedBudget)
     }
 
@@ -178,6 +183,26 @@ public final class MainScreen {
     public func askToLeave(_ group: BudgetGroup) {
         pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
                                transactions: model.transactionCount(inGroup: group.id), reach: .thisMacOnly)
+    }
+
+    // MARK: - An invitation
+
+    /// The invitation page a clicked invite link put up
+    /// (`Workspace.open(_:)`). It shows on the right in place of a budget or
+    /// a group's page, with nothing picked or marked on the left, until the
+    /// person joins or picks a budget or a group there.
+    public var invitation: JoinScreen? { workspace.invitation }
+
+    /// Join, on the invitation page. Once in, the page gives way to the
+    /// group's own page, with its people. False when the join did not go
+    /// through, and the page stays, saying why.
+    @discardableResult
+    public func joinInvitation() async -> Bool {
+        guard let invitation, await invitation.join(), let joined = invitation.joined else { return false }
+        // Another link opened while this one joined: its page stays up.
+        guard workspace.invitation === invitation else { return true }
+        openPage(of: joined.groupID)
+        return true
     }
 
     // MARK: - Menus

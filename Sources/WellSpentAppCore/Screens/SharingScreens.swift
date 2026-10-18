@@ -21,6 +21,9 @@ public protocol SharingActions: AnyObject {
     func share(group: GroupID, groupName: String, level: AccessLevel, historyAccess: HistoryAccess,
                myName: String) async throws -> InviteLink
     func join(_ link: InviteLink, myName: String) async throws -> PendingJoin
+    /// What an invite offers, before joining: the level, and how much of the
+    /// group's past. Anyone holding the link may ask, signed in or not.
+    func preview(_ link: InviteLink) async throws -> InviteTerms
     func members(of group: GroupID) -> [UserID: AccessLevel]
     func memberNames(in group: GroupID) -> [UserID: String]
     func founder(of group: GroupID) -> UserID?
@@ -128,7 +131,10 @@ public final class ShareScreen {
 
 // MARK: - Join
 
-/// Joining a group with a link someone sent.
+/// Joining a group with a link someone sent. Two screens draw it: the Join
+/// step a link is pasted into, and the invitation page a clicked link puts
+/// up (`Workspace.open(_:)`). The page never shows the link itself, only
+/// what it says and what the server says it offers.
 @MainActor
 @Observable
 public final class JoinScreen {
@@ -138,11 +144,19 @@ public final class JoinScreen {
     public private(set) var isWorking = false
     /// What was joined, once it went through.
     public private(set) var joined: PendingJoin?
+    /// What the server says the invite offers, once asked (`lookUp()`). Nil
+    /// before, and when it could not say.
+    public private(set) var terms: InviteTerms?
     private let actions: any SharingActions
 
     public init(actions: any SharingActions, linkText: String = "") {
         self.actions = actions
         self.linkText = linkText
+    }
+
+    /// The invitation page for a link the app was handed, from a click on it.
+    public convenience init(actions: any SharingActions, opened url: URL) {
+        self.init(actions: actions, linkText: url.absoluteString)
     }
 
     public var title: String { Words.title }
@@ -157,10 +171,39 @@ public final class JoinScreen {
         return "\(who) invited you to \(what)."
     }
 
-    /// Why the link cannot be used, while one is typed.
+    /// Why the link cannot be used: part of an invite link is missing, or
+    /// the text is no invite link at all. Nothing while the field is empty.
     public var linkProblem: String? {
-        linkText.trimmingCharacters(in: .whitespaces).isEmpty || invite != nil ? nil : Words.notALink
+        guard !linkText.trimmingCharacters(in: .whitespaces).isEmpty, invite == nil else { return nil }
+        let text = linkText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return text.hasPrefix("\(InviteLink.scheme)://") ? Words.notWhole : Words.notALink
     }
+
+    /// Asks the server what the invite offers. The invitation page shows it
+    /// under who invited them. When the server cannot say, such as for an
+    /// invite already used, the page says why, and Join may still be tried.
+    public func lookUp() async {
+        guard let invite else { return }
+        failure = nil
+        do {
+            terms = try await actions.preview(invite)
+        } catch {
+            failure = AccountWording.words(for: error)
+        }
+    }
+
+    /// "You'd join at Add.", once the server has said.
+    public var levelLine: String? { levelTitle.map(Words.joinsAt) }
+
+    /// The level's name alone, "Add", for a screen that marks it out.
+    public var levelTitle: String? { terms.map { MembersScreen.Words.levelTitle($0.level) } }
+
+    /// What that level lets them do, in the words the level picker uses.
+    public var levelExplanation: String? { terms.map { MembersScreen.Words.levelExplanation($0.level) } }
+
+    /// How much of the group they would see: everything so far, or only
+    /// what is added from now on.
+    public var historyLine: String? { terms.map { Words.sees($0.history) } }
 
     /// Before anything is sent: signed out, or an address not confirmed yet.
     public var notice: String? {
@@ -173,6 +216,10 @@ public final class JoinScreen {
     /// is what stands in the way. The server is asked again on Join, in case
     /// it was confirmed on another device.
     public var offersEmailConfirmation: Bool { isSignedIn && !actions.emailVerified }
+
+    /// The account sheet signs in or makes an account; the screen offers it
+    /// while signed out.
+    public var offersSignIn: Bool { !isSignedIn }
 
     public var canJoin: Bool {
         !isWorking && SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: isSignedIn)
@@ -202,7 +249,19 @@ public final class JoinScreen {
         public static let name = "Your name"
         public static let namePrompt = "How the group will see you"
         public static let notALink = "That is not a WellSpent invite link."
+        /// A wellspent:// link that does not read as a whole invite, most
+        /// often one a message app cut short.
+        public static let notWhole = "Part of that invite link is missing. Ask the person who sent it to send it again."
+        /// On the invitation page, under who invited them.
+        public static func joinsAt(_ level: String) -> String { "You'd join at \(level)." }
+        public static func sees(_ history: HistoryAccess) -> String {
+            switch history {
+            case .all: return "You'd see everything so far."
+            case .fromNow: return "You'd see the group's budgets, and only transactions added from now on."
+            }
+        }
         public static let signInToJoin = "Sign in first, or create an account. Joining adds the group to your account."
+        public static let signIn = "Sign in…"
         public static let confirmToJoin = "Confirm your email first. Joining a shared group needs it."
         public static let confirmEmail = "Confirm your email…"
         public static let join = "Join"
