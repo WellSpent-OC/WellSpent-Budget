@@ -10,6 +10,7 @@ What WellSpent does, written once for every platform. Each file here is one feat
 - An ID is a short prefix for the feature and a two-digit number, such as `EDIT-04`. Once an ID is used, it stays with that scenario. It is never changed or given to another one, so tests can name it.
 - When a scenario is not on all three platforms, a `Platforms:` line comes next. For example, `Platforms: Mac` for a right-click, `Platforms: iPhone` for a swipe, or `Platforms: Mac, iPhone` for something Linux's toolkit cannot do. No line means Mac, Linux and iPhone.
 - The Platforms line says where a scenario applies. It does not say which platforms have built it yet.
+- Each platform reads a scenario in its own words. Where a scenario says "this computer", an iPhone says "this iPhone". Where a budget opens "on the right", an iPhone opens it as its own screen, and what "the right side" says shows on Home.
 - Then come Given, When and Then lines, with And for one more of the same. They say what a person sees and does, in plain English. They never say how the code does it.
 - The people in the scenarios are Robin (he) and Leslie (she). No real person's name goes in.
 - Only behaviour that is built goes in: on `main`, or in an open pull request. Planned behaviour stays out until it is built.

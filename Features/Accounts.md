@@ -73,7 +73,8 @@ An account keeps Robin's budgets on WellSpent's server, so they sync to his othe
 - Then the sheet closes, and the list shows his account's budgets, brought in by a sync
 - And none of the budgets this computer keeps when nobody is signed in show
 - And the foot of the list says "Syncs through WellSpent's server"
-- And "Account" and "Sync" buttons show in place of "Sign in"
+- And on a Mac or Linux, "Account" and "Sync" buttons show in place of "Sign in"
+- And on an iPhone, "Account" shows in place of "Sign in", and pulling Home down syncs
 - And he is still signed in after WellSpent is quit and opened again
 
 ## ACCT-09 A wrong password
