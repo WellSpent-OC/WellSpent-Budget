@@ -76,6 +76,26 @@ final class TestApp {
 
     // MARK: - Launching and finding things
 
+    /// Opens a link with the app under test, the way a click on it does, and
+    /// refuses to go on against anything but a staging build. It uses
+    /// XCUIApplication.open(_:), which macOS has from 13.3. The SDK's header
+    /// says it launches the app with the link and returns once the app is
+    /// ready, as launch() does. It does not say whether a copy already
+    /// running stays, so a test counts on nothing that copy did.
+    ///
+    /// The app must keep its data in the run's folder, as after launch(). So
+    /// once it is open, the folder must not be empty.
+    func open(link: String) throws {
+        let url = try XCTUnwrap(URL(string: link), "not a link: \(link)")
+        app.open(url)
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30), "the window never appeared")
+        XCTAssertTrue(element(AccessibilityID.stagingBanner).waitForExistence(timeout: 10),
+                      "no staging banner: this is not a staging build, so nothing more is done")
+        let kept = (try? FileManager.default.contentsOfDirectory(atPath: dataRoot.path)) ?? []
+        XCTAssertFalse(kept.isEmpty, "the app keeps nothing in the run's folder, so it may be using this Mac's "
+                       + "own. Nothing more is done.")
+    }
+
     /// Launches, and refuses to go on against anything but a staging build.
     func launch() {
         app.launch()
@@ -178,6 +198,12 @@ final class TestApp {
     /// fails with what the sheet says.
     func signIn(email: String, password: String, server: String) throws {
         click(AccessibilityID.sidebarSignIn)
+        try signInOnSheet(email: email, password: password, server: server)
+    }
+
+    /// The same, from the sign-in sheet once something else has opened it,
+    /// such as Sign in… on the invitation page.
+    func signInOnSheet(email: String, password: String, server: String) throws {
         let serverField = element(AccessibilityID.accountServer)
         XCTAssertTrue(serverField.waitForExistence(timeout: 10), "the sign-in sheet did not open")
         if (serverField.value as? String) != server {
