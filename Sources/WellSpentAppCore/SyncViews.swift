@@ -183,7 +183,7 @@ struct AccountSheet: View {
                 Button(Words.forgotPassword) { flow.go(to: .forgotPassword) }
                     .accessibilityIdentifier(AccessibilityID.accountForgotPassword)
             }
-            .buttonStyle(.link)
+            .linkButtonStyle()
             .font(.system(size: 12))
             .disabled(flow.isWorking)
 
@@ -221,7 +221,7 @@ struct AccountSheet: View {
                 .formStyle(.grouped)
                 Button(Words.startOver) { flow.reset.startOver() }
                     .accessibilityIdentifier(AccessibilityID.accountStartOver)
-                    .buttonStyle(.link)
+                    .linkButtonStyle()
                     .font(.system(size: 12))
                     .disabled(flow.isWorking)
             }

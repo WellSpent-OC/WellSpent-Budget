@@ -35,6 +35,19 @@ extension Font {
     }
 }
 
+extension View {
+    /// A button that reads as a link: the Mac's link style. iOS has no link
+    /// style, so a phone shows a plain borderless button instead.
+    @ViewBuilder
+    func linkButtonStyle() -> some View {
+        #if os(macOS)
+        buttonStyle(.link)
+        #else
+        buttonStyle(.borderless)
+        #endif
+    }
+}
+
 // MARK: - Root
 
 struct RootView: View {
@@ -377,7 +390,7 @@ struct SidebarView: View {
                 if !screen.showsSync {
                     Button(screen.accountTitle) { showingAccount = true }
                         .accessibilityIdentifier(AccessibilityID.sidebarSignIn)
-                        .buttonStyle(.link)
+                        .linkButtonStyle()
                         .font(.system(size: 11))
                 }
             }
@@ -551,10 +564,12 @@ struct BudgetDetailView: View {
             open(selection)
             return .handled
         }
+        #if os(macOS)
         // A single click opens the row it lands on.
         .background(RowClicks { place in
             if rows.indices.contains(place) { open(rows[place].id) }
         })
+        #endif
     }
 
     /// The row's menu, with a divider between its parts.
@@ -650,10 +665,12 @@ struct EntrySheet: View {
         } message: { pending in
             Text(pending.message)
         }
+        #if os(macOS)
         // Escape closes the sheet without saving, as Cancel and Done do. Cancel
         // also carries Escape as its shortcut, but a focused text field can
         // take the key first, so the sheet answers it too.
         .onExitCommand { dismiss() }
+        #endif
     }
 
     private var heading: some View {
