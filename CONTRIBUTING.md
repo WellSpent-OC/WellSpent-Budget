@@ -47,9 +47,9 @@ every app. These practices keep it that way.
   what its words say are decided in the shared code (today
   `Sources/WellSpentAppCore/Screens/`), with a unit test, so every app behaves the
   same. A view decides nothing.
-- **The server has the last word.** Where the server and the apps both apply a
-  rule, such as who may change an entry, the server decides, and the apps' copy is
-  tested against the in-memory server so the two cannot drift.
+- **The server has the last word.** When the server and the apps both apply a
+  rule, such as who may change an entry, the server decides. The apps' copy of the
+  rule is tested against an in-memory server, so the two can't drift apart.
 - **Each platform's screens are built that platform's way.** The apps share rules
   and words, not layouts. A view is shared between platforms only where it is
   already right on each of them.
