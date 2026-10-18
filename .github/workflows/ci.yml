@@ -327,7 +327,30 @@ jobs:
           WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
           WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
           WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
-        run: make ui-test
+        run: |
+          # DIAGNOSTIC BRANCH, NOT FOR MERGING. How fast this runner reaches staging,
+          # then a sample of the app's threads every 10 seconds while the test runs.
+          mkdir -p .build/xcode/ui-test-diagnostics
+          for i in 1 2 3; do
+            curl -sS -o /dev/null -w "health: dns %{time_namelookup}s connect %{time_connect}s tls %{time_appconnect}s total %{time_total}s ip %{remote_ip}\n" https://staging.wellspent.space/health || true
+          done | tee .build/xcode/ui-test-diagnostics/network.txt
+          (
+            n=0
+            while true; do
+              pid=$(pgrep -x WellSpentUITestHost | head -1)
+              if [ -n "$pid" ]; then
+                n=$((n+1))
+                sample "$pid" 3 -file ".build/xcode/ui-test-diagnostics/sample-$(printf %03d $n)-$(date +%H%M%S).txt" >/dev/null 2>&1 || true
+                ps -o pid,%cpu,rss,etime -p "$pid" >> .build/xcode/ui-test-diagnostics/cpu.txt 2>/dev/null || true
+              fi
+              sleep 10
+            done
+          ) &
+          sampler=$!
+          status=0
+          make ui-test || status=$?
+          kill "$sampler" 2>/dev/null || true
+          exit "$status"
 
       - name: Say why the run was skipped
         if: env.HAS_UI_TEST_ACCOUNTS != 'true'
@@ -337,15 +360,17 @@ jobs:
       # records the text typed into the sign-in fields, and here that text is a
       # secret. Only the screenshots are kept (project rule, 2026-10-15).
       - name: Pull the screenshots out of a failed run
-        if: failure() && env.HAS_UI_TEST_ACCOUNTS == 'true'
+        if: always() && env.HAS_UI_TEST_ACCOUNTS == 'true'
         run: |
           if [ -d .build/xcode/ui-test.xcresult ]; then
             xcrun xcresulttool export attachments --path .build/xcode/ui-test.xcresult --output-path .build/xcode/ui-test-screenshots
-            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' ! -name '*.mp4' -delete
           fi
+          mkdir -p .build/xcode/ui-test-screenshots
+          cp -R .build/xcode/ui-test-diagnostics .build/xcode/ui-test-screenshots/ 2>/dev/null || true
 
       - name: Keep the screenshots when the test fails
-        if: failure() && env.HAS_UI_TEST_ACCOUNTS == 'true'
+        if: always() && env.HAS_UI_TEST_ACCOUNTS == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ui-test-screenshots
