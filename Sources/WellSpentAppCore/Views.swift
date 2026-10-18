@@ -262,26 +262,34 @@ struct SidebarView: View {
         }
     }
 
-    /// The group's name, highlighted while its page is open, and the arrow
-    /// beside it. Each carries the group's menu.
+    /// The group's name, highlighted while its page is open, and the arrow at
+    /// the end of the line. A click on the name, or anywhere on the line but
+    /// the arrow, opens the page. The arrow hides or shows the budgets. The
+    /// whole line carries the group's menu.
+    ///
+    /// The sidebar's list makes a group's line one element for VoiceOver and
+    /// the UI tests, joining the identifiers of everything in it. So only the
+    /// name has one, and the arrow sits at the end, where a click finds it.
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 2) {
             Button {
                 screen.openPage(of: section.group.id)
             } label: {
-                Text(section.title.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.7)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
-                                in: RoundedRectangle(cornerRadius: 4))
-                    .contentShape(Rectangle())
+                HStack(spacing: 0) {
+                    Text(section.title.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.7)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 4))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
             .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
-            .contextMenu { menu(screen.groupMenu(section.group)) }
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
             } label: {
@@ -294,13 +302,8 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .help(section.toggleHelp)
             .accessibilityLabel(section.toggleHelp)
-            .accessibilityIdentifier(AccessibilityID.sidebarGroupFold(section.group.name))
-            .contextMenu { menu(screen.groupMenu(section.group)) }
-            Spacer(minLength: 0)
         }
-        // The name and the arrow stay two controls for VoiceOver and the UI
-        // tests, each with its own name, rather than one header made of both.
-        .accessibilityElement(children: .contain)
+        .contextMenu { menu(screen.groupMenu(section.group)) }
     }
 
     /// A menu's parts, with a divider between each.
