@@ -309,6 +309,25 @@ struct MainScreenTests {
         #expect(device.screen.detail == .budget(try #require(device.model.summary(for: groceries))))
     }
 
+    /// The left side marks the group whose page shows, so the person knows
+    /// where they are, and marks none once a budget shows instead.
+    @Test func theLeftSideMarksTheGroupWhosePageShows() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        #expect(device.screen.sections.filter(\.isPageOpen).isEmpty)
+
+        device.screen.openPage(of: side)
+        #expect(device.screen.sections.filter(\.isPageOpen).map(\.id) == [side])
+
+        device.screen.openPage(of: household)
+        #expect(device.screen.sections.filter(\.isPageOpen).map(\.id) == [household])
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.sections.filter(\.isPageOpen).isEmpty, "a budget shows in place of the page")
+    }
+
     /// The list on the left may let go of its pick while the page shows. That
     /// is not a click on a budget, so the page stays.
     @Test func aGroupsPageStaysWhenTheListLetsGoOfItsPick() async throws {

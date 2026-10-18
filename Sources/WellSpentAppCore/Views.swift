@@ -265,8 +265,7 @@ struct SidebarView: View {
     /// The group's name, highlighted while its page is open, and the arrow
     /// beside it. Each carries the group's menu.
     private func header(_ section: MainScreen.Section) -> some View {
-        let isOpen = screen.openGroup?.id == section.group.id
-        return HStack(spacing: 2) {
+        HStack(spacing: 2) {
             Button {
                 screen.openPage(of: section.group.id)
             } label: {
@@ -275,12 +274,13 @@ struct SidebarView: View {
                     .tracking(0.7)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(isOpen ? Palette.accent.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                    .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
+                                in: RoundedRectangle(cornerRadius: 4))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-            .accessibilityAddTraits(isOpen ? .isSelected : [])
+            .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
             .contextMenu { menu(screen.groupMenu(section.group)) }
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }

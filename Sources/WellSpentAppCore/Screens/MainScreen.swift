@@ -16,6 +16,9 @@ public final class MainScreen {
     public struct Section: Identifiable {
         public let group: BudgetGroup
         public let isCollapsed: Bool
+        /// Whether this group's page shows on the right. Its name is marked
+        /// on the left while it does, so the person knows where they are.
+        public let isPageOpen: Bool
         /// Said above the group's budgets: it is waiting on its founder.
         public let note: String?
         /// Empty while the group is hidden.
@@ -23,7 +26,8 @@ public final class MainScreen {
 
         public var id: GroupID { group.id }
         public var title: String { group.name }
-        /// The tooltip on the group's name, which hides or shows its budgets.
+        /// The tooltip on the arrow beside the group's name, which hides or
+        /// shows its budgets.
         public var toggleHelp: String { isCollapsed ? Words.showBudgets : Words.hideBudgets }
     }
 
@@ -112,10 +116,11 @@ public final class MainScreen {
     // MARK: - The left side
 
     public var sections: [Section] {
-        model.groups.map { group in
+        let open = openGroup?.id
+        return model.groups.map { group in
             let isCollapsed = SidebarRules.isCollapsed(group.id, in: collapsed)
             let waiting = sync.waitingForFounder.contains(group.id)
-            return Section(group: group, isCollapsed: isCollapsed,
+            return Section(group: group, isCollapsed: isCollapsed, isPageOpen: group.id == open,
                            note: waiting && !isCollapsed ? SyncWording.waitingForFounder : nil,
                            budgets: isCollapsed ? [] : model.summaries[group.id] ?? [])
         }

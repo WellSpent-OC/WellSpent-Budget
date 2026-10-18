@@ -264,7 +264,7 @@ struct GroupPage: View {
         .background(Palette.surface)
         .toolbar {
             ToolbarItemGroup {
-                if sync.account != nil {
+                if main.showsSync {
                     SyncButton(sync: sync, showingAccount: $showingAccount)
                 }
                 AccountButton(sync: sync, showingAccount: $showingAccount)
