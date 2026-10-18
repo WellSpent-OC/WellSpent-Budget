@@ -147,6 +147,24 @@ final class TestApp {
         clipboard.clearContents()
     }
 
+    /// Pastes, then checks the field shows exactly what was pasted.
+    func pasteAndCheck(_ pasted: String, into identifier: String,
+                       file: StaticString = #filePath, line: UInt = #line) {
+        paste(pasted, into: identifier)
+        let field = element(identifier)
+        XCTAssertTrue(wait(for: field, holds: pasted, timeout: 5),
+                      "Command-V did not paste into \(identifier): it shows \(text(of: field))",
+                      file: file, line: line)
+    }
+
+    /// Waits for a button to turn on, or off, and fails naming it when it
+    /// does not.
+    func expect(_ identifier: String, enabled: Bool, _ what: String,
+                file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(wait(for: element(identifier), until: "isEnabled == \(enabled)", timeout: 5),
+                      "\(what): it is \(enabled ? "off" : "on")", file: file, line: line)
+    }
+
     /// Clicks into a field and types, replacing whatever was there.
     func type(_ text: String, into identifier: String) {
         let field = element(identifier)
@@ -296,7 +314,7 @@ final class TestApp {
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
         element(AccessibilityID.sidebarGroup(group)).rightClick()
         clickMenuItem(MainScreen.Words.share)
-        type(myName, into: AccessibilityID.shareName)
+        pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
         click(AccessibilityID.shareCreate)
         XCTAssertTrue(element(AccessibilityID.shareCopyLink).waitForExistence(timeout: 30),

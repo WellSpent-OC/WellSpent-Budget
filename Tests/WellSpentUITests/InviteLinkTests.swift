@@ -79,9 +79,9 @@ final class InviteLinkTests: XCTestCase {
                       "no Join once signed in. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.listText(invited).exists, "the page did not stay through signing in")
 
-        // 5. A name, then Join: the group is in the sidebar, and its page
-        // opens with both people in it.
-        run.type("Robin", into: AccessibilityID.invitationName)
+        // 5. A name, pasted, then Join: the group is in the sidebar, and its
+        // page opens with both people in it.
+        run.pasteAndCheck("Robin", into: AccessibilityID.invitationName)
         run.click(AccessibilityID.invitationJoin)
         let summary = MembersScreen.Words.line([MembersScreen.Words.shared, MembersScreen.Words.peopleCount(2),
                                                 MembersScreen.Words.madeBy("Leslie")])
