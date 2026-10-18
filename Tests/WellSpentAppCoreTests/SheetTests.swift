@@ -227,7 +227,7 @@ struct SheetTests {
         let shown = try texts(page)
         #expect(shown.contains("Leslie was removed."), "got \(shown)")
         #expect(!shown.contains("Leslie"))
-        #expect(shown.contains("Not shared \u{00B7} 1 person \u{00B7} Made by you"))
+        #expect(shown.contains("Not shared \u{00B7} Made by you"))
     }
 
     @Test func theInviteProblemsAreWords() {

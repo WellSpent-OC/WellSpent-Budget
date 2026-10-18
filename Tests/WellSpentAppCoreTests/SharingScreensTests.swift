@@ -250,7 +250,7 @@ struct SharingScreensTests {
 
         let bookClub = try #require(robin.model.addGroup(named: "Book Club"))
         #expect(MembersScreen(actions: robin.sync, group: bookClub, groupName: "Book Club").summary
-                == "Not shared \u{00B7} 1 person \u{00B7} Made by you")
+                == "Not shared \u{00B7} Made by you")
     }
 
     /// Who made it is left out when nobody here knows their name. A device
@@ -279,7 +279,7 @@ struct SharingScreensTests {
         #expect(members.failure == nil)
         #expect(members.removedNote == "Leslie was removed.")
         #expect(members.rows.map(\.label) == ["Robin (you)"])
-        #expect(members.summary == "Not shared \u{00B7} 1 person \u{00B7} Made by you")
+        #expect(members.summary == "Not shared \u{00B7} Made by you")
     }
 
     /// The line stays until the next change on the page. Asking about

@@ -41,7 +41,7 @@ public enum SyncWording {
     /// 14 transactions", when there is any.
     public static func leaveGroupMessage(sendsChanges: Bool, taking contents: String? = nil) -> String {
         let removed = "You leave the group, and it is removed from all your devices"
-            + (contents.map { ", with its \($0)" } ?? "") + ". Other members keep it. "
+            + (contents.map { ", with its \($0)" } ?? "") + ". The others in it keep it. "
         let changes = sendsChanges
             ? "Anything you changed in it on this device that has not synced yet still goes to them first. "
                 + "Changes on your other devices that have not synced yet do not reach them. "

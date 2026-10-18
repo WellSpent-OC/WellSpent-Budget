@@ -63,7 +63,9 @@ public enum PendingDelete: Identifiable {
             case .justYou:
                 return contents + "This cannot be undone."
             case .everyone:
-                return "Everyone you share it with loses it too. " + contents + "This cannot be undone."
+                // It goes for everyone, which is the point of asking: say so first.
+                return "It's deleted for everyone in it" + (groupContents.map { ", with its \($0)" } ?? "")
+                    + ". This cannot be undone."
             case .thisMacOnly:
                 return SyncWording.leaveGroupMessage(sendsChanges: true, taking: groupContents)
             case .declinesInvite:
