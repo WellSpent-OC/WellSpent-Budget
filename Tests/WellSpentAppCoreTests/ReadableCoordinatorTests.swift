@@ -31,6 +31,19 @@ private struct Device {
 @Suite("Readable sync coordinator", .serialized)
 @MainActor
 struct ReadableCoordinatorTests {
+    /// A device shows in the account's list by its own name, the one the
+    /// person gave it, never a name looked up on the network. The lookup
+    /// froze sign-in for about 30 seconds where nothing answered it.
+    @Test func aDeviceShowsInItsAccountByItsOwnName() async throws {
+        let server = InMemoryReadableServer()
+        let mac = try Device(on: server)
+        try await mac.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let labels = try await mac.transport.sessions().compactMap(\.deviceLabel)
+        #expect(labels == [DeviceName.current])
+        #expect(!DeviceName.current.isEmpty)
+        #expect(!DeviceName.current.hasSuffix(".local"), "a looked-up network name, not the device's own")
+    }
+
     /// A group made here goes up with the key its statement lines were
     /// fingerprinted with, so lines imported before it went up still match.
     @Test func aGroupMadeHereGoesUpWithItsImportKey() async throws {

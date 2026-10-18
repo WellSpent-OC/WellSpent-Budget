@@ -463,10 +463,8 @@ public final class SyncCoordinator {
     }
 
     /// The name this device shows in the account's list of signed-in devices.
-    static var deviceLabel: String {
-        let name = ProcessInfo.processInfo.hostName
-        return name.isEmpty ? "A computer" : name
-    }
+    /// Never a network lookup: see `DeviceName`.
+    static var deviceLabel: String { DeviceName.current }
 
     // MARK: - Sync
 
