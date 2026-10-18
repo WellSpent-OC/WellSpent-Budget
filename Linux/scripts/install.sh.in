@@ -14,11 +14,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$HOME/.local/opt/@SLUG@"
 MENU_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
-ENTRY="$MENU_DIR/@SLUG@.desktop"
+# Named after the app's ID, so the desktop matches the open window to this entry
+# and its icon. Earlier versions named it @SLUG@.desktop; that one is removed.
+ENTRY="$MENU_DIR/@APPID@.desktop"
+OLD_ENTRY="$MENU_DIR/@SLUG@.desktop"
 
 if [ "${1:-}" = "--remove" ]; then
     rm -rf "$APP_DIR"
-    rm -f "$ENTRY" "$ICON_DIR/@SLUG@.svg"
+    rm -f "$ENTRY" "$OLD_ENTRY" "$ICON_DIR/@SLUG@.svg"
     echo "@NAME@ is removed. Your budgets are still in ${XDG_DATA_HOME:-$HOME/.local/share}/@NAME@."
     exit 0
 fi
@@ -30,6 +33,7 @@ mkdir -p "$APP_DIR"
 cp "$HERE/@SLUG@" "$APP_DIR/"
 cp -R "$HERE/WellSpentLinux_WellSpentLinux.resources" "$APP_DIR/"
 cp "$HERE/@SLUG@.svg" "$ICON_DIR/@SLUG@.svg"
+rm -f "$OLD_ENTRY"
 
 cat > "$ENTRY" <<EOF
 [Desktop Entry]
@@ -38,6 +42,7 @@ Name=@NAME@
 Comment=Budgets you share
 Exec="$APP_DIR/@SLUG@"
 Icon=@SLUG@
+StartupWMClass=@APPID@
 Terminal=false
 Categories=Office;Finance;
 EOF

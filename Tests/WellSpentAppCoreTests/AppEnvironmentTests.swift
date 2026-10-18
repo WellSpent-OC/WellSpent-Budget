@@ -124,6 +124,34 @@ struct AppEnvironmentTests {
         #expect(staging.defaultsSuiteName != staging.bundleIdentifier)
     }
 
+    /// Two Linux apps with one ID count as one app: opening live while staging
+    /// was open only brought staging to the front. So each build has its own,
+    /// in a form GTK accepts, and the package names its menu entry after it.
+    @Test func eachLinuxBuildHasItsOwnAppID() throws {
+        #expect(AppEnvironment.live.linuxAppIdentifier == "app.wellspent.linux")
+        #expect(AppEnvironment.staging.linuxAppIdentifier == "app.wellspent.linux.staging")
+        #expect(AppEnvironment.live.linuxAppIdentifier != AppEnvironment.staging.linuxAppIdentifier)
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("Linux/scripts/package.sh"), encoding: .utf8)
+        for environment in AppEnvironment.allCases {
+            let id = environment.linuxAppIdentifier
+            #expect(id != "com.example.SwiftCrossUIApp", "SwiftCrossUI's placeholder")
+            // GLib's rules for an application ID: at most 255 characters, two or
+            // more parts split by dots, each part letters, digits, "_" or "-",
+            // and not starting with a digit.
+            let parts = id.split(separator: ".", omittingEmptySubsequences: false)
+            #expect(id.count <= 255 && parts.count >= 2, "\(id)")
+            for part in parts {
+                #expect(!part.isEmpty && !(part.first?.isNumber ?? true), "\(id)")
+                #expect(part.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") },
+                        "\(id)")
+            }
+            #expect(script.contains("APPID=\"\(id)\""), "package.sh names \(id)")
+        }
+    }
+
     /// Anything not marked live counts as staging, because the dangerous mistake
     /// is a test build that thinks it is live.
     @Test func onlyExactlyLiveIsLive() {

@@ -14,6 +14,13 @@ struct WellSpentLinuxApp: App {
 
     @State var workspace: Workspace
 
+    /// GTK under this build's own app ID. Without one, every SwiftCrossUI app
+    /// shares a placeholder ID, and opening live while staging was open only
+    /// brought staging to the front.
+    var backend: GtkBackend {
+        GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
+    }
+
     init() {
         let workspace: Workspace
         do {

@@ -50,6 +50,18 @@ public enum AppEnvironment: String, Sendable, Equatable, CaseIterable {
         }
     }
 
+    /// The Linux app's ID, which the desktop uses to tell one app from another.
+    /// Each build has its own, so live and staging can be open at once: two
+    /// copies with one ID count as one app, and opening the second only brings
+    /// the first to the front. Its menu entry is named after it, so the desktop
+    /// shows the right icon for the window.
+    public var linuxAppIdentifier: String {
+        switch self {
+        case .live: "app.wellspent.linux"
+        case .staging: "app.wellspent.linux.staging"
+        }
+    }
+
     /// The folder in Application Support that holds every database.
     public var dataFolderName: String {
         switch self {
