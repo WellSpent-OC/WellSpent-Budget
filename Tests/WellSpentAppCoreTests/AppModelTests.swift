@@ -566,6 +566,36 @@ struct AppModelImportTests {
         #expect(model.selectedBudget == nil)
     }
 
+    /// Beside a list, as on the Mac, a budget opens by itself while none is
+    /// open. A phone shows a budget in place of the list, so there nothing
+    /// opens one but a tap, and deleting the open one goes back to the list.
+    @Test func onAPhoneOnlyATapOpensABudget() throws {
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let setUp = AppModel(store: store)
+        let group = try #require(setUp.addGroup(named: "Household"))
+        let groceries = try #require(setUp.addBudget(named: "Groceries", limit: Money(minorUnits: 100_000), in: group))
+        let eatingOut = try #require(setUp.addBudget(named: "Eating out", limit: Money(minorUnits: 30_000), in: group))
+        let utilities = try #require(setUp.addBudget(named: "Utilities", limit: Money(minorUnits: 45_000), in: group))
+
+        let phone = AppModel(store: store, opensFirstBudget: false)
+        #expect(phone.selectedBudget == nil, "it starts on the list")
+        phone.reload()
+        #expect(phone.selectedBudget == nil, "a sync bringing changes in opens nothing")
+
+        phone.selectedBudget = groceries
+        phone.reload()
+        #expect(phone.selectedBudget == groceries, "a tapped budget stays open through a sync")
+        phone.deleteBudget(groceries)
+        #expect(phone.selectedBudget == nil, "back to the list, not into the next budget")
+
+        // The Mac, over the same budgets: one opens at once, and another
+        // after the open one is deleted.
+        let mac = AppModel(store: store)
+        #expect(mac.selectedBudget == eatingOut)
+        mac.deleteBudget(eatingOut)
+        #expect(mac.selectedBudget == utilities)
+    }
+
     /// Only a delete the person was told reaches everyone, or nobody else
     /// because nobody else is in it, queues anything. The other two stay on
     /// this Mac whatever the store says by the time they are confirmed.

@@ -23,10 +23,11 @@ private final class Mac {
     }
     let transport = StubReadableTransport()
 
-    func launch() throws -> Workspace {
+    /// `opensFirstBudget` false launches it the way a phone launches.
+    func launch(opensFirstBudget: Bool = true) throws -> Workspace {
         let transport = self.transport
         return try Workspace.launch(accounts: accounts, defaults: defaults,
-                                    makeTransport: { _ in transport })
+                                    makeTransport: { _ in transport }, opensFirstBudget: opensFirstBudget)
     }
 }
 
@@ -59,6 +60,26 @@ struct AccountsTests {
         // Back to Robin: his, not hers.
         try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
         #expect(app.model.groups.map(\.name) == robins)
+    }
+
+    /// A phone opens no budget by itself: not at launch with the samples, and
+    /// not when signing in brings another account's budgets. The Mac opens one.
+    @Test func aPhoneOpensNoBudgetByItselfBeforeOrAfterSigningIn() async throws {
+        let mac = Mac()
+        #expect(try mac.launch().model.selectedBudget != nil, "the Mac opens one beside the list")
+
+        // Kept for the whole test: its account directory holds it unowned.
+        let device = Mac()
+        let phone = try device.launch(opensFirstBudget: false)
+        #expect(!phone.model.groups.isEmpty, "a fresh install starts with the samples")
+        #expect(phone.model.selectedBudget == nil)
+        let trip = try #require(phone.model.addGroup(named: "Road trip"))
+        phone.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip)
+
+        try await phone.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(phone.model.groups.map(\.id) == [trip], "the account's own budgets")
+        #expect(!phone.model.opensFirstBudget)
+        #expect(phone.model.selectedBudget == nil, "they open on the list too")
     }
 
     @Test func theLastAccountIsStillSignedInAfterAQuit() async throws {
