@@ -251,7 +251,15 @@ final class TestApp {
         type(name, into: AccessibilityID.groupEditorName)
         click(AccessibilityID.groupEditorSave)
         XCTAssertTrue(element(AccessibilityID.sidebarGroup(name)).waitForExistence(timeout: 10),
-                      "the new group is not in the sidebar")
+                      "the new group is not in the sidebar. The sidebar's names: \(sidebarIdentifiers())")
+    }
+
+    /// Every identifier in the window that starts "sidebar.", with its type,
+    /// for a failure message: what the tests can find there.
+    func sidebarIdentifiers() -> [String] {
+        app.windows.firstMatch.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'"))
+            .allElementsBoundByIndex.map { "\($0.identifier) (type \($0.elementType.rawValue))" }
     }
 
     /// New Budget in <group>… from the group's menu. Saving selects the new

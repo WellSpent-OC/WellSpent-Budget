@@ -302,6 +302,9 @@ struct SidebarView: View {
             .contextMenu { menu(screen.groupMenu(section.group)) }
             Spacer(minLength: 0)
         }
+        // The name and the arrow stay two controls for VoiceOver and the UI
+        // tests, each with its own name, rather than one header made of both.
+        .accessibilityElement(children: .contain)
     }
 
     /// A menu's parts, with a divider between each.
