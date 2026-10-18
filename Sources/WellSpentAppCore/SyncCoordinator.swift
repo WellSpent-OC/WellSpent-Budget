@@ -205,7 +205,8 @@ public final class SyncCoordinator {
     // MARK: - Account
 
     /// Creates an account. Whatever was made while signed out becomes the new
-    /// account's.
+    /// account's. Sample budgets nobody touched stay behind
+    /// (`AccountDirectory.moveThisMacData`).
     public func signUp(email typed: String, password: String) async throws {
         state = .busy("Creating your account")
         let email = Self.normalised(email: typed)
