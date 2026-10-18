@@ -126,14 +126,13 @@ final class SignInBudgetShareSyncTests: XCTestCase {
 
         // 12. Remove… on Leslie's row asks first. Remove takes her row away,
         // a quiet line says so, and the line under the name says nobody else
-        // is in the group.
+        // is in the group. With nobody else in it, the line gives no count.
         run.removeFromGroup("Leslie")
         XCTAssertTrue(run.listText(MembersScreen.Words.removed("Leslie")).waitForExistence(timeout: 30),
                       "no line saying she was removed. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.listText("Leslie"), until: "exists == false", timeout: 15),
                       "her row is still on the page. On screen: \(run.visibleTexts())")
-        let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.peopleCount(1),
-                                              MembersScreen.Words.madeByYou])
+        let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.madeByYou])
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: alone, timeout: 15),
                       "the page's line is not \(alone). On screen: \(run.visibleTexts())")
 
