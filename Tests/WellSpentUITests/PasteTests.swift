@@ -35,6 +35,7 @@ final class PasteTests: XCTestCase {
         run.launch()
         run.click(AccessibilityID.sidebarSignIn)
 
+        // Scenario PASTE-01
         run.paste("pasted@example.com", into: AccessibilityID.accountEmail)
         XCTAssertEqual(run.element(AccessibilityID.accountEmail).value as? String, "pasted@example.com",
                        "Command-V did not paste into the email field")
