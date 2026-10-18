@@ -16,11 +16,14 @@ private struct Device {
     let sync: SyncCoordinator
     let workspace: Workspace
     let screen: MainScreen
+    /// What this device's calls to the server go through.
+    let transport: StubReadableTransport
     var model: AppModel { workspace.model }
 
     init(_ email: String, _ account: Account = .confirmed, on server: InMemoryReadableServer) async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let transport = StubReadableTransport(server: server)
+        self.transport = transport
         sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
                                makeTransport: { _ in transport })
         workspace = Workspace(model: AppModel(store: store), sync: sync)
@@ -100,6 +103,28 @@ struct InvitationPageTests {
         #expect(page.historyLine == "You'd see the group's budgets, and only transactions added from now on.")
     }
 
+    /// The page is up the moment the link opens, while the server is still
+    /// being asked what the invite offers. A slow server never makes the
+    /// click look like it did nothing.
+    @Test func thePageIsUpBeforeTheServerAnswers() async throws {
+        let server = InMemoryReadableServer()
+        let (_, url) = try await robinsLink(on: server)
+        let leslie = try await Device("leslie@example.com", on: server)
+        let workspace = leslie.workspace
+
+        await confirmation("the server is asked what the invite offers") { asked in
+            leslie.transport.whilePreviewing = { @MainActor in
+                #expect(workspace.invitation?.invitation == invitedToHousehold,
+                        "the page was not up while the server was asked")
+                #expect(workspace.invitation?.levelLine == nil, "the level is not known yet")
+                asked()
+            }
+            await workspace.open(url)
+        }
+
+        #expect(workspace.invitation?.levelLine == "You'd join at Add.")
+    }
+
     /// Join takes the group in. The page gives way to the group's own page.
     @Test func joiningFromTheInvitationOpensTheGroupsPage() async throws {
         let server = InMemoryReadableServer()
@@ -116,6 +141,30 @@ struct InvitationPageTests {
         #expect(leslie.model.groups.map(\.id).contains(group))
         #expect(leslie.screen.openGroup?.id == group)
         #expect(try leslie.sync.displayName(in: group) == "Leslie")
+    }
+
+    /// Another link opened while Join is still going through: its page
+    /// stays up. The group just joined is on the left, and its page waits
+    /// for a click.
+    @Test func aLinkOpenedWhileJoiningStaysUp() async throws {
+        let server = InMemoryReadableServer()
+        let (group, url) = try await robinsLink(on: server)
+        let leslie = try await Device("leslie@example.com", on: server)
+        let workspace = leslie.workspace
+        await workspace.open(url)
+        let page = try #require(workspace.invitation)
+        page.myName = "Leslie"
+        let another = try #require(URL(string: "wellspent://join"))
+        leslie.transport.whileAccepting = { await workspace.open(another) }
+
+        #expect(await leslie.screen.joinInvitation())
+
+        #expect(leslie.model.groups.map(\.id).contains(group), "the first link's join went through")
+        let shown = try #require(workspace.invitation, "the other link's page was taken down")
+        #expect(shown !== page)
+        #expect(shown.linkProblem
+                == "Part of that invite link is missing. Ask the person who sent it to send it again.")
+        #expect(leslie.screen.openGroup == nil)
     }
 
     // MARK: - Links that cannot be used

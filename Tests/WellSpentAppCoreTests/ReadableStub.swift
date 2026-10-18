@@ -31,6 +31,12 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     var loseNextCreateReply = false
     /// Runs once a listing has been read, before it is handed back.
     var whileListing: (@Sendable () async -> Void)?
+    /// Runs while the server is asked what an invite offers, before it
+    /// answers.
+    var whilePreviewing: (@Sendable () async -> Void)?
+    /// Runs once the server has taken an invite, before the group is handed
+    /// back.
+    var whileAccepting: (@Sendable () async -> Void)?
     /// Makes signing out everywhere fail before it reaches the server.
     var failSignOutEverywhere: URLError?
     /// The saved session a resume used, if one did.
@@ -135,8 +141,15 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     }
     func invites(in group: GroupID) async throws -> [ServerInvite] { try await client.invites(in: group) }
     func cancelInvite(_ id: UUID, in group: GroupID) async throws { try await client.cancelInvite(id, in: group) }
-    func previewInvite(token: String) async throws -> InviteTerms { try await client.previewInvite(token: token) }
-    func acceptInvite(token: String) async throws -> ServerGroup { try await client.acceptInvite(token: token) }
+    func previewInvite(token: String) async throws -> InviteTerms {
+        if let whilePreviewing { await whilePreviewing() }
+        return try await client.previewInvite(token: token)
+    }
+    func acceptInvite(token: String) async throws -> ServerGroup {
+        let group = try await client.acceptInvite(token: token)
+        if let whileAccepting { await whileAccepting() }
+        return group
+    }
     func push(_ records: [WireRecord], group: GroupID) async throws -> PushResult {
         try await client.push(records, group: group)
     }

@@ -217,7 +217,7 @@ public final class JoinScreen {
     /// it was confirmed on another device.
     public var offersEmailConfirmation: Bool { isSignedIn && !actions.emailVerified }
 
-    /// The account sheet signs in or makes an account; the screen offers it
+    /// The account sheet signs in or makes an account. The screen offers it
     /// while signed out.
     public var offersSignIn: Bool { !isSignedIn }
 
