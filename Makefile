@@ -176,9 +176,13 @@ iphone-ui-test-build: iphone-project
 # is left in the app. It runs headless: no Simulator window opens, and the
 # Mac's screen is never taken. The tests that sign in read the same four
 # WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and skip
-# without them. The rest need no account and no server. The simulator is the
+# without them, and run in light only: staging allows 10 sign-ins in 15 minutes
+# from one place, a signed-in run takes 3, and the local tests already draw
+# every screen in dark. The rest need no account and no server. If anything stops the
+# run, Control-C included, the simulator is still deleted. The simulator is the
 # newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
-# one, such as "iPhone 17".
+# one, such as "iPhone 17". IPHONE_UI_TEST_ONLY runs one test class or test,
+# such as WellSpentPhoneUITests/PhoneSignInSyncTests.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
@@ -190,6 +194,8 @@ iphone-ui-test: iphone-ui-test-build
 	fi; \
 	for look in light dark; do \
 		udid=$$($(IPHONE_SIMCTL) create "wellspent-ui-test-$$look" "$$device" "$$runtime"); \
+		trap '$(IPHONE_SIMCTL) shutdown "$$udid" >/dev/null 2>&1 || true; $(IPHONE_SIMCTL) delete "$$udid" >/dev/null 2>&1 || true' EXIT; \
+		trap 'exit 130' INT TERM; \
 		$(IPHONE_SIMCTL) boot "$$udid"; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
 		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
@@ -202,9 +208,13 @@ iphone-ui-test: iphone-ui-test-build
 		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
-			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult || status=$$?; \
+			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
+			$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY)) \
+			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests; fi) \
+			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \
+		trap - EXIT INT TERM; \
 		if [ $$status -ne 0 ]; then echo "iPhone UI tests failed in $$look mode"; exit $$status; fi; \
 	done
 

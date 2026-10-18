@@ -54,6 +54,7 @@ struct PhoneBudgetView: View {
                     } label: {
                         Image(systemName: "ellipsis")
                     }
+                    .accessibilityIdentifier(AccessibilityID.budgetMenu)
                 }
             }
         }

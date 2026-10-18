@@ -99,9 +99,7 @@ final class PhoneTestApp {
 
     /// The ⋯ at the top right of a budget.
     func openBudgetMenu() {
-        let more = app.navigationBars.buttons.element(boundBy: app.navigationBars.buttons.count - 1)
-        XCTAssertTrue(more.waitForExistence(timeout: 10), "no ⋯ on the budget")
-        more.tap()
+        tap(AccessibilityID.budgetMenu)
     }
 
     /// Back, at the top left of a pushed screen.
@@ -220,7 +218,8 @@ final class PhoneTestApp {
     /// Opens a budget from Home.
     func openBudget(named name: String) {
         tap(AccessibilityID.sidebarBudget(name))
-        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10), "\(name) did not open")
+        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10),
+                      "\(name) did not open. On screen: \(visibleTexts())")
     }
 
     /// New Group from the + at the foot of Home, named.
@@ -264,13 +263,14 @@ final class PhoneTestApp {
             type(server, into: AccessibilityID.accountServer)
         }
         paste(email, into: AccessibilityID.accountEmail)
-        XCTAssertEqual(element(AccessibilityID.accountEmail).value as? String, email, "Paste did not paste the email")
+        // Not XCTAssertEqual, which would print the address into the CI log.
+        XCTAssertTrue(element(AccessibilityID.accountEmail).value as? String == email, "Paste did not paste the email")
         paste(password, into: AccessibilityID.accountPassword)
         tap(AccessibilityID.accountSubmit)
 
         guard text(SyncWording.footer(signedIn: true)).waitForExistence(timeout: 60) else {
             if element(AccessibilityID.accountCode).exists {
-                throw UITestError("\(email) has not confirmed its address. Confirm it once, then run again.")
+                throw UITestError("the first test account has not confirmed its address. Confirm it once, then run again.")
             }
             throw UITestError("signing in did not finish. On screen: \(visibleTexts())")
         }
@@ -291,23 +291,6 @@ final class PhoneTestApp {
              timeout: 15)
     }
 
-    /// Delete from a group's menu, confirmed. Best effort, for tidying up.
-    func deleteGroup(named name: String) {
-        guard app.state == .runningForeground else { return }
-        let header = element(AccessibilityID.sidebarGroup(name))
-        guard header.waitForExistence(timeout: 5) else { return }
-        header.press(forDuration: 1.2)
-        let item = menuItem(MainScreen.Words.delete)
-        guard item.waitForExistence(timeout: 5) else { return }
-        item.tap()
-        let label = PendingDelete.group(BudgetGroup(name: name), budgets: 0, reach: .everyone).confirmLabel
-        questionButton(label)?.tap()
-        wait(for: header, until: "exists == false", timeout: 10)
-        // The sync after an edit waits for edits to stop, then talks to the
-        // server. Give it that long before the app is closed.
-        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the sync after the delete")], timeout: 8)
-    }
-
     /// What the app calls this device in its words.
     static let device = "iPhone"
 
@@ -319,9 +302,7 @@ final class PhoneTestApp {
 
     /// Part of a group's name, so runs on the shared staging server never share one.
     static func stamp() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter.string(from: Date())
+        runStampFormatter().string(from: Date())
     }
 }
 
@@ -336,8 +317,7 @@ extension SecondAccount {
     /// or in another pull request's CI, so only groups more than an hour old
     /// go, and only the iPhone's. Best effort.
     func deleteLeftoverRuns() async {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let formatter = runStampFormatter()
         let anHourAgo = Date().addingTimeInterval(-3600)
         let model = AppModel(store: sync.store)
         for group in model.groups where group.name.hasPrefix(Self.phoneRunPrefix) {
@@ -347,4 +327,14 @@ extension SecondAccount {
         }
         await sync.syncAll()
     }
+}
+
+/// The time in a run's group name, "20261018-161500", always in UTC, so a
+/// Mac and a CI runner in different time zones read each other's the same.
+func runStampFormatter() -> DateFormatter {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    formatter.dateFormat = "yyyyMMdd-HHmmss"
+    return formatter
 }

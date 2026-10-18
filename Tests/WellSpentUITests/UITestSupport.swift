@@ -7,9 +7,7 @@ import Foundation
 import XCTest
 import WellSpentAppCore
 import WellSpentCrypto
-import WellSpentKeyStore
 import WellSpentModel
-import WellSpentStore
 import WellSpentSync
 
 /// The app under test: launched with its data in a folder of its own, and

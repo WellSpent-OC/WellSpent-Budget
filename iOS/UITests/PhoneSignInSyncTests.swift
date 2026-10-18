@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import XCTest
 import WellSpentAppCore
 import WellSpentModel
@@ -31,6 +32,8 @@ final class PhoneSignInSyncTests: XCTestCase {
         if app.state != .notRunning { app.terminate() }
         if let path = Self.dataRootPath { try? FileManager.default.removeItem(atPath: path) }
         Self.dataRootPath = nil
+        // A halted run must not leave the staging password on the pasteboard.
+        UIPasteboard.general.items = []
         super.tearDown()
     }
 
@@ -41,7 +44,11 @@ final class PhoneSignInSyncTests: XCTestCase {
         Self.dataRootPath = run.dataRoot.path
         let leslie = try SecondAccount(server: accounts.server)
         let robinsOtherDevice = try SecondAccount(server: accounts.server, settingsSuite: "app.wellspent.uitest.robin")
-        let groupName = SecondAccount.phoneRunPrefix + PhoneTestApp.stamp()
+        let stamp = PhoneTestApp.stamp()
+        let groupName = SecondAccount.phoneRunPrefix + stamp
+        // Named for the run too: an earlier run's group can still be on Home
+        // while its delete syncs, and a test taps rows by name.
+        let budgetName = "Costs \(stamp)"
         run.launch()
 
         // Scenario PASTE-02, ACCT-08
@@ -63,7 +70,7 @@ final class PhoneSignInSyncTests: XCTestCase {
         // group in, and her entry says she added it.
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await leslie.deleteLeftoverRuns()
-        let link = try await leslie.shareNewGroup(groupName, budget: "Costs", entry: "Costco",
+        let link = try await leslie.shareNewGroup(groupName, budget: budgetName, entry: "Costco",
                                                   amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
         try await robinsOtherDevice.signIn(email: accounts.email, password: accounts.password)
         _ = try await robinsOtherDevice.join(link, as: "Robin")
@@ -78,8 +85,8 @@ final class PhoneSignInSyncTests: XCTestCase {
             header = run.scrollTo(headerID)
         }
         XCTAssertTrue(header.exists, "the shared group did not arrive. On screen: \(run.visibleTexts())")
-        run.scrollTo(AccessibilityID.sidebarBudget("Costs"))
-        run.openBudget(named: "Costs")
+        run.scrollTo(AccessibilityID.sidebarBudget(budgetName))
+        run.openBudget(named: budgetName)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text("Leslie").exists, "her entry does not say she added it")

@@ -231,8 +231,12 @@ struct PhoneAccountSheet: View {
                         .autocorrectionDisabled()
                         .accessibilityIdentifier(id)
                 case .code:
+                    // A code is eight letters and numbers, so the keyboard has
+                    // both, in capitals.
                     TextField(label, text: text)
-                        .keyboardType(.numberPad)
+                        .keyboardType(.asciiCapable)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
                         .textContentType(.oneTimeCode)
                         .accessibilityIdentifier(id)
                 case .server:
