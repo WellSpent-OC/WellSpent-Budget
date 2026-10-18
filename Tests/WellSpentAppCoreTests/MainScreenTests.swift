@@ -256,6 +256,38 @@ struct MainScreenTests {
         #expect(device.model.transactionCount(inGroup: GroupID()) == 0)
     }
 
+    /// The question says how many go, and that many go: every transaction
+    /// still in the group, in every period, and nothing from another group.
+    @Test func aGroupsDeleteTakesAsManyTransactionsAsItsQuestionSaid() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        device.model.deleteEntry(try #require(device.model.transactions.first).id)
+        device.model.addTransaction(merchant: "Riverside Grill", amount: .dollars(30), date: Date(), note: "")
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        let materials = try #require(device.model.addBudget(named: "Materials", limit: .dollars(900), in: side))
+        device.model.addTransaction(merchant: "Lumber", amount: .dollars(300), date: Date(), note: "")
+        let store = device.model.store
+        let inHousehold = try store.transactions(in: groceries).count + store.transactions(in: eatingOut).count
+        #expect(inHousehold == 3)
+
+        device.screen.ask(.deleteGroup(try #require(device.model.group(named: id))))
+        let pending = try #require(device.screen.pendingDelete)
+        #expect(device.screen.message(for: pending)
+                == "Its 2 budgets and 3 transactions will be deleted too. This cannot be undone.")
+        device.screen.confirm(pending)
+
+        #expect(try store.transactions(in: groceries).isEmpty && store.transactions(in: eatingOut).isEmpty,
+                "all 3 went")
+        #expect(try store.budgets(in: id).isEmpty)
+        #expect(try store.transactions(in: materials).map(\.merchant) == ["Lumber"], "nothing else went")
+    }
+
     @Test func deletingABudgetSaysWhatGoesWithIt() async throws {
         let device = try await Device()
         let id = try #require(device.model.addGroup(named: "Household"))
