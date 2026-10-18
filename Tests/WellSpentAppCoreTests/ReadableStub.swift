@@ -45,6 +45,7 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     private(set) var signUps = 0
     private(set) var signIns = 0
     private(set) var syncRounds = 0
+    private(set) var previews = 0
 
     init(server: InMemoryReadableServer = InMemoryReadableServer()) {
         self.server = server
@@ -142,6 +143,7 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     func invites(in group: GroupID) async throws -> [ServerInvite] { try await client.invites(in: group) }
     func cancelInvite(_ id: UUID, in group: GroupID) async throws { try await client.cancelInvite(id, in: group) }
     func previewInvite(token: String) async throws -> InviteTerms {
+        lock.withLock { previews += 1 }
         if let whilePreviewing { await whilePreviewing() }
         return try await client.previewInvite(token: token)
     }

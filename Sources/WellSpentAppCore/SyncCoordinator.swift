@@ -781,14 +781,16 @@ public final class SyncCoordinator {
     /// What a link's invite offers, before joining: the level, and how much
     /// of the group's past. The server answers anyone holding the link, so
     /// someone signed out can see what they would join before they make an
-    /// account. Signed out, it asks the server set now, which `serverURL`
-    /// checks is this build's. Quiet: the sync's state stays as it was.
+    /// account. Signed out, it asks the server set now, once `serverURL` has
+    /// checked its address and the server has said it is this build's, as
+    /// before a sign-in. Quiet: the sync's state stays as it was.
     public func preview(_ link: InviteLink) async throws -> InviteTerms {
         let server: any ReadableAccountTransport
         if let transport {
             server = transport
         } else {
             server = makeTransport(try serverURL())
+            try await confirmEnvironment(of: server)
         }
         do {
             return try await server.previewInvite(token: link.token)

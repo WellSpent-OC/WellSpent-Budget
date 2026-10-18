@@ -274,6 +274,29 @@ struct InvitationPageTests {
         #expect(page.failure == AppEnvironment.staging.refusal(ofServerAt: try #require(URL(string: live))))
     }
 
+    /// Signed out, the server says which one it is before the link goes to
+    /// it, as before a sign-in. So the live server under another address,
+    /// such as a bare IP address, is caught too, and the page says why.
+    @Test func signedOutTheLinkGoesOnlyToAServerThatSaysItIsThisBuilds() async throws {
+        let server = InMemoryReadableServer()
+        let (_, url) = try await robinsLink(on: server)
+        let transport = StubReadableTransport(server: server)
+        transport.serverEnvironment = "live"
+        let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
+                                   keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   serverAddress: "https://203.0.113.7", environment: .staging,
+                                   makeTransport: { _ in transport })
+        let workspace = Workspace(model: AppModel(store: sync.store), sync: sync)
+
+        await workspace.open(url)
+
+        let page = try #require(workspace.invitation)
+        #expect(page.invitation == invitedToHousehold)
+        #expect(transport.previews == 0, "the link went to a server that says it is the live one")
+        #expect(page.terms == nil)
+        #expect(page.failure == AppEnvironment.staging.refusal(ofServerSaying: "live"))
+    }
+
     /// Signed in, the address not confirmed yet: the page asks them to
     /// confirm it first, with Confirm your email… in place of Join.
     @Test func unconfirmedTheInvitationAsksThemToConfirmTheirEmailFirst() async throws {
