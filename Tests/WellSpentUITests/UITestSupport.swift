@@ -335,7 +335,15 @@ final class TestApp {
     func entryRow(_ merchant: String) -> XCUIElement {
         let identified = element(AccessibilityID.entryRow(merchant))
         if identified.waitForExistence(timeout: 10) { return identified }
-        return app.tables.staticTexts[merchant].firstMatch
+        return listText(merchant)
+    }
+
+    /// A text shown in the window, such as a merchant or an amount in the
+    /// budget's list. Searched across the whole window: the Mac's table can
+    /// reach the test as a table or as an outline, and a query for only one
+    /// of them finds nothing in the other.
+    func listText(_ text: String) -> XCUIElement {
+        app.windows.firstMatch.staticTexts[text].firstMatch
     }
 
     /// Clicks an entry's row once, which opens it.
@@ -349,7 +357,7 @@ final class TestApp {
     /// Whether the list shows no row for this merchant, waiting for it to go.
     func rowIsGone(_ merchant: String, timeout: TimeInterval = 10) -> Bool {
         wait(for: element(AccessibilityID.entryRow(merchant)), until: "exists == false", timeout: timeout)
-            && wait(for: app.tables.staticTexts[merchant].firstMatch, until: "exists == false", timeout: timeout)
+            && wait(for: listText(merchant), until: "exists == false", timeout: timeout)
     }
 
     /// Waits for an entry's sheet, and checks it is the one asked for.

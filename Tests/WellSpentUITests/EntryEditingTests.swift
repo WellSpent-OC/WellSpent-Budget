@@ -88,7 +88,8 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: save, until: "isEnabled == true", timeout: 5), "Save did not light")
         run.app.typeKey(.return, modifierFlags: [])
         run.expectNoSheet()
-        XCTAssertTrue(run.app.tables.staticTexts["$40.00"].waitForExistence(timeout: 10), "the row says $40.00")
+        XCTAssertTrue(run.listText("$40.00").waitForExistence(timeout: 10),
+                      "the row says $40.00. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.app.staticTexts["$450.50 left"].waitForExistence(timeout: 10),
                       "the header counts $40.00 and $9.50. On screen: \(run.visibleTexts())")
 
@@ -139,7 +140,8 @@ final class EntryEditingTests: XCTestCase {
         // 9. Undo brings it back, as it was, and the bar goes.
         run.click(AccessibilityID.undoButton)
         XCTAssertTrue(run.entryRow("Hilltop").waitForExistence(timeout: 10), "Undo did not bring it back")
-        XCTAssertTrue(run.app.tables.staticTexts["$40.00"].waitForExistence(timeout: 5))
+        XCTAssertTrue(run.listText("$40.00").waitForExistence(timeout: 5),
+                      "the row says $40.00. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "the bar stayed after Undo")
 
