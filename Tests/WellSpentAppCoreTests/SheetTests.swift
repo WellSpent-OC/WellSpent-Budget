@@ -125,7 +125,7 @@ struct SheetTests {
     @Test func aCreatedLinkIsShownWithWhatToDoWithIt() throws {
         let (model, group, _) = try model()
         let link = InviteLink(secret: Data(repeating: 3, count: 32), groupName: "Household",
-                              inviterName: "Robin")
+                              inviterName: "Robin", scheme: AppEnvironment.current.inviteScheme)
         let shown = try texts(ShareSheet(sync: sync(model), group: group, created: link))
         #expect(shown.contains(link.url))
         #expect(shown.contains { $0.contains("works once and expires in 7 days") })
@@ -140,12 +140,12 @@ struct SheetTests {
         #expect(!empty.contains { $0.contains("invited you") })
 
         let link = InviteLink(secret: Data(repeating: 4, count: 32), groupName: "Household",
-                              inviterName: "Robin").url
+                              inviterName: "Robin", scheme: AppEnvironment.current.inviteScheme).url
         let pasted = try texts(JoinSheet(sync: sync(model), linkText: link))
         #expect(pasted.contains("Robin invited you to \u{201C}Household\u{201D}."))
 
         let anonymous = InviteLink(secret: Data(repeating: 4, count: 32), groupName: "",
-                                   inviterName: "").url
+                                   inviterName: "", scheme: AppEnvironment.current.inviteScheme).url
         #expect(try texts(JoinSheet(sync: sync(model), linkText: anonymous))
                     .contains("Someone invited you to a group."))
 
@@ -317,7 +317,8 @@ struct SheetTests {
     @Test func aLinkWithPartOfItMissingPutsUpAPageThatSaysSo() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Side("leslie@example.com", on: server)
-        let page = try await page(for: leslie, opening: try #require(URL(string: "wellspent://join#s=AbCd")))
+        let cut = try #require(URL(string: "\(AppEnvironment.current.inviteScheme)://join#s=AbCd"))
+        let page = try await page(for: leslie, opening: cut)
 
         let shown = try texts(page)
         #expect(shown.contains("Join a Group"), "got \(shown)")

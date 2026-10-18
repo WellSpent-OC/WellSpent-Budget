@@ -102,8 +102,8 @@ struct ViewTests {
         #expect(texts.contains("Add Budget"), "the way to make a budget is always on screen")
     }
 
-    /// A click on a group's name opens its page. The arrow beside the name
-    /// hides or shows its budgets, and leaves the page as it is.
+    /// A click on a group's name opens its page. The arrow at the end of the
+    /// line hides or shows its budgets, and leaves the page as it is.
     @Test func aClickOnAGroupsNameOpensItsPageAndTheArrowBesideItHidesItsBudgets() throws {
         let (model, group, _) = try modelWithData()
         let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
@@ -114,7 +114,7 @@ struct ViewTests {
         #expect(screen.sections.first?.isCollapsed == false, "a click on the name hides nothing")
 
         try sidebar.inspect().find(ViewType.Button.self) { button in
-            try button.accessibilityIdentifier() == AccessibilityID.sidebarGroupFold("Household")
+            try button.accessibilityLabel().string() == MainScreen.Words.hideBudgets
         }.tap()
         #expect(screen.sections.first?.isCollapsed == true)
         #expect(screen.openGroup?.id == group.id)

@@ -113,15 +113,17 @@ final class SignInBudgetShareSyncTests: XCTestCase {
                       "the Share sheet did not close")
 
         // Scenario PAGE-05
-        // 10. The arrow beside the name hides the group's budgets and shows
-        // them again. Its words say what the next click does. The page stays.
-        let fold = run.element(AccessibilityID.sidebarGroupFold(groupName))
-        run.click(AccessibilityID.sidebarGroupFold(groupName))
-        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.showBudgets, timeout: 10),
-                      "the arrow did not hide the budgets")
-        run.click(AccessibilityID.sidebarGroupFold(groupName))
-        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.hideBudgets, timeout: 10),
-                      "the arrow did not show the budgets again")
+        // 10. The arrow at the end of the group's line hides its budgets and
+        // shows them again. The page stays. Other groups on the account may
+        // have a Groceries too, so the rows are counted.
+        let shown = run.sidebarBudgetCount("Groceries")
+        XCTAssertGreaterThan(shown, 0, "Groceries is not in the sidebar. Sidebar: \(run.sidebarIdentifiers())")
+        run.clickGroupArrow(groupName)
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown - 1, timeout: 10),
+                      "the arrow did not hide the budgets. Sidebar: \(run.sidebarIdentifiers())")
+        run.clickGroupArrow(groupName)
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown, timeout: 10),
+                      "the arrow did not show the budgets again. Sidebar: \(run.sidebarIdentifiers())")
         XCTAssertTrue(run.element(AccessibilityID.groupSummary).exists, "the arrow closed the page")
 
         // Scenario PAGE-02, PAGE-03
@@ -136,14 +138,13 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         // Scenario SHARE-16
         // 12. Remove… on Leslie's row asks first. Remove takes her row away,
         // a quiet line says so, and the line under the name says nobody else
-        // is in the group.
+        // is in the group. With nobody else in it, the line gives no count.
         run.removeFromGroup("Leslie")
         XCTAssertTrue(run.listText(MembersScreen.Words.removed("Leslie")).waitForExistence(timeout: 30),
                       "no line saying she was removed. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.listText("Leslie"), until: "exists == false", timeout: 15),
                       "her row is still on the page. On screen: \(run.visibleTexts())")
-        let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.peopleCount(1),
-                                              MembersScreen.Words.madeByYou])
+        let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.madeByYou])
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: alone, timeout: 15),
                       "the page's line is not \(alone). On screen: \(run.visibleTexts())")
 

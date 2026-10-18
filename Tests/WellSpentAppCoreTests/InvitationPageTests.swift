@@ -154,7 +154,8 @@ struct InvitationPageTests {
         await workspace.open(url)
         let page = try #require(workspace.invitation)
         page.myName = "Leslie"
-        let another = try #require(URL(string: "wellspent://join"))
+        let scheme = try #require(url.scheme)
+        let another = try #require(URL(string: "\(scheme)://join"))
         leslie.transport.whileAccepting = { await workspace.open(another) }
 
         #expect(await leslie.screen.joinInvitation())
@@ -176,10 +177,11 @@ struct InvitationPageTests {
         let server = InMemoryReadableServer()
         let (_, url) = try await robinsLink(on: server)
         let leslie = try await Device("leslie@example.com", on: server)
-        let cut = try #require(URL(string: String(url.absoluteString.prefix("wellspent://join#s=".count + 20))))
+        let scheme = try #require(url.scheme)
+        let cut = try #require(URL(string: String(url.absoluteString.prefix("\(scheme)://join#s=".count + 20))))
 
-        for broken in [cut, try #require(URL(string: "wellspent://join#g=Household&f=Robin")),
-                       try #require(URL(string: "wellspent://join"))] {
+        for broken in [cut, try #require(URL(string: "\(scheme)://join#g=Household&f=Robin")),
+                       try #require(URL(string: "\(scheme)://join"))] {
             await leslie.workspace.open(broken)
 
             let page = try #require(leslie.workspace.invitation)
@@ -195,6 +197,33 @@ struct InvitationPageTests {
 
         await leslie.workspace.open(try #require(URL(string: "https://example.com/join")))
         #expect(leslie.workspace.invitation?.linkProblem == "That is not a WellSpent invite link.")
+    }
+
+    /// Each build has its own link type, so a click opens the build whose
+    /// server made the invite. These tests run as staging, whose links start
+    /// wellspent-staging://, and live's start wellspent://, as they always
+    /// have. A link from the other build can still be pasted, or opened by
+    /// hand. It says which app it is for. Nothing is asked of this build's
+    /// server, which has never heard of the invite, and there is nothing to
+    /// join.
+    @Test func aLinkFromTheOtherBuildSaysWhichAppItIsFor() async throws {
+        let server = InMemoryReadableServer()
+        let (_, url) = try await robinsLink(on: server)
+        let leslie = try await Device("leslie@example.com", on: server)
+        #expect(leslie.sync.environment == .staging)
+        #expect(url.scheme == "wellspent-staging", "a staging build makes staging's links")
+        let rest = try #require(url.absoluteString.components(separatedBy: "://").last)
+        let lives = try #require(URL(string: "wellspent://" + rest))
+
+        await leslie.workspace.open(lives)
+
+        let page = try #require(leslie.workspace.invitation)
+        #expect(page.linkProblem == "That invite link is for WellSpent. Open it in WellSpent.")
+        #expect(page.invite == nil && page.invitation == nil)
+        #expect(page.terms == nil && page.failure == nil, "nothing was asked")
+        page.myName = "Leslie"
+        #expect(!page.canJoin)
+        #expect(await !leslie.screen.joinInvitation())
     }
 
     /// An invite that is used or cancelled says so on the page, before Join
@@ -354,7 +383,8 @@ struct InvitationPageTests {
         let (_, url) = try await robinsLink(on: server)
         let leslie = try await Device("leslie@example.com", on: server)
 
-        await leslie.workspace.open(try #require(URL(string: "wellspent://join")))
+        let scheme = try #require(url.scheme)
+        await leslie.workspace.open(try #require(URL(string: "\(scheme)://join")))
         let broken = try #require(leslie.workspace.invitation)
         await leslie.workspace.open(url)
 

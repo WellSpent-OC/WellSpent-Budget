@@ -147,6 +147,24 @@ final class TestApp {
         clipboard.clearContents()
     }
 
+    /// Pastes, then checks the field shows exactly what was pasted.
+    func pasteAndCheck(_ pasted: String, into identifier: String,
+                       file: StaticString = #filePath, line: UInt = #line) {
+        paste(pasted, into: identifier)
+        let field = element(identifier)
+        XCTAssertTrue(wait(for: field, holds: pasted, timeout: 5),
+                      "Command-V did not paste into \(identifier): it shows \(text(of: field))",
+                      file: file, line: line)
+    }
+
+    /// Waits for a button to turn on, or off, and fails naming it when it
+    /// does not.
+    func expect(_ identifier: String, enabled: Bool, _ what: String,
+                file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(wait(for: element(identifier), until: "isEnabled == \(enabled)", timeout: 5),
+                      "\(what): it is \(enabled ? "off" : "on")", file: file, line: line)
+    }
+
     /// Clicks into a field and types, replacing whatever was there.
     func type(_ text: String, into identifier: String) {
         let field = element(identifier)
@@ -251,7 +269,15 @@ final class TestApp {
         type(name, into: AccessibilityID.groupEditorName)
         click(AccessibilityID.groupEditorSave)
         XCTAssertTrue(element(AccessibilityID.sidebarGroup(name)).waitForExistence(timeout: 10),
-                      "the new group is not in the sidebar")
+                      "the new group is not in the sidebar. The sidebar's names: \(sidebarIdentifiers())")
+    }
+
+    /// Every identifier in the window that starts "sidebar.", with its type,
+    /// for a failure message: what the tests can find there.
+    func sidebarIdentifiers() -> [String] {
+        app.windows.firstMatch.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'"))
+            .allElementsBoundByIndex.map { "\($0.identifier) (type \($0.elementType.rawValue))" }
     }
 
     /// New Budget in <group>… from the group's menu. Saving selects the new
@@ -288,7 +314,7 @@ final class TestApp {
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
         element(AccessibilityID.sidebarGroup(group)).rightClick()
         clickMenuItem(MainScreen.Words.share)
-        type(myName, into: AccessibilityID.shareName)
+        pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
         click(AccessibilityID.shareCreate)
         XCTAssertTrue(element(AccessibilityID.shareCopyLink).waitForExistence(timeout: 30),
@@ -530,6 +556,31 @@ final class TestApp {
         click(AccessibilityID.sidebarGroup(name))
         XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
+    }
+
+    /// The arrow at the end of a group's line in the sidebar, which hides or
+    /// shows its budgets. The list makes the whole line one element, so the
+    /// click goes to its right end, where the arrow is.
+    func clickGroupArrow(_ name: String) {
+        let identifier = AccessibilityID.sidebarGroup(name)
+        let line = element(identifier)
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
+        waitUntilHittable(line, identifier)
+        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
+    }
+
+    /// How many budget rows in the sidebar have this name, across every group.
+    func sidebarBudgetCount(_ name: String) -> Int {
+        app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name)).count
+    }
+
+    /// Waits until the sidebar has exactly this many budget rows named `name`.
+    @discardableResult
+    func wait(forBudgetRows name: String, count expected: Int, timeout: TimeInterval) -> Bool {
+        let rows = app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name))
+        let counted = NSPredicate { _, _ in rows.count == expected }
+        let expectation = XCTNSPredicateExpectation(predicate: counted, object: nil)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
     /// People… in the group's menu, which opens the same page.

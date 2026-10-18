@@ -53,8 +53,8 @@ targets:
     # Written by xcodegen into the ignored .build folder. WellSpentEnvironment is
     # what the app reads to decide which build it is: anything but "live" is
     # staging, with the orange banner, the STAGING badge, and the live server
-    # refused. CFBundleURLTypes takes wellspent:// invite links, as
-    # scripts/make-app.sh does for the real app, so the test can open one.
+    # refused. CFBundleURLTypes takes staging's invite links, as
+    # scripts/make-app.sh does for WellSpent Staging, so the test can open one.
     info:
       path: ../.build/xcodegen/WellSpentUITestHost-Info.plist
       properties:
@@ -69,7 +69,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: app.wellspent.mac.uitest.invite
             CFBundleURLSchemes:
-              - wellspent
+              - wellspent-staging
             CFBundleTypeRole: Viewer
     settings:
       base:

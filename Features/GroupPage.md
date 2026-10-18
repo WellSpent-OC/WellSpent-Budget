@@ -31,10 +31,10 @@ Platforms: Mac, Linux
 - When he clicks Groceries
 - Then Groceries is picked, and Household's name is no longer marked
 
-## PAGE-05 The arrow beside the name hides and shows the group's budgets
+## PAGE-05 The arrow at the end of a group's line hides and shows its budgets
 
 - Given Household's budgets show in the sidebar
-- When Robin clicks the arrow beside Household's name
+- When Robin clicks the arrow at the end of Household's line
 - Then its budgets are hidden, and the arrow is labelled "Show budgets"
 - And no page opens or closes
 - When he clicks the arrow again

@@ -1,4 +1,5 @@
 import Foundation
+import WellSpentSync
 
 /// Which WellSpent this build is: the live app, or the staging one.
 ///
@@ -136,6 +137,25 @@ public enum AppEnvironment: String, Sendable, Equatable, CaseIterable {
     /// accepts a server on this Mac: `make serve` runs one at
     /// `http://127.0.0.1:8080`, and that address can be typed into the field.
     public var defaultServerAddress: String { "https://\(serverHost)" }
+
+    /// The type of this build's invite links, which it also claims on the
+    /// computer, so a click on a link opens the build whose server made the
+    /// invite. Live keeps the type links have always had. `scripts/make-app.sh`
+    /// and the UI test host in `Xcode/project.yml` claim the same, which a test
+    /// checks, and so does the Linux install.
+    public var inviteScheme: String {
+        switch self {
+        case .live: InviteLink.liveScheme
+        case .staging: InviteLink.stagingScheme
+        }
+    }
+
+    /// The invite in `text`, when it is a link this build made. Nil for
+    /// anything else, the other build's links included: that build's server
+    /// made the invite, and this one has never heard of it.
+    public func invite(from text: String) -> InviteLink? {
+        InviteLink(parsing: text).flatMap { $0.scheme == inviteScheme ? $0 : nil }
+    }
 
     /// The other build, whose server this one refuses.
     var other: AppEnvironment { self == .live ? .staging : .live }

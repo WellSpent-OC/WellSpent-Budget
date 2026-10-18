@@ -33,8 +33,8 @@ A UI test names a scenario with one comment line, directly above the step that c
 
 ```swift
 // Scenario PAGE-05
-// 10. The arrow beside the name hides the group's budgets and shows
-// them again. Its words say what the next click does. The page stays.
+// 10. The arrow at the end of the group's line hides its budgets and
+// shows them again. The page stays.
 ```
 
 - A step that checks more than one scenario lists them all on that one line, with commas: `// Scenario PAGE-02, PAGE-03`.
@@ -51,7 +51,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 134 | 43 |
+| Mac | 134 | 45 |
 | Linux | 127 | 0 |
 | iPhone | 125 | 0 |
 
@@ -193,7 +193,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac |
 | PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac |
 | PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | None yet |
-| PAGE-05 | The arrow beside the name hides and shows the group's budgets | Mac, Linux, iPhone | Mac |
+| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac |
 | PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac |
 | PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | None yet |
 | PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac |
@@ -236,5 +236,5 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | PASTE-06 | Cut takes the words out, and paste puts them back | Mac, Linux, iPhone | None yet |
 | PASTE-07 | Undo takes back a paste | Mac | Mac |
 | PASTE-08 | The Edit menu holds the editing commands | Mac | None yet |
-| PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | None yet |
-| PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | None yet |
+| PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | Mac |
+| PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | Mac |

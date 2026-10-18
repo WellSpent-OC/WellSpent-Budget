@@ -709,7 +709,8 @@ public final class SyncCoordinator {
                     ? "Only an admin can invite someone as a manager."
                     : "Only a manager or admin can invite people to this group.")
             }
-            guard let link = InviteLink(token: invite.token, groupName: groupName, inviterName: name) else {
+            guard let link = InviteLink(token: invite.token, groupName: groupName, inviterName: name,
+                                        scheme: environment.inviteScheme) else {
                 throw Failure.server("The server's invite could not be read.")
             }
             didSync?()

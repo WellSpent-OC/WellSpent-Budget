@@ -143,10 +143,6 @@ struct JoinSheet: View {
         _screen = State(initialValue: JoinScreen(actions: sync, linkText: linkText))
     }
 
-    static func canJoin(linkText: String, myName: String, signedIn: Bool) -> Bool {
-        SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: signedIn)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(screen.title)

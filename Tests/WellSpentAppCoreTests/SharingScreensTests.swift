@@ -115,8 +115,8 @@ struct SharingScreensTests {
     @Test func aPastedLinkSaysWhoInvitedYou() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Person("leslie@example.com", on: server)
-        let link = try #require(InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
-                                           inviterName: "Robin"))
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
+                              inviterName: "Robin", scheme: leslie.sync.environment.inviteScheme)
         let join = JoinScreen(actions: leslie.sync, linkText: "not a link")
         #expect(join.linkProblem == "That is not a WellSpent invite link.")
         #expect(join.invitation == nil)
@@ -133,7 +133,8 @@ struct SharingScreensTests {
     @Test func aPastedLinkWithPartOfItMissingSaysSo() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Person("leslie@example.com", on: server)
-        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin")
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                              scheme: leslie.sync.environment.inviteScheme)
         let join = JoinScreen(actions: leslie.sync, linkText: String(link.url.prefix(30)))
         #expect(join.linkProblem == "Part of that invite link is missing. Ask the person who sent it to send it again.")
         #expect(join.invitation == nil)
@@ -141,13 +142,52 @@ struct SharingScreensTests {
         #expect(!join.canJoin)
     }
 
+    /// A pasted link from the other build says which app it is for, whole or
+    /// cut short, and cannot be joined. These tests run as staging, so the
+    /// other build is live.
+    @Test func aPastedLinkFromTheOtherBuildSaysWhichAppItIsFor() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await Person("leslie@example.com", on: server)
+        #expect(leslie.sync.environment == .staging)
+        let lives = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                               scheme: AppEnvironment.live.inviteScheme)
+        for text in [lives.url, String(lives.url.prefix(30))] {
+            let join = JoinScreen(actions: leslie.sync, linkText: text)
+            join.myName = "Leslie"
+            #expect(join.linkProblem == "That invite link is for WellSpent. Open it in WellSpent.", "\(text)")
+            #expect(join.invitation == nil)
+            #expect(!join.canJoin)
+        }
+    }
+
+    /// In the live app it is the other way round: live's own links work, and
+    /// a staging link names WellSpent Staging.
+    @Test func inTheLiveAppAStagingLinkNamesTheStagingApp() {
+        let live = StubSharing(me: UserID(), founder: nil, members: [:])
+        live.environment = .live
+        func link(_ build: AppEnvironment) -> String {
+            InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                       scheme: build.inviteScheme).url
+        }
+        let join = JoinScreen(actions: live, linkText: link(.staging))
+        join.myName = "Leslie"
+        #expect(join.linkProblem == "That invite link is for WellSpent Staging. Open it in WellSpent Staging.")
+        #expect(join.invitation == nil)
+        #expect(!join.canJoin)
+
+        join.linkText = link(.live)
+        #expect(join.linkProblem == nil)
+        #expect(join.invitation == "Robin invited you to \u{201C}Household\u{201D}.")
+        #expect(join.canJoin)
+    }
+
     /// An address not confirmed yet is said before anything is sent, and the
     /// refusal is in words if Join is pressed anyway.
     @Test func joiningNeedsAConfirmedEmail() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Person("leslie@example.com", on: server, confirmed: false)
-        let link = try #require(InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
-                                           inviterName: "Robin"))
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
+                              inviterName: "Robin", scheme: leslie.sync.environment.inviteScheme)
         let join = JoinScreen(actions: leslie.sync, linkText: link.url)
         join.myName = "Leslie"
         #expect(join.notice == "Confirm your email first. Joining a shared group needs it.")
@@ -355,6 +395,7 @@ struct SharingScreensTests {
 /// Sharing answers from a fixed list, for checking the rules alone.
 @MainActor
 private final class StubSharing: SharingActions {
+    var environment = AppEnvironment.current
     let account: String? = "me@example.com"
     let userID: UserID?
     let emailVerified = true
