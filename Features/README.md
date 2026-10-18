@@ -53,74 +53,74 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | - | - | - |
 | Mac | 134 | 45 |
 | Linux | 127 | 0 |
-| iPhone | 125 | 0 |
+| iPhone | 125 | 23 |
 
 ### [Accounts.md](Accounts.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| ACCT-01 | Signed out, budgets are kept on this computer only | Mac, Linux, iPhone | None yet |
+| ACCT-01 | Signed out, budgets are kept on this computer only | Mac, Linux, iPhone | iPhone |
 | ACCT-02 | Create an account | Mac, Linux, iPhone | None yet |
 | ACCT-03 | Create an account says what is wrong before sending | Mac, Linux, iPhone | None yet |
 | ACCT-04 | An email that already has an account | Mac, Linux, iPhone | None yet |
 | ACCT-05 | Confirm the email with the code | Mac, Linux, iPhone | None yet |
 | ACCT-06 | A wrong code, and another code | Mac, Linux, iPhone | None yet |
 | ACCT-07 | An email not confirmed yet is asked for again | Mac, Linux, iPhone | None yet |
-| ACCT-08 | Sign in | Mac, Linux, iPhone | Mac |
+| ACCT-08 | Sign in | Mac, Linux, iPhone | Mac, iPhone |
 | ACCT-09 | A wrong password | Mac, Linux, iPhone | None yet |
 | ACCT-10 | Forgot password | Mac, Linux, iPhone | None yet |
-| ACCT-11 | Sign out | Mac, Linux, iPhone | None yet |
+| ACCT-11 | Sign out | Mac, Linux, iPhone | iPhone |
 | ACCT-12 | Sign out everywhere asks first | Mac, Linux, iPhone | None yet |
 | ACCT-13 | Signed out from another device | Mac, Linux, iPhone | None yet |
 | ACCT-14 | Each device is listed by its own name | Mac, Linux, iPhone | None yet |
-| ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac |
+| ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, iPhone |
 | ACCT-16 | On a Mac, the Dock says STAGING too | Mac | None yet |
 
 ### [SampleGroups.md](SampleGroups.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | None yet |
+| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | iPhone |
 | SAMP-02 | Samples nobody changed stay out of a new account | Mac, Linux, iPhone | None yet |
 | SAMP-03 | A group made before signing up comes along, and the samples do not | Mac, Linux, iPhone | None yet |
 | SAMP-04 | A sample given an entry comes along, all of it | Mac, Linux, iPhone | None yet |
 | SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | None yet |
-| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | None yet |
+| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | iPhone |
 | SAMP-07 | The samples come only once | Mac, Linux, iPhone | None yet |
 
 ### [Budgets.md](Budgets.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac |
-| BUDGET-02 | Rename a group | Mac, Linux, iPhone | None yet |
-| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac |
-| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | None yet |
+| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, iPhone |
+| BUDGET-02 | Rename a group | Mac, Linux, iPhone | iPhone |
+| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, iPhone |
+| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | iPhone |
 | BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | None yet |
-| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | None yet |
+| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | iPhone |
 | BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | None yet |
-| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | None yet |
+| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | iPhone |
 | BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | None yet |
 | BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | None yet |
-| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac |
+| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, iPhone |
 | BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | None yet |
 | BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | None yet |
 | BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | None yet |
-| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | None yet |
+| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | iPhone |
 
 ### [Entries.md](Entries.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac |
-| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | None yet |
+| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, iPhone |
+| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | iPhone |
 | ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | None yet |
-| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | None yet |
-| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac |
+| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | iPhone |
+| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | None yet |
-| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | None yet |
-| ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac |
-| ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac |
+| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | iPhone |
+| ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, iPhone |
+| ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | None yet |
 | ENTRY-11 | The keyboard adds and cancels | Mac | None yet |
 
@@ -228,8 +228,8 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PASTE-01 | Paste puts copied text into a field | Mac, Linux, iPhone | Mac |
-| PASTE-02 | Sign in by pasting the email and the password | Mac, Linux, iPhone | Mac |
+| PASTE-01 | Paste puts copied text into a field | Mac, Linux, iPhone | Mac, iPhone |
+| PASTE-02 | Sign in by pasting the email and the password | Mac, Linux, iPhone | Mac, iPhone |
 | PASTE-03 | Paste an invite link to join a group | Mac, Linux, iPhone | Mac |
 | PASTE-04 | Select all, then typing replaces the whole field | Mac, Linux, iPhone | Mac |
 | PASTE-05 | Copy, then paste, brings the copied words back | Mac, Linux, iPhone | Mac |
