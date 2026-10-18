@@ -972,6 +972,15 @@ struct UndoTests {
         #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo == s.model.undoOffer)
         #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo?.button == "Undo")
     }
+
+    /// Under each entry on a phone: when it was added, and how.
+    @Test func eachRowSaysWhenAndHowItWasAdded() throws {
+        let s = try Household()
+        let summary = try #require(s.model.summary(for: s.groceries))
+        let rows = BudgetScreen(summary: summary, model: s.model, me: s.leslie).rows
+        let row = try #require(rows.first { $0.id == s.hilltop })
+        #expect(row.detailLine == "\(BudgetScreen.shortDate(row.date)) · Manual")
+    }
 }
 
 /// Waits until `condition` holds, without polling or sleeping: it wakes

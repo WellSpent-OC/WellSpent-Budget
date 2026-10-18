@@ -24,6 +24,10 @@ public struct BudgetScreen {
         /// Under the merchant, when this device's last change to it didn't
         /// go through, until the entry is opened.
         public let notice: String?
+
+        /// Under the merchant on a phone: "Oct 10 · Manual". Who added it
+        /// shows on its own, beside the amount.
+        public var detailLine: String { "\(BudgetScreen.shortDate(date)) · \(source)" }
     }
 
     public let summary: BudgetSummary
@@ -77,7 +81,7 @@ public struct BudgetScreen {
     }
 
     /// A short date for the list, as the Mac's table shows it.
-    public static func shortDate(_ date: Date) -> String {
+    nonisolated public static func shortDate(_ date: Date) -> String {
         date.formatted(.dateTime.day().month(.abbreviated))
     }
 
