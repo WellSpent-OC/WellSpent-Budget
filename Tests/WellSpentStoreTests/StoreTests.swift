@@ -308,6 +308,36 @@ struct LocalStoreTests {
         #expect(try store.transaction(plain.id)?.importFingerprint == "LINE-2", "a new line saves as ever")
     }
 
+    /// A line can be left live in a deleted budget, when someone deletes the
+    /// budget before the line reaches them. It shows in no list. So it counts
+    /// as imported no more, and filed again it takes the mark from the old
+    /// row, as a deleted row gives it up.
+    @Test func aLiveLineInADeletedBudgetCountsNoMoreAndGivesUpItsMark() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+        let other = Budget(groupID: group.id, name: "Eating out", limit: Money(minorUnits: 20_000))
+        try store.save(other)
+        let line = Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 10, 2),
+                               merchant: "Trader Joes", amount: Money(minorUnits: -5420),
+                               source: .statement, importFingerprint: "LINE-1")
+        try store.save(line)
+        var gone = budget
+        gone.isDeleted = true
+        try store.save(gone)
+
+        #expect(try store.existingFingerprints(["LINE-1"], in: group.id).isEmpty)
+
+        let again = Transaction(budgetID: other.id, groupID: group.id, date: day(2026, 10, 2),
+                                merchant: "Trader Joes", amount: Money(minorUnits: -5420),
+                                source: .statement, importFingerprint: "LINE-1")
+        try store.saveImported(again)
+
+        #expect(try store.transaction(again.id)?.importFingerprint == "LINE-1")
+        #expect(try store.transaction(line.id)?.importFingerprint == nil)
+        #expect(try store.heldFingerprint(for: line.id) == "LINE-1", "kept to one side, and sent with the row")
+        #expect(try store.existingFingerprints(["LINE-1"], in: group.id) == ["LINE-1"])
+    }
+
     @Test func manualRowsDoNotCollideOnNullFingerprints() throws {
         let store = try makeStore()
         let (group, budget) = try seedHousehold(store)

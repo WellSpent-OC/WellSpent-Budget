@@ -260,11 +260,13 @@ public struct Store: Sendable {
 
     /// Which of these fingerprints have already been imported into this group.
     ///
-    /// A line someone deleted still counts while its budget is there, so
-    /// importing its statement again leaves it deleted. It used to count as
+    /// A line counts while its budget is there, deleted or not, so importing
+    /// its statement again leaves a deleted line deleted. It used to count as
     /// new, and filing it again failed partway, because the database keeps
-    /// one row per mark in a group, deleted rows included. The lines of a
-    /// deleted budget no longer count, so they can be filed in another one.
+    /// one row per mark in a group, deleted rows included. No line of a
+    /// deleted budget counts, deleted or not, so it can be filed in another
+    /// one. A line can be left live in a deleted budget, when the budget was
+    /// deleted before the line reached that person, and no list shows it.
     public func existingFingerprints(_ fingerprints: [String], in group: GroupID) throws -> Set<String> {
         guard !fingerprints.isEmpty else { return [] }
         return try database.read { db in
@@ -275,7 +277,7 @@ public struct Store: Sendable {
                 SELECT t.importFingerprint FROM transactionRecord t
                 JOIN budget b ON b.id = t.budgetId
                 WHERE t.budgetGroupId = ? AND t.importFingerprint IN (\(placeholders))
-                  AND (t.isDeleted = 0 OR b.isDeleted = 0)
+                  AND b.isDeleted = 0
                 """, arguments: StatementArguments(arguments))
             return Set(rows)
         }

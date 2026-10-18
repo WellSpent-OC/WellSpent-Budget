@@ -29,9 +29,10 @@ extension Store {
             if let fingerprint = value.importFingerprint,
                let holder = try transaction(withFingerprint: fingerprint, in: value.groupID),
                holder != value.id {
-                if !value.isDeleted, var held = try transaction(holder), held.isDeleted {
-                    // A deleted row here gives the fingerprint up to a live
-                    // one coming in. Kept by the deleted row instead, the
+                if !value.isDeleted, var held = try transaction(holder), try givesUpImportMark(held) {
+                    // A row here that is deleted, or whose budget is, gives
+                    // the fingerprint up to a live one coming in, as an
+                    // import here does. Kept by the old row instead, the
                     // live one arrived without it, and the next import here
                     // counted the same bank line again.
                     held.importFingerprint = nil

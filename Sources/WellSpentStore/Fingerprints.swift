@@ -16,22 +16,32 @@ public extension Store {
         }
     }
 
-    /// Saves a row imported from a statement. A deleted row holding the
-    /// same mark, such as one whose budget was deleted, gives it up first
-    /// and keeps it to one side to send, as it does for a live row arriving
-    /// from the server. Saved plainly, the two clashed and the import
-    /// stopped partway.
+    /// Saves a row imported from a statement. A row holding the same mark
+    /// that gives it up (`givesUpImportMark`) does so first, and keeps it to
+    /// one side to send, as it does for a live row arriving from the server.
+    /// Saved plainly, the two clashed and the import stopped partway.
     func saveImported(_ transaction: Transaction) throws {
         try inOneTransaction { store in
             if let fingerprint = transaction.importFingerprint,
                let holder = try store.transaction(withFingerprint: fingerprint, in: transaction.groupID),
-               holder != transaction.id, var held = try store.transaction(holder), held.isDeleted {
+               holder != transaction.id, var held = try store.transaction(holder),
+               try store.givesUpImportMark(held) {
                 held.importFingerprint = nil
                 try store.save(held, queue: false)
                 try store.holdFingerprint(fingerprint, for: holder)
             }
             try store.save(transaction)
         }
+    }
+
+    /// Whether a row holding a bank line's mark gives it up to another row
+    /// with the same mark: when the row is deleted, or its budget is. A line
+    /// whose budget was deleted no longer counts as imported, so it can be
+    /// filed again, and the row filed then must hold the mark. Otherwise
+    /// the next import would offer the same line once more.
+    func givesUpImportMark(_ held: Transaction) throws -> Bool {
+        guard !held.isDeleted, let budget = try budget(held.budgetID) else { return true }
+        return budget.isDeleted
     }
 
     /// Keeps a fingerprint this Mac cleared from a pulled transaction, because

@@ -367,4 +367,49 @@ struct EntrySharingTests {
         #expect(try home.leslie.store.transactions(in: home.groceries).map(\.merchant).sorted()
                 == ["Costco", "Hilltop Grocery"])
     }
+
+    /// Leslie files a statement line in Groceries, and Robin deletes
+    /// Groceries before her next sync. The line is left live in a deleted
+    /// budget on both computers, where no list shows it. Imported again, it
+    /// is offered again and files in Eating out with no error. After that it
+    /// counts as imported for both of them.
+    @Test func aLineLeftInADeletedBudgetIsOfferedAgainThenCountsForBoth() async throws {
+        let home = try await Household(leslieAt: .manage)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("wellspent-\(UUID().uuidString).csv")
+        try """
+        Date,Description,Amount
+        10/02/2026,"TRADER JOES #123",-54.20
+        """.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let review = ImportReviewScreen(model: home.leslie.model)
+        home.leslie.model.selectedBudget = home.groceries
+        home.leslie.model.prepareImport(from: url)
+        review.choose(home.groceries, for: 0)
+        review.commit()
+        let first = try #require(try home.leslie.store.transactions(in: home.groceries)
+            .first { $0.note == "TRADER JOES #123" })
+        home.robin.model.deleteBudget(home.groceries)
+        await home.robin.sync.syncAll()
+        await home.syncBoth()
+        for person in [home.leslie, home.robin] {
+            #expect(try person.stored(first.id).isDeleted == false, "left live")
+            #expect(try person.store.budget(home.groceries)?.isDeleted == true, "in a deleted budget")
+        }
+
+        home.leslie.model.selectedBudget = home.eatingOut
+        home.leslie.model.prepareImport(from: url)
+        #expect(review.rows.map(\.status) == ["Needs a budget"])
+        review.choose(home.eatingOut, for: 0)
+        review.commit()
+
+        #expect(home.leslie.model.errorMessage == nil)
+        #expect(try home.leslie.store.transactions(in: home.eatingOut).map(\.note) == ["TRADER JOES #123"])
+        await home.syncBoth()
+        for person in [home.leslie, home.robin] {
+            person.model.selectedBudget = home.eatingOut
+            person.model.prepareImport(from: url)
+            #expect(ImportReviewScreen(model: person.model).rows.map(\.status) == ["Already imported"])
+            person.model.cancelImport()
+        }
+    }
 }
