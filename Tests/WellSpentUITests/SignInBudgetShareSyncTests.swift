@@ -105,15 +105,17 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
                       "the Share sheet did not close")
 
-        // 10. The arrow beside the name hides the group's budgets and shows
-        // them again. Its words say what the next click does. The page stays.
-        let fold = run.element(AccessibilityID.sidebarGroupFold(groupName))
-        run.click(AccessibilityID.sidebarGroupFold(groupName))
-        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.showBudgets, timeout: 10),
-                      "the arrow did not hide the budgets")
-        run.click(AccessibilityID.sidebarGroupFold(groupName))
-        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.hideBudgets, timeout: 10),
-                      "the arrow did not show the budgets again")
+        // 10. The arrow at the end of the group's line hides its budgets and
+        // shows them again. The page stays. Other groups on the account may
+        // have a Groceries too, so the rows are counted.
+        let shown = run.sidebarBudgetCount("Groceries")
+        XCTAssertGreaterThan(shown, 0, "Groceries is not in the sidebar. Sidebar: \(run.sidebarIdentifiers())")
+        run.clickGroupArrow(groupName)
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown - 1, timeout: 10),
+                      "the arrow did not hide the budgets. Sidebar: \(run.sidebarIdentifiers())")
+        run.clickGroupArrow(groupName)
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown, timeout: 10),
+                      "the arrow did not show the budgets again. Sidebar: \(run.sidebarIdentifiers())")
         XCTAssertTrue(run.element(AccessibilityID.groupSummary).exists, "the arrow closed the page")
 
         // 11. A click on a budget opens it in place of the page, and People…

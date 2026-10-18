@@ -17,11 +17,11 @@ public enum AccessibilityID {
 
     // MARK: The sidebar
 
-    /// A group's name. A click opens the group's page, and a right-click
-    /// shows its menu.
+    /// A group's line: its name, and the arrow at the end that hides or shows
+    /// its budgets. The list makes the line one element, so this one name is
+    /// all of it. A click opens the group's page, and a right-click shows its
+    /// menu.
     public static func sidebarGroup(_ name: String) -> String { "sidebar.group.\(name)" }
-    /// The arrow beside a group's name, which hides or shows its budgets.
-    public static func sidebarGroupFold(_ name: String) -> String { "sidebar.groupFold.\(name)" }
     /// A budget's row.
     public static func sidebarBudget(_ name: String) -> String { "sidebar.budget.\(name)" }
     /// Add Budget, with New Group and Join a Group in its menu.
