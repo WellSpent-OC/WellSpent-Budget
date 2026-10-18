@@ -6,8 +6,9 @@ import WellSpentSync
 
 /// The whole round, in the real window: sign in, make a group and a budget,
 /// add two entries, share the group, and see an entry a second person adds
-/// arrive after a sync. The second person has no window: they are a
-/// coordinator inside this process, against the same staging server.
+/// arrive after a sync. Then the group's page, with both people on it. The
+/// second person has no window: they are a coordinator inside this process,
+/// against the same staging server.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestSupport.swift) and
 /// skips without them. Both accounts must exist on staging with their
@@ -85,7 +86,25 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.app.staticTexts["Leslie"].waitForExistence(timeout: 15),
                       "the Added by column does not name her")
 
-        // 9. Tidy: the group goes for everyone, both sessions end.
+        // 9. A click on the group's name opens its page, with both people on
+        // it, and Invite Someone… opens the Share sheet.
+        run.openGroupPage(named: groupName)
+        let summary = MembersScreen.Words.line([MembersScreen.Words.shared, MembersScreen.Words.peopleCount(2),
+                                                MembersScreen.Words.madeByYou])
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: summary, timeout: 15),
+                      "the page's line is not \(summary). On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText(MembersScreen.Words.you("Robin")).waitForExistence(timeout: 15),
+                      "the page does not list this account. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("Leslie").waitForExistence(timeout: 15),
+                      "the page does not list the second person. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.groupInvite)
+        XCTAssertTrue(run.element(AccessibilityID.shareName).waitForExistence(timeout: 10),
+                      "Invite Someone\u{2026} did not open the Share sheet. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.shareCancel)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
+                      "the Share sheet did not close")
+
+        // 10. Tidy: the group goes for everyone, both sessions end.
         run.deleteGroup(named: groupName)
         run.signOut()
         await second.cleanUp()

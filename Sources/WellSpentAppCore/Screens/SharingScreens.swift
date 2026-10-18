@@ -303,7 +303,7 @@ public final class MembersScreen {
                 line.append(Words.madeBy(name))
             }
         }
-        summary = line.joined(separator: " \u{00B7} ")
+        summary = Words.line(line)
     }
 
     /// Whether this person may leave. The founder deletes the group instead.
@@ -420,6 +420,8 @@ public final class MembersScreen {
         public static func peopleCount(_ count: Int) -> String { count == 1 ? "1 person" : "\(count) people" }
         public static let madeByYou = "Made by you"
         public static func madeBy(_ name: String) -> String { "Made by \(name)" }
+        /// The parts together: "Shared · 3 people · Made by you".
+        public static func line(_ parts: [String]) -> String { parts.joined(separator: " \u{00B7} ") }
         public static func removed(_ name: String) -> String { "\(name) was removed." }
     }
 }

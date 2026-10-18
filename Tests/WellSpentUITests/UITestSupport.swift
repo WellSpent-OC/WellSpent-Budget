@@ -496,6 +496,16 @@ final class TestApp {
         XCTAssertTrue(review.waitForExistence(timeout: 15), "the import review did not open. On screen: \(visibleTexts())")
     }
 
+    // MARK: - A group's page
+
+    /// A click on a group's name in the sidebar, which opens the group's
+    /// page. Waits for the line under the page's name.
+    func openGroupPage(named name: String) {
+        click(AccessibilityID.sidebarGroup(name))
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
+                      "\(name)'s page did not open. On screen: \(visibleTexts())")
+    }
+
     /// Join a Group…, from the Add menu: the link pasted, a name, and Join.
     /// Joining takes the group in at once.
     func join(_ link: String, as name: String) {

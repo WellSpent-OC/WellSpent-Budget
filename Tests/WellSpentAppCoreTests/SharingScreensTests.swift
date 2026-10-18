@@ -328,6 +328,7 @@ struct SharingScreensTests {
             MembersScreen.Words.cancel, MembersScreen.Words.people, MembersScreen.Words.shared,
             MembersScreen.Words.notShared, MembersScreen.Words.peopleCount(1), MembersScreen.Words.peopleCount(3),
             MembersScreen.Words.madeByYou, MembersScreen.Words.madeBy("Robin"), MembersScreen.Words.removed("Leslie"),
+            MembersScreen.Words.line([MembersScreen.Words.shared, MembersScreen.Words.peopleCount(3)]),
         ] + AccessLevel.allCases.flatMap { [MembersScreen.Words.levelTitle($0), MembersScreen.Words.levelExplanation($0)] }
         for text in words {
             #expect(!text.contains("Mac"), "\(text)")
