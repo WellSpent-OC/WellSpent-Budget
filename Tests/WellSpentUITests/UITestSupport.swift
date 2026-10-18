@@ -540,6 +540,31 @@ final class TestApp {
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
     }
 
+    /// The arrow at the end of a group's line in the sidebar, which hides or
+    /// shows its budgets. The list makes the whole line one element, so the
+    /// click goes to its right end, where the arrow is.
+    func clickGroupArrow(_ name: String) {
+        let identifier = AccessibilityID.sidebarGroup(name)
+        let line = element(identifier)
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
+        waitUntilHittable(line, identifier)
+        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
+    }
+
+    /// How many budget rows in the sidebar have this name, across every group.
+    func sidebarBudgetCount(_ name: String) -> Int {
+        app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name)).count
+    }
+
+    /// Waits until the sidebar has exactly this many budget rows named `name`.
+    @discardableResult
+    func wait(forBudgetRows name: String, count expected: Int, timeout: TimeInterval) -> Bool {
+        let rows = app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name))
+        let counted = NSPredicate { _, _ in rows.count == expected }
+        let expectation = XCTNSPredicateExpectation(predicate: counted, object: nil)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     /// People… in the group's menu, which opens the same page.
     func openGroupPageFromMenu(named name: String) {
         element(AccessibilityID.sidebarGroup(name)).rightClick()
