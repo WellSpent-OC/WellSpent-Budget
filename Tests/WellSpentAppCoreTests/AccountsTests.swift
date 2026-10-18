@@ -260,6 +260,25 @@ struct AccountsTests {
         #expect(AccountDirectory.testDefaultsSuiteName == "app.wellspent.uitest")
     }
 
+    /// A test folder that does not exist yet is a new run, so its settings
+    /// start afresh. On a phone the test cannot reach the app's settings to
+    /// wipe them, as the Mac's test does. A folder that exists, as on a
+    /// relaunch within the same run, keeps them.
+    @Test func aNewTestFolderStartsWithFreshSettings() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-fresh-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(!AccountDirectory.testing(at: root).samplesSeeded, "a new folder starts afresh")
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(AccountDirectory.testing(at: root).samplesSeeded, "the same run keeps its settings")
+    }
+
     /// The app itself, launched the way main.swift launches it, with the
     /// variable set: its budgets land in the folder and its settings in the
     /// test suite, with nothing asked of the keychain.
