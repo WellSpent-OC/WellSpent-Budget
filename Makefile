@@ -21,7 +21,7 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
 endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
-        ui-test-project ui-test-build ui-test testflight testflight-upload
+        ui-test-project ui-test-build ui-test iphone-project iphone-build testflight testflight-upload
 
 build:
 	swift build
@@ -147,6 +147,24 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult
+
+# The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
+# Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
+# generates is ignored. Everything xcodebuild writes stays under .build/, and
+# the app lands in .build/xcode-iphone/Build/Products/Debug-iphonesimulator.
+IPHONE_PROJECT := iOS/WellSpentPhone.xcodeproj
+IPHONE_XCODEBUILD := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild \
+	-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination 'generic/platform=iOS Simulator' \
+	-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages
+
+# Generates the Xcode project from iOS/project.yml.
+iphone-project:
+	@command -v xcodegen >/dev/null || { echo "xcodegen is not installed. brew install xcodegen"; exit 1; }
+	xcodegen generate --spec iOS/project.yml --quiet
+
+# Builds the iPhone app for the simulator. Nothing runs and no window opens.
+iphone-build: iphone-project
+	$(IPHONE_XCODEBUILD) build
 
 # The TestFlight build: WellSpent.app sandboxed and signed for the Mac App Store,
 # inside a signed installer package, checked by App Store Connect. It never
