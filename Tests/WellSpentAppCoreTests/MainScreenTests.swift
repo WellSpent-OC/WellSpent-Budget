@@ -154,7 +154,8 @@ struct MainScreenTests {
         #expect(pending.isLeave)
         #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
         #expect(pending.confirmLabel == "Leave")
-        #expect(pending.message == SyncWording.leaveGroupMessage)
+        #expect(pending.message.hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget. Other members keep it."))
 
         // The dialog may clear its question before its button runs.
         leslie.screen.keepIt()
@@ -166,6 +167,93 @@ struct MainScreenTests {
         await robin.sync.syncAll()
         #expect(robin.sync.members(of: id).count == 1, "Leslie left on the server too")
         #expect(robin.model.groups.map(\.id) == [id], "Robin keeps the group")
+    }
+
+    /// A delete that takes entries asks first and says how many. Every
+    /// budget counts, and every period, not only this one. Cancel keeps all
+    /// of it.
+    @Test func deletingAGroupNamesItAndHowManyTransactionsGoAndCancelKeepsThem() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        let group = try #require(device.model.group(named: id))
+
+        device.screen.ask(.deleteGroup(group))
+        let pending = try #require(device.screen.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(device.screen.message(for: pending)
+                == "Its 2 budgets and 3 transactions will be deleted too. This cannot be undone.")
+
+        device.screen.keepIt()
+        #expect(device.screen.pendingDelete == nil)
+        #expect(device.model.groups.map(\.id) == [id])
+        #expect(try device.model.store.transactions(in: groceries).count == 2)
+        #expect(try device.model.store.transactions(in: eatingOut).count == 1)
+    }
+
+    /// Robin made Household and shares it, so his delete reaches Leslie too.
+    @Test func theOwnerOfASharedGroupIsToldHowManyTransactionsGoForEveryone() async throws {
+        let (robin, _, id) = try await household(leslieAt: .add)
+        robin.model.selectedBudget = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        robin.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: Date(), note: "")
+        let group = try #require(robin.model.group(named: id))
+
+        robin.screen.ask(.deleteGroup(group))
+        let pending = try #require(robin.screen.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(robin.screen.message(for: pending) == "Everyone you share it with loses it too. "
+                + "Its 1 budget and 2 transactions will be deleted too. This cannot be undone.")
+    }
+
+    /// Leslie, at Add, may not delete Robin's group for everyone, so Delete is
+    /// a leave. The question still says how many go from her devices.
+    @Test func leavingSaysHowManyTransactionsGoFromYourDevices() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .add)
+        let groceries = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.selectedBudget = groceries
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        await robin.sync.syncAll()
+        await leslie.sync.syncAll()
+        leslie.model.selectedBudget = groceries
+        leslie.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: Date(), note: "")
+        let group = try #require(leslie.model.group(named: id))
+
+        leslie.screen.ask(.deleteGroup(group))
+        let pending = try #require(leslie.screen.pendingDelete)
+        #expect(pending.isLeave)
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(leslie.screen.message(for: pending).hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget and 2 transactions. "
+            + "Other members keep it."))
+    }
+
+    /// What a group's delete counts: live transactions in every budget and
+    /// every period, and none from another group.
+    @Test func aGroupCountsItsTransactionsInEveryBudgetAndPeriod() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id)
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id)
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        let gone = try #require(device.model.transactions.first)
+        device.model.deleteEntry(gone.id)
+        device.model.addTransaction(merchant: "Riverside Grill", amount: .dollars(30), date: Date(), note: "")
+        let other = try #require(device.model.addGroup(named: "Side Business"))
+        device.model.addBudget(named: "Materials", limit: .dollars(900), in: other)
+        device.model.addTransaction(merchant: "Lumber", amount: .dollars(300), date: Date(), note: "")
+
+        #expect(device.model.transactionCount(inGroup: id) == 3, "the deleted one does not count")
+        #expect(device.model.transactionCount(inGroup: other) == 1)
+        #expect(device.model.transactionCount(inGroup: GroupID()) == 0)
     }
 
     @Test func deletingABudgetSaysWhatGoesWithIt() async throws {
@@ -331,5 +419,67 @@ struct MainScreenTests {
         await device.screen.syncNow()
         #expect(device.screen.syncFailure == nil)
         #expect(!device.screen.isBusy && !device.screen.syncShowsProgress)
+    }
+}
+
+/// The question a group's delete asks first, in the shared words: it names
+/// the group and says how many budgets and transactions go with it, at each
+/// reach. A group's delete is final on the server, so it never offers Undo
+/// and always says it cannot be undone.
+@Suite("The group delete question")
+struct GroupDeleteQuestionTests {
+    private let household = BudgetGroup(name: "Household")
+
+    /// Nobody else is in the group.
+    @Test func nobodyElseInItIsToldHowManyTransactionsAreDeleted() {
+        let pending = PendingDelete.group(household, budgets: 2, transactions: 14, reach: .justYou)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(pending.message == "Its 2 budgets and 14 transactions will be deleted too. This cannot be undone.")
+        #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
+    }
+
+    /// Shared, and this person may delete it for every member.
+    @Test func everyoneItIsSharedWithLosesItAndIsToldHowMany() {
+        let pending = PendingDelete.group(household, budgets: 2, transactions: 14, reach: .everyone)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(pending.message == "Everyone you share it with loses it too. "
+                + "Its 2 budgets and 14 transactions will be deleted too. This cannot be undone.")
+        #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
+    }
+
+    /// Shared, and only its founder or an admin may delete it for everyone:
+    /// this person leaves it. It goes from their devices, and the others keep
+    /// it, so nothing is said to be deleted.
+    @Test func aLeaveSaysHowManyGoFromYourDevicesAndTheOthersKeepThem() {
+        let pending = PendingDelete.group(household, budgets: 1, transactions: 1, reach: .thisMacOnly)
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(pending.confirmLabel == "Leave" && pending.isLeave)
+        #expect(pending.message(sendsChanges: true)
+                == "You leave the group, and it is removed from all your devices, with its 1 budget and "
+                + "1 transaction. Other members keep it. Anything you changed in it on this device that has "
+                + "not synced yet still goes to them first. Changes on your other devices that have not synced "
+                + "yet do not reach them. Only the person who made it, or an admin, can delete it for everyone. "
+                + "To come back, ask for a new invite link.")
+        #expect(pending.message(sendsChanges: false)
+                == "You leave the group, and it is removed from all your devices, with its 1 budget and "
+                + "1 transaction. Other members keep it. Only the person who made it, or an admin, can delete "
+                + "it for everyone. To come back, ask for a new invite link.")
+        #expect(!pending.message.contains("deleted"))
+    }
+
+    /// One is said as one, and a count of none is left out.
+    @Test func oneIsSaidAsOneAndNoneIsLeftOut() {
+        func words(_ budgets: Int, _ transactions: Int, _ reach: GroupDeleteReach = .justYou) -> String {
+            PendingDelete.group(household, budgets: budgets, transactions: transactions, reach: reach).message
+        }
+        #expect(words(1, 1) == "Its 1 budget and 1 transaction will be deleted too. This cannot be undone.")
+        #expect(words(3, 0) == "Its 3 budgets will be deleted too. This cannot be undone.")
+        #expect(words(0, 0) == "This cannot be undone.")
+        #expect(words(0, 0, .thisMacOnly)
+                == "You leave the group, and it is removed from all your devices. Other members keep it. "
+                + "Anything you changed in it on this device that has not synced yet still goes to them first. "
+                + "Changes on your other devices that have not synced yet do not reach them. Only the person "
+                + "who made it, or an admin, can delete it for everyone. To come back, ask for a new invite link.",
+                "today's words, with nothing to count")
     }
 }

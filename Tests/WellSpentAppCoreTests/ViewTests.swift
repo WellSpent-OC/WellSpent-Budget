@@ -141,8 +141,8 @@ struct ViewTests {
                     .contains("Everyone you share it with loses it too"))
         // A member who may not delete it for everyone leaves it.
         let mine = PendingDelete.group(household, budgets: 2, reach: .thisMacOnly).message
-        #expect(mine == SyncWording.leaveGroupMessage)
-        #expect(mine.contains("You leave the group"))
+        #expect(mine.hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 2 budgets. Other members keep it."))
         #expect(mine.contains("Other members keep it"))
         #expect(mine.contains("new invite link"))
         #expect(mine.contains("on this device that has not synced yet still goes to them first"),

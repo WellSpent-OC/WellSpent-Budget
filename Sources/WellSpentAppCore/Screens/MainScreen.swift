@@ -206,6 +206,7 @@ public final class MainScreen {
             pendingDelete = .budget(budget, transactions: model.transactionCount(inBudget: budget.id))
         case .deleteGroup(let group):
             pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
+                                   transactions: model.transactionCount(inGroup: group.id),
                                    reach: sync.deleteReach(of: group.id))
         default:
             break
@@ -232,7 +233,7 @@ public final class MainScreen {
     /// What the question says. A leave by someone at View promises nothing
     /// about changes, since they can send none.
     public func message(for pending: PendingDelete) -> String {
-        guard case .group(let group, _, _) = pending else { return pending.message }
+        guard case .group(let group, _, _, _) = pending else { return pending.message }
         return pending.message(sendsChanges: sync.mayAddEntries(in: group.id))
     }
 

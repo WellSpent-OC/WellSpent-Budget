@@ -70,7 +70,9 @@ struct ViewOnlyTests {
         let main = MainScreen(workspace: leslie.workspace)
         let group = try #require(leslie.model.groups.first)
         #expect(main.message(for: .group(group, budgets: 1, reach: .thisMacOnly))
-                == SyncWording.leaveGroupMessage(sendsChanges: false))
+                == "You leave the group, and it is removed from all your devices, with its 1 budget. "
+                + "Other members keep it. Only the person who made it, or an admin, can delete it for everyone. "
+                + "To come back, ask for a new invite link.")
 
         // The owner still adds, and a member at Add is still told changes go first.
         #expect(robin.sync.mayAddEntries(in: household))
