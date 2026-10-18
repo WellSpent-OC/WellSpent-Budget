@@ -44,8 +44,12 @@ every app. These practices keep it that way.
   small protocol it adopts. Inherit only where it is decided, such as where a
   framework requires a subclass, and say why in the code.
 - **Rules live in the shared code, and screens only draw.** What a screen shows and
-  what its words say are decided in `Sources/WellSpentAppCore/Screens/`, with a unit
-  test, so every app behaves the same. A view decides nothing.
+  what its words say are decided in the shared code (today
+  `Sources/WellSpentAppCore/Screens/`), with a unit test, so every app behaves the
+  same. A view decides nothing.
+- **The server has the last word.** Where the server and the apps both apply a
+  rule, such as who may change an entry, the server decides, and the apps' copy is
+  tested against the in-memory server so the two cannot drift.
 - **Each platform's screens are built that platform's way.** The apps share rules
   and words, not layouts. A view is shared between platforms only where it is
   already right on each of them.
