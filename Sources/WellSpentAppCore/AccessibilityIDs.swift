@@ -133,6 +133,17 @@ public enum AccessibilityID {
     /// The quiet line at the top after a removal.
     public static let groupRemoved = "group.removed"
 
+    // MARK: The invitation page
+
+    /// Your name, on the page a clicked invite link opens.
+    public static let invitationName = "invitation.name"
+    public static let invitationJoin = "invitation.join"
+    /// Sign in…, in place of Join while signed out.
+    public static let invitationSignIn = "invitation.signIn"
+    /// Confirm your email…, in place of Join while the address is not
+    /// confirmed yet.
+    public static let invitationConfirmEmail = "invitation.confirmEmail"
+
     // MARK: Sharing
 
     public static let shareName = "share.name"

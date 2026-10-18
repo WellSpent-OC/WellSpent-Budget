@@ -11,8 +11,9 @@ import WellSpentModel
 import WellSpentStore
 import WellSpentSync
 
-/// One person's side of a shared group: signed up and confirmed on a shared
-/// in-memory server, with budgets and a window of their own.
+/// One person's side of a shared group: on a shared in-memory server, with
+/// budgets and a window of their own. Signed up and confirmed unless asked
+/// otherwise.
 @MainActor
 private struct Side {
     let sync: SyncCoordinator
@@ -20,15 +21,19 @@ private struct Side {
     let main: MainScreen
     var model: AppModel { workspace.model }
 
-    init(_ email: String, on server: InMemoryReadableServer) async throws {
+    init(_ email: String, on server: InMemoryReadableServer, signedIn: Bool = true,
+         confirmed: Bool = true) async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let transport = StubReadableTransport(server: server)
         sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
                                makeTransport: { _ in transport })
         workspace = Workspace(model: AppModel(store: store), sync: sync)
         main = MainScreen(workspace: workspace)
+        guard signedIn else { return }
         try await sync.signUp(email: email, password: "a-long-password")
-        try await sync.verifyEmail(code: try #require(server.lastCode(for: email, purpose: .verify)))
+        if confirmed {
+            try await sync.verifyEmail(code: try #require(server.lastCode(for: email, purpose: .verify)))
+        }
     }
 }
 
@@ -228,6 +233,108 @@ struct SheetTests {
         #expect(shown.contains("Leslie was removed."), "got \(shown)")
         #expect(!shown.contains("Leslie"))
         #expect(shown.contains("Not shared \u{00B7} 1 person \u{00B7} Made by you"))
+    }
+
+    // MARK: - The invitation page
+
+    /// Robin's Household on `server`, and the link he made for it at Add.
+    private func robinsLink(on server: InMemoryReadableServer) async throws -> URL {
+        let robin = try await Side("robin@example.com", on: server)
+        let group = try #require(robin.model.addGroup(named: "Household"))
+        let share = ShareScreen(actions: robin.sync, group: group, groupName: "Household")
+        share.myName = "Robin"
+        #expect(await share.create())
+        let link = try #require(share.link)
+        return try #require(URL(string: link.url))
+    }
+
+    /// The page for `side`, with the link opened on it.
+    private func page(for side: Side, opening url: URL,
+                      showingAccount: Binding<Bool> = .constant(false)) async throws -> InvitationPage {
+        await side.workspace.open(url)
+        return InvitationPage(sync: side.sync, screen: try #require(side.main.invitation), main: side.main,
+                              showingAccount: showingAccount)
+    }
+
+    /// Who invited them and to what, the level and what it lets them do,
+    /// how much they would see, Your name, and Join, which waits for a name.
+    /// The link itself is not shown, and there is no Decline.
+    @Test func theInvitationPageSaysWhoWhatAndHowMuchWithJoin() async throws {
+        let server = InMemoryReadableServer()
+        let url = try await robinsLink(on: server)
+        let leslie = try await Side("leslie@example.com", on: server)
+        let page = try await page(for: leslie, opening: url)
+
+        let shown = try texts(page)
+        for word in ["Robin invited you to \u{201C}Household\u{201D}.", "You'd join at Add.", InviteRole.add.explanation,
+                     "You'd see everything so far.", "Your name"] {
+            #expect(shown.contains(word), "missing \(word) in \(shown)")
+        }
+        #expect(!shown.contains { $0.contains(url.absoluteString) }, "the link itself is not shown")
+        #expect(try page.inspect().find(button: "Join").isDisabled(), "a name is needed first")
+        #expect((try? page.inspect().find(button: "Decline")) == nil)
+        #expect((try? page.inspect().find(button: "Sign in\u{2026}")) == nil)
+    }
+
+    /// Signed out, the notice and Sign in… stand in place of Join, and Sign
+    /// in… opens the account sheet. What the invite offers still shows.
+    @Test func signedOutTheInvitationPageOffersSignInInPlaceOfJoin() async throws {
+        let server = InMemoryReadableServer()
+        let url = try await robinsLink(on: server)
+        let leslie = try await Side("leslie@example.com", on: server, signedIn: false)
+        var account = false
+        let page = try await page(for: leslie, opening: url,
+                                  showingAccount: Binding(get: { account }, set: { account = $0 }))
+
+        let shown = try texts(page)
+        #expect(shown.contains("Sign in first, or create an account. Joining adds the group to your account."),
+                "got \(shown)")
+        #expect(shown.contains("You'd join at Add."))
+        #expect((try? page.inspect().find(button: "Join")) == nil, "the notice stands in its place")
+        try page.inspect().find(button: "Sign in\u{2026}").tap()
+        #expect(account, "Sign in\u{2026} opens the account sheet")
+    }
+
+    /// Not confirmed yet, the notice and Confirm your email… stand in place
+    /// of Join, and the button opens the account sheet.
+    @Test func unconfirmedTheInvitationPageOffersConfirmingInPlaceOfJoin() async throws {
+        let server = InMemoryReadableServer()
+        let url = try await robinsLink(on: server)
+        let leslie = try await Side("leslie@example.com", on: server, confirmed: false)
+        var account = false
+        let page = try await page(for: leslie, opening: url,
+                                  showingAccount: Binding(get: { account }, set: { account = $0 }))
+
+        let shown = try texts(page)
+        #expect(shown.contains("Confirm your email first. Joining a shared group needs it."), "got \(shown)")
+        #expect((try? page.inspect().find(button: "Join")) == nil, "the notice stands in its place")
+        try page.inspect().find(button: "Confirm your email\u{2026}").tap()
+        #expect(account, "Confirm your email\u{2026} opens the account sheet")
+    }
+
+    /// A link with part of it missing: the page says so, with no name to
+    /// type and no Join.
+    @Test func aLinkWithPartOfItMissingPutsUpAPageThatSaysSo() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await Side("leslie@example.com", on: server)
+        let page = try await page(for: leslie, opening: try #require(URL(string: "wellspent://join#s=AbCd")))
+
+        let shown = try texts(page)
+        #expect(shown.contains("Join a Group"), "got \(shown)")
+        #expect(shown.contains("Part of that invite link is missing. Ask the person who sent it to send it again."))
+        #expect(!shown.contains("Your name"))
+        #expect((try? page.inspect().find(button: "Join")) == nil)
+    }
+
+    /// The window shows the page on the right once a link is opened.
+    @Test func theWindowShowsAnOpenedLinksInvitation() async throws {
+        let server = InMemoryReadableServer()
+        let url = try await robinsLink(on: server)
+        let leslie = try await Side("leslie@example.com", on: server)
+        await leslie.workspace.open(url)
+
+        let shown = try texts(RootView(workspace: leslie.workspace))
+        #expect(shown.contains("Robin invited you to \u{201C}Household\u{201D}."), "got \(shown)")
     }
 
     @Test func theInviteProblemsAreWords() {

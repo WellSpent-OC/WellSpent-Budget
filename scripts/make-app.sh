@@ -116,7 +116,10 @@ fi
 
 # WellSpentEnvironment is what the app reads to decide which build it is. Anything
 # but "live" there, or no key at all, makes it staging. App Store Connect refuses
-# an upload without LSApplicationCategoryType.
+# an upload without LSApplicationCategoryType. CFBundleURLTypes has macOS open the
+# app for a click on a wellspent:// invite link, which puts up the invitation page.
+# The scheme must be InviteLink.scheme. Both signings use this one file, which a
+# test checks.
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -133,6 +136,14 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>$BUILD</string>
     <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>$BUNDLE_ID.invite</string>
+            <key>CFBundleURLSchemes</key><array><string>wellspent</string></array>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+        </dict>
+    </array>
     <key>LSApplicationCategoryType</key><string>public.app-category.finance</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>

@@ -159,6 +159,35 @@ struct AppEnvironmentTests {
         #expect(script.contains("{ApplicationSupport}/\(AppEnvironment.live.dataFolderName)</string>"))
     }
 
+    /// macOS opens the app for a click on a wellspent:// invite link only if
+    /// its Info.plist says it takes them. The script writes one Info.plist
+    /// for both signings, ad hoc and App Store, so it is read here as the
+    /// script writes it. The UI test's host app says the same, so the test
+    /// can open a link with it.
+    @Test func theAppTakesInviteLinks() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("scripts/make-app.sh"), encoding: .utf8)
+        let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
+        let end = try #require(script.range(of: "\nEOF\n", range: start.upperBound..<script.endIndex))
+        var plist = String(script[start.upperBound..<end.lowerBound])
+        for (name, value) in ["$NAME": "WellSpent", "$BUNDLE_ID": "app.wellspent.mac", "$VERSION": "0.1.0",
+                              "$BUILD": "1", "$WELLSPENT_ENV": "live"] {
+            plist = plist.replacingOccurrences(of: name, with: value)
+        }
+        let info = try #require(try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil)
+                                    as? [String: Any])
+        let types = try #require(info["CFBundleURLTypes"] as? [[String: Any]], "no link types in \(info.keys)")
+        #expect(types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] } == [InviteLink.scheme])
+        let appStoreOnly = try #require(script.range(of: "if [ \"$SIGN\" = appstore ]; then\n    plist="))
+        #expect(appStoreOnly.lowerBound > end.upperBound, "the Info.plist is written before the signings part ways")
+
+        let host = try String(contentsOf: root.appendingPathComponent("Xcode/project.yml"), encoding: .utf8)
+        let lines = host.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        let schemes = try #require(lines.firstIndex(of: "CFBundleURLSchemes:"), "the UI test host takes no links")
+        #expect(lines[schemes + 1] == "- \(InviteLink.scheme)")
+    }
+
     // MARK: - Refusals
 
     @Test func eachBuildRefusesTheOtherServerByAddress() throws {

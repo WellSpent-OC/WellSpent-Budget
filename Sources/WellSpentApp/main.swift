@@ -17,6 +17,9 @@ import WellSpentStore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     var workspace: Workspace?
+    /// A link that came before the workspace was made. A click on an invite
+    /// link that starts the app arrives before applicationDidFinishLaunching.
+    private var waitingLink: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let workspace: Workspace
@@ -52,6 +55,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.activate(ignoringOtherApps: true)
+
+        if let link = waitingLink {
+            waitingLink = nil
+            open(link, in: workspace)
+        }
+    }
+
+    /// A click on a wellspent:// link. macOS hands it here, through the link
+    /// type in the Info.plist, whether the click started the app or it was
+    /// running already. What the link shows is the shared logic's
+    /// (`Workspace.open`). Only the last of several links counts.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let link = urls.last else { return }
+        guard let workspace else {
+            waitingLink = link
+            return
+        }
+        open(link, in: workspace)
+    }
+
+    /// Puts up the link's page, with the window to the front, so a click
+    /// with the window in the Dock still shows it.
+    @MainActor
+    private func open(_ link: URL, in workspace: Workspace) {
+        if let window {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        }
+        Task { await workspace.open(link) }
     }
 
     /// Also runs once at launch, so this is the launch sync too.

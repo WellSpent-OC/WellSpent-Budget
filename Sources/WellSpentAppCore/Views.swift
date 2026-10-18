@@ -58,7 +58,11 @@ struct RootView: View {
             SidebarView(screen: screen, editor: $editor, showingAccount: $showingAccount)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
-            if let group = screen.openGroup {
+            if let invitation = screen.invitation {
+                InvitationPage(sync: sync, screen: invitation, main: screen, showingAccount: $showingAccount)
+                    // A page of its own for each link opened.
+                    .id(ObjectIdentifier(invitation))
+            } else if let group = screen.openGroup {
                 GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
                           invite: { editor = .share(group) })
                     // A page of its own for each group, and again after a

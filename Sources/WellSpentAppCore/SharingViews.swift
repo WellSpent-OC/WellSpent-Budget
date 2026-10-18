@@ -196,6 +196,121 @@ struct JoinSheet: View {
     }
 }
 
+// MARK: - The invitation page
+
+/// Draws the page a clicked invite link opens (JoinScreen, from
+/// `Workspace.open(_:)`), on the right where a budget opens. Who invited
+/// them and to what, the level and what it lets them do, how much they
+/// would see, Your name, and Join. Signed out or not confirmed yet, the
+/// notice and its button stand in place of Join. No Decline: a link has no
+/// invite to decline. Layout only.
+struct InvitationPage: View {
+    @Bindable var sync: SyncCoordinator
+    @Bindable var screen: JoinScreen
+    /// The window's rules. Join goes through them, so the group's page
+    /// opens once in.
+    let main: MainScreen
+    @Binding var showingAccount: Bool
+    private typealias Words = JoinScreen.Words
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let invitation = screen.invitation {
+                    offer(invitation)
+                    answer
+                } else {
+                    Text(screen.title)
+                        .font(.system(size: 22, weight: .semibold))
+                    if let problem = screen.linkProblem {
+                        note(problem, warning: true)
+                    }
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Palette.surface)
+        .toolbar {
+            ToolbarItemGroup {
+                if main.showsSync {
+                    SyncButton(sync: sync, showingAccount: $showingAccount)
+                }
+                AccountButton(sync: sync, showingAccount: $showingAccount)
+            }
+        }
+        .navigationTitle(screen.title)
+    }
+
+    /// Who invited them and to what, then what the server says it offers,
+    /// once it has said.
+    private func offer(_ invitation: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(invitation)
+                .font(.system(size: 22, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            if let line = screen.levelLine {
+                Text(marking(screen.levelTitle, in: line))
+                    .font(.system(size: 13))
+            }
+            if let explanation = screen.levelExplanation {
+                Text(explanation)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let history = screen.historyLine {
+                Text(history)
+                    .font(.system(size: 13))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Your name, then Join, or what stands in its way and the button that
+    /// deals with it.
+    private var answer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text(Words.name)
+                    .font(.system(size: 13))
+                TextField(Words.name, text: $screen.myName, prompt: Text(Words.namePrompt))
+                    .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .frame(maxWidth: 260)
+                    .accessibilityIdentifier(AccessibilityID.invitationName)
+            }
+            if let notice = screen.notice {
+                note(notice, warning: true)
+                if screen.offersSignIn {
+                    Button(Words.signIn) { showingAccount = true }
+                        .accessibilityIdentifier(AccessibilityID.invitationSignIn)
+                } else if screen.offersEmailConfirmation {
+                    Button(Words.confirmEmail) { showingAccount = true }
+                        .accessibilityIdentifier(AccessibilityID.invitationConfirmEmail)
+                }
+            } else {
+                Button(screen.joinLabel) { Task { await main.joinInvitation() } }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!screen.canJoin)
+                    .accessibilityIdentifier(AccessibilityID.invitationJoin)
+            }
+            if let failure = screen.failure, failure != screen.notice {
+                note(failure, warning: true)
+            }
+        }
+    }
+
+    /// The line with the level's name in bold, so it stands out.
+    private func marking(_ level: String?, in line: String) -> AttributedString {
+        var text = AttributedString(line)
+        if let level, let range = text.range(of: level) {
+            text[range].font = .system(size: 13, weight: .semibold)
+        }
+        return text
+    }
+}
+
 // MARK: - A group's page
 
 /// Draws a group's page, on the right where a budget opens: its name, the
