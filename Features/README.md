@@ -50,9 +50,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 132 | 43 |
-| Linux | 125 | 0 |
-| iPhone | 123 | 0 |
+| Mac | 134 | 43 |
+| Linux | 127 | 0 |
+| iPhone | 125 | 0 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -235,3 +235,5 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | PASTE-06 | Cut takes the words out, and paste puts them back | Mac, Linux, iPhone | None yet |
 | PASTE-07 | Undo takes back a paste | Mac | Mac |
 | PASTE-08 | The Edit menu holds the editing commands | Mac | None yet |
+| PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | None yet |
+| PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | None yet |

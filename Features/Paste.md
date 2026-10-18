@@ -60,3 +60,19 @@ Platforms: Mac
 - And their keys are Command-Z, Shift-Command-Z, Command-X, Command-C, Command-V and Command-A
 - When the cursor is in a field and he picks Paste from the Edit menu
 - Then the copied text goes into that field
+
+## PASTE-09 Every field on the account sheet takes a paste, the emailed code too
+
+- Given Robin is not signed in
+- When he pastes into "Email", "Password" and "Server" on "Sign in"
+- And he pastes into "Email", "Password" and the password again on "Create account"
+- And he asks for a reset code, then pastes the code as the email shows it, with its dash, and a new password twice
+- Then each field that shows its words holds what he pasted
+- And each step's main button turns on once its fields are pasted: "Sign in", "Create account" and "Set password"
+
+## PASTE-10 The fields for making a group or a budget, and for joining, take a paste
+
+- Given Robin is not signed in, with the sample groups
+- When he pastes into a new group's name, and a new budget's name and amount, such as $1,250.00
+- And he pastes an invite link and his name into "Join a Group…"
+- Then each field holds what he pasted
