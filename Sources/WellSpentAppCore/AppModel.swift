@@ -106,6 +106,11 @@ public final class AppModel {
                 loaded[group.id] = try store.summaries(in: group.id)
             }
             summaries = loaded
+            // A budget deleted on another device closes here, as one
+            // deleted on this device does.
+            if let open = selectedBudget, !loaded.values.contains(where: { $0.contains { $0.budget.id == open } }) {
+                selectedBudget = nil
+            }
             if selectedBudget == nil, opensFirstBudget {
                 selectedBudget = loaded.values.flatMap(\.self).first?.budget.id
             }
