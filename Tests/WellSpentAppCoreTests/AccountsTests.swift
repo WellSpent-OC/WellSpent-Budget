@@ -259,6 +259,47 @@ struct AccountsTests {
         #expect(suite.bool(forKey: AccountDirectory.samplesSeededKey), "its settings are the test suite's")
         #expect(app.sync.serverAddress == AppEnvironment.staging.defaultServerAddress)
     }
+
+    // MARK: - A longer Undo bar, for a UI test
+
+    /// A UI test deletes an entry and then clicks Undo, which a slow runner
+    /// may not reach in 10 seconds. Only a staging build takes a longer
+    /// window, in whole seconds above zero. Anything else keeps 10 seconds.
+    @Test func onlyAStagingBuildReadsTheUndoWindow() {
+        let set = [Workspace.undoWindowVariable: "120"]
+        #expect(Workspace.undoWindow(for: .staging, in: set) == .seconds(120))
+        #expect(Workspace.undoWindow(for: .live, in: set) == .seconds(10), "no variable changes the live app")
+        for bad in ["", "soon", "0", "-5", "2.5"] {
+            #expect(Workspace.undoWindow(for: .staging, in: [Workspace.undoWindowVariable: bad]) == .seconds(10),
+                    "\(bad)")
+        }
+        #expect(Workspace.undoWindow(for: .staging, in: [:]) == .seconds(10))
+        // The UI test sets it by this name.
+        #expect(Workspace.undoWindowVariable == "WELLSPENT_UNDO_SECONDS")
+    }
+
+    /// Launched the way main.swift launches it, with both variables set, the
+    /// bar keeps the longer window, and keeps it once an account signs in
+    /// and its budgets take over the window.
+    @Test func aStagingLaunchKeepsTheLongerUndoWindowThroughASignIn() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        let app = try Workspace.launch(processEnvironment: [AccountDirectory.dataRootVariable: root.path,
+                                                            Workspace.undoWindowVariable: "120"])
+        #expect(app.model.undoWindow == .seconds(120))
+
+        let mac = Mac()
+        let signingIn = try Workspace.launch(accounts: mac.accounts, defaults: mac.defaults,
+                                             makeTransport: { [transport = mac.transport] _ in transport },
+                                             undoWindow: .seconds(120))
+        try await signingIn.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(signingIn.model.undoWindow == .seconds(120), "the signed-in account's budgets keep it")
+    }
 }
 
 /// The sample budgets are something to look at before signing in. Nobody's

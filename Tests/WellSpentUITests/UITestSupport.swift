@@ -6,6 +6,7 @@ import AppKit
 import Foundation
 import XCTest
 import WellSpentAppCore
+import WellSpentCrypto
 import WellSpentKeyStore
 import WellSpentModel
 import WellSpentStore
@@ -294,6 +295,205 @@ final class TestApp {
         button.click()
     }
 
+    // MARK: - Budgets and their entries
+
+    /// A budget's row in the sidebar: by identifier, or by its name in the
+    /// sidebar's list when the identifier does not surface.
+    func sidebarBudget(_ name: String) -> XCUIElement {
+        let identified = element(AccessibilityID.sidebarBudget(name))
+        if identified.waitForExistence(timeout: 5) { return identified }
+        return app.outlines.staticTexts[name].firstMatch
+    }
+
+    /// Opens a budget from the sidebar.
+    func openBudget(named name: String) {
+        let row = sidebarBudget(name)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
+        waitUntilHittable(row, name)
+        row.click()
+    }
+
+    /// Delete… from a budget's menu in the sidebar, confirmed.
+    func deleteBudget(named name: String) {
+        let row = sidebarBudget(name)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
+        row.rightClick()
+        clickMenuItem(MainScreen.Words.delete)
+        let label = PendingDelete.budget(Budget(groupID: GroupID(), name: name, limit: .zero()),
+                                         transactions: 0).confirmLabel
+        guard let confirm = dialogButton(label) else {
+            XCTFail("no \(label) button on the question. On screen: \(visibleTexts())")
+            return
+        }
+        confirm.click()
+        XCTAssertTrue(wait(for: row, until: "exists == false", timeout: 10), "\(name) is still in the sidebar")
+    }
+
+    /// An entry's row in the budget's list: the cell with its merchant, by
+    /// identifier, or by the merchant's words in the table when the
+    /// identifier does not surface.
+    func entryRow(_ merchant: String) -> XCUIElement {
+        let identified = element(AccessibilityID.entryRow(merchant))
+        if identified.waitForExistence(timeout: 10) { return identified }
+        return app.tables.staticTexts[merchant].firstMatch
+    }
+
+    /// Clicks an entry's row once, which opens it.
+    func clickRow(_ merchant: String) {
+        let row = entryRow(merchant)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no row for \(merchant). On screen: \(visibleTexts())")
+        waitUntilHittable(row, merchant)
+        row.click()
+    }
+
+    /// Whether the list shows no row for this merchant, waiting for it to go.
+    func rowIsGone(_ merchant: String, timeout: TimeInterval = 10) -> Bool {
+        wait(for: element(AccessibilityID.entryRow(merchant)), until: "exists == false", timeout: timeout)
+            && wait(for: app.tables.staticTexts[merchant].firstMatch, until: "exists == false", timeout: timeout)
+    }
+
+    /// Waits for an entry's sheet, and checks it is the one asked for.
+    func expectSheet(for merchant: String, file: StaticString = #filePath, line: UInt = #line) {
+        let field = element(AccessibilityID.entryMerchant)
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no sheet opened. On screen: \(visibleTexts())",
+                      file: file, line: line)
+        XCTAssertTrue(wait(for: field, holds: merchant, timeout: 5), "the sheet is not \(merchant)'s: \(text(of: field))",
+                      file: file, line: line)
+    }
+
+    /// Waits for the entry's sheet to close.
+    func expectNoSheet(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(wait(for: element(AccessibilityID.entryCancel), until: "exists == false", timeout: 10),
+                      "the sheet is still open", file: file, line: line)
+        XCTAssertTrue(wait(for: element(AccessibilityID.entryDone), until: "exists == false", timeout: 10),
+                      "the sheet is still open", file: file, line: line)
+    }
+
+    /// Picks an item in a pop-up list, such as the sheet's Budget list.
+    func choose(_ title: String, in identifier: String) {
+        let found = element(identifier)
+        XCTAssertTrue(found.waitForExistence(timeout: 10), "no list called \(identifier)")
+        let list = [app.popUpButtons[identifier].firstMatch, found.popUpButtons.firstMatch]
+            .first { $0.exists } ?? found
+        waitUntilHittable(list, identifier)
+        list.click()
+        clickMenuItem(title)
+        XCTAssertTrue(wait(for: list, holds: title, timeout: 5), "\(identifier) did not take \(title)")
+    }
+
+    /// What an element shows: a field's text, or a label's words.
+    func text(of element: XCUIElement) -> String {
+        if let value = element.value as? String, !value.isEmpty { return value }
+        return element.label
+    }
+
+    /// Waits until an element shows exactly this text. An empty field reads
+    /// as "", whether its value is empty or missing.
+    @discardableResult
+    func wait(for element: XCUIElement, holds expected: String, timeout: TimeInterval) -> Bool {
+        let shows = NSPredicate { candidate, _ in
+            guard let element = candidate as? XCUIElement, element.exists else { return false }
+            return (element.value as? String ?? "") == expected || (expected.isEmpty == false && element.label == expected)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: shows, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// Whether this element has the keyboard. XCUITest answers it on the Mac
+    /// by this name only.
+    func hasKeyboardFocus(_ element: XCUIElement) -> Bool {
+        (element.value(forKey: "hasKeyboardFocus") as? Bool) == true
+    }
+
+    /// The keyboard in one text field, the way people use it, then Tab:
+    /// typing, Command-A, Command-C, Command-V and Command-Z each do their
+    /// job. The field is left holding what it held, so nothing has changed.
+    /// Without `clicking`, the field must have the keyboard already, from a
+    /// Tab in the field before: typing into it proves that Tab worked.
+    func keyboardPass(_ identifier: String, holding original: String, clicking: Bool = true,
+                      file: StaticString = #filePath, line: UInt = #line) {
+        let field = element(identifier)
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)", file: file, line: line)
+        if clicking {
+            waitUntilHittable(field, identifier)
+            field.click()
+        }
+        func expect(_ shown: String, _ what: String) {
+            XCTAssertTrue(wait(for: field, holds: shown, timeout: 5),
+                          "\(what) in \(identifier): it shows \(text(of: field)), not \(shown)", file: file, line: line)
+        }
+        app.typeKey("a", modifierFlags: .command)
+        app.typeText("Probe")
+        expect("Probe", "typing over everything Command-A selected")
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("c", modifierFlags: .command)
+        app.typeText("X")
+        expect("X", "typing over a copied selection")
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("v", modifierFlags: .command)
+        expect("Probe", "Command-C, then Command-V")
+        app.typeKey("z", modifierFlags: .command)
+        expect("X", "Command-Z, taking the paste back")
+        app.typeKey("a", modifierFlags: .command)
+        if original.isEmpty {
+            app.typeKey(.delete, modifierFlags: [])
+        } else {
+            app.typeText(original)
+        }
+        expect(original, "putting it back")
+        app.typeKey(.tab, modifierFlags: [])
+        XCTAssertFalse(hasKeyboardFocus(field), "Tab did not move on from \(identifier)", file: file, line: line)
+    }
+
+    /// A statement in the run's folder, with today's date on every line, so
+    /// the lines land in this period. Removed with the folder.
+    func writeStatement(_ lines: [(bank: String, amount: String)]) throws -> URL {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MM/dd/yyyy"
+        let today = formatter.string(from: Date())
+        let rows = ["Date,Description,Amount"] + lines.map { "\(today),\"\($0.bank)\",\($0.amount)" }
+        let url = dataRoot.appendingPathComponent("statement.csv")
+        try rows.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    /// Import statement, in the budget's toolbar, with the file chosen in the
+    /// open panel by its path: Command-Shift-G opens the panel's Go to field,
+    /// which takes a file's whole path and selects the file, then Open. The
+    /// review opens once the file is read.
+    func importStatement(at url: URL) {
+        click(AccessibilityID.budgetImport)
+        let open = app.buttons["Open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10), "the open panel did not show. On screen: \(visibleTexts())")
+        app.typeKey("g", modifierFlags: [.command, .shift])
+        // The Go to field slides in. Keys typed before it is there go to the
+        // panel's list of files instead. (A waiter on an expectation nobody
+        // fulfils is XCTest's way to pause.)
+        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the Go to field")], timeout: 1)
+        app.typeText(url.path)
+        app.typeKey(.return, modifierFlags: [])
+        let review = element(AccessibilityID.importConfirm)
+        if !review.waitForExistence(timeout: 3), open.exists {
+            XCTAssertTrue(wait(for: open, until: "isEnabled == true", timeout: 10),
+                          "the panel did not pick \(url.lastPathComponent). On screen: \(visibleTexts())")
+            open.click()
+        }
+        XCTAssertTrue(review.waitForExistence(timeout: 15), "the import review did not open. On screen: \(visibleTexts())")
+    }
+
+    /// Join a Group…, from the Add menu: the link pasted, a name, and Join.
+    /// Joining takes the group in at once.
+    func join(_ link: String, as name: String) {
+        openAddMenu()
+        clickMenuItem(MainScreen.Words.join)
+        paste(link, into: AccessibilityID.joinLink)
+        type(name, into: AccessibilityID.joinName)
+        click(AccessibilityID.joinJoin)
+        XCTAssertTrue(wait(for: element(AccessibilityID.joinJoin), until: "exists == false", timeout: 60),
+                      "joining did not finish. On screen: \(visibleTexts())")
+    }
+
     // MARK: - Cleaning up
 
     /// Delete… from the group's menu, confirmed. The founder's delete removes
@@ -318,7 +518,7 @@ final class TestApp {
     }
 
     /// The button on the confirmation, wherever macOS put it.
-    private func dialogButton(_ label: String) -> XCUIElement? {
+    func dialogButton(_ label: String) -> XCUIElement? {
         for candidate in [app.sheets.firstMatch.buttons[label], app.dialogs.firstMatch.buttons[label],
                           app.buttons[label]] where candidate.waitForExistence(timeout: 3) {
             return candidate
@@ -405,6 +605,33 @@ final class SecondAccount {
 
     private func checkSynced() throws {
         if case .failed(let why) = sync.state { throw UITestError("the second account's sync failed: \(why)") }
+    }
+
+    /// A group of the second person's own, with one budget and one entry in
+    /// it, shared with a link that invites at `role` and names them as
+    /// `myName`. Everything is sent before the link comes back.
+    func shareNewGroup(_ name: String, budget: String, entry merchant: String, amount: Money,
+                       myName: String, role: InviteRole) async throws -> InviteLink {
+        let model = AppModel(store: sync.store)
+        guard let group = model.addGroup(named: name),
+              let budgetID = model.addBudget(named: budget, limit: Money(minorUnits: 50_000), in: group) else {
+            throw UITestError("the second account could not make its group: \(model.errorMessage ?? "")")
+        }
+        model.selectedBudget = budgetID
+        model.addTransaction(merchant: merchant, amount: amount, date: Date(), note: "")
+        if let problem = model.errorMessage { throw UITestError("the second account could not add \(merchant): \(problem)") }
+        let link = try await sync.share(group: group, groupName: name, level: role.level, historyAccess: .all,
+                                        myName: myName)
+        try await syncAll()
+        return link
+    }
+
+    /// Deletes a group of the second person's own, for everyone. Best effort.
+    func deleteGroup(named name: String) async {
+        let model = AppModel(store: sync.store)
+        guard let group = model.groups.first(where: { $0.name == name }) else { return }
+        model.deleteGroup(group.id, reach: sync.deleteReach(of: group.id))
+        await sync.syncAll()
     }
 
     /// Ends the session on the server. Best effort.

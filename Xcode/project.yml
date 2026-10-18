@@ -77,10 +77,13 @@ targets:
     sources:
       - path: ../Tests/WellSpentUITests
     # The host, and the package products the headless second account uses.
+    # WellSpentCrypto names the IDs a test builds the screens' words with.
     dependencies:
       - target: WellSpentUITestHost
       - package: WellSpentBudget
         product: WellSpentAppCore
+      - package: WellSpentBudget
+        product: WellSpentCrypto
       - package: WellSpentBudget
         product: WellSpentSync
       - package: WellSpentBudget

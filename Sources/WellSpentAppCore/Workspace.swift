@@ -24,7 +24,11 @@ public final class Workspace {
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
         sync.didSync = { [weak self] in self?.model.reload() }
-        sync.didSwitchStore = { [weak self] store in self?.model = AppModel(store: store) }
+        // The new account's budgets keep the Undo bar's window.
+        sync.didSwitchStore = { [weak self] store in
+            guard let self else { return }
+            self.model = AppModel(store: store, undoWindow: self.model.undoWindow)
+        }
         watchForEdits()
     }
 
@@ -56,15 +60,32 @@ public final class Workspace {
         let accounts = try AccountDirectory.standard(for: environment, processEnvironment: processEnvironment)
         // The directory's own settings, which are this build's unless a UI
         // test pointed it at a folder. The same thing for a normal launch.
-        return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment)
+        return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment,
+                          undoWindow: undoWindow(for: environment, in: processEnvironment))
+    }
+
+    /// The environment variable a UI test sets so the Undo bar after a
+    /// delete stays longer than 10 seconds, in whole seconds. A slow test
+    /// runner can then still reach its button. A live build never reads it.
+    nonisolated public static let undoWindowVariable = "WELLSPENT_UNDO_SECONDS"
+
+    /// How long the Undo bar stays: what the variable says, for a staging
+    /// build, and 10 seconds otherwise.
+    public static func undoWindow(for environment: AppEnvironment,
+                                  in processEnvironment: [String: String]) -> Duration {
+        guard environment == .staging, let text = processEnvironment[undoWindowVariable],
+              let seconds = Int(text), seconds > 0 else { return AppModel.defaultUndoWindow }
+        return .seconds(seconds)
     }
 
     /// With no `defaults`, the environment's own. Public for the Linux app,
     /// which hands in its own folder, settings and keyring, and then starts up
     /// exactly as the Mac app does.
+    /// `undoWindow` is how long the Undo bar after a delete stays.
     public static func launch(accounts: AccountDirectory, defaults: UserDefaults? = nil,
                        environment: AppEnvironment = .current,
-                       makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil) throws -> Workspace {
+                       makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil,
+                       undoWindow: Duration = AppModel.defaultUndoWindow) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
         let sync: SyncCoordinator
         if let makeTransport {
@@ -73,7 +94,7 @@ public final class Workspace {
         } else {
             sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
-        let model = AppModel(store: sync.store)
+        let model = AppModel(store: sync.store, undoWindow: undoWindow)
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {
             try accounts.noteSamples(try model.seedFirstRun(), in: model.store)
         }
