@@ -35,6 +35,8 @@ public struct ImportReviewScreen {
         public let tone: Tone
         /// Faded: it will not be added.
         public let isActionable: Bool
+        /// It takes a budget chosen here, so it shows the picker, chosen yet
+        /// or not.
         public let needsBudget: Bool
         public let chosenBudget: BudgetID?
     }
@@ -50,19 +52,29 @@ public struct ImportReviewScreen {
     public var filename: String { model.pendingImport?.filename ?? "" }
     public var note: String { SyncWording.importNote }
 
+    /// The counts as they stand: a line given a budget here counts as To add,
+    /// not Needs a budget, from the moment it is chosen.
     public var tiles: [Tile] {
-        guard let summary = model.pendingImport?.summary else { return [] }
+        guard let pending = model.pendingImport else { return [] }
+        let summary = pending.summary
+        let chosen = pending.proposals.indices.filter { index in
+            guard case .needsBudget = pending.proposals[index].decision else { return false }
+            return pending.chosenBudgets[index] != nil
+        }.count
         return [Tile(label: Words.matched, count: summary.matched, tone: .matched),
-                Tile(label: Words.toAdd, count: summary.toAdd, tone: .toAdd),
+                Tile(label: Words.toAdd, count: summary.toAdd + chosen, tone: .toAdd),
                 Tile(label: Words.alreadyImported, count: summary.alreadyImported, tone: .alreadyImported),
-                Tile(label: Words.needsBudget, count: summary.needBudget, tone: .needsBudget)]
+                Tile(label: Words.needsBudget, count: summary.needBudget - chosen, tone: .needsBudget)]
     }
 
     public var rows: [Row] {
         guard let pending = model.pendingImport else { return [] }
         return pending.proposals.enumerated().map { index, proposal in
-            let (status, tone) = Self.status(of: proposal.decision)
+            var (status, tone) = Self.status(of: proposal.decision)
             let needsBudget = if case .needsBudget = proposal.decision { true } else { false }
+            // Given a budget here, it will be added. It keeps its picker, so
+            // the choice can still change.
+            if needsBudget, pending.chosenBudgets[index] != nil { (status, tone) = (Words.willBeAdded, .toAdd) }
             return Row(id: index, date: proposal.line.date, description: proposal.line.cleanedDescription,
                        bankDescription: proposal.line.rawDescription, amount: proposal.line.amount.display,
                        status: status, tone: tone, isActionable: proposal.isActionable,

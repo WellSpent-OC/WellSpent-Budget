@@ -19,9 +19,17 @@ public actor ReadableHTTPTransport: ReadableAccountTransport {
     private let rootURL: URL
     private let urlSession: URLSession
     private var session: ServerSession?
+    private let requestDeadline: Duration
+
+    /// How long one request may take, start to finish, before it counts as
+    /// unanswered. On a network that answers nothing, such as a Wi-Fi with no
+    /// internet behind it, Linux's network library waited a minute for each
+    /// address it tried, and the app showed "Syncing" for minutes.
+    public static let defaultRequestDeadline: Duration = .seconds(30)
 
     /// `baseURL` may be the server itself or any /api/vN under it.
-    public init(baseURL: URL, urlSession: URLSession = .shared, session: ServerSession? = nil) {
+    public init(baseURL: URL, urlSession: URLSession = .shared, session: ServerSession? = nil,
+                requestDeadline: Duration = defaultRequestDeadline) {
         var root = baseURL
         if root.lastPathComponent.hasPrefix("v"), root.deletingLastPathComponent().lastPathComponent == "api" {
             root = root.deletingLastPathComponent().deletingLastPathComponent()
@@ -30,12 +38,14 @@ public actor ReadableHTTPTransport: ReadableAccountTransport {
         self.apiURL = root.appendingPathComponent("api/v2")
         self.urlSession = urlSession
         self.session = session
+        self.requestDeadline = requestDeadline
     }
 
     public var currentSession: ServerSession? { session }
 
     public nonisolated func resuming(with session: ServerSession) -> any ReadableAccountTransport {
-        ReadableHTTPTransport(baseURL: rootURL, urlSession: urlSession, session: session)
+        ReadableHTTPTransport(baseURL: rootURL, urlSession: urlSession, session: session,
+                              requestDeadline: requestDeadline)
     }
 
     public func health() async throws -> HTTPTransport.Health {
@@ -358,7 +368,7 @@ public actor ReadableHTTPTransport: ReadableAccountTransport {
     /// `oldServerIfMissing`: the route exists on every readable server, so a
     /// 404 for a missing route means the server predates readable sync.
     private func perform(_ request: URLRequest, as caller: Caller, oldServerIfMissing: Bool = false) async throws -> Data {
-        let (data, response) = try await urlSession.data(for: request)
+        let (data, response) = try await answer(to: request)
         guard let http = response as? HTTPURLResponse else {
             throw ReadableTransportError.malformed("no HTTP response")
         }
@@ -384,6 +394,23 @@ public actor ReadableHTTPTransport: ReadableAccountTransport {
             throw ReadableTransportError.serverNotUpdated
         default:
             throw ReadableTransportError.http(status: status, reason: reason)
+        }
+    }
+
+    /// The server's reply, or `URLError(.timedOut)` once `requestDeadline`
+    /// passes, which the app shows as "could not reach the server". The
+    /// request is cancelled then, so nothing is left waiting on it.
+    private func answer(to request: URLRequest) async throws -> (Data, URLResponse) {
+        let urlSession = urlSession, deadline = requestDeadline
+        return try await withThrowingTaskGroup(of: (Data, URLResponse)?.self) { group in
+            group.addTask { try await urlSession.data(for: request) }
+            group.addTask {
+                try await Task.sleep(for: deadline)
+                return nil
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next(), let reply = first else { throw URLError(.timedOut) }
+            return reply
         }
     }
 
