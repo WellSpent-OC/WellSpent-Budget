@@ -80,9 +80,10 @@ clean:
 	cd Server && swift package clean
 	rm -rf .build/*/debug/codecov
 
-# Rebuilds the app icon from its SVG master. Commit the .icns it writes.
-# Run it after every change to Design/AppIcon/AppIcon.svg. Nothing checks that
-# the two still match: no CI step runs this, and it needs a Mac (AppKit, iconutil).
+# Rebuilds the app icon from its two SVG drawings: AppIcon_Small.svg for the
+# 16 pixel slot and AppIcon.svg for the rest. Commit the .icns it writes. Run it
+# after every change to either drawing in Design/AppIcon/. Nothing checks that
+# they still match: no CI step runs this, and it needs a Mac (AppKit, iconutil).
 icon:
 	@iconset=$$(swift scripts/make-app-icon.swift) && \
 	iconutil -c icns "$$iconset" -o Sources/WellSpentApp/Resources/AppIcon.icns && \
