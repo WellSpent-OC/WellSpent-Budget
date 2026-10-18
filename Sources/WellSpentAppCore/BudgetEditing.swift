@@ -8,8 +8,8 @@ import WellSpentModel
 
 // MARK: - Which sheet
 
-/// The sidebar's editing sheets. One value rather than four booleans, so only one
-/// can ever be open.
+/// The window's editing sheets. One value rather than a boolean each, so only
+/// one can ever be open.
 enum EditorSheet: Identifiable {
     case newBudget(in: GroupID?)
     case editBudget(Budget)
@@ -18,6 +18,9 @@ enum EditorSheet: Identifiable {
     case share(BudgetGroup)
     case join
     case members(BudgetGroup)
+    /// An entry opened from the budget's list. The editor is made when the
+    /// entry is opened, because opening it is what marks its note seen.
+    case entry(EntryEditor)
 
     var id: String {
         switch self {
@@ -28,6 +31,7 @@ enum EditorSheet: Identifiable {
         case .share(let group): return "share-\(group.id)"
         case .join: return "join"
         case .members(let group): return "members-\(group.id)"
+        case .entry(let editor): return "entry-\(editor.editing.map { "\($0.id)" } ?? "")"
         }
     }
 }

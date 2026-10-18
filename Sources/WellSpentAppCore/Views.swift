@@ -63,7 +63,8 @@ struct RootView: View {
                 BudgetDetailView(model: model, sync: sync, summary: summary,
                                  showingAddTransaction: $showingAddTransaction,
                                  showingFileImporter: $showingFileImporter,
-                                 showingAccount: $showingAccount)
+                                 showingAccount: $showingAccount,
+                                 editor: $editor, main: screen)
             case .noBudgets:
                 noBudgets
             case .noneSelected:
@@ -81,7 +82,7 @@ struct RootView: View {
         // the last account's selection.
         .id(ObjectIdentifier(model))
         .sheet(isPresented: $showingAddTransaction) {
-            AddTransactionSheet(model: model)
+            EntrySheet(model: model)
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(sync: sync)
@@ -106,7 +107,7 @@ struct RootView: View {
                 model.errorMessage = error.localizedDescription
             }
         }
-        .alert("Something went wrong",
+        .alert(MainScreen.Words.errorTitle,
                isPresented: Binding(get: { model.errorMessage != nil },
                                     set: { if !$0 { model.dismissError() } })) {
             Button("OK") { model.dismissError() }
@@ -142,6 +143,8 @@ struct RootView: View {
             })
         case .members(let group):
             MembersSheet(sync: sync, model: model, group: group, invite: { editor = .share(group) })
+        case .entry(let opened):
+            EntrySheet(editor: opened)
         }
     }
 }
@@ -376,9 +379,20 @@ struct BudgetDetailView: View {
     @Binding var showingAddTransaction: Bool
     @Binding var showingFileImporter: Bool
     @Binding var showingAccount: Bool
+    /// The window's sheets: an entry opened from the list is one of them.
+    @Binding var editor: EditorSheet?
+    /// The window's rules and its delete question, which Delete… in a
+    /// row's menu asks.
+    let main: MainScreen
+    /// The row the arrow keys move and Return opens.
+    @State private var selection: RecordID?
 
     var body: some View {
         VStack(spacing: 0) {
+            if let undo = screen.undo {
+                UndoBar(offer: undo, undo: { model.undoDelete() })
+                Divider()
+            }
             header
             Divider()
             transactionTable
@@ -448,7 +462,8 @@ struct BudgetDetailView: View {
 
     private var transactionTable: some View {
         let screen = self.screen
-        return Table(screen.rows, columnCustomization: columnVisibility(screen)) {
+        let rows = screen.rows
+        return Table(rows, selection: $selection, columnCustomization: columnVisibility(screen)) {
             TableColumn(BudgetScreen.Words.date) { row in
                 Text(BudgetScreen.shortDate(row.date))
                     .font(.money(12, weight: .regular))
@@ -457,15 +472,7 @@ struct BudgetDetailView: View {
             .width(70)
 
             TableColumn(BudgetScreen.Words.description) { row in
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.merchant).font(.system(size: 13))
-                    if !row.note.isEmpty {
-                        Text(row.note)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Palette.muted)
-                            .lineLimit(1)
-                    }
-                }
+                EntryDescription(row: row)
             }
 
             TableColumn(BudgetScreen.Words.addedBy) { row in
@@ -493,6 +500,52 @@ struct BudgetDetailView: View {
             .width(90)
         }
         .tableStyle(.inset)
+        // Right-click: Edit… and Delete…, or no menu for a row this person
+        // may not change. Double-click and Return open the row.
+        .contextMenu(forSelectionType: RecordID.self) { ids in
+            if let row = rows.first(where: { ids.contains($0.id) }) {
+                menu(main.entryMenu(row))
+            }
+        } primaryAction: { ids in
+            if let id = ids.first { open(id) }
+        }
+        // Return opens the selected row, in case the table keeps the key.
+        .onKeyPress(.return) {
+            guard let selection, rows.contains(where: { $0.id == selection }) else { return .ignored }
+            open(selection)
+            return .handled
+        }
+        // A single click opens the row it lands on.
+        .background(RowClicks { place in
+            if rows.indices.contains(place) { open(rows[place].id) }
+        })
+    }
+
+    /// The row's menu, with a divider between its parts.
+    @ViewBuilder
+    private func menu(_ parts: [[MainScreen.EntryMenuItem]]) -> some View {
+        ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+            if index > 0 { Divider() }
+            ForEach(part) { item in
+                Button(item.title, role: item.isDestructive ? .destructive : nil) { perform(item.action) }
+            }
+        }
+    }
+
+    /// Delete… asks the window's question first. Edit… opens the sheet.
+    private func perform(_ action: MainScreen.EntryAction) {
+        if action.asksFirst {
+            main.ask(action)
+        } else if case .open(let id) = action {
+            open(id)
+        }
+    }
+
+    /// Opens an entry in its sheet, unless a sheet is open already. Making
+    /// the editor is what opens it, and marks its note seen.
+    private func open(_ id: RecordID) {
+        guard editor == nil, let opened = EntryEditor(model: model, entry: id) else { return }
+        editor = .entry(opened)
     }
 
     /// "Added by" only means something once someone else is in the group, so it
@@ -507,16 +560,24 @@ struct BudgetDetailView: View {
     }
 }
 
-// MARK: - Add
+// MARK: - An entry
 
-/// Draws EntryEditor; layout only.
-struct AddTransactionSheet: View {
+/// Draws EntryEditor: a new entry, or one opened from the list to change or
+/// delete. Layout only. Read-only, the details are plain text, with a line
+/// saying why, and the only button is Done.
+struct EntrySheet: View {
     @State private var editor: EntryEditor
     @Environment(\.dismiss) private var dismiss
     private typealias Words = EntryEditor.Words
 
+    /// A new entry, for the budget on screen.
     init(model: AppModel) {
         _editor = State(initialValue: EntryEditor(model: model))
+    }
+
+    /// An entry opened from the list.
+    init(editor: EntryEditor) {
+        _editor = State(initialValue: editor)
     }
 
     static func canAdd(merchant: String, amountText: String) -> Bool {
@@ -525,37 +586,190 @@ struct AddTransactionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(editor.title).font(.system(size: 17, weight: .semibold))
-
-            Form {
-                TextField(Words.merchant, text: Bindable(editor).merchant)
-                    .accessibilityIdentifier(AccessibilityID.entryMerchant)
-                TextField(Words.amount, text: Bindable(editor).amountText)
-                    .font(.money(13, weight: .regular))
-                    .accessibilityIdentifier(AccessibilityID.entryAmount)
-                DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
-                    .accessibilityIdentifier(AccessibilityID.entryDate)
-                TextField(Words.note, text: Bindable(editor).note)
-                    .accessibilityIdentifier(AccessibilityID.entryNote)
+            heading
+            if editor.isReadOnly {
+                details
+            } else {
+                fields
             }
-            .formStyle(.grouped)
-
-            HStack {
-                Spacer()
-                Button(Words.cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .accessibilityIdentifier(AccessibilityID.entryCancel)
-                Button(Words.add) {
-                    editor.add()
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!editor.canAdd)
-                .accessibilityIdentifier(AccessibilityID.entryAdd)
+            if let line = editor.readOnlyLine {
+                Text(line)
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(AccessibilityID.entryReadOnlyLine)
             }
+            buttons
         }
         .padding(20)
         .frame(width: 420)
+        // The sheet asks its own delete question, so it shows over the sheet.
+        .confirmationDialog(editor.pendingDelete?.title ?? "",
+                            isPresented: Binding(get: { editor.pendingDelete != nil },
+                                                 set: { if !$0 { editor.cancelDelete() } }),
+                            presenting: editor.pendingDelete) { pending in
+            Button(pending.confirmLabel, role: .destructive) {
+                if editor.confirmDelete() { dismiss() }
+            }
+            Button(Words.cancel, role: .cancel) { editor.cancelDelete() }
+        } message: { pending in
+            Text(pending.message)
+        }
+        // Escape closes a read-only sheet too. Elsewhere Cancel takes it.
+        .onExitCommand(perform: editor.isReadOnly ? { dismiss() } : nil)
+    }
+
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(editor.title).font(.system(size: 17, weight: .semibold))
+            if let top = editor.topLine {
+                Text(top)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.muted)
+                    .accessibilityIdentifier(AccessibilityID.entryTopLine)
+            }
+            if let notice = editor.noticeLine {
+                Text(notice)
+                    .font(.system(size: 12))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(AccessibilityID.entryNoticeLine)
+            }
+        }
+    }
+
+    private var fields: some View {
+        Form {
+            TextField(Words.merchant, text: Bindable(editor).merchant)
+                .accessibilityIdentifier(AccessibilityID.entryMerchant)
+            TextField(Words.amount, text: Bindable(editor).amountText)
+                .font(.money(13, weight: .regular))
+                .accessibilityIdentifier(AccessibilityID.entryAmount)
+            DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
+                .accessibilityIdentifier(AccessibilityID.entryDate)
+            if let line = editor.periodLine {
+                Text(line)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.warning)
+                    .accessibilityIdentifier(AccessibilityID.entryPeriodLine)
+            }
+            TextField(Words.note, text: Bindable(editor).note)
+                .accessibilityIdentifier(AccessibilityID.entryNote)
+            if editor.editing != nil {
+                Picker(Words.budget, selection: Bindable(editor).budgetID) {
+                    ForEach(editor.budgetChoices) { budget in
+                        Text(budget.name).tag(BudgetID?.some(budget.id))
+                    }
+                }
+                .accessibilityIdentifier(AccessibilityID.entryBudget)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var details: some View {
+        Form {
+            ForEach(editor.details) { detail in
+                LabeledContent(detail.label) {
+                    Text(detail.value)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier(AccessibilityID.entryDetail(detail.label))
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    /// Delete… on the left, apart from Save, in the Warning colour. Cancel
+    /// and Save, or Add, on the right, or Done alone when read-only.
+    private var buttons: some View {
+        HStack {
+            if editor.offersDelete {
+                Button {
+                    editor.askDelete()
+                } label: {
+                    Text(Words.delete).foregroundStyle(Palette.warning)
+                }
+                .accessibilityIdentifier(AccessibilityID.entryDelete)
+            }
+            Spacer()
+            if editor.isReadOnly {
+                Button(Words.done) { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier(AccessibilityID.entryDone)
+            } else {
+                Button(Words.cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier(AccessibilityID.entryCancel)
+                if editor.editing == nil {
+                    // As before: the sheet closes, and a refusal shows in the window.
+                    Button(Words.add) {
+                        editor.add()
+                        dismiss()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!editor.canAdd)
+                    .accessibilityIdentifier(AccessibilityID.entryAdd)
+                } else {
+                    // Refused, the sheet stays open, read-only, and says why.
+                    Button(editor.saveLabel) {
+                        if editor.save() { dismiss() }
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!editor.canSave)
+                    .accessibilityIdentifier(AccessibilityID.entrySave)
+                }
+            }
+        }
+    }
+}
+
+/// The budget's list, the Description column: the merchant, the note, and a
+/// quiet line when this computer's last change to the entry didn't go
+/// through. The cell carries the row's identifier, for the UI test.
+struct EntryDescription: View {
+    let row: BudgetScreen.Row
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(row.merchant).font(.system(size: 13))
+            if !row.note.isEmpty {
+                Text(row.note)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+            }
+            if let notice = row.notice {
+                Text(notice)
+                    .font(.system(size: 10))
+                    .italic()
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityID.entryRow(row.merchant))
+    }
+}
+
+/// The bar at the top of the budget after a delete: what went, and Undo. A
+/// row with words and a button, not a pop-up.
+struct UndoBar: View {
+    let offer: UndoOffer
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(offer.message)
+                .font(.system(size: 12))
+            Spacer()
+            Button(offer.button, action: undo)
+                .accessibilityIdentifier(AccessibilityID.undoButton)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Palette.sidebar)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityID.undoBar)
     }
 }
 
@@ -631,11 +845,13 @@ struct ImportReviewSheet: View {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
+            .accessibilityIdentifier(AccessibilityID.importCancel)
             Button(Words.importButton) {
                 screen.commit()
                 dismiss()
             }
             .keyboardShortcut(.defaultAction)
+            .accessibilityIdentifier(AccessibilityID.importConfirm)
         }
         .padding(16)
     }
@@ -679,6 +895,7 @@ struct ImportRow: View {
                 Circle().fill(ImportReviewSheet.color(row.tone)).frame(width: 5, height: 5)
                 Text(row.status).font(.system(size: 11, weight: .medium))
                     .foregroundStyle(ImportReviewSheet.color(row.tone))
+                    .accessibilityIdentifier(AccessibilityID.importLineStatus(row.bankDescription))
             }
             .frame(width: 140, alignment: .leading)
 
@@ -691,6 +908,7 @@ struct ImportRow: View {
                 }
                 .labelsHidden()
                 .frame(width: 150)
+                .accessibilityIdentifier(AccessibilityID.importLineBudget(row.bankDescription))
             } else {
                 Spacer().frame(width: 150)
             }

@@ -293,5 +293,7 @@ public final class MainScreen {
         public static let noneSelectedTitle = "No budget selected"
         public static let noneSelectedText = "Pick a budget on the left."
         public static let cancel = "Cancel"
+        /// The title of the window's alert when something fails.
+        public static let errorTitle = "Something went wrong"
     }
 }

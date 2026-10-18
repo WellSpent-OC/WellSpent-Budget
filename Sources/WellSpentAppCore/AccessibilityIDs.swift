@@ -68,14 +68,53 @@ public enum AccessibilityID {
     public static let groupEditorSave = "groupEditor.save"
     public static let groupEditorCancel = "groupEditor.cancel"
 
-    // MARK: A new entry
+    // MARK: The budget's list
+
+    /// An entry's row, by its merchant: the cell with the merchant and the
+    /// note. A click on it opens the entry, and a right-click shows its menu.
+    public static func entryRow(_ merchant: String) -> String { "entry.row.\(merchant)" }
+    /// The bar at the top of the budget after a delete.
+    public static let undoBar = "undo.bar"
+    /// Undo, in that bar.
+    public static let undoButton = "undo.button"
+
+    // MARK: An entry, new or opened from the list
 
     public static let entryMerchant = "entry.merchant"
     public static let entryAmount = "entry.amount"
     public static let entryDate = "entry.date"
     public static let entryNote = "entry.note"
+    /// Add, on a new entry.
     public static let entryAdd = "entry.add"
     public static let entryCancel = "entry.cancel"
+    /// Save, on an opened entry.
+    public static let entrySave = "entry.save"
+    /// Delete…, on the left of an opened entry.
+    public static let entryDelete = "entry.delete"
+    /// The only button on an entry that can't be changed.
+    public static let entryDone = "entry.done"
+    /// The Budget list, on an opened entry.
+    public static let entryBudget = "entry.budget"
+    /// Above the details: who added it, where it came from, and Refund.
+    public static let entryTopLine = "entry.topLine"
+    /// When this computer's last change to it didn't go through.
+    public static let entryNoticeLine = "entry.noticeLine"
+    /// Under the date, when it moves the entry out of this period.
+    public static let entryPeriodLine = "entry.periodLine"
+    /// Why an entry can't be changed.
+    public static let entryReadOnlyLine = "entry.readOnlyLine"
+    /// One detail of an entry that can't be changed, as plain text, by its
+    /// label: "Merchant", "Amount", "Date", "Note" or "Budget".
+    public static func entryDetail(_ label: String) -> String { "entry.detail.\(label)" }
+
+    // MARK: The import review
+
+    /// A line's status, such as Already imported, by the bank's text.
+    public static func importLineStatus(_ bankText: String) -> String { "import.status.\(bankText)" }
+    /// The budget list on a line that needs one, by the bank's text.
+    public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
+    public static let importConfirm = "import.import"
+    public static let importCancel = "import.cancel"
 
     // MARK: Sharing
 

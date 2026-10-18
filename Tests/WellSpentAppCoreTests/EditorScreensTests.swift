@@ -401,6 +401,42 @@ struct EntryEditorTests {
         #expect(!mine.isReadOnly && mine.offersDelete, "her own, she may change and delete")
     }
 
+    /// A read-only sheet shows the details as plain text, not fields: the
+    /// entry as it was opened, with the amount as money and the date in
+    /// full. The note shows only when there is one.
+    @Test func aReadOnlyEntryShowsItsDetailsAsPlainText() throws {
+        let s = try Hilltop()
+        s.at(.read)
+        let stored = try s.stored()
+
+        let viewing = try s.editor()
+
+        #expect(viewing.details.map(\.label) == ["Merchant", "Amount", "Date", "Budget"])
+        #expect(viewing.details.map(\.value) == ["Hilltop Grocery", "$142.08",
+                                                  stored.date.formatted(date: .abbreviated, time: .omitted),
+                                                  "Groceries"])
+        let noted = try s.entry("Trader Joes", amount: 5420, source: .statement, note: "TRADER JOES #123",
+                                by: s.robin)
+        let refund = try #require(EntryEditor(model: s.model, entry: noted))
+        #expect(refund.details.first { $0.label == "Note" }?.value == "TRADER JOES #123")
+        #expect(refund.details.first { $0.label == "Amount" }?.value == "$54.20", "money, without a sign")
+        #expect(EntryEditor(model: s.model).details.isEmpty, "a new entry has fields, not details")
+    }
+
+    /// Turned read-only by a refused Save, the sheet shows the entry as it
+    /// is, not what was typed: nothing was changed.
+    @Test func aRefusedSaveShowsTheEntryAsItIsNotWhatWasTyped() throws {
+        let s = try Hilltop()
+        let editor = try s.editor()
+        editor.amountText = "1.00"
+        s.at(.read)
+
+        #expect(!editor.save())
+
+        #expect(editor.isReadOnly)
+        #expect(editor.details.first { $0.label == "Amount" }?.value == "$142.08")
+    }
+
     /// Moved down to View while the sheet was open, with a change typed.
     @Test func savingAfterAMoveDownChangesNothingAndSaysWhy() throws {
         let s = try Hilltop()

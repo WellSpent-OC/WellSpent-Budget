@@ -217,6 +217,30 @@ public final class EntryEditor {
     /// Delete… is offered on an opened entry this person may change.
     public var offersDelete: Bool { editing != nil && !isReadOnly }
 
+    /// One detail of a read-only entry, as plain text.
+    public struct Detail: Identifiable, Equatable, Sendable {
+        public let label: String
+        public let value: String
+        public var id: String { label }
+    }
+
+    /// A read-only entry's details, as plain text in place of the fields:
+    /// the entry as it was opened, since nothing here can change it. Even
+    /// after a refused Save, what was typed is not shown, because nothing
+    /// was changed. The amount is money without its sign, as in the list,
+    /// and the note shows only when there is one. Empty when adding.
+    public var details: [Detail] {
+        guard let editing else { return [] }
+        var shown = [Detail(label: Words.merchant, value: editing.merchant),
+                     Detail(label: Words.amount, value: editing.amount.magnitude.display),
+                     Detail(label: Words.date, value: Words.fullDate(editing.date))]
+        if !editing.note.isEmpty { shown.append(Detail(label: Words.note, value: editing.note)) }
+        if let budget = try? model.store.budget(editing.budgetID) {
+            shown.append(Detail(label: Words.budget, value: budget.name))
+        }
+        return shown
+    }
+
     /// Above the details: who added it, once someone else is in the group,
     /// as the list's Added by column decides. Then where it came from, in
     /// the list's words, and Refund for money in.
@@ -327,6 +351,8 @@ public final class EntryEditor {
         public static let you = "you"
         public static let aMember = "a member"
         public static func addedBy(_ who: String) -> String { "Added by \(who)" }
+        /// A read-only entry's date, such as "Oct 5, 2026".
+        public static func fullDate(_ date: Date) -> String { date.formatted(date: .abbreviated, time: .omitted) }
         public static let outOfPeriod = "This moves it out of this period."
         public static let notice = "Your last change to this didn't go through. This is the version everyone sees."
         public static let nothingChanged = "Nothing was changed."

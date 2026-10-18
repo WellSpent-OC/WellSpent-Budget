@@ -40,6 +40,18 @@ private func modelWithData() throws -> (AppModel, BudgetGroup, Budget) {
     return (model, group, budget)
 }
 
+/// The budget's right side, as the window draws it.
+@MainActor
+private func detailView(_ model: AppModel, _ summary: BudgetSummary) -> BudgetDetailView {
+    let sync = idleSync(model)
+    return BudgetDetailView(model: model, sync: sync, summary: summary,
+                            showingAddTransaction: .constant(false),
+                            showingFileImporter: .constant(false),
+                            showingAccount: .constant(false),
+                            editor: .constant(nil),
+                            main: MainScreen(workspace: Workspace(model: model, sync: sync)))
+}
+
 @Suite("App views", .serialized)
 @MainActor
 struct ViewTests {
@@ -150,10 +162,7 @@ struct ViewTests {
                              date: Date(), note: "")
         let summary = try #require(model.summary(for: budget.id))
 
-        let view = BudgetDetailView(model: model, sync: idleSync(model), summary: summary,
-                                    showingAddTransaction: .constant(false),
-                                    showingFileImporter: .constant(false),
-                                    showingAccount: .constant(false))
+        let view = detailView(model, summary)
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
         #expect(texts.contains { $0.contains("142.08") }, "what was spent, got \(texts)")
@@ -167,10 +176,7 @@ struct ViewTests {
                              date: Date(), note: "")
         let summary = try #require(model.summary(for: budget.id))
 
-        let view = BudgetDetailView(model: model, sync: idleSync(model), summary: summary,
-                                    showingAddTransaction: .constant(false),
-                                    showingFileImporter: .constant(false),
-                                    showingAccount: .constant(false))
+        let view = detailView(model, summary)
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
         #expect(texts.contains { $0.contains("over") }, "got \(texts)")
@@ -181,7 +187,7 @@ struct ViewTests {
 
     @Test func theAddButtonIsDisabledUntilTheFormIsUsable() throws {
         let (model, _, _) = try modelWithData()
-        let sheet = AddTransactionSheet(model: model)
+        let sheet = EntrySheet(model: model)
 
         // Nothing typed: the confirm button must not be available.
         let add = try sheet.inspect().find(button: "Add")
@@ -189,17 +195,17 @@ struct ViewTests {
     }
 
     @Test func theFormRuleAcceptsAndRejectsTheRightThings() {
-        #expect(!AddTransactionSheet.canAdd(merchant: "", amountText: ""))
-        #expect(!AddTransactionSheet.canAdd(merchant: "Hilltop", amountText: ""))
-        #expect(!AddTransactionSheet.canAdd(merchant: "", amountText: "42.50"))
-        #expect(!AddTransactionSheet.canAdd(merchant: "   ", amountText: "42.50"),
+        #expect(!EntrySheet.canAdd(merchant: "", amountText: ""))
+        #expect(!EntrySheet.canAdd(merchant: "Hilltop", amountText: ""))
+        #expect(!EntrySheet.canAdd(merchant: "", amountText: "42.50"))
+        #expect(!EntrySheet.canAdd(merchant: "   ", amountText: "42.50"),
                 "whitespace is not a merchant")
-        #expect(!AddTransactionSheet.canAdd(merchant: "Hilltop", amountText: "not a number"))
+        #expect(!EntrySheet.canAdd(merchant: "Hilltop", amountText: "not a number"))
 
-        #expect(AddTransactionSheet.canAdd(merchant: "Hilltop", amountText: "42.50"))
-        #expect(AddTransactionSheet.canAdd(merchant: "Hilltop", amountText: "$1,234.56"),
+        #expect(EntrySheet.canAdd(merchant: "Hilltop", amountText: "42.50"))
+        #expect(EntrySheet.canAdd(merchant: "Hilltop", amountText: "$1,234.56"),
                 "the amount field accepts what a statement would contain")
-        #expect(AddTransactionSheet.canAdd(merchant: "Hilltop", amountText: "(25.00)"))
+        #expect(EntrySheet.canAdd(merchant: "Hilltop", amountText: "(25.00)"))
     }
 
     /// The real reason the sheet exists: pressing Add writes a transaction.
