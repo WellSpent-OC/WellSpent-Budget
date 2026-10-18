@@ -67,10 +67,48 @@ targets:
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
 
+  # The iPhone's own UI tests (UITests/), and what they share with the Mac's
+  # (../Tests/UITestShared). They drive WellSpentPhone in the simulator. The
+  # package products are for the headless second person and the screens' words.
+  WellSpentPhoneUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+      - path: ../Tests/UITestShared
+    dependencies:
+      - target: WellSpentPhone
+      - package: WellSpentBudget
+        product: WellSpentAppCore
+      - package: WellSpentBudget
+        product: WellSpentCrypto
+      - package: WellSpentBudget
+        product: WellSpentSync
+      - package: WellSpentBudget
+        product: WellSpentStore
+      - package: WellSpentBudget
+        product: WellSpentKeyStore
+      - package: WellSpentBudget
+        product: WellSpentModel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.phone-uitests
+        TEST_TARGET_NAME: WellSpentPhone
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+
 schemes:
   WellSpentPhone:
     build:
       targets:
         WellSpentPhone: all
+        WellSpentPhoneUITests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - WellSpentPhoneUITests

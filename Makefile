@@ -21,7 +21,8 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
 endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
-        ui-test-project ui-test-build ui-test iphone-project iphone-build testflight testflight-upload
+        ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
+        iphone-ui-test testflight testflight-upload
 
 build:
 	swift build
@@ -165,6 +166,42 @@ iphone-project:
 # Builds the iPhone app for the simulator. Nothing runs and no window opens.
 iphone-build: iphone-project
 	$(IPHONE_XCODEBUILD) build
+
+# Builds the iPhone app and its UI tests, without running them.
+iphone-ui-test-build: iphone-project
+	$(IPHONE_XCODEBUILD) build-for-testing
+
+# The iPhone UI tests (iOS/UITests), once in light and once in dark, each on a
+# simulator made for the run and deleted after, so nothing of an earlier run
+# is left in the app. It runs headless: no Simulator window opens, and the
+# Mac's screen is never taken. The tests that sign in read the same four
+# WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and skip
+# without them. The rest need no account and no server.
+IPHONE_UI_TEST_DEVICE ?= iPhone 17
+IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
+iphone-ui-test: iphone-ui-test-build
+	@set -e; \
+	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
+	runtime=$$($(IPHONE_SIMCTL) list runtimes available | grep '^iOS ' | tail -1 | awk '{print $$NF}'); \
+	for look in light dark; do \
+		udid=$$($(IPHONE_SIMCTL) create "wellspent-ui-test-$$look" "$(IPHONE_UI_TEST_DEVICE)" "$$runtime"); \
+		$(IPHONE_SIMCTL) boot "$$udid"; \
+		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
+		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
+		status=0; \
+		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
+			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
+			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
+			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult || status=$$?; \
+		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
+		$(IPHONE_SIMCTL) delete "$$udid" || true; \
+		if [ $$status -ne 0 ]; then echo "iPhone UI tests failed in $$look mode"; exit $$status; fi; \
+	done
 
 # The TestFlight build: WellSpent.app sandboxed and signed for the Mac App Store,
 # inside a signed installer package, checked by App Store Connect. It never
