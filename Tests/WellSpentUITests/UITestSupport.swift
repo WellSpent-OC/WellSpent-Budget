@@ -506,6 +506,27 @@ final class TestApp {
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
     }
 
+    /// People… in the group's menu, which opens the same page.
+    func openGroupPageFromMenu(named name: String) {
+        element(AccessibilityID.sidebarGroup(name)).rightClick()
+        clickMenuItem(MembersScreen.Words.menuItem)
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
+                      "People\u{2026} did not open \(name)'s page. On screen: \(visibleTexts())")
+    }
+
+    /// Remove… on a person's row on a group's page. It asks first, in the
+    /// shared words, and the answer is Remove.
+    func removeFromGroup(_ person: String) {
+        click(AccessibilityID.groupRemove(person))
+        XCTAssertTrue(app.staticTexts[MembersScreen.Words.removeTitle(person)].waitForExistence(timeout: 5),
+                      "no question before the removal. On screen: \(visibleTexts())")
+        guard let remove = dialogButton(MembersScreen.Words.removeButton) else {
+            XCTFail("no \(MembersScreen.Words.removeButton) on the question. On screen: \(visibleTexts())")
+            return
+        }
+        remove.click()
+    }
+
     /// Join a Group…, from the Add menu: the link pasted, a name, and Join.
     /// Joining takes the group in at once.
     func join(_ link: String, as name: String) {

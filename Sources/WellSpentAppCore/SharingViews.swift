@@ -357,6 +357,7 @@ struct GroupPage: View {
             if row.mayRemove {
                 Button(Words.remove) { screen.askToRemove(row.id) }
                     .disabled(screen.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.groupRemove(row.name))
             }
         }
         .padding(.vertical, 8)

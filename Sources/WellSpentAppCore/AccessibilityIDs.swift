@@ -128,6 +128,8 @@ public enum AccessibilityID {
     public static let groupInvite = "group.invite"
     /// Leave Group…, for a member.
     public static let groupLeave = "group.leave"
+    /// Remove… on a person's row, by the name the row shows.
+    public static func groupRemove(_ name: String) -> String { "group.remove.\(name)" }
     /// The quiet line at the top after a removal.
     public static let groupRemoved = "group.removed"
 

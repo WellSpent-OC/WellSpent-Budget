@@ -6,9 +6,10 @@ import WellSpentSync
 
 /// The whole round, in the real window: sign in, make a group and a budget,
 /// add two entries, share the group, and see an entry a second person adds
-/// arrive after a sync. Then the group's page, with both people on it. The
-/// second person has no window: they are a coordinator inside this process,
-/// against the same staging server.
+/// arrive after a sync. Then the group's page, with both people on it, the
+/// second person removed from it, and the delete question with its count.
+/// The second person has no window: they are a coordinator inside this
+/// process, against the same staging server.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestSupport.swift) and
 /// skips without them. Both accounts must exist on staging with their
@@ -104,7 +105,53 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
                       "the Share sheet did not close")
 
-        // 10. Tidy: the group goes for everyone, both sessions end.
+        // 10. The arrow beside the name hides the group's budgets and shows
+        // them again. Its words say what the next click does. The page stays.
+        let fold = run.element(AccessibilityID.sidebarGroupFold(groupName))
+        run.click(AccessibilityID.sidebarGroupFold(groupName))
+        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.showBudgets, timeout: 10),
+                      "the arrow did not hide the budgets")
+        run.click(AccessibilityID.sidebarGroupFold(groupName))
+        XCTAssertTrue(run.wait(for: fold, holds: MainScreen.Words.hideBudgets, timeout: 10),
+                      "the arrow did not show the budgets again")
+        XCTAssertTrue(run.element(AccessibilityID.groupSummary).exists, "the arrow closed the page")
+
+        // 11. A click on a budget opens it in place of the page, and People…
+        // in the group's menu opens the page again.
+        run.openBudget(named: "Groceries")
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), until: "exists == false", timeout: 10),
+                      "the page stayed over the budget. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.element(AccessibilityID.budgetAdd).waitForExistence(timeout: 10), "Groceries did not open")
+        run.openGroupPageFromMenu(named: groupName)
+
+        // 12. Remove… on Leslie's row asks first. Remove takes her row away,
+        // a quiet line says so, and the line under the name says nobody else
+        // is in the group.
+        run.removeFromGroup("Leslie")
+        XCTAssertTrue(run.listText(MembersScreen.Words.removed("Leslie")).waitForExistence(timeout: 30),
+                      "no line saying she was removed. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.wait(for: run.listText("Leslie"), until: "exists == false", timeout: 15),
+                      "her row is still on the page. On screen: \(run.visibleTexts())")
+        let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.peopleCount(1),
+                                              MembersScreen.Words.madeByYou])
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: alone, timeout: 15),
+                      "the page's line is not \(alone). On screen: \(run.visibleTexts())")
+
+        // 13. Delete… asks first, naming the group and how many go with it:
+        // the budget and all 3 entries, Leslie's too. Cancel keeps it.
+        let question = PendingDelete.group(BudgetGroup(name: groupName), budgets: 1, transactions: 3,
+                                           reach: .justYou)
+        run.element(AccessibilityID.sidebarGroup(groupName)).rightClick()
+        run.clickMenuItem(MainScreen.Words.delete)
+        XCTAssertTrue(run.app.staticTexts[question.title].waitForExistence(timeout: 5),
+                      "no question. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.app.staticTexts[question.message].waitForExistence(timeout: 5),
+                      "the question does not say \(question.message) On screen: \(run.visibleTexts())")
+        try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question").click()
+        XCTAssertTrue(run.element(AccessibilityID.groupSummary).waitForExistence(timeout: 5),
+                      "Cancel did not keep the group and its page")
+
+        // 14. Tidy: the group goes for everyone, both sessions end.
         run.deleteGroup(named: groupName)
         run.signOut()
         await second.cleanUp()
