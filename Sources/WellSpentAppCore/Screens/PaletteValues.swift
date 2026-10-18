@@ -50,8 +50,9 @@ public struct ColorPair: Equatable, Sendable {
 
 /// Today's colours, each with its dark twin, kept in one place so the Mac,
 /// the iPhone and later the Linux app cannot drift apart. The SwiftUI screens
-/// draw them through `Palette`, which follows the device's light or dark
-/// setting.
+/// draw them through `Palette`. On a phone it follows the device's light or
+/// dark setting. The Mac draws the light values until dark mode is placed in
+/// a Mac build.
 ///
 /// The light values are the ones the Mac has always drawn. The dark values
 /// come from the dark mode design wherever today's look has the same part:
