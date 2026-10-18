@@ -101,11 +101,13 @@ struct SharingFlowTests {
         #expect(!SharingRules.canCreate(myName: "Robin", signedIn: false))
 
         let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
-                              inviterName: "Robin").url
-        #expect(SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: true))
-        #expect(!SharingRules.canJoin(linkText: "not a link", myName: "Leslie", signedIn: true))
-        #expect(!SharingRules.canJoin(linkText: link, myName: "", signedIn: true))
-        #expect(!SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: false))
+                              inviterName: "Robin", scheme: AppEnvironment.staging.inviteScheme).url
+        #expect(SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: true, in: .staging))
+        #expect(!SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: true, in: .live),
+                "a link the other build made")
+        #expect(!SharingRules.canJoin(linkText: "not a link", myName: "Leslie", signedIn: true, in: .staging))
+        #expect(!SharingRules.canJoin(linkText: link, myName: "", signedIn: true, in: .staging))
+        #expect(!SharingRules.canJoin(linkText: link, myName: "Leslie", signedIn: false, in: .staging))
     }
 
     // MARK: - Deleting a shared group

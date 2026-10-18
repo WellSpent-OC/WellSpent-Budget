@@ -222,12 +222,13 @@ extension HistoryAccess {
 }
 
 extension InviteLink {
-    /// A link carrying a readable invite. The server's token is 32 random
-    /// bytes in URL-safe base64, the same shape as the sealed app's secret,
-    /// so links look and parse as they always have.
-    public init?(token: String, groupName: String, inviterName: String) {
+    /// A link carrying a readable invite, of the type of the build making it.
+    /// The server's token is 32 random bytes in URL-safe base64, the same
+    /// shape as the sealed app's secret, so links look and parse as they
+    /// always have.
+    public init?(token: String, groupName: String, inviterName: String, scheme: String) {
         guard let secret = Data(base64URL: token), secret.count == 32 else { return nil }
-        self.init(secret: secret, groupName: groupName, inviterName: inviterName)
+        self.init(secret: secret, groupName: groupName, inviterName: inviterName, scheme: scheme)
     }
 
     /// The readable invite token this link carries.

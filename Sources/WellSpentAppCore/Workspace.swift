@@ -51,9 +51,10 @@ public final class Workspace {
 
     // MARK: - Opened links
 
-    /// Opens a link the system handed the app: a click on a wellspent://
-    /// invite link, whether it started the app or the app was running. The
-    /// one way in for every desktop: each hands it the link it was given.
+    /// Opens a link the system handed the app: a click on one of this
+    /// build's invite links, whether it started the app or the app was
+    /// running. The one way in for every desktop: each hands it the link it
+    /// was given.
     /// The Mac does it from its app delegate. On Linux it is the link in the
     /// launch arguments, or one a second launch passed to the copy already
     /// running.

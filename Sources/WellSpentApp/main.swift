@@ -62,10 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// A click on a wellspent:// link. macOS hands it here, through the link
-    /// type in the Info.plist, whether the click started the app or it was
-    /// running already. What the link shows is the shared logic's
-    /// (`Workspace.open`). Only the last of several links counts.
+    /// A click on one of this build's invite links. macOS hands it here,
+    /// through the link type in the Info.plist, whether the click started
+    /// the app or it was running already. What the link shows is the shared
+    /// logic's (`Workspace.open`). Only the last of several links counts.
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let link = urls.last else { return }
         guard let workspace else {

@@ -14,6 +14,8 @@ import WellSpentSync
 /// can stand in.
 @MainActor
 public protocol SharingActions: AnyObject {
+    /// Which build this is. It makes and reads only its own invite links.
+    var environment: AppEnvironment { get }
     var account: String? { get }
     var userID: UserID? { get }
     var emailVerified: Bool { get }
@@ -161,7 +163,8 @@ public final class JoinScreen {
 
     public var title: String { Words.title }
     public var isSignedIn: Bool { actions.account != nil }
-    public var invite: InviteLink? { InviteLink(parsing: linkText) }
+    /// The invite, when the text is a link this build made.
+    public var invite: InviteLink? { actions.environment.invite(from: linkText) }
 
     /// "Robin invited you to "Household"."
     public var invitation: String? {
@@ -171,12 +174,15 @@ public final class JoinScreen {
         return "\(who) invited you to \(what)."
     }
 
-    /// Why the link cannot be used: part of an invite link is missing, or
-    /// the text is no invite link at all. Nothing while the field is empty.
+    /// Why the link cannot be used: it is the other build's, part of an
+    /// invite link is missing, or the text is no invite link at all. Nothing
+    /// while the field is empty.
     public var linkProblem: String? {
         guard !linkText.trimmingCharacters(in: .whitespaces).isEmpty, invite == nil else { return nil }
         let text = linkText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return text.hasPrefix("\(InviteLink.scheme)://") ? Words.notWhole : Words.notALink
+        let here = actions.environment
+        if text.hasPrefix("\(here.other.inviteScheme)://") { return Words.otherApp(here.other.appName) }
+        return text.hasPrefix("\(here.inviteScheme)://") ? Words.notWhole : Words.notALink
     }
 
     /// Asks the server what the invite offers. The invitation page shows it
@@ -222,7 +228,8 @@ public final class JoinScreen {
     public var offersSignIn: Bool { !isSignedIn }
 
     public var canJoin: Bool {
-        !isWorking && SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: isSignedIn)
+        !isWorking && SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: isSignedIn,
+                                           in: actions.environment)
     }
 
     public var joinLabel: String { isWorking ? Words.joining : Words.join }
@@ -249,9 +256,14 @@ public final class JoinScreen {
         public static let name = "Your name"
         public static let namePrompt = "How the group will see you"
         public static let notALink = "That is not a WellSpent invite link."
-        /// A wellspent:// link that does not read as a whole invite, most
-        /// often one a message app cut short.
+        /// A link of this build's type that does not read as a whole invite,
+        /// most often one a message app cut short.
         public static let notWhole = "Part of that invite link is missing. Ask the person who sent it to send it again."
+        /// A link the other build made, whole or cut short: live's in the
+        /// staging app, or staging's in the live app. `appName` is that build's.
+        public static func otherApp(_ appName: String) -> String {
+            "That invite link is for \(appName). Open it in \(appName)."
+        }
         /// On the invitation page, under who invited them.
         public static func joinsAt(_ level: String) -> String { "You'd join at \(level)." }
         public static func sees(_ history: HistoryAccess) -> String {

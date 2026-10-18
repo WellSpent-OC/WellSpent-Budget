@@ -8,7 +8,7 @@ import WellSpentSync
 /// its invitation page, and Join takes the group in.
 ///
 /// The link goes to the app with XCUIApplication.open(_:), so it reaches
-/// the app under test whatever else on this Mac takes wellspent:// links.
+/// the app under test whatever else on this Mac takes staging's links.
 /// The second person, with no window, makes the group and the link, as in
 /// EntryEditingTests.
 ///
@@ -50,7 +50,7 @@ final class InviteLinkTests: XCTestCase {
 
         // 2. A link cut short, the way a message app can cut one, starts the
         // app on a page that says part of it is missing. There is no Join.
-        try run.open(link: String(link.url.prefix("\(InviteLink.scheme)://join#s=".count + 20)))
+        try run.open(link: String(link.url.prefix("\(link.scheme)://join#s=".count + 20)))
         XCTAssertTrue(run.listText(JoinScreen.Words.notWhole).waitForExistence(timeout: 15),
                       "no line saying part of the link is missing. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, for a link with part missing")

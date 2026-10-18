@@ -52,9 +52,10 @@ public enum SharingRules {
         signedIn && !myName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// A join needs a sign-in, a link that reads as one, and a name.
-    public static func canJoin(linkText: String, myName: String, signedIn: Bool) -> Bool {
-        signedIn && InviteLink(parsing: linkText) != nil
+    /// A join needs a sign-in, a link this build made, and a name.
+    public static func canJoin(linkText: String, myName: String, signedIn: Bool,
+                               in environment: AppEnvironment) -> Bool {
+        signedIn && environment.invite(from: linkText) != nil
             && !myName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 }
