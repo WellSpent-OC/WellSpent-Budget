@@ -250,9 +250,15 @@ public final class MainScreen {
     /// The answer yes, for the delete that was asked about. It takes it from
     /// the question itself, so a dialog closing before or after its button
     /// runs makes no difference.
+    ///
+    /// A group's page stays open unless its own group is what went. A delete
+    /// is not a click on a budget, even when the budget that was open before
+    /// the page goes and another one is picked in its place.
     public func confirm(_ pending: PendingDelete) {
         pendingDelete = nil
+        let shown = openGroup?.id
         pending.confirm(model: model, sync: sync)
+        if let shown, model.group(named: shown) != nil { page = (shown, model.selectedBudget) }
     }
 
     /// Asks before an entry's delete, with the window's own question.

@@ -351,6 +351,33 @@ struct MainScreenTests {
         #expect(device.model.groups.map(\.id) == [other])
     }
 
+    /// A delete on the left is not a click on a budget, so the page stays.
+    /// That holds for the budget that was open before the page, and for
+    /// another group with that budget in it.
+    @Test func aGroupsPageStaysWhenABudgetOrAnotherGroupIsDeleted() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Eating out", limit: .dollars(200), in: household)
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        let materials = try #require(device.model.addBudget(named: "Materials", limit: .dollars(900), in: side))
+
+        device.screen.selectedBudget = groceries
+        device.screen.openPage(of: household)
+        device.screen.ask(.deleteBudget(try #require(device.model.budget(for: groceries))))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.model.budget(for: groceries) == nil)
+        #expect(device.screen.openGroup?.id == household, "the budget under the page went, and the page stays")
+        #expect(device.screen.selectedBudget == nil, "no budget is picked on the left while the page shows")
+
+        device.screen.selectedBudget = materials
+        device.screen.openPage(of: household)
+        device.screen.ask(.deleteGroup(try #require(device.model.group(named: side))))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.model.groups.map(\.id) == [household])
+        #expect(device.screen.openGroup?.id == household, "another group went, with the budget under the page")
+    }
+
     /// Leave Group… on the page is always a leave, never a delete for
     /// everyone, whatever this person's level. Leslie is an admin, so her
     /// group's menu offers Delete…, but the page leaves.
