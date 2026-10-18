@@ -230,16 +230,17 @@ final class TestApp {
         // Pasted, not typed, the way people sign in with an address and a
         // password copied from somewhere else. A sign-in that goes through
         // proves the password field pasted too.
+        // A failed check never prints the address: CI logs are public.
         paste(email, into: AccessibilityID.accountEmail)
-        XCTAssertEqual(element(AccessibilityID.accountEmail).value as? String, email,
-                       "Command-V did not paste the address")
+        XCTAssertTrue((element(AccessibilityID.accountEmail).value as? String) == email,
+                      "Command-V did not paste the address")
         paste(password, into: AccessibilityID.accountPassword)
         click(AccessibilityID.accountSubmit)
 
         let signedIn = app.staticTexts[SyncWording.footer(signedIn: true)]
         guard signedIn.waitForExistence(timeout: 60) else {
             if element(AccessibilityID.accountCode).exists {
-                throw UITestError("\(email) has not confirmed its address. Confirm it once, then run again.")
+                throw UITestError("the test account has not confirmed its address. Confirm it once, then run again.")
             }
             throw UITestError("signing in did not finish. On screen: \(visibleTexts())")
         }
