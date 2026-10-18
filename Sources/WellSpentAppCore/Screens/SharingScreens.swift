@@ -353,8 +353,9 @@ public final class MembersScreen {
             if first.level != second.level { return first.level > second.level }
             return first.name.localizedCaseInsensitiveCompare(second.name) == .orderedAscending
         }
+        // How many people only when it is shared: "Not shared" already says one.
         var line = [rows.count > 1 ? Words.shared : Words.notShared]
-        if !rows.isEmpty { line.append(Words.peopleCount(rows.count)) }
+        if rows.count > 1 { line.append(Words.peopleCount(rows.count)) }
         if let maker = rows.first(where: \.isFounder) {
             if maker.isYou {
                 line.append(Words.madeByYou)

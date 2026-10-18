@@ -137,7 +137,7 @@ struct MainScreenTests {
         robin.screen.ask(.deleteGroup(group))
         let pending = try #require(robin.screen.pendingDelete)
         #expect(!pending.isLeave && pending.confirmLabel == "Delete")
-        #expect(pending.message.hasPrefix("Everyone you share it with loses it too."))
+        #expect(pending.message.hasPrefix("It's deleted for everyone in it"))
         robin.screen.keepIt()
         #expect(robin.screen.pendingDelete == nil)
         #expect(robin.model.groups.map(\.id) == [id])
@@ -155,7 +155,7 @@ struct MainScreenTests {
         #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
         #expect(pending.confirmLabel == "Leave")
         #expect(pending.message.hasPrefix(
-            "You leave the group, and it is removed from all your devices, with its 1 budget. Other members keep it."))
+            "You leave the group, and it is removed from all your devices, with its 1 budget. The others in it keep it."))
 
         // The dialog may clear its question before its button runs.
         leslie.screen.keepIt()
@@ -207,8 +207,8 @@ struct MainScreenTests {
         robin.screen.ask(.deleteGroup(group))
         let pending = try #require(robin.screen.pendingDelete)
         #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
-        #expect(robin.screen.message(for: pending) == "Everyone you share it with loses it too. "
-                + "Its 1 budget and 2 transactions will be deleted too. This cannot be undone.")
+        #expect(robin.screen.message(for: pending)
+                == "It's deleted for everyone in it, with its 1 budget and 2 transactions. This cannot be undone.")
     }
 
     /// Leslie, at Add, may not delete Robin's group for everyone, so Delete is
@@ -230,7 +230,7 @@ struct MainScreenTests {
         #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
         #expect(leslie.screen.message(for: pending).hasPrefix(
             "You leave the group, and it is removed from all your devices, with its 1 budget and 2 transactions. "
-            + "Other members keep it."))
+            + "The others in it keep it."))
     }
 
     /// What a group's delete counts: live transactions in every budget and
@@ -447,7 +447,7 @@ struct MainScreenTests {
         #expect(pending.isLeave && pending.confirmLabel == "Leave")
         #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
         #expect(leslie.screen.message(for: pending).hasPrefix(
-            "You leave the group, and it is removed from all your devices, with its 1 budget. Other members keep it."))
+            "You leave the group, and it is removed from all your devices, with its 1 budget. The others in it keep it."))
 
         leslie.screen.keepIt()
         #expect(leslie.model.groups.map(\.id) == [id], "Cancel keeps it")
@@ -618,8 +618,8 @@ struct GroupDeleteQuestionTests {
     @Test func everyoneItIsSharedWithLosesItAndIsToldHowMany() {
         let pending = PendingDelete.group(household, budgets: 2, transactions: 14, reach: .everyone)
         #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
-        #expect(pending.message == "Everyone you share it with loses it too. "
-                + "Its 2 budgets and 14 transactions will be deleted too. This cannot be undone.")
+        #expect(pending.message
+                == "It's deleted for everyone in it, with its 2 budgets and 14 transactions. This cannot be undone.")
         #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
     }
 
@@ -632,13 +632,13 @@ struct GroupDeleteQuestionTests {
         #expect(pending.confirmLabel == "Leave" && pending.isLeave)
         #expect(pending.message(sendsChanges: true)
                 == "You leave the group, and it is removed from all your devices, with its 1 budget and "
-                + "1 transaction. Other members keep it. Anything you changed in it on this device that has "
+                + "1 transaction. The others in it keep it. Anything you changed in it on this device that has "
                 + "not synced yet still goes to them first. Changes on your other devices that have not synced "
                 + "yet do not reach them. Only the person who made it, or an admin, can delete it for everyone. "
                 + "To come back, ask for a new invite link.")
         #expect(pending.message(sendsChanges: false)
                 == "You leave the group, and it is removed from all your devices, with its 1 budget and "
-                + "1 transaction. Other members keep it. Only the person who made it, or an admin, can delete "
+                + "1 transaction. The others in it keep it. Only the person who made it, or an admin, can delete "
                 + "it for everyone. To come back, ask for a new invite link.")
         #expect(!pending.message.contains("deleted"))
     }
@@ -652,7 +652,7 @@ struct GroupDeleteQuestionTests {
         #expect(words(3, 0) == "Its 3 budgets will be deleted too. This cannot be undone.")
         #expect(words(0, 0) == "This cannot be undone.")
         #expect(words(0, 0, .thisMacOnly)
-                == "You leave the group, and it is removed from all your devices. Other members keep it. "
+                == "You leave the group, and it is removed from all your devices. The others in it keep it. "
                 + "Anything you changed in it on this device that has not synced yet still goes to them first. "
                 + "Changes on your other devices that have not synced yet do not reach them. Only the person "
                 + "who made it, or an admin, can delete it for everyone. To come back, ask for a new invite link.",
