@@ -28,12 +28,16 @@ public final class Workspace {
         watchForEdits()
     }
 
-    /// Every edit syncs a moment later, and what this person may add comes
-    /// from the server's levels. Set again whenever the model is replaced,
-    /// because signing in to another account brings a new one.
+    /// Every edit syncs a moment later, and what this person may add or
+    /// change comes from the server's levels. Set again whenever the model
+    /// is replaced, because signing in to another account brings a new one.
     private func watchForEdits() {
         model.didChange = { [weak self] in self?.autoSync.localChange() }
         model.mayAddEntries = { [sync] group in sync.mayAddEntries(in: group) }
+        // Changing anyone's entries takes Manage, the same level as budgets.
+        model.mayManageEntries = { [sync] group in sync.mayManageBudgets(in: group) }
+        model.me = { [sync] in sync.userID }
+        model.thisDevice = { [sync] in sync.clientID }
     }
 
     /// The real app: every account's budgets in Application Support, keys in the

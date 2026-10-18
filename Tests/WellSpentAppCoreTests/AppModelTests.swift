@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import WellSpentAppCore
+import Observation
 import WellSpentCrypto
 import WellSpentImport
 import WellSpentModel
@@ -103,13 +104,13 @@ struct AppModelTests {
         #expect(model.errorMessage == nil, "it should be a no-op, not an error")
     }
 
-    @Test func trashingRemovesItFromTheListAndTheTotal() throws {
+    @Test func deletingRemovesItFromTheListAndTheTotal() throws {
         let (model, _, budget) = try seededModel()
         model.addTransaction(merchant: "mistake", amount: Money(minorUnits: 9999),
                              date: Date(), note: "")
         let row = try #require(model.transactions.first)
 
-        model.trash(row)
+        #expect(model.deleteEntry(row.id) == .saved)
 
         #expect(model.transactions.isEmpty)
         #expect(try #require(model.summary(for: budget.id)).spent == Money.zero())
@@ -291,6 +292,69 @@ struct AppModelImportTests {
         model.selectedBudget = groceries
         model.prepareImport(from: url)
         #expect(model.pendingImport?.groupID == household)
+    }
+
+    /// Importing a statement again leaves a line deleted since then deleted.
+    /// It counted as new, and filing it again stopped the import partway
+    /// with a database error, because the deleted row still held its mark.
+    @Test func aDeletedLineStaysDeletedWhenItsStatementIsImportedAgain() throws {
+        let (model, group, budget) = try seededModel()
+        let url = try writeCSV("""
+        Date,Description,Amount
+        10/02/2026,"TRADER JOES #123",-54.20
+        10/03/2026,"CORNER BAKERY",-12.00
+        """)
+        defer { try? FileManager.default.removeItem(at: url) }
+        model.prepareImport(from: url)
+        model.pendingImport?.chosenBudgets = [0: budget.id, 1: budget.id]
+        model.commitImport()
+        let joes = try #require(try model.store.transactions(in: budget.id).first { $0.note == "TRADER JOES #123" })
+        #expect(model.deleteEntry(joes.id) == .saved)
+
+        model.prepareImport(from: url)
+        let review = ImportReviewScreen(model: model)
+        #expect(review.rows.map(\.status) == ["Already imported", "Already imported"])
+        review.choose(budget.id, for: 0)
+        review.commit()
+
+        #expect(model.errorMessage == nil, "the import finishes")
+        #expect(try model.store.transaction(joes.id)?.isDeleted == true, "the line stays deleted")
+        #expect(try model.store.transactions(in: budget.id).map(\.note) == ["CORNER BAKERY"])
+        #expect(try model.store.statements(in: group.id).count == 2, "the statement is recorded")
+    }
+
+    /// A line whose budget was deleted comes back, so it can be filed in
+    /// another budget. Filing it stopped the import with a database error.
+    @Test func aLineWhoseBudgetWasDeletedIsOfferedAgainAndCanBeFiledElsewhere() throws {
+        let (model, group, groceries) = try seededModel()
+        let eatingOut = try #require(model.addBudget(named: "Eating out", limit: Money(minorUnits: 30_000),
+                                                     in: group.id))
+        let url = try writeCSV("""
+        Date,Description,Amount
+        10/02/2026,"TRADER JOES #123",-54.20
+        10/03/2026,"CORNER BAKERY",-12.00
+        """)
+        defer { try? FileManager.default.removeItem(at: url) }
+        model.selectedBudget = groceries.id
+        model.prepareImport(from: url)
+        model.pendingImport?.chosenBudgets = [0: groceries.id, 1: groceries.id]
+        model.commitImport()
+        model.deleteBudget(groceries.id)
+
+        model.prepareImport(from: url)
+        let review = ImportReviewScreen(model: model)
+        #expect(review.rows.map(\.status) == ["Needs a budget", "Needs a budget"])
+        #expect(review.budgetChoices.map(\.name) == ["Eating out"])
+        review.choose(eatingOut, for: 0)
+        review.choose(eatingOut, for: 1)
+        review.commit()
+
+        #expect(model.errorMessage == nil, "the import finishes")
+        #expect(try model.store.transactions(in: eatingOut).map(\.merchant).sorted() == ["Corner Bakery", "Trader Joes"])
+        // Filed again, it counts as imported from now on.
+        model.prepareImport(from: url)
+        #expect(review.rows.map(\.status) == ["Already imported", "Already imported"])
+        review.cancel()
     }
 
     @Test func cancellingThrowsTheProposalAway() throws {
@@ -551,5 +615,321 @@ struct AppModelImportTests {
         let saved = try model.store.profiles(in: group.id)
         #expect(saved.map(\.displayName) == ["Robin"])
         #expect(try model.store.pendingPushes(in: group.id).contains { $0.recordType == .memberProfile })
+    }
+}
+
+// MARK: - One transaction
+
+/// Whole seconds, so a date read back from the database compares equal.
+private let earlier = Date(timeIntervalSince1970: 1_790_000_000)
+
+/// Household, with Groceries and Eating out, and Robin's “Hilltop Grocery”,
+/// $142.08, today, in Groceries, as a sync leaves it. This person is Leslie,
+/// at Manage, looking at Groceries.
+@MainActor
+private struct Household {
+    let model: AppModel
+    let group: GroupID
+    let groceries: BudgetID
+    let eatingOut: BudgetID
+    let robin = UserID()
+    let leslie = UserID()
+    let hilltop: RecordID
+
+    init(undoWindow: Duration = .seconds(3600)) throws {
+        model = AppModel(store: Store(database: try WellSpentDatabase.inMemory()), undoWindow: undoWindow)
+        group = try #require(model.addGroup(named: "Household"))
+        groceries = try #require(model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: group))
+        eatingOut = try #require(model.addBudget(named: "Eating out", limit: Money(minorUnits: 20_000), in: group))
+        let entry = Transaction(budgetID: groceries, groupID: group, date: Date(), merchant: "Hilltop Grocery",
+                                amount: Money(minorUnits: -14208), createdBy: robin)
+        try model.store.save(entry, queue: false)
+        try model.store.save(MemberProfile(groupID: group, userID: robin, displayName: "Robin"), queue: false)
+        hilltop = entry.id
+        let me = leslie
+        model.me = { me }
+        model.selectedBudget = groceries
+        model.reload()
+    }
+
+    func stored() throws -> Transaction { try #require(try model.store.transaction(hilltop)) }
+    func spent(_ budget: BudgetID) -> Money? { model.summary(for: budget)?.spent }
+
+    /// Moves this person to a level, as a sync does when the server says so.
+    func at(_ level: AccessLevel) {
+        model.mayAddEntries = { _ in level.allows(.write) }
+        model.mayManageEntries = { _ in level.allows(.manage) }
+    }
+}
+
+@Suite("App model, one transaction", .serialized)
+@MainActor
+struct AppModelEntryTests {
+    @Test func aChangeKeepsTheOwnerSourceImportMarkAndCreatedDate() throws {
+        let s = try Household()
+        let receipt = RecordID()
+        let line = Transaction(budgetID: s.groceries, groupID: s.group, date: Date(), merchant: "Trader Joes",
+                               note: "TRADER JOES #123", amount: Money(minorUnits: -5420), source: .statement,
+                               receiptID: receipt, importFingerprint: "LINE-1", createdBy: s.robin,
+                               createdAt: earlier, updatedAt: earlier)
+        try s.model.store.save(line, queue: false)
+
+        let result = s.model.updateEntry(line.id, EntryChange(merchant: "Trader Joe's",
+                                                              amount: Money(minorUnits: 6000), note: "Weekly shop"))
+
+        #expect(result == .saved)
+        let changed = try #require(try s.model.store.transaction(line.id))
+        #expect(changed.merchant == "Trader Joe's" && changed.note == "Weekly shop")
+        #expect(changed.amount == Money(minorUnits: -6000), "still money out")
+        #expect(changed.createdBy == s.robin, "Added by still says Robin")
+        #expect(changed.source == .statement)
+        #expect(changed.importFingerprint == "LINE-1")
+        #expect(changed.receiptID == receipt)
+        #expect(changed.createdAt == earlier)
+        #expect(changed.groupID == s.group && changed.budgetID == s.groceries)
+        #expect(changed.updatedAt > earlier)
+        #expect(try s.model.store.queuedPush(line.id) != nil, "it syncs")
+        #expect(s.spent(s.groceries) == Money(minorUnits: 14208 + 6000), "the total changes at once")
+    }
+
+    /// An edit changes the amount, never whether money went out or came in.
+    @Test func aChangeKeepsWhetherMoneyWentOutOrCameIn() throws {
+        let s = try Household()
+        let refund = Transaction(budgetID: s.groceries, groupID: s.group, date: Date(), merchant: "Trader Joes",
+                                 amount: Money(minorUnits: 5420), source: .statement)
+        try s.model.store.save(refund, queue: false)
+
+        #expect(s.model.updateEntry(refund.id, EntryChange(amount: Money(minorUnits: -6000))) == .saved)
+        #expect(try s.model.store.transaction(refund.id)?.amount == Money(minorUnits: 6000), "a refund stays a refund")
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(amount: Money(minorUnits: 12408))) == .saved)
+        #expect(try s.stored().amount == Money(minorUnits: -12408))
+    }
+
+    @Test func aChangeAndADeleteAreRefusedAtView() throws {
+        let s = try Household()
+        try s.model.store.clearOutbox(in: s.group)
+        s.at(.read)
+
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(merchant: "Changed")) == .notAllowed(.viewOnly))
+        #expect(s.model.deleteEntry(s.hilltop) == .notAllowed(.viewOnly))
+
+        #expect(try s.stored().merchant == "Hilltop Grocery")
+        #expect(try !s.stored().isDeleted)
+        #expect(try s.model.store.outboxCount(in: s.group) == 0, "nothing saved that would never sync")
+        #expect(s.model.undoOffer == nil)
+    }
+
+    @Test func atAddSomeoneElsesEntryIsRefusedAndTheirOwnIsNot() throws {
+        let s = try Household()
+        s.at(.write)
+
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(merchant: "Changed"))
+                == .notAllowed(.someoneElses(name: "Robin")))
+        #expect(s.model.deleteEntry(s.hilltop) == .notAllowed(.someoneElses(name: "Robin")))
+        #expect(try s.stored().merchant == "Hilltop Grocery" && !s.stored().isDeleted)
+
+        s.model.addTransaction(merchant: "Costco", amount: Money(minorUnits: 2863), date: Date(), note: "")
+        let costco = try #require(s.model.transactions.first { $0.merchant == "Costco" })
+        #expect(s.model.updateEntry(costco.id, EntryChange(note: "bulk")) == .saved)
+        #expect(s.model.deleteEntry(costco.id) == .saved)
+    }
+
+    /// A move to another budget in the same group.
+    @Test func aMoveTakesTheEntryOutOfOneBudgetAndIntoTheOther() throws {
+        let s = try Household()
+
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(budget: s.eatingOut)) == .saved)
+
+        #expect(s.model.transactions.isEmpty, "gone from Groceries' list")
+        #expect(s.spent(s.groceries) == .zero())
+        #expect(s.spent(s.eatingOut) == Money(minorUnits: 14208))
+        s.model.selectedBudget = s.eatingOut
+        #expect(s.model.transactions.map(\.merchant) == ["Hilltop Grocery"])
+        #expect(try s.stored().groupID == s.group && s.stored().createdBy == s.robin)
+    }
+
+    @Test func aMoveToABudgetInAnotherGroupOrOneDeletedIsRefused() throws {
+        let s = try Household()
+        let side = try #require(s.model.addGroup(named: "Side Business"))
+        let tools = try #require(s.model.addBudget(named: "Tools", limit: Money(minorUnits: 10_000), in: side))
+        s.model.selectedBudget = s.groceries
+
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(note: "moved", budget: tools)) == .failed)
+        #expect(s.model.errorMessage == "Nothing was changed, because Tools is in another group.")
+        #expect(try s.stored().budgetID == s.groceries && s.stored().note == "")
+
+        s.model.dismissError()
+        s.model.deleteBudget(s.eatingOut)
+        s.model.selectedBudget = s.groceries
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(budget: s.eatingOut)) == .failed)
+        #expect(s.model.errorMessage == "Nothing was changed, because Eating out was deleted.")
+        #expect(try s.stored().budgetID == s.groceries)
+        #expect(s.model.transactions.map(\.id) == [s.hilltop])
+    }
+
+    /// The list shows only the current period, so the entry leaves it.
+    @Test func aDateBeforeThisPeriodTakesTheEntryOutOfThisList() throws {
+        let s = try Household()
+        let twoMonthsAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+
+        #expect(s.model.updateEntry(s.hilltop, EntryChange(date: twoMonthsAgo)) == .saved)
+
+        #expect(s.model.transactions.isEmpty)
+        #expect(s.spent(s.groceries) == .zero())
+        #expect(try !s.stored().isDeleted, "moved, not deleted")
+    }
+}
+
+@Suite("Undo after a delete", .serialized)
+@MainActor
+struct UndoTests {
+    @Test func undoBringsTheEntryBackWithTheSameDetails() throws {
+        let s = try Household()
+        let before = try s.stored()
+
+        #expect(s.model.deleteEntry(s.hilltop) == .saved)
+        let offer = try #require(s.model.undoOffer)
+        #expect(offer.entry == s.hilltop)
+        #expect(offer.message == "Deleted \u{201C}Hilltop Grocery\u{201D}, $142.08.")
+        #expect(offer.button == "Undo")
+        #expect(s.model.transactions.isEmpty)
+
+        s.model.undoDelete()
+
+        #expect(s.model.undoOffer == nil, "the bar goes")
+        let back = try s.stored()
+        #expect(!back.isDeleted)
+        #expect(back.merchant == before.merchant && back.amount == before.amount && back.date == before.date)
+        #expect(back.note == before.note && back.budgetID == before.budgetID)
+        #expect(back.createdBy == s.robin, "Added by still says Robin")
+        #expect(s.model.transactions.map(\.id) == [s.hilltop])
+        #expect(s.spent(s.groceries) == Money(minorUnits: 14208))
+        #expect(try s.model.store.queuedPush(s.hilltop)?.isDeleted == false, "a newer live version is what syncs")
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func theBarGoesAfterItsWindowAndTheDeleteStays() async throws {
+        let s = try Household(undoWindow: .zero)
+
+        s.model.deleteEntry(s.hilltop)
+        #expect(s.model.undoOffer != nil)
+        await whenTrue { s.model.undoOffer == nil }
+
+        #expect(try s.stored().isDeleted)
+        #expect(s.model.transactions.isEmpty)
+    }
+
+    @Test func theBarGoesAtTheNextChangeButNotWhenASyncBringsChangesIn() throws {
+        let s = try Household()
+        s.model.deleteEntry(s.hilltop)
+
+        s.model.reload()
+        #expect(s.model.undoOffer != nil, "a sync reloads, and the bar stays")
+        s.model.addTransaction(merchant: "Costco", amount: Money(minorUnits: 2863), date: Date(), note: "")
+
+        #expect(s.model.undoOffer == nil)
+        #expect(try s.stored().isDeleted, "the delete stays")
+    }
+
+    @Test func aSecondDeleteReplacesTheBar() throws {
+        let s = try Household()
+        s.model.addTransaction(merchant: "Costco", amount: Money(minorUnits: 2863), date: Date(), note: "")
+        let costco = try #require(s.model.transactions.first { $0.merchant == "Costco" })
+
+        s.model.deleteEntry(s.hilltop)
+        s.model.deleteEntry(costco.id)
+        #expect(s.model.undoOffer?.entry == costco.id)
+        #expect(s.model.undoOffer?.message == "Deleted \u{201C}Costco\u{201D}, $28.63.")
+        s.model.undoDelete()
+
+        #expect(try s.stored().isDeleted, "only the last delete can be undone")
+        #expect(s.model.transactions.map(\.merchant) == ["Costco"])
+    }
+
+    @Test func undoIsRefusedInWordsAfterAMoveDownToView() throws {
+        let s = try Household()
+        s.model.deleteEntry(s.hilltop)
+        s.at(.read)
+
+        s.model.undoDelete()
+
+        #expect(s.model.undoOffer == nil, "the bar goes")
+        #expect(s.model.errorMessage == "This can't be undone now. You can view this group but not change it.")
+        #expect(try s.stored().isDeleted, "nothing comes back")
+    }
+
+    @Test func undoIsRefusedInWordsAtAddOnSomeoneElsesEntry() throws {
+        let s = try Household()
+        s.model.deleteEntry(s.hilltop)
+        s.at(.write)
+
+        s.model.undoDelete()
+
+        #expect(s.model.errorMessage == "This can't be undone now. Only Robin, or a manager, can change this.")
+        #expect(try s.stored().isDeleted)
+    }
+
+    @Test func undoIsRefusedInWordsWhenTheBudgetWasDeleted() throws {
+        let s = try Household()
+        s.model.deleteEntry(s.hilltop)
+        // Someone deletes Groceries, and a sync brings it in.
+        var gone = try #require(try s.model.store.budget(s.groceries))
+        gone.isDeleted = true
+        try s.model.store.save(gone, queue: false)
+        s.model.reload()
+
+        s.model.undoDelete()
+
+        #expect(s.model.errorMessage == "This can't be undone now, because Groceries was deleted.")
+        #expect(try s.stored().isDeleted)
+        #expect(s.model.undoOffer == nil)
+    }
+
+    /// Someone's newer edit brought it back already: Undo only clears the bar.
+    @Test func undoOfAnEntryAlreadyBackOnlyClearsTheBar() throws {
+        let s = try Household()
+        s.model.deleteEntry(s.hilltop)
+        var back = try s.stored()
+        back.isDeleted = false
+        back.note = "Robin's newer edit"
+        try s.model.store.save(back, queue: false)
+        try s.model.store.clearOutbox(in: s.group)
+        s.model.reload()
+        #expect(s.model.undoOffer != nil, "a sync does not take the bar away")
+
+        s.model.undoDelete()
+
+        #expect(s.model.undoOffer == nil)
+        #expect(s.model.errorMessage == nil)
+        #expect(try s.stored().note == "Robin's newer edit")
+        #expect(try s.model.store.outboxCount(in: s.group) == 0, "nothing more to send")
+    }
+
+    /// The budget screen carries the bar for the views to draw.
+    @Test func theBudgetScreenCarriesTheBar() throws {
+        let s = try Household()
+        let summary = try #require(s.model.summary(for: s.groceries))
+        #expect(BudgetScreen(summary: summary, model: s.model, me: s.leslie).undo == nil)
+
+        s.model.deleteEntry(s.hilltop)
+
+        let after = try #require(s.model.summary(for: s.groceries))
+        #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo == s.model.undoOffer)
+        #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo?.button == "Undo")
+    }
+}
+
+/// Waits until `condition` holds, without polling or sleeping: it wakes
+/// each time something the condition reads changes.
+@MainActor
+func whenTrue(_ condition: @escaping @MainActor () -> Bool) async {
+    while !condition() {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            withObservationTracking {
+                _ = condition()
+            } onChange: {
+                continuation.resume()
+            }
+        }
     }
 }

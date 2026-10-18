@@ -9,11 +9,15 @@ import WellSpentModel
 public enum PendingDelete: Identifiable {
     case budget(Budget, transactions: Int)
     case group(BudgetGroup, budgets: Int, reach: GroupDeleteReach)
+    /// One entry, with its budget's name and its group's, and whether anyone
+    /// else is in the group.
+    case entry(Transaction, budget: String, group: String, shared: Bool)
 
     public var id: String {
         switch self {
         case .budget(let budget, _): return "budget-\(budget.id)"
         case .group(let group, _, _): return "group-\(group.id)"
+        case .entry(let entry, _, _, _): return "entry-\(entry.id)"
         }
     }
 
@@ -29,6 +33,8 @@ public enum PendingDelete: Identifiable {
         case .budget(let budget, _): return "Delete \u{201C}\(budget.name)\u{201D}?"
         case .group(let group, _, _):
             return isLeave ? MembersScreen.Words.leaveTitle(group.name) : "Delete \u{201C}\(group.name)\u{201D}?"
+        case .entry(let entry, _, _, _):
+            return "Delete \u{201C}\(entry.merchant)\u{201D}, \(entry.amount.magnitude.display)?"
         }
     }
 
@@ -62,6 +68,9 @@ public enum PendingDelete: Identifiable {
                     + "been sent, so the person who invited you may still add you. Nothing of theirs "
                     + "changes. To get it back, ask for a new invite link."
             }
+        // Undo follows a delete, so the question no longer says it can't be undone.
+        case .entry(_, let budget, let group, let shared):
+            return shared ? "It comes out of \(budget) for everyone in \(group)." : "It comes out of \(budget)."
         }
     }
 }
@@ -78,6 +87,12 @@ extension PendingDelete {
         case .budget(let budget, _): model.deleteBudget(budget.id)
         case .group(let group, _, let reach):
             model.deleteGroup(group.id, reach: reach.stricter(sync.deleteReach(of: group.id)))
+        case .entry(let entry, _, _, _):
+            // Asked from the row's menu, with no sheet open to say why it
+            // was refused. Deleted meanwhile, it is gone, as asked.
+            if case .notAllowed(let access) = model.deleteEntry(entry.id) {
+                model.errorMessage = EntryEditor.Words.notAllowed(access)
+            }
         }
     }
 }

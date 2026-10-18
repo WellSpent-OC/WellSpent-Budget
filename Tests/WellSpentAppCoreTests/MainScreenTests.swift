@@ -198,6 +198,107 @@ struct MainScreenTests {
         #expect(device.screen.pendingDelete == nil)
     }
 
+    // MARK: - Entries
+
+    /// The row's menu offers Edit and Delete only where the server
+    /// would take them. Robin owns Household, and Leslie is at Add.
+    @Test func anEntrysMenuOffersEditAndDeleteOnlyToSomeoneWhoMayChangeIt() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .add)
+        let groceries = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.selectedBudget = groceries
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        await robin.sync.syncAll()
+        await leslie.sync.syncAll()
+        leslie.model.selectedBudget = groceries
+        leslie.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: Date(), note: "")
+
+        let screen = BudgetScreen(summary: try #require(leslie.model.summary(for: groceries)), model: leslie.model,
+                                  me: leslie.sync.userID)
+        let hilltop = try #require(screen.rows.first { $0.merchant == "Hilltop Grocery" })
+        let costco = try #require(screen.rows.first { $0.merchant == "Costco" })
+        #expect(!hilltop.mayChange && costco.mayChange)
+        #expect(leslie.screen.entryMenu(hilltop).isEmpty, "Robin's, so no menu")
+        let menu = leslie.screen.entryMenu(costco)
+        #expect(menu.map { $0.map(\.title) } == [["Edit…"], ["Delete…"]])
+        #expect(menu.flatMap { $0 }.map(\.action) == [.open(costco.id), .delete(costco.id)])
+        #expect(menu.last?.first?.isDestructive == true && menu.first?.first?.isDestructive == false)
+
+        let owners = BudgetScreen(summary: try #require(robin.model.summary(for: groceries)), model: robin.model,
+                                  me: robin.sync.userID)
+        let hisRow = try #require(owners.rows.first { $0.merchant == "Hilltop Grocery" })
+        #expect(robin.screen.entryMenu(hisRow).count == 2, "the owner changes anyone's")
+    }
+
+    /// The question names the entry and its amount, and says who it
+    /// comes out for. Cancel keeps it. Delete takes it out and offers Undo.
+    @Test func deletingAnEntryFromItsMenuAsksFirst() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .manage)
+        let groceries = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.selectedBudget = groceries
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        await robin.sync.syncAll()
+        await leslie.sync.syncAll()
+        leslie.model.selectedBudget = groceries
+        let hilltop = try #require(leslie.model.transactions.first)
+
+        leslie.screen.ask(.delete(hilltop.id))
+        let pending = try #require(leslie.screen.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Hilltop Grocery\u{201D}, $142.08?")
+        #expect(leslie.screen.message(for: pending) == "It comes out of Groceries for everyone in Household.")
+        #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
+
+        leslie.screen.keepIt()
+        #expect(leslie.screen.pendingDelete == nil)
+        #expect(leslie.model.transactions.map(\.id) == [hilltop.id], "Cancel changes nothing")
+
+        leslie.screen.ask(.delete(hilltop.id))
+        leslie.screen.confirm(try #require(leslie.screen.pendingDelete))
+        #expect(leslie.model.transactions.isEmpty)
+        #expect(leslie.model.undoOffer?.message == "Deleted \u{201C}Hilltop Grocery\u{201D}, $142.08.")
+    }
+
+    @Test func inAGroupNobodyElseIsInTheQuestionSaysOnlyWhereItComesOutOf() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let budget = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.screen.selectedBudget = budget
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        let entry = try #require(device.model.transactions.first)
+
+        #expect(MainScreen.EntryAction.delete(entry.id).asksFirst)
+        #expect(!MainScreen.EntryAction.open(entry.id).asksFirst)
+        device.screen.ask(.open(entry.id))
+        #expect(device.screen.pendingDelete == nil, "opening asks nothing")
+
+        device.screen.ask(.delete(entry.id))
+        let pending = try #require(device.screen.pendingDelete)
+        #expect(device.screen.message(for: pending) == "It comes out of Groceries.")
+    }
+
+    /// A delete confirmed after a move down changes nothing, and says why.
+    @Test func aDeleteConfirmedAfterAMoveDownChangesNothingAndSaysWhy() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .manage)
+        let groceries = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.selectedBudget = groceries
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        await robin.sync.syncAll()
+        await leslie.sync.syncAll()
+        leslie.model.selectedBudget = groceries
+        let hilltop = try #require(leslie.model.transactions.first)
+        leslie.screen.ask(.delete(hilltop.id))
+        let pending = try #require(leslie.screen.pendingDelete)
+
+        let members = MembersScreen(actions: robin.sync, group: id, groupName: "Household")
+        await members.refresh()
+        await members.setLevel(.write, for: try #require(members.rows.first { !$0.isYou }).id)
+        await leslie.sync.syncAll()
+        leslie.screen.confirm(pending)
+
+        #expect(leslie.model.transactions.map(\.id) == [hilltop.id])
+        #expect(leslie.model.errorMessage == "Nothing was changed. Only Robin, or a manager, can change this.")
+        #expect(leslie.model.undoOffer == nil)
+    }
+
     // MARK: - The footer
 
     /// A wrong password at sign-in leaves the state failed, but saying so is

@@ -21,6 +21,26 @@ public final class AppModel {
     /// Whether this person may add entries to a group. The workspace answers
     /// it from the server's levels; a model on its own allows everything.
     public var mayAddEntries: (GroupID) -> Bool = { _ in true }
+    /// Whether this person may change anyone's entries in a group, which
+    /// takes Manage. The workspace answers it the same way.
+    public var mayManageEntries: (GroupID) -> Bool = { _ in true }
+    /// Who is signed in, so the entries they added count as their own. Nil
+    /// on a model on its own.
+    public var me: () -> UserID? = { nil }
+    /// This device, so a change of its own that lost or was refused can be
+    /// told apart from another device's. Nil on a model on its own.
+    public var thisDevice: () -> DeviceID? = { nil }
+
+    /// The bar after a delete. It goes after `undoWindow`, or at the next
+    /// change made here. A sync that brings changes in leaves it.
+    public private(set) var undoOffer: UndoOffer?
+    /// How long the bar stays.
+    public let undoWindow: Duration
+    public static let defaultUndoWindow: Duration = .seconds(10)
+    @ObservationIgnored private var undoTimer: Task<Void, Never>?
+    /// The entries in the list whose last change from this device didn't go
+    /// through, until each one is opened.
+    private(set) var notices: Set<RecordID> = []
 
     public var selectedBudget: BudgetID? {
         didSet { reloadTransactions() }
@@ -47,8 +67,11 @@ public final class AppModel {
         public var chosenBudgets: [Int: BudgetID] = [:]
     }
 
-    public init(store: Store) {
+    /// `undoWindow` is how long the bar after a delete stays. Tests pass a
+    /// short one, as `AutoSync` takes its wait time.
+    public init(store: Store, undoWindow: Duration = AppModel.defaultUndoWindow) {
         self.store = store
+        self.undoWindow = undoWindow
         reload()
     }
 
@@ -86,12 +109,18 @@ public final class AppModel {
     func reloadTransactions() {
         guard let selectedBudget else {
             transactions = []
+            notices = []
             return
         }
         do {
             let budget = try store.budget(selectedBudget)
             let period = budget?.reset.period(containing: Date())
             transactions = try store.transactions(in: selectedBudget, period: period)
+            if let device = thisDevice() {
+                notices = try store.unnoticedCopies(among: transactions.map(\.id), from: device)
+            } else {
+                notices = []
+            }
         } catch {
             errorMessage = String(describing: error)
         }
@@ -125,12 +154,172 @@ public final class AppModel {
         }
     }
 
-    public func trash(_ transaction: Transaction) {
+    // MARK: - One entry
+
+    /// Saves the fields a person changed onto the entry as it is stored now,
+    /// so a field someone else changed meanwhile keeps their change. The
+    /// entry keeps its ID, group, owner, created date, source, receipt and
+    /// import mark: the server refuses a changed owner.
+    ///
+    /// Nothing is saved when it was deleted meanwhile, since a save would
+    /// bring it back for everyone, or when this person may not change it
+    /// now. A move must be to a live budget in the entry's own group.
+    @discardableResult
+    public func updateEntry(_ id: RecordID, _ change: EntryChange) -> EntrySaveResult {
         do {
-            try store.trash(transaction)
+            var entry: Transaction
+            switch try changeable(id) {
+            case .refused(let result): return result
+            case .ready(let stored): entry = stored
+            }
+            if let budget = change.budget, budget != entry.budgetID {
+                let found = try store.budget(budget)
+                guard let target = found, !target.isDeleted, target.groupID == entry.groupID else {
+                    let name = found?.name ?? ""
+                    errorMessage = found?.isDeleted == false ? EntryEditor.Words.budgetElsewhere(name)
+                                                             : EntryEditor.Words.budgetGone(name)
+                    return .failed
+                }
+                entry.budgetID = target.id
+            }
+            if let merchant = change.merchant { entry.merchant = merchant }
+            if let amount = change.amount {
+                let size = abs(amount.minorUnits)
+                entry.amount = Money(minorUnits: entry.amount.minorUnits > 0 ? size : -size,
+                                     currency: entry.amount.currency)
+            }
+            if let date = change.date { entry.date = date }
+            if let note = change.note { entry.note = note }
+            entry.updatedAt = Date()
+            try store.save(entry)
+            changed()
+            return .saved
+        } catch {
+            errorMessage = String(describing: error)
+            return .failed
+        }
+    }
+
+    /// Marks the entry deleted, which keeps all of it, so Undo can bring it
+    /// back. Refused the same way as a change. Then the bar offers Undo.
+    @discardableResult
+    public func deleteEntry(_ id: RecordID) -> EntrySaveResult {
+        do {
+            let entry: Transaction
+            switch try changeable(id) {
+            case .refused(let result): return result
+            case .ready(let stored): entry = stored
+            }
+            try store.trash(entry)
+            changed()
+            offerUndo(UndoOffer(deleting: entry))
+            return .saved
+        } catch {
+            errorMessage = String(describing: error)
+            return .failed
+        }
+    }
+
+    /// Brings back the entry the bar names, as a newer version than the
+    /// delete, so it wins on the server and on every device. The bar goes
+    /// either way. If the entry is back already, from someone's newer edit,
+    /// that is all. When it can't come back, the app's error says why.
+    public func undoDelete() {
+        guard let offer = undoOffer else { return }
+        withdrawUndo()
+        do {
+            guard var entry = try store.transaction(offer.entry), entry.isDeleted else { return }
+            let access = access(to: entry)
+            guard access.mayChange else {
+                errorMessage = UndoOffer.Words.refused(access)
+                return
+            }
+            if let budget = try store.budget(entry.budgetID), budget.isDeleted {
+                errorMessage = UndoOffer.Words.budgetGone(budget.name)
+                return
+            }
+            entry.isDeleted = false
+            entry.updatedAt = Date()
+            try store.save(entry)
             changed()
         } catch {
             errorMessage = String(describing: error)
+        }
+    }
+
+    private enum Changeable {
+        case ready(Transaction)
+        case refused(EntrySaveResult)
+    }
+
+    /// The entry as stored now, read again because a sync may have deleted
+    /// it, or moved this person down, since it was opened.
+    private func changeable(_ id: RecordID) throws -> Changeable {
+        guard let entry = try store.transaction(id), !entry.isDeleted else {
+            return .refused(.deletedMeanwhile(by: try deleter(of: id)))
+        }
+        let access = access(to: entry)
+        return access.mayChange ? .ready(entry) : .refused(.notAllowed(access))
+    }
+
+    /// Why a change or a delete would be refused now. Nil when nothing
+    /// stands in the way.
+    func refusal(toChange id: RecordID) -> EntrySaveResult? {
+        do {
+            if case .refused(let result) = try changeable(id) { return result }
+            return nil
+        } catch {
+            errorMessage = String(describing: error)
+            return .failed
+        }
+    }
+
+    /// Who deleted an entry: whoever wrote the version on file.
+    private func deleter(of id: RecordID) throws -> EntrySaveResult.Deleter {
+        guard let author = try store.recordVersion(id)?.author else { return .someone(name: nil) }
+        if author == me() { return .you }
+        let group = try store.transaction(id)?.groupID
+        return .someone(name: group.flatMap { memberName(author, in: $0) })
+    }
+
+    /// The question a delete asks first, about the entry as stored now. Nil
+    /// when there is no live entry to ask about.
+    func deleteQuestion(for id: RecordID) -> PendingDelete? {
+        guard let entry = try? store.transaction(id), !entry.isDeleted else { return nil }
+        let budget = (try? store.budget(entry.budgetID))?.name ?? ""
+        return .entry(entry, budget: budget, group: group(named: entry.groupID)?.name ?? "",
+                      shared: isShared(entry.groupID))
+    }
+
+    private func offerUndo(_ offer: UndoOffer) {
+        undoOffer = offer
+        undoTimer = Task { [weak self, undoWindow] in
+            try? await Task.sleep(for: undoWindow)
+            guard !Task.isCancelled else { return }
+            self?.withdrawUndo()
+        }
+    }
+
+    private func withdrawUndo() {
+        undoTimer?.cancel()
+        undoTimer = nil
+        undoOffer = nil
+    }
+
+    /// Whether this device's last change to the entry didn't go through,
+    /// and nobody had opened it since. Asking marks it read, so the row's
+    /// line goes. That stays on this computer: it doesn't sync, and it is
+    /// not a change, so the Undo bar stays.
+    func takeNotice(of id: RecordID) -> Bool {
+        guard let device = thisDevice() else { return false }
+        do {
+            guard try store.unnoticedCopies(among: [id], from: device).contains(id) else { return false }
+            try store.markCopiesNoticed(of: id)
+            notices.remove(id)
+            return true
+        } catch {
+            errorMessage = String(describing: error)
+            return false
         }
     }
 
@@ -267,8 +456,9 @@ public final class AppModel {
 
     public func dismissError() { errorMessage = nil }
 
-    /// After an edit: show it, then say so.
+    /// After an edit: the Undo bar goes, the edit shows, then it says so.
     private func changed() {
+        withdrawUndo()
         reload()
         didChange?()
     }
@@ -289,8 +479,12 @@ public final class AppModel {
     /// name that member gave the group.
     public func addedBy(_ transaction: Transaction, me: UserID?) -> String {
         guard let owner = transaction.createdBy, owner != me else { return "You" }
-        let profile = try? store.profile(MemberProfile.recordID(group: transaction.groupID, user: owner))
-        return profile?.displayName ?? "A member"
+        return memberName(owner, in: transaction.groupID) ?? "A member"
+    }
+
+    /// The name a member gave a group, or nil when they gave none.
+    func memberName(_ user: UserID, in group: GroupID) -> String? {
+        (try? store.profile(MemberProfile.recordID(group: group, user: user)))?.displayName
     }
 
     /// The name this person shows a group. Each group gets its own copy, sealed
@@ -432,7 +626,7 @@ public final class AppModel {
     /// shown here and refused by every other member.
     private func write(_ proposal: ImportProposal, into budgetID: BudgetID, group: GroupID) throws {
         let home = try store.budget(budgetID)?.groupID ?? group
-        try store.save(Transaction(
+        try store.saveImported(Transaction(
             budgetID: budgetID, groupID: home, date: proposal.line.date,
             merchant: proposal.line.cleanedDescription,
             note: proposal.line.rawDescription,

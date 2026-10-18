@@ -204,3 +204,301 @@ struct EditorScreensTests {
         #expect(try model.store.transactions(in: groceries).count == 1)
     }
 }
+
+// MARK: - Entry, changed
+
+/// Household, with Groceries and Eating out, and Robin's “Hilltop Grocery”,
+/// $142.08, today, in Groceries, as a sync leaves it. This person is Leslie,
+/// at Manage, looking at Groceries.
+@MainActor
+private struct Hilltop {
+    let model: AppModel
+    let group: GroupID
+    let groceries: BudgetID
+    let eatingOut: BudgetID
+    let robin = UserID()
+    let leslie = UserID()
+    let id: RecordID
+
+    init() throws {
+        model = try emptyModel()
+        group = try #require(model.addGroup(named: "Household"))
+        groceries = try #require(model.addBudget(named: "Groceries", limit: .dollars(500), in: group))
+        eatingOut = try #require(model.addBudget(named: "Eating out", limit: .dollars(200), in: group))
+        let entry = Transaction(budgetID: groceries, groupID: group, date: Date(), merchant: "Hilltop Grocery",
+                                amount: Money(minorUnits: -14208), createdBy: robin)
+        try model.store.save(entry, queue: false)
+        try model.store.save(MemberProfile(groupID: group, userID: robin, displayName: "Robin"), queue: false)
+        id = entry.id
+        let me = leslie
+        model.me = { me }
+        model.selectedBudget = groceries
+        model.reload()
+    }
+
+    func stored() throws -> Transaction { try #require(try model.store.transaction(id)) }
+    func editor() throws -> EntryEditor { try #require(EntryEditor(model: model, entry: id)) }
+    func row() throws -> BudgetScreen.Row {
+        let screen = BudgetScreen(summary: try #require(model.summary(for: groceries)), model: model, me: leslie)
+        return try #require(screen.rows.first { $0.id == id })
+    }
+
+    /// Moves this person to a level, as a sync does when the server says so.
+    func at(_ level: AccessLevel) {
+        model.mayAddEntries = { _ in level.allows(.write) }
+        model.mayManageEntries = { _ in level.allows(.manage) }
+    }
+
+    /// Another entry, saved as a sync would leave it.
+    func entry(_ merchant: String, amount: Int, source: TransactionSource = .manual, note: String = "",
+               by owner: UserID?) throws -> RecordID {
+        let made = Transaction(budgetID: groceries, groupID: group, date: Date(), merchant: merchant, note: note,
+                               amount: Money(minorUnits: amount), source: source, createdBy: owner)
+        try model.store.save(made, queue: false)
+        model.reload()
+        return made.id
+    }
+}
+
+@Suite("Editor screens, an entry opened", .serialized)
+@MainActor
+struct EntryEditorTests {
+    @Test func anEntryOpensFilledInWithSaveDimmed() throws {
+        let s = try Hilltop()
+        let stored = try s.stored()
+
+        let editor = try s.editor()
+
+        #expect(editor.title == "Transaction" && editor.saveLabel == "Save")
+        #expect(editor.merchant == "Hilltop Grocery")
+        #expect(editor.amountText == "142.08")
+        #expect(editor.date == stored.date)
+        #expect(editor.note == "")
+        #expect(editor.budgetID == s.groceries)
+        #expect(!editor.canSave, "nothing changed yet")
+        #expect(!editor.isReadOnly && editor.offersDelete)
+        #expect(editor.readOnlyLine == nil && editor.periodLine == nil && editor.noticeLine == nil)
+        #expect(editor.result == nil && editor.pendingDelete == nil)
+        #expect(EntryEditor(model: s.model, entry: RecordID()) == nil, "nothing there to open")
+    }
+
+    @Test func saveLightsOnARealChangeAndDimsWhenItIsPutBack() throws {
+        let s = try Hilltop()
+        let editor = try s.editor()
+
+        editor.amountText = "124.08"
+        #expect(editor.canSave)
+        editor.amountText = "142.080"
+        #expect(!editor.canSave, "amounts compare as money")
+        editor.merchant = "Hilltop"
+        #expect(editor.canSave)
+        editor.merchant = "Hilltop Grocery"
+        #expect(!editor.canSave)
+        editor.note = "milk"
+        #expect(editor.canSave)
+        editor.note = ""
+        #expect(!editor.canSave)
+        let original = editor.date
+        editor.date = try #require(Calendar.current.date(byAdding: .day, value: -1, to: original))
+        #expect(editor.canSave)
+        editor.date = original
+        #expect(!editor.canSave)
+        editor.budgetID = s.eatingOut
+        #expect(editor.canSave)
+        editor.budgetID = s.groceries
+        #expect(!editor.canSave)
+
+        editor.merchant = "  "
+        #expect(!editor.canSave, "a merchant is still needed, as on Add")
+        editor.merchant = "Hilltop Grocery"
+        editor.amountText = "lots"
+        #expect(!editor.canSave, "so is an amount")
+        #expect(!editor.save())
+        #expect(try s.stored().amount == Money(minorUnits: -14208))
+    }
+
+    /// Save writes only the fields changed here, onto the entry as it is
+    /// stored now. Robin's note, brought in by a sync while the sheet was
+    /// open, stays.
+    @Test func savingWritesOnlyWhatWasChanged() throws {
+        let s = try Hilltop()
+        let editor = try s.editor()
+        var robins = try s.stored()
+        robins.note = "for the party"
+        try s.model.store.save(robins, queue: false)
+        s.model.reload()
+
+        editor.amountText = "124.08"
+        #expect(editor.save())
+
+        #expect(editor.result == .saved)
+        let saved = try s.stored()
+        #expect(saved.amount == Money(minorUnits: -12408))
+        #expect(saved.note == "for the party", "Robin's note stays")
+        #expect(saved.merchant == "Hilltop Grocery")
+        #expect(try s.row().amount == "$124.08")
+    }
+
+    @Test func aRefundStaysARefund() throws {
+        let s = try Hilltop()
+        let refund = try s.entry("Trader Joes", amount: 5420, source: .statement, note: "TRADER JOES #123",
+                                 by: s.robin)
+        let editor = try #require(EntryEditor(model: s.model, entry: refund))
+        #expect(editor.amountText == "54.20")
+        #expect(editor.note == "TRADER JOES #123", "the bank's text is the note, and can be changed")
+
+        editor.amountText = "60.00"
+        #expect(editor.save())
+
+        #expect(try s.model.store.transaction(refund)?.amount == Money(minorUnits: 6000))
+    }
+
+    @Test func aDateOutsideThisPeriodSaysSo() throws {
+        let s = try Hilltop()
+        let editor = try s.editor()
+        let today = editor.date
+
+        editor.date = try #require(Calendar.current.date(byAdding: .month, value: -2, to: today))
+        #expect(editor.periodLine == "This moves it out of this period.")
+        editor.date = today
+        #expect(editor.periodLine == nil)
+    }
+
+    @Test func theBudgetListHoldsOnlyTheEntrysGroup() throws {
+        let s = try Hilltop()
+        let side = try #require(s.model.addGroup(named: "Side Business"))
+        s.model.addBudget(named: "Tools", limit: .dollars(100), in: side)
+        s.model.selectedBudget = s.groceries
+
+        let editor = try s.editor()
+        #expect(editor.budgetChoices.map(\.name) == ["Groceries", "Eating out"])
+
+        editor.budgetID = s.eatingOut
+        #expect(editor.save())
+        #expect(try s.stored().budgetID == s.eatingOut)
+    }
+
+    /// At View, and on someone else's entry at Add.
+    @Test func aReadOnlyEntryShowsWhyAndOffersNoSave() throws {
+        let s = try Hilltop()
+        s.at(.read)
+        let viewing = try s.editor()
+        #expect(viewing.isReadOnly && !viewing.offersDelete)
+        #expect(viewing.readOnlyLine == "You can view this group but not change it.")
+        viewing.amountText = "1.00"
+        #expect(!viewing.canSave && !viewing.save())
+        viewing.askDelete()
+        #expect(viewing.pendingDelete == nil)
+        #expect(!viewing.confirmDelete())
+        #expect(try s.stored().amount == Money(minorUnits: -14208) && !s.stored().isDeleted)
+
+        s.at(.write)
+        let adding = try s.editor()
+        #expect(adding.isReadOnly)
+        #expect(adding.readOnlyLine == "Only Robin, or a manager, can change this.")
+        let own = try s.entry("Costco", amount: -2863, by: s.leslie)
+        let mine = try #require(EntryEditor(model: s.model, entry: own))
+        #expect(!mine.isReadOnly && mine.offersDelete, "her own, she may change and delete")
+    }
+
+    /// Moved down to View while the sheet was open, with a change typed.
+    @Test func savingAfterAMoveDownChangesNothingAndSaysWhy() throws {
+        let s = try Hilltop()
+        let saving = try s.editor()
+        let deleting = try s.editor()
+        saving.amountText = "124.08"
+        s.at(.read)
+
+        #expect(!saving.save())
+        #expect(saving.result == .notAllowed(.viewOnly))
+        #expect(saving.isReadOnly && !saving.canSave && !saving.offersDelete)
+        #expect(saving.readOnlyLine == "Nothing was changed. You can view this group but not change it.")
+        deleting.askDelete()
+        #expect(deleting.pendingDelete == nil, "no question to ask")
+        #expect(deleting.readOnlyLine == "Nothing was changed. You can view this group but not change it.")
+        #expect(try s.stored().amount == Money(minorUnits: -14208) && !s.stored().isDeleted)
+
+        // At Add on Robin's entry, after a move down from Manage.
+        s.at(.manage)
+        let again = try s.editor()
+        again.note = "milk"
+        s.at(.write)
+        #expect(!again.save())
+        #expect(again.readOnlyLine == "Nothing was changed. Only Robin, or a manager, can change this.")
+    }
+
+    /// The note on the row goes once the entry has been opened.
+    @Test func openingAnEntryWithANoteWaitingMarksItSeen() throws {
+        let s = try Hilltop()
+        let thisDevice = DeviceID()
+        s.model.thisDevice = { thisDevice }
+        try s.model.store.recordConflict(recordID: s.id, recordType: .transaction, payloadJSON: "{}", lamport: 3,
+                                         device: thisDevice)
+        s.model.reload()
+        #expect(try s.row().notice == "Your change didn't go through.")
+
+        let editor = try s.editor()
+
+        #expect(editor.noticeLine == "Your last change to this didn't go through. This is the version everyone sees.")
+        #expect(try s.row().notice == nil, "the row's line is gone")
+        #expect(try s.editor().noticeLine == nil, "said once")
+    }
+
+    /// The source, and who added it, but only once someone else is in the
+    /// group, as the list's Added by column decides.
+    @Test func theTopLineSaysWhereItCameFromAndWhoAddedIt() throws {
+        let s = try Hilltop()
+        let refund = try s.entry("Trader Joes", amount: 5420, source: .statement, by: s.robin)
+        let unnamed = try s.entry("Sunny's", amount: -5477, by: UserID())
+        let own = try s.entry("Costco", amount: -2863, by: s.leslie)
+        func top(_ id: RecordID) -> String? { EntryEditor(model: s.model, entry: id)?.topLine }
+
+        #expect(top(s.id) == "Manual", "nobody else is in the group")
+        #expect(top(refund) == "Statement \u{00B7} Refund")
+
+        try s.model.store.replaceMembers([s.robin: .superadmin, s.leslie: .manage], in: s.group)
+        #expect(top(s.id) == "Added by Robin \u{00B7} Manual")
+        #expect(top(refund) == "Added by Robin \u{00B7} Statement \u{00B7} Refund")
+        #expect(top(unnamed) == "Added by a member \u{00B7} Manual")
+        #expect(top(own) == "Added by you \u{00B7} Manual")
+    }
+
+    /// The delete question, asked inside the sheet so it shows over it.
+    @Test func deleteAsksFirstAndCancelKeepsTheEntryAndTheSheet() throws {
+        let s = try Hilltop()
+        let editor = try s.editor()
+
+        editor.askDelete()
+        let pending = try #require(editor.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Hilltop Grocery\u{201D}, $142.08?")
+        #expect(pending.message == "It comes out of Groceries.", "nobody else is in the group")
+        #expect(pending.confirmLabel == "Delete")
+        editor.cancelDelete()
+        #expect(editor.pendingDelete == nil)
+        #expect(try !s.stored().isDeleted)
+        #expect(!editor.isReadOnly, "the sheet stays as it was")
+
+        editor.askDelete()
+        #expect(editor.confirmDelete())
+        #expect(editor.result == .saved)
+        #expect(editor.pendingDelete == nil)
+        #expect(try s.stored().isDeleted)
+        #expect(s.model.transactions.isEmpty)
+        #expect(s.model.undoOffer?.entry == s.id)
+    }
+
+    @Test func addingWorksAsBefore() throws {
+        let s = try Hilltop()
+        let editor = EntryEditor(model: s.model)
+
+        #expect(editor.title == "New transaction" && editor.saveLabel == "Add")
+        #expect(editor.editing == nil && editor.topLine == nil && editor.budgetChoices.isEmpty)
+        #expect(!editor.isReadOnly && !editor.offersDelete && editor.readOnlyLine == nil)
+        #expect(!editor.canSave)
+        editor.merchant = "Costco"
+        editor.amountText = "28.63"
+        #expect(editor.canSave)
+        #expect(editor.save())
+        #expect(s.model.transactions.contains { $0.merchant == "Costco" && $0.amount == Money(minorUnits: -2863) })
+    }
+}

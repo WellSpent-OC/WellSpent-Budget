@@ -18,6 +18,12 @@ public struct BudgetScreen {
         public let source: String
         /// Without its sign: every entry is money out.
         public let amount: String
+        /// Whether this person may change or delete it, for its menu. The
+        /// row looks the same either way, and a click opens it either way.
+        public let mayChange: Bool
+        /// Under the merchant, when this device's last change to it didn't
+        /// go through, until the entry is opened.
+        public let notice: String?
     }
 
     public let summary: BudgetSummary
@@ -27,16 +33,25 @@ public struct BudgetScreen {
     /// Whether Add and Import statement are offered: they take Add, as the
     /// server decides.
     public let mayAdd: Bool
+    /// The bar at the top after a delete, with its Undo button.
+    public let undo: UndoOffer?
 
     public init(summary: BudgetSummary, model: AppModel, me: UserID?) {
         self.summary = summary
+        let group = summary.budget.groupID
+        // Asked once for the whole list: every entry is in this group.
+        let mayAdd = model.mayAddEntries(group)
+        let mayManage = model.mayManageEntries(group)
         rows = model.transactions.map { transaction in
             Row(id: transaction.id, date: transaction.date, merchant: transaction.merchant, note: transaction.note,
                 addedBy: model.addedBy(transaction, me: me), source: transaction.source.rawValue.capitalized,
-                amount: transaction.amount.magnitude.display)
+                amount: transaction.amount.magnitude.display,
+                mayChange: model.access(to: transaction, mayAdd: mayAdd, mayManage: mayManage).mayChange,
+                notice: model.notices.contains(transaction.id) ? Words.notice : nil)
         }
-        showsAddedBy = model.isShared(summary.budget.groupID)
-        mayAdd = model.mayAddEntries(summary.budget.groupID)
+        showsAddedBy = model.isShared(group)
+        self.mayAdd = mayAdd
+        undo = model.undoOffer
     }
 
     public var title: String { summary.budget.name }
@@ -75,5 +90,6 @@ public struct BudgetScreen {
         public static let amount = "Amount"
         public static let add = "Add"
         public static let importStatement = "Import statement"
+        public static let notice = "Your change didn't go through."
     }
 }

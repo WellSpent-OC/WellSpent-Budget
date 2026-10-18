@@ -57,6 +57,29 @@ public final class MainScreen {
         public var id: String { title }
     }
 
+    /// What an entry's row asks for: its sheet, or a delete, which asks
+    /// first. Kept apart from `Action`, which each desktop handles case by
+    /// case. A new case there would stop the Linux app building until its
+    /// screens draw it.
+    public enum EntryAction: Equatable {
+        case open(RecordID)
+        case delete(RecordID)
+
+        /// Whether `ask(_:)` handles it, with a question first.
+        public var asksFirst: Bool {
+            if case .delete = self { return true }
+            return false
+        }
+    }
+
+    public struct EntryMenuItem: Identifiable, Equatable {
+        public let action: EntryAction
+        public let title: String
+        public let isDestructive: Bool
+
+        public var id: String { title }
+    }
+
     /// What the right side shows.
     public enum Detail: Equatable {
         case budget(BudgetSummary)
@@ -149,6 +172,14 @@ public final class MainScreen {
                 [MenuItem(action: .deleteBudget(budget), title: Words.delete, isDestructive: true)]]
     }
 
+    /// An entry's menu, the same way: offered only to someone who may
+    /// change it, since the server would refuse anyone else.
+    public func entryMenu(_ row: BudgetScreen.Row) -> [[EntryMenuItem]] {
+        guard row.mayChange else { return [] }
+        return [[EntryMenuItem(action: .open(row.id), title: Words.edit, isDestructive: false)],
+                [EntryMenuItem(action: .delete(row.id), title: Words.delete, isDestructive: true)]]
+    }
+
     /// Like Add List in Reminders: the common action is the button, the
     /// rarer ones are in its menu.
     public var addButton: MenuItem {
@@ -187,6 +218,13 @@ public final class MainScreen {
     public func confirm(_ pending: PendingDelete) {
         pendingDelete = nil
         pending.confirm(model: model, sync: sync)
+    }
+
+    /// Asks before an entry's delete, with the window's own question.
+    /// Opening one is a sheet the screens open themselves.
+    public func ask(_ action: EntryAction) {
+        guard case .delete(let id) = action else { return }
+        pendingDelete = model.deleteQuestion(for: id)
     }
 
     public func keepIt() { pendingDelete = nil }

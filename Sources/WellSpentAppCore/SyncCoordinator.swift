@@ -84,7 +84,8 @@ public final class SyncCoordinator {
     private let makeTransport: @Sendable (URL) -> any ReadableAccountTransport
 
     private var transport: (any ReadableAccountTransport)?
-    private var clientID: DeviceID?
+    /// This device, as the server knows it, while signed in.
+    public private(set) var clientID: DeviceID?
     /// Moves on whenever a session starts or ends. A sync round that sees it
     /// change while it waits on the network stops, and leaves the new
     /// session's state alone.

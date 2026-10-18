@@ -32,7 +32,7 @@ public enum InviteRole: CaseIterable, Identifiable {
         switch self {
         case .view: return "Sees every budget and transaction. Changes nothing."
         case .add: return "Adds transactions, and edits or deletes their own."
-        case .manage: return "Edits budgets and anyone's transactions, and invites other people."
+        case .manage: return "Edits budgets, edits or deletes anyone's transactions, and invites other people."
         }
     }
 

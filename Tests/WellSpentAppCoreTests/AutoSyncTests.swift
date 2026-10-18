@@ -153,13 +153,26 @@ struct AppModelChangeTests {
         model.updateBudget(budget, name: "Food", limit: Money(minorUnits: 90_000))
         model.renameGroup(group, to: "Home")
         let transaction = try #require(model.transactions.first)
-        model.trash(transaction)
+        model.updateEntry(transaction.id, EntryChange(note: "weekly shop"))
+        model.deleteEntry(transaction.id)
+        #expect(changes.value == 7, "one each")
+
+        // Refused: nothing changed, so there is nothing to say.
+        model.updateEntry(transaction.id, EntryChange(note: "deleted meanwhile"))
+        model.deleteEntry(transaction.id)
+        #expect(changes.value == 7)
+
+        model.undoDelete()
+        #expect(changes.value == 8)
+        model.undoDelete()
+        #expect(changes.value == 8, "nothing left to undo")
+
         model.deleteBudget(budget)
         model.deleteGroup(group, reach: .justYou)
-        #expect(changes.value == 8)
+        #expect(changes.value == 10)
 
         model.reload()
-        #expect(changes.value == 8)
+        #expect(changes.value == 10)
     }
 }
 
