@@ -205,6 +205,12 @@ public final class MainScreen {
         return true
     }
 
+    /// Opens the first budget shown on the left, as a tap on it would. For a
+    /// window asked to start on a budget (`StartingScreen`).
+    public func openFirstBudget() {
+        selectedBudget = sections.lazy.compactMap { $0.budgets.first?.budget.id }.first
+    }
+
     // MARK: - Menus
 
     /// A group's menu, in parts the screens separate with dividers.
