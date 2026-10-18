@@ -441,6 +441,7 @@ final class TestApp {
             app.typeText(original)
         }
         expect(original, "putting it back")
+        XCTAssertTrue(hasKeyboardFocus(field), "\(identifier) did not have the keyboard before Tab", file: file, line: line)
         app.typeKey(.tab, modifierFlags: [])
         XCTAssertFalse(hasKeyboardFocus(field), "Tab did not move on from \(identifier)", file: file, line: line)
     }
@@ -467,10 +468,13 @@ final class TestApp {
         let open = app.buttons["Open"].firstMatch
         XCTAssertTrue(open.waitForExistence(timeout: 10), "the open panel did not show. On screen: \(visibleTexts())")
         app.typeKey("g", modifierFlags: [.command, .shift])
-        // The Go to field slides in. Keys typed before it is there go to the
-        // panel's list of files instead. (A waiter on an expectation nobody
-        // fulfils is XCTest's way to pause.)
-        _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the Go to field")], timeout: 1)
+        // The Go to field slides in. Keys typed before it has the keyboard go
+        // to the panel's list of files instead, so wait for the field itself.
+        let goTo = app.descendants(matching: .any).matching(NSPredicate(
+            format: "hasKeyboardFocus == true AND (elementType == %d OR elementType == %d)",
+            XCUIElement.ElementType.textField.rawValue, XCUIElement.ElementType.comboBox.rawValue)).firstMatch
+        XCTAssertTrue(goTo.waitForExistence(timeout: 10),
+                      "the open panel's Go to field never took the keyboard. On screen: \(visibleTexts())")
         app.typeText(url.path)
         app.typeKey(.return, modifierFlags: [])
         let review = element(AccessibilityID.importConfirm)

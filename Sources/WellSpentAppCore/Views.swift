@@ -110,7 +110,7 @@ struct RootView: View {
         .alert(MainScreen.Words.errorTitle,
                isPresented: Binding(get: { model.errorMessage != nil },
                                     set: { if !$0 { model.dismissError() } })) {
-            Button("OK") { model.dismissError() }
+            Button(MainScreen.Words.ok) { model.dismissError() }
         } message: {
             Text(model.errorMessage ?? "")
         }

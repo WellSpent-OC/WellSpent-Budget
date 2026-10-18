@@ -277,6 +277,8 @@ public final class MainScreen {
     // MARK: - Words
 
     public enum Words {
+        /// Closes the window's error alert.
+        public static let ok = "OK"
         public static let share = "Share…"
         public static let rename = "Rename…"
         public static let edit = "Edit…"
