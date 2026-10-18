@@ -569,16 +569,18 @@ final class TestApp {
         line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
     }
 
-    /// How many budget rows in the sidebar have this name, across every group.
+    /// How many elements in the sidebar carry a budget's identifier, across
+    /// every group. One row shows as more than one element, its name and its
+    /// amount, so compare counts with each other, never with a row count.
     func sidebarBudgetCount(_ name: String) -> Int {
         app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name)).count
     }
 
-    /// Waits until the sidebar has exactly this many budget rows named `name`.
+    /// Waits until the count `sidebarBudgetCount` gives for `name` passes `test`.
     @discardableResult
-    func wait(forBudgetRows name: String, count expected: Int, timeout: TimeInterval) -> Bool {
+    func wait(forBudgetRows name: String, timeout: TimeInterval, until test: @escaping (Int) -> Bool) -> Bool {
         let rows = app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name))
-        let counted = NSPredicate { _, _ in rows.count == expected }
+        let counted = NSPredicate { _, _ in test(rows.count) }
         let expectation = XCTNSPredicateExpectation(predicate: counted, object: nil)
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
