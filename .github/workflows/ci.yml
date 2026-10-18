@@ -335,14 +335,13 @@ jobs:
 
       # The whole result bundle never leaves the runner: XCUITest's activity log
       # records the text typed into the sign-in fields, and here that text is a
-      # secret. Only the screenshots and the screen recording are kept (project
-      # rule, 2026-10-15). The password is pasted into a field that shows dots.
+      # secret. Only the screenshots are kept (project rule, 2026-10-15).
       - name: Pull the screenshots out of a failed run
         if: failure() && env.HAS_UI_TEST_ACCOUNTS == 'true'
         run: |
           if [ -d .build/xcode/ui-test.xcresult ]; then
             xcrun xcresulttool export attachments --path .build/xcode/ui-test.xcresult --output-path .build/xcode/ui-test-screenshots
-            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' ! -name '*.mp4' -delete
+            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
           fi
 
       - name: Keep the screenshots when the test fails
