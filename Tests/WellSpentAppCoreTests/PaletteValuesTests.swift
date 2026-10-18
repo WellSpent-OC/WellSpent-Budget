@@ -30,6 +30,14 @@ struct PaletteValuesTests {
         }
     }
 
+    /// Words on a green button, such as a phone's Add, are drawn in the page's
+    /// colour. White reads at only 2.4 to 1 on the dark green.
+    @Test func wordsOnTheGreenReadInLightAndDark() {
+        #expect(PaletteValues.ground.light.contrast(with: PaletteValues.accent.light) >= 4.5)
+        #expect(PaletteValues.ground.dark.contrast(with: PaletteValues.accent.dark) >= 4.5)
+        #expect(RGB(hex: 0xFFFFFF).contrast(with: PaletteValues.accent.dark) < 4.5, "why not white")
+    }
+
     @Test func theBarsFillsShowAgainstItsTrackAndEveryBudgetDotShowsOnAWell() {
         for fill in [PaletteValues.accent, PaletteValues.warning] {
             #expect(fill.light.contrast(with: PaletteValues.track.light) >= 3)
