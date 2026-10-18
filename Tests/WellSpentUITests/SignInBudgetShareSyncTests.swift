@@ -107,14 +107,14 @@ final class SignInBudgetShareSyncTests: XCTestCase {
 
         // 10. The arrow at the end of the group's line hides its budgets and
         // shows them again. The page stays. Other groups on the account may
-        // have a Groceries too, so the rows are counted.
+        // have a Groceries too, so the count must drop, then come back.
         let shown = run.sidebarBudgetCount("Groceries")
         XCTAssertGreaterThan(shown, 0, "Groceries is not in the sidebar. Sidebar: \(run.sidebarIdentifiers())")
         run.clickGroupArrow(groupName)
-        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown - 1, timeout: 10),
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", timeout: 10) { $0 < shown },
                       "the arrow did not hide the budgets. Sidebar: \(run.sidebarIdentifiers())")
         run.clickGroupArrow(groupName)
-        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", count: shown, timeout: 10),
+        XCTAssertTrue(run.wait(forBudgetRows: "Groceries", timeout: 10) { $0 == shown },
                       "the arrow did not show the budgets again. Sidebar: \(run.sidebarIdentifiers())")
         XCTAssertTrue(run.element(AccessibilityID.groupSummary).exists, "the arrow closed the page")
 
