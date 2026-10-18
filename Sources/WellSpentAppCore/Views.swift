@@ -2,6 +2,9 @@
 // the same shared logic with its own screens.
 #if canImport(SwiftUI)
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 import WellSpentCrypto
 import WellSpentImport
 import WellSpentModel
@@ -10,21 +13,43 @@ import WellSpentStore
 // MARK: - Look
 
 /// The tokens from the design canvas, in one place so a change lands everywhere.
+/// Their light and dark values live in `PaletteValues`, shared with every app.
+/// On a phone each one follows the device's light or dark setting.
 public enum Palette {
-    static let ground = Color(red: 0.965, green: 0.957, blue: 0.941)
-    static let surface = Color(red: 0.992, green: 0.988, blue: 0.980)
-    static let sidebar = Color(red: 0.937, green: 0.922, blue: 0.894)
-    static let ink = Color(red: 0.098, green: 0.110, blue: 0.106)
-    static let muted = Color(red: 0.369, green: 0.388, blue: 0.376)
-    static let line = Color(red: 0.886, green: 0.871, blue: 0.843)
-    static let accent = Color(red: 0.122, green: 0.373, blue: 0.294)
-    static let warning = Color(red: 0.706, green: 0.325, blue: 0.165)
+    static let ground = Color(PaletteValues.ground)
+    static let surface = Color(PaletteValues.surface)
+    static let sidebar = Color(PaletteValues.sidebar)
+    static let ink = Color(PaletteValues.ink)
+    static let muted = Color(PaletteValues.muted)
+    static let line = Color(PaletteValues.line)
+    static let track = Color(PaletteValues.track)
+    static let accent = Color(PaletteValues.accent)
+    static let warning = Color(PaletteValues.warning)
+    static let blue = Color(PaletteValues.blue)
+
+    /// The same values as `PaletteValues.budgetColors`, made once, so a budget
+    /// keeps the very colour its index names.
+    private static let budgetColors = [accent, blue, Color(PaletteValues.purple), warning]
 
     static func budgetColor(_ index: Int) -> Color {
-        [accent,
-         Color(red: 0.169, green: 0.361, blue: 0.494),
-         Color(red: 0.478, green: 0.290, blue: 0.549),
-         Color(red: 0.706, green: 0.325, blue: 0.165)][abs(index) % 4]
+        budgetColors[abs(index) % budgetColors.count]
+    }
+}
+
+extension Color {
+    /// On a phone, the pair's light value in light mode and its dark value in
+    /// dark mode. The system picks one each time it draws, so a change of
+    /// setting shows at once. The Mac draws the light value in both, as it
+    /// always has, until dark mode is placed in a Mac build.
+    init(_ pair: ColorPair) {
+        #if os(macOS)
+        self.init(red: pair.light.red, green: pair.light.green, blue: pair.light.blue)
+        #else
+        self.init(uiColor: UIColor { traits in
+            let rgb = traits.userInterfaceStyle == .dark ? pair.dark : pair.light
+            return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
+        })
+        #endif
     }
 }
 
@@ -494,7 +519,7 @@ struct BudgetDetailView: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.line)
+                    Capsule().fill(Palette.track)
                     Capsule()
                         .fill(screen.isOverspent ? Palette.warning : Palette.accent)
                         .frame(width: max(2, geometry.size.width * screen.fraction))
@@ -914,7 +939,7 @@ struct ImportReviewSheet: View {
     static func color(_ tone: ImportReviewScreen.Tone) -> Color {
         switch tone {
         case .matched: Palette.accent
-        case .toAdd: Color(red: 0.169, green: 0.361, blue: 0.494)
+        case .toAdd: Palette.blue
         case .alreadyImported: Palette.muted
         case .needsBudget: Palette.warning
         }
