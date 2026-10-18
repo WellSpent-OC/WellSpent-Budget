@@ -29,8 +29,8 @@ real people's names, addresses and secrets out of code, tests and examples.
 
 **How the code is written**
 
-The apps for the Mac, the iPhone and Linux share as much as they can, so each thing
-is written once and not again in every app. These practices keep it that way.
+Every app shares as much as it can, so each thing is written once and not again in
+every app. These practices keep it that way.
 
 - **Build every feature as a module.** A feature has a clear edge. Its rules and
   words are written once, in the shared code, with their own tests. Each platform's
@@ -49,7 +49,7 @@ is written once and not again in every app. These practices keep it that way.
 - **Each platform's screens are built that platform's way.** The apps share rules
   and words, not layouts. A view is shared between platforms only where it is
   already right on each of them.
-- **Tests check what a person can see and do,** through public behaviour, not a
+- **Tests check what a person can see and do,** through public behavior, not a
   type's insides. Each flow a person can take has a user interface test that acts
   the way a person would.
 
