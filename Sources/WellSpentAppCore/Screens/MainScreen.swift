@@ -136,9 +136,43 @@ public final class MainScreen {
         defaults.saveNow()
     }
 
+    /// The budget picked on the left, and none while a group's page shows.
+    /// Picking one opens it in place of the page. The list letting go of its
+    /// pick is not a click on a budget, so the page stays.
     public var selectedBudget: BudgetID? {
-        get { model.selectedBudget }
-        set { model.selectedBudget = newValue }
+        get { openGroup == nil ? model.selectedBudget : nil }
+        set {
+            if newValue == nil, openGroup != nil { return }
+            page = nil
+            model.selectedBudget = newValue
+        }
+    }
+
+    // MARK: - A group's page
+
+    /// The group whose page shows on the right, where a budget opens: its
+    /// people, and what this person may change about them. A click on the
+    /// group's name opens it, and so does People… in its menu. It closes
+    /// when a budget opens, picked on the left or opened on its own as a
+    /// new one is, and once the group is gone from here.
+    public var openGroup: BudgetGroup? {
+        guard let page, page.over == model.selectedBudget else { return nil }
+        return model.group(named: page.group)
+    }
+
+    /// The group whose page is open, and the budget that was open under it.
+    private var page: (group: GroupID, over: BudgetID?)?
+
+    public func openPage(of group: GroupID) {
+        page = (group, model.selectedBudget)
+    }
+
+    /// Leave Group… on a group's page. It asks first, with the question
+    /// Leave… in the group's menu asks, and it is always a leave, never a
+    /// delete for everyone, whatever this person's level.
+    public func askToLeave(_ group: BudgetGroup) {
+        pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
+                               transactions: model.transactionCount(inGroup: group.id), reach: .thisMacOnly)
     }
 
     // MARK: - Menus

@@ -286,6 +286,104 @@ struct MainScreenTests {
         #expect(device.screen.pendingDelete == nil)
     }
 
+    // MARK: - A group's page
+
+    /// A click on a group's name, or People… in its menu, opens the group's
+    /// page on the right, where a budget opens. A click on a budget opens it
+    /// again, even the one that was open before.
+    @Test func aGroupsPageOpensInPlaceOfTheBudgetUntilABudgetIsPicked() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        #expect(device.screen.selectedBudget == groceries)
+        #expect(device.screen.openGroup == nil)
+
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id)
+        #expect(device.screen.openGroup?.name == "Household")
+        #expect(device.screen.selectedBudget == nil, "no budget is picked on the left while the page shows")
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == groceries)
+        #expect(device.screen.detail == .budget(try #require(device.model.summary(for: groceries))))
+    }
+
+    /// The list on the left may let go of its pick while the page shows. That
+    /// is not a click on a budget, so the page stays.
+    @Test func aGroupsPageStaysWhenTheListLetsGoOfItsPick() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.screen.openPage(of: id)
+
+        device.screen.selectedBudget = nil
+        #expect(device.screen.openGroup?.id == id)
+        #expect(device.model.selectedBudget == groceries, "the budget under the page is still the one picked")
+    }
+
+    /// A budget that opens on its own, as a new one does once it is saved,
+    /// shows in place of the page.
+    @Test func aNewBudgetOpensInPlaceOfTheGroupsPage() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id)
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id)
+
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == eatingOut)
+    }
+
+    @Test func aGroupsPageClosesOnceTheGroupIsGone() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let group = try #require(device.model.group(named: id))
+        let other = try #require(device.model.addGroup(named: "Side Business"))
+        device.screen.openPage(of: other)
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id, "the last one asked for")
+
+        device.screen.ask(.deleteGroup(group))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.screen.openGroup == nil)
+        #expect(device.model.groups.map(\.id) == [other])
+    }
+
+    /// Leave Group… on the page is always a leave, never a delete for
+    /// everyone, whatever this person's level. Leslie is an admin, so her
+    /// group's menu offers Delete…, but the page leaves.
+    @Test func leaveGroupOnAGroupsPageAsksFirstAndIsAlwaysALeave() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .manage)
+        let owners = MembersScreen(actions: robin.sync, group: id, groupName: "Household")
+        await owners.refresh()
+        await owners.setLevel(.admin, for: try #require(owners.rows.first { !$0.isYou }).id)
+        await leslie.sync.syncAll()
+        let group = try #require(leslie.model.group(named: id))
+        #expect(titles(leslie.screen.groupMenu(group)).last == ["Delete…"], "her menu deletes it for everyone")
+
+        leslie.screen.openPage(of: id)
+        leslie.screen.askToLeave(group)
+        let pending = try #require(leslie.screen.pendingDelete)
+        #expect(pending.isLeave && pending.confirmLabel == "Leave")
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(leslie.screen.message(for: pending).hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget. Other members keep it."))
+
+        leslie.screen.keepIt()
+        #expect(leslie.model.groups.map(\.id) == [id], "Cancel keeps it")
+        leslie.screen.askToLeave(group)
+        leslie.screen.confirm(try #require(leslie.screen.pendingDelete))
+        #expect(leslie.model.groups.isEmpty)
+        #expect(leslie.screen.openGroup == nil, "the page goes with the group")
+
+        await leslie.sync.syncAll()
+        await robin.sync.syncAll()
+        #expect(robin.model.groups.map(\.id) == [id], "Robin keeps it: she left, and deleted nothing")
+        #expect(robin.sync.members(of: id).count == 1)
+    }
+
     // MARK: - Entries
 
     /// The row's menu offers Edit and Delete only where the server

@@ -214,7 +214,8 @@ public final class JoinScreen {
 // MARK: - Members
 
 /// The people in a group: their names and levels, and what this person may
-/// change about them.
+/// change about them. A group's page shows them under the group's name,
+/// with one line about the group.
 @MainActor
 @Observable
 public final class MembersScreen {
@@ -236,6 +237,13 @@ public final class MembersScreen {
     public let group: GroupID
     public let groupName: String
     public private(set) var rows: [Row] = []
+    /// The line under the group's name on its page: whether it is shared,
+    /// how many people are in it, and who made it. "Shared · 3 people · Made
+    /// by you". Who made it is left out when nobody here knows their name.
+    public private(set) var summary = ""
+    /// A quiet line at the top of the page after a removal, until the next
+    /// change: "Leslie was removed."
+    public private(set) var removedNote: String?
     public private(set) var failure: String?
     public private(set) var isWorking = false
     /// The person whose removal is being asked about.
@@ -286,6 +294,16 @@ public final class MembersScreen {
             if first.level != second.level { return first.level > second.level }
             return first.name.localizedCaseInsensitiveCompare(second.name) == .orderedAscending
         }
+        var line = [rows.count > 1 ? Words.shared : Words.notShared]
+        if !rows.isEmpty { line.append(Words.peopleCount(rows.count)) }
+        if let maker = rows.first(where: \.isFounder) {
+            if maker.isYou {
+                line.append(Words.madeByYou)
+            } else if let name = names[maker.id], !name.isEmpty {
+                line.append(Words.madeBy(name))
+            }
+        }
+        summary = line.joined(separator: " \u{00B7} ")
     }
 
     /// Whether this person may leave. The founder deletes the group instead.
@@ -312,6 +330,7 @@ public final class MembersScreen {
         guard !isWorking, let row = rows.first(where: { $0.id == id }), row.level != level,
               row.levelChoices.contains(level) else { return }
         failure = nil
+        removedNote = nil
         isWorking = true
         defer { isWorking = false }
         do {
@@ -340,11 +359,13 @@ public final class MembersScreen {
         guard !isWorking, let row = rows.first(where: { $0.id == id }), row.mayRemove else { return }
         removing = nil
         failure = nil
+        removedNote = nil
         isWorking = true
         pending = Task {
             defer { isWorking = false }
             do {
                 try await actions.remove(row.id, from: group)
+                removedNote = Words.removed(row.name)
             } catch {
                 failure = AccountWording.words(for: error)
             }
@@ -391,5 +412,14 @@ public final class MembersScreen {
         public static let invite = "Invite Someone…"
         public static let done = "Done"
         public static let cancel = "Cancel"
+        /// Above the list of people on a group's page.
+        public static let people = "People"
+        /// The parts of the line under a group's name.
+        public static let shared = "Shared"
+        public static let notShared = "Not shared"
+        public static func peopleCount(_ count: Int) -> String { count == 1 ? "1 person" : "\(count) people" }
+        public static let madeByYou = "Made by you"
+        public static func madeBy(_ name: String) -> String { "Made by \(name)" }
+        public static func removed(_ name: String) -> String { "\(name) was removed." }
     }
 }
