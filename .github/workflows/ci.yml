@@ -375,9 +375,65 @@ jobs:
           xcodebuild -scheme WellSpentAppCore -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .build/xcode-ios-libs build
 
+  # Gate 9. The iPhone app in the iOS Simulator, driven by XCUITest the way a
+  # person uses a phone, once in light and once in dark, each on a simulator
+  # made for the run and deleted after. No window opens. The tests that need
+  # no account run on every pull request. The signed-in one runs when the
+  # staging test accounts are in this repository's secrets, and skips without
+  # them, as for a pull request from a fork.
+  iphone-ui-test:
+    name: iPhone UI test
+    needs: unit-tests
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Show the iPhone simulators on the image
+        run: xcrun simctl list runtimes available | grep '^iOS '
+
+      - name: Build the iPhone app and its UI tests
+        run: make iphone-ui-test-build
+
+      - name: Run the iPhone UI tests
+        env:
+          WELLSPENT_UI_TEST_EMAIL: ${{ secrets.WELLSPENT_UI_TEST_EMAIL }}
+          WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
+          WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
+          WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
+        run: make iphone-ui-test
+
+      # As for the Mac: the result bundles never leave the runner, because
+      # XCUITest's activity log records what is typed into the sign-in fields.
+      # Only the screenshots are kept.
+      - name: Pull the screenshots out of a failed run
+        if: failure()
+        run: |
+          for look in light dark; do
+            bundle=.build/xcode-iphone/ui-test-$look.xcresult
+            if [ -d "$bundle" ]; then
+              xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/screenshots-$look
+              find .build/xcode-iphone/screenshots-$look -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+            fi
+          done
+
+      - name: Keep the screenshots when the test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-ui-test-screenshots
+          path: .build/xcode-iphone/screenshots-*
+          if-no-files-found: ignore
+
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -392,7 +448,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success' || needs.iphone-ui-test.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -412,7 +468,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success' && needs.ios-build.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success' && needs.ios-build.result == 'success' && needs.iphone-ui-test.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
