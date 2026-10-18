@@ -11,6 +11,27 @@ import WellSpentModel
 import WellSpentStore
 import WellSpentSync
 
+/// One person's side of a shared group: signed up and confirmed on a shared
+/// in-memory server, with budgets and a window of their own.
+@MainActor
+private struct Side {
+    let sync: SyncCoordinator
+    let workspace: Workspace
+    let main: MainScreen
+    var model: AppModel { workspace.model }
+
+    init(_ email: String, on server: InMemoryReadableServer) async throws {
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let transport = StubReadableTransport(server: server)
+        sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                               makeTransport: { _ in transport })
+        workspace = Workspace(model: AppModel(store: store), sync: sync)
+        main = MainScreen(workspace: workspace)
+        try await sync.signUp(email: email, password: "a-long-password")
+        try await sync.verifyEmail(code: try #require(server.lastCode(for: email, purpose: .verify)))
+    }
+}
+
 /// The editing and sharing sheets, drawn, and what they say in each state.
 @Suite("Sheets", .serialized)
 @MainActor
@@ -125,6 +146,88 @@ struct SheetTests {
 
         let wrong = try texts(JoinSheet(sync: sync(model), linkText: "https://example.com"))
         #expect(wrong.contains("That is not a WellSpent invite link."))
+    }
+
+    // MARK: - A group's page
+
+    /// Robin's Household, with a Groceries budget, shared with Leslie at Add,
+    /// both synced since. Each side has its coordinator, budgets and window.
+    private func household() async throws -> (robin: Side, leslie: Side, group: GroupID) {
+        let server = InMemoryReadableServer()
+        let robin = try await Side("robin@example.com", on: server)
+        let group = try #require(robin.model.addGroup(named: "Household"))
+        robin.model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: group)
+        await robin.sync.syncAll()
+        let share = ShareScreen(actions: robin.sync, group: group, groupName: "Household")
+        share.myName = "Robin"
+        #expect(await share.create())
+        let leslie = try await Side("leslie@example.com", on: server)
+        let join = JoinScreen(actions: leslie.sync, linkText: try #require(share.link).url)
+        join.myName = "Leslie"
+        #expect(await join.join())
+        await leslie.sync.syncAll()
+        await robin.sync.syncAll()
+        return (robin, leslie, group)
+    }
+
+    /// The owner sees the name, the line under it, and everyone, with a
+    /// level picker and Remove… where today's rules allow, and the Invite
+    /// Someone… button. The founder deletes the group, so there is no Leave.
+    @Test func theOwnersGroupPageShowsEveryoneAndWhatTheyMayChange() async throws {
+        let (robin, _, id) = try await household()
+        var invited = false
+        let page = GroupPage(sync: robin.sync, group: try #require(robin.model.group(named: id)), main: robin.main,
+                             showingAccount: .constant(false), invite: { invited = true })
+        let shown = try texts(page)
+        for word in ["Household", "Shared \u{00B7} 2 people \u{00B7} Made by you", "PEOPLE", "Robin (you)", "Leslie",
+                     "Owner", MembersScreen.Words.levelExplanation(.superadmin),
+                     MembersScreen.Words.levelExplanation(.write)] {
+            #expect(shown.contains(word), "missing \(word) in \(shown)")
+        }
+        #expect(throws: Never.self, "Leslie's level can be changed") {
+            _ = try page.inspect().find(ViewType.Picker.self)
+        }
+        #expect(throws: Never.self) { _ = try page.inspect().find(button: "Remove\u{2026}") }
+        #expect((try? page.inspect().find(button: "Leave Group\u{2026}")) == nil)
+
+        try page.inspect().find(button: "Invite Someone\u{2026}").tap()
+        #expect(invited, "Invite Someone\u{2026} opens the Share sheet")
+    }
+
+    /// A member at Add sees labels only, no Remove and no Invite Someone…,
+    /// and Leave Group…, which asks the window's question first.
+    @Test func aMembersGroupPageShowsLabelsOnlyAndLeaveGroup() async throws {
+        let (_, leslie, id) = try await household()
+        let group = try #require(leslie.model.group(named: id))
+        let page = GroupPage(sync: leslie.sync, group: group, main: leslie.main, showingAccount: .constant(false))
+        let shown = try texts(page)
+        for word in ["Shared \u{00B7} 2 people \u{00B7} Made by Robin", "Robin", "Leslie (you)", "Owner", "Add"] {
+            #expect(shown.contains(word), "missing \(word) in \(shown)")
+        }
+        #expect((try? page.inspect().find(ViewType.Picker.self)) == nil, "labels only")
+        #expect((try? page.inspect().find(button: "Remove\u{2026}")) == nil)
+        #expect((try? page.inspect().find(button: "Invite Someone\u{2026}")) == nil, "Add cannot invite")
+
+        try page.inspect().find(button: "Leave Group\u{2026}").tap()
+        let pending = try #require(leslie.main.pendingDelete)
+        #expect(pending.isLeave && pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(leslie.model.groups.map(\.id) == [id], "nothing goes before the answer")
+    }
+
+    /// After a removal, a quiet line on the page says who went.
+    @Test func aGroupsPageSaysWhoWasRemoved() async throws {
+        let (robin, _, id) = try await household()
+        let group = try #require(robin.model.group(named: id))
+        let members = MembersScreen(actions: robin.sync, group: id, groupName: "Household")
+        members.remove(try #require(members.rows.first { !$0.isYou }).id)
+        await members.pending?.value
+
+        let page = GroupPage(sync: robin.sync, group: group, main: robin.main, showingAccount: .constant(false),
+                             screen: members)
+        let shown = try texts(page)
+        #expect(shown.contains("Leslie was removed."), "got \(shown)")
+        #expect(!shown.contains("Leslie"))
+        #expect(shown.contains("Not shared \u{00B7} 1 person \u{00B7} Made by you"))
     }
 
     @Test func theInviteProblemsAreWords() {

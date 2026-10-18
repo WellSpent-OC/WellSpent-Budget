@@ -196,66 +196,85 @@ struct JoinSheet: View {
     }
 }
 
-// MARK: - People
+// MARK: - A group's page
 
-/// Draws MembersScreen: who is in a group, their levels, and what this person
-/// may change. Layout only.
-struct MembersSheet: View {
+/// Draws a group's page, on the right where a budget opens: its name, the
+/// line under it, and its people, with what this person may change. A click
+/// on the group's name opens it, and so does People… in its menu. The
+/// people and the words are MembersScreen's, and Leave Group… asks the
+/// window's own question. Layout only.
+struct GroupPage: View {
     @Bindable var sync: SyncCoordinator
-    let model: AppModel
     let group: BudgetGroup
-    /// Opens the share sheet for this group.
+    /// The window's rules, and its question before a leave.
+    let main: MainScreen
+    @Binding var showingAccount: Bool
+    /// Opens the Share sheet for this group.
     let invite: () -> Void
     @State private var screen: MembersScreen
-    @State private var leaving: PendingDelete?
-    @Environment(\.dismiss) private var dismiss
     private typealias Words = MembersScreen.Words
 
-    init(sync: SyncCoordinator, model: AppModel, group: BudgetGroup, invite: @escaping () -> Void = {}) {
+    /// `screen` opens the page on one made already, for tests.
+    init(sync: SyncCoordinator, group: BudgetGroup, main: MainScreen, showingAccount: Binding<Bool>,
+         invite: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
         self.sync = sync
-        self.model = model
         self.group = group
+        self.main = main
+        _showingAccount = showingAccount
         self.invite = invite
-        _screen = State(initialValue: MembersScreen(actions: sync, group: group.id, groupName: group.name))
+        _screen = State(initialValue: screen ?? MembersScreen(actions: sync, group: group.id, groupName: group.name))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(screen.title)
-                .font(.system(size: 17, weight: .semibold))
-
-            VStack(spacing: 0) {
-                ForEach(screen.rows) { row in
-                    person(row)
-                    if row.id != screen.rows.last?.id { Divider() }
+        VStack(spacing: 0) {
+            // After a removal, a quiet line at the top, where the Undo bar
+            // sits on a budget. No pop-up.
+            if let removed = screen.removedNote {
+                HStack {
+                    Text(removed)
+                        .font(.system(size: 12))
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Palette.sidebar)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AccessibilityID.groupRemoved)
+                Divider()
             }
-            .padding(.horizontal, 12)
-            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
-
-            if let failure = screen.failure {
-                note(failure, warning: true)
-            }
-
-            HStack {
-                if screen.mayLeave {
-                    Button(Words.leave) {
-                        // Always a leave, never a delete for everyone, whatever
-                        // this person's level: the stricter reading wins.
-                        leaving = .group(group, budgets: model.summaries[group.id]?.count ?? 0, reach: .thisMacOnly)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    if !screen.rows.isEmpty {
+                        people
+                    }
+                    if let failure = screen.failure {
+                        note(failure, warning: true)
+                    }
+                    if screen.mayLeave {
+                        Button(Words.leave) { main.askToLeave(group) }
+                            .disabled(screen.isWorking)
+                            .accessibilityIdentifier(AccessibilityID.groupLeave)
                     }
                 }
-                Spacer()
-                if screen.mayInvite {
-                    Button(Words.invite) { invite() }
-                }
-                Button(Words.done) { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(20)
-        .frame(width: 480)
+        .background(Palette.surface)
+        .toolbar {
+            ToolbarItemGroup {
+                if sync.account != nil {
+                    SyncButton(sync: sync, showingAccount: $showingAccount)
+                }
+                AccountButton(sync: sync, showingAccount: $showingAccount)
+            }
+        }
+        .navigationTitle(group.name)
+        // Whoever joined since the last sync shows as the page opens, and
+        // after each sync while it stays open.
         .task { await screen.refresh() }
+        .onChange(of: sync.lastSyncedAt) { screen.reload() }
         .confirmationDialog(screen.removeQuestion ?? "",
                             isPresented: Binding(get: { screen.removing != nil },
                                                  set: { if !$0 { screen.keepThem() } }),
@@ -266,20 +285,47 @@ struct MembersSheet: View {
         } message: { _ in
             Text(screen.removeMessage ?? "")
         }
-        .confirmationDialog(Words.leaveTitle(group.name),
-                            isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }),
-                            titleVisibility: .visible,
-                            presenting: leaving) { pending in
-            Button(Words.leaveButton, role: .destructive) {
-                pending.confirm(model: model, sync: sync)
-                dismiss()
+    }
+
+    /// The name, with Invite Someone… on the right, and the line under it.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(group.name)
+                    .font(.system(size: 22, weight: .semibold))
+                Spacer()
+                if screen.mayInvite {
+                    Button(Words.invite) { invite() }
+                        .accessibilityIdentifier(AccessibilityID.groupInvite)
+                }
             }
-            Button(Words.cancel, role: .cancel) {}
-        } message: { _ in
-            Text(screen.leaveMessage)
+            Text(screen.summary)
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+                .accessibilityIdentifier(AccessibilityID.groupSummary)
         }
     }
 
+    private var people: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(Words.people.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.7)
+                .foregroundStyle(Palette.muted)
+            VStack(spacing: 0) {
+                ForEach(screen.rows) { row in
+                    person(row)
+                    if row.id != screen.rows.last?.id { Divider() }
+                }
+            }
+            .padding(.horizontal, 12)
+            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    /// One person: their name, what their level lets them do, and the level.
+    /// The picker and Remove… show only where this person may change them.
+    /// Anyone else's level is a small label.
     private func person(_ row: MembersScreen.Row) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
@@ -293,8 +339,11 @@ struct MembersSheet: View {
             Spacer()
             if row.levelChoices.isEmpty {
                 Text(row.levelTitle)
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(Palette.muted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Palette.muted.opacity(0.4)))
             } else {
                 Picker(Words.level, selection: Binding(get: { row.level }, set: { level in
                     Task { await screen.setLevel(level, for: row.id) }

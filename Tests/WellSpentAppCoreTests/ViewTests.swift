@@ -102,6 +102,24 @@ struct ViewTests {
         #expect(texts.contains("Add Budget"), "the way to make a budget is always on screen")
     }
 
+    /// A click on a group's name opens its page. The arrow beside the name
+    /// hides or shows its budgets, and leaves the page as it is.
+    @Test func aClickOnAGroupsNameOpensItsPageAndTheArrowBesideItHidesItsBudgets() throws {
+        let (model, group, _) = try modelWithData()
+        let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
+        let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
+
+        try sidebar.inspect().find(button: "HOUSEHOLD").tap()
+        #expect(screen.openGroup?.id == group.id)
+        #expect(screen.sections.first?.isCollapsed == false, "a click on the name hides nothing")
+
+        try sidebar.inspect().find(ViewType.Button.self) { button in
+            try button.accessibilityIdentifier() == AccessibilityID.sidebarGroupFold("Household")
+        }.tap()
+        #expect(screen.sections.first?.isCollapsed == true)
+        #expect(screen.openGroup?.id == group.id)
+    }
+
     @Test func groupsCollapseAndExpandIndependently() {
         let household = GroupID(), sideBusiness = GroupID()
         var stored = ""

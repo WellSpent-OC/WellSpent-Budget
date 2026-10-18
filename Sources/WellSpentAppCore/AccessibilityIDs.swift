@@ -17,8 +17,11 @@ public enum AccessibilityID {
 
     // MARK: The sidebar
 
-    /// A group's header, which hides or shows its budgets and holds its menu.
+    /// A group's name. A click opens the group's page, and a right-click
+    /// shows its menu.
     public static func sidebarGroup(_ name: String) -> String { "sidebar.group.\(name)" }
+    /// The arrow beside a group's name, which hides or shows its budgets.
+    public static func sidebarGroupFold(_ name: String) -> String { "sidebar.groupFold.\(name)" }
     /// A budget's row.
     public static func sidebarBudget(_ name: String) -> String { "sidebar.budget.\(name)" }
     /// Add Budget, with New Group and Join a Group in its menu.
@@ -115,6 +118,18 @@ public enum AccessibilityID {
     public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
+
+    // MARK: A group's page
+
+    /// The line under the group's name: shared or not, how many people, and
+    /// who made it.
+    public static let groupSummary = "group.summary"
+    /// Invite Someone…, which opens the Share sheet.
+    public static let groupInvite = "group.invite"
+    /// Leave Group…, for a member.
+    public static let groupLeave = "group.leave"
+    /// The quiet line at the top after a removal.
+    public static let groupRemoved = "group.removed"
 
     // MARK: Sharing
 
