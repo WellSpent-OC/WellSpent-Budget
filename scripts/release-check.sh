@@ -8,8 +8,9 @@
 #   scripts/release-check.sh APP VERSION BUILD
 #
 # For both apps it checks the version and build number, the bundle ID, that the
-# build is live, that its code holds Apple's encryption only (crypto-check.sh),
-# and that the provisioning profile fits the app (profile-fit.sh).
+# build is live, that its code holds Apple's encryption only (crypto-check.sh)
+# and its export answer says so, and that the provisioning profile fits the app
+# (profile-fit.sh).
 # For the Mac app: its one invite link type, every icon size, the signature, and
 # the sandbox. For the iPhone app, told apart by its Info.plist sitting at the
 # top of the app: iPhone only, the oldest iOS, the icon, the privacy file, a
@@ -52,6 +53,9 @@ expect CFBundleIdentifier app.wellspent.mac
 expect WellSpentEnvironment live
 # Apple's encryption only, which the export answer counts on.
 "$(dirname "$0")/crypto-check.sh" "$app" || problem "the app holds encryption that is not Apple's own"
+# The export answer: no encryption that export rules do not exempt. Without it,
+# App Store Connect holds the upload until someone answers by hand.
+expect ITSAppUsesNonExemptEncryption false
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

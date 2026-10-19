@@ -198,31 +198,59 @@ struct AppEnvironmentTests {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let script = try String(contentsOf: root.appendingPathComponent("scripts/make-app.sh"), encoding: .utf8)
-        let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
-        let end = try #require(script.range(of: "\nEOF\n", range: start.upperBound..<script.endIndex))
-        let written = String(script[start.upperBound..<end.lowerBound])
         for environment in AppEnvironment.allCases {
-            let sets = Self.values(setFor: environment, in: script)
-            var values = ["$VERSION": "0.1.0", "$BUILD": "1", "$WELLSPENT_ENV": environment.rawValue]
-            for name in ["NAME", "BUNDLE_ID", "LINK_SCHEME"] {
-                values["$" + name] = try #require(sets[name], "the \(environment) case sets no \(name)")
-            }
-            var plist = written
-            for (name, value) in values { plist = plist.replacingOccurrences(of: name, with: value) }
-            let info = try #require(try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil)
-                                        as? [String: Any])
+            let info = try Self.infoPlist(writtenFor: environment, by: script)
             #expect(info["CFBundleIdentifier"] as? String == environment.bundleIdentifier)
             let types = try #require(info["CFBundleURLTypes"] as? [[String: Any]], "no link types in \(info.keys)")
             #expect(types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] } == [environment.inviteScheme],
                     "\(environment)")
         }
         let appStoreOnly = try #require(script.range(of: "if [ \"$SIGN\" = appstore ]; then\n    plist="))
-        #expect(appStoreOnly.lowerBound > end.upperBound, "the Info.plist is written before the signings part ways")
+        #expect(appStoreOnly.lowerBound > (try Self.infoPlistText(in: script)).upperBound,
+                "the Info.plist is written before the signings part ways")
 
         let host = try String(contentsOf: root.appendingPathComponent("Xcode/project.yml"), encoding: .utf8)
         let lines = host.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
         let schemes = try #require(lines.firstIndex(of: "CFBundleURLSchemes:"), "the UI test host takes no links")
         #expect(lines[schemes + 1] == "- \(AppEnvironment.staging.inviteScheme)")
+    }
+
+    /// App Store Connect asks each upload whether the app uses encryption that
+    /// export rules do not exempt, and holds the build until someone answers.
+    /// Every build answers no in its Info.plist, so an upload does not wait.
+    /// The answer holds while the app's code has Apple's encryption only. The
+    /// release check looks for encryption code that is not Apple's in the app
+    /// before it uploads.
+    @Test func eachBuildAnswersTheExportQuestion() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("scripts/make-app.sh"), encoding: .utf8)
+        for environment in AppEnvironment.allCases {
+            let info = try Self.infoPlist(writtenFor: environment, by: script)
+            #expect(info["ITSAppUsesNonExemptEncryption"] as? Bool == false, "\(environment)")
+        }
+    }
+
+    /// Where the build script writes the Info.plist: the text of its heredoc.
+    private static func infoPlistText(in script: String) throws -> Range<String.Index> {
+        let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
+        let end = try #require(script.range(of: "\nEOF\n", range: start.upperBound..<script.endIndex))
+        return start.upperBound..<end.lowerBound
+    }
+
+    /// The Info.plist the build script writes for `environment`, with the
+    /// values that build's case sets. Both signings, ad hoc and App Store,
+    /// write this one file.
+    private static func infoPlist(writtenFor environment: AppEnvironment, by script: String) throws -> [String: Any] {
+        let sets = Self.values(setFor: environment, in: script)
+        var values = ["$VERSION": "0.1.0", "$BUILD": "1", "$WELLSPENT_ENV": environment.rawValue]
+        for name in ["NAME", "BUNDLE_ID", "LINK_SCHEME"] {
+            values["$" + name] = try #require(sets[name], "the \(environment) case sets no \(name)")
+        }
+        var plist = String(script[try Self.infoPlistText(in: script)])
+        for (name, value) in values { plist = plist.replacingOccurrences(of: name, with: value) }
+        return try #require(try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil)
+                                as? [String: Any])
     }
 
     /// The NAME="value" lines in the build script's case for `environment`.
