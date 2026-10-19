@@ -156,6 +156,16 @@ final class TestApp {
         target.click()
     }
 
+    /// Right-clicks once the target can be clicked. A sidebar line just added
+    /// exists before it has its place on screen, and a right-click then lands
+    /// at the screen's corner and opens the Apple menu instead (seen twice in
+    /// CI on 2026-10-19).
+    func rightClick(_ target: XCUIElement, _ name: String) {
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "nothing called \(name) to right-click")
+        waitUntilHittable(target, name)
+        target.rightClick()
+    }
+
     /// Clicks into a field and pastes, replacing whatever was there: the text
     /// goes on the clipboard, then Command-V. Writing the clipboard from the
     /// test needs no permission (only reading it would), and it is emptied
@@ -313,7 +323,7 @@ final class TestApp {
     /// surface in the accessibility tree, and a leftover group from an
     /// aborted run could own a row with the same name.
     func addBudget(named name: String, amount: String, inGroup group: String) {
-        element(AccessibilityID.sidebarGroup(group)).rightClick()
+        rightClick(element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group))
         clickMenuItem(MainScreen.Words.newBudget(in: group))
         type(name, into: AccessibilityID.budgetEditorName)
         type(amount, into: AccessibilityID.budgetEditorAmount)
@@ -339,7 +349,7 @@ final class TestApp {
     /// clipboard: reading the clipboard from another process brings up a
     /// system prompt on recent macOS, which would stop the run.
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
-        element(AccessibilityID.sidebarGroup(group)).rightClick()
+        rightClick(element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group))
         clickMenuItem(MainScreen.Words.share)
         pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
@@ -396,7 +406,7 @@ final class TestApp {
     func deleteBudget(named name: String) {
         let row = sidebarBudget(name)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
-        row.rightClick()
+        rightClick(row, AccessibilityID.sidebarBudget(name))
         clickMenuItem(MainScreen.Words.delete)
         let label = PendingDelete.budget(Budget(groupID: GroupID(), name: name, limit: .zero()),
                                          transactions: 0).confirmLabel
@@ -614,7 +624,7 @@ final class TestApp {
 
     /// People… in the group's menu, which opens the same page.
     func openGroupPageFromMenu(named name: String) {
-        element(AccessibilityID.sidebarGroup(name)).rightClick()
+        rightClick(element(AccessibilityID.sidebarGroup(name)), AccessibilityID.sidebarGroup(name))
         clickMenuItem(MembersScreen.Words.menuItem)
         XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
                       "People\u{2026} did not open \(name)'s page. On screen: \(visibleTexts())")
@@ -653,7 +663,9 @@ final class TestApp {
     func deleteGroup(named name: String) {
         guard app.state == .runningForeground else { return }
         let header = element(AccessibilityID.sidebarGroup(name))
-        guard header.waitForExistence(timeout: 5) else { return }
+        guard header.waitForExistence(timeout: 5), wait(for: header, until: "hittable == true", timeout: 10) else {
+            return
+        }
         header.rightClick()
         let item = menuItem(MainScreen.Words.delete)
         guard item.waitForExistence(timeout: 5) else { return }
