@@ -56,6 +56,10 @@ every app. These practices keep it that way.
 - **Tests check what a person can see and do,** through public behavior, not a
   type's insides. Each flow a person can take has a user interface test that acts
   the way a person would.
+- **Behavior is written once, in plain words.** Each feature's scenarios are in
+  `Features/`, one file per feature. Each platform's user interface tests name the
+  scenarios they check, so every app is held to the same behavior.
+  `Features/README.md` says how a scenario is written and how a test names one.
 
 **Found a security problem?** Do not open a public issue. Email
 dev@wellspent.space with what you found and how to reproduce it.
