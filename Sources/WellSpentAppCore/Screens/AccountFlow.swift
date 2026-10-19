@@ -337,8 +337,8 @@ public final class AccountFlow {
         /// Where the budgets go, and who can read them.
         public static let privacy = """
             Your budgets sync through WellSpent's server. Connections and backups are encrypted. \
-            The server can read your budgets, which is how it checks who may change what and how \
-            it resets a forgotten password.
+            The server can read your budgets. That's how it checks who may change what, and why \
+            resetting a forgotten password doesn't lose your budgets.
             """
     }
 }
