@@ -14,6 +14,8 @@ import WellSpentSync
 /// can stand in.
 @MainActor
 public protocol SharingActions: AnyObject {
+    /// Which build this is. It makes and reads only its own invite links.
+    var environment: AppEnvironment { get }
     var account: String? { get }
     var userID: UserID? { get }
     var emailVerified: Bool { get }
@@ -21,6 +23,9 @@ public protocol SharingActions: AnyObject {
     func share(group: GroupID, groupName: String, level: AccessLevel, historyAccess: HistoryAccess,
                myName: String) async throws -> InviteLink
     func join(_ link: InviteLink, myName: String) async throws -> PendingJoin
+    /// What an invite offers, before joining: the level, and how much of the
+    /// group's past. Anyone holding the link may ask, signed in or not.
+    func preview(_ link: InviteLink) async throws -> InviteTerms
     func members(of group: GroupID) -> [UserID: AccessLevel]
     func memberNames(in group: GroupID) -> [UserID: String]
     func founder(of group: GroupID) -> UserID?
@@ -128,7 +133,10 @@ public final class ShareScreen {
 
 // MARK: - Join
 
-/// Joining a group with a link someone sent.
+/// Joining a group with a link someone sent. Two screens draw it: the Join
+/// step a link is pasted into, and the invitation page a clicked link puts
+/// up (`Workspace.open(_:)`). The page never shows the link itself, only
+/// what it says and what the server says it offers.
 @MainActor
 @Observable
 public final class JoinScreen {
@@ -138,6 +146,9 @@ public final class JoinScreen {
     public private(set) var isWorking = false
     /// What was joined, once it went through.
     public private(set) var joined: PendingJoin?
+    /// What the server says the invite offers, once asked (`lookUp()`). Nil
+    /// before, and when it could not say.
+    public private(set) var terms: InviteTerms?
     private let actions: any SharingActions
 
     public init(actions: any SharingActions, linkText: String = "") {
@@ -145,9 +156,15 @@ public final class JoinScreen {
         self.linkText = linkText
     }
 
+    /// The invitation page for a link the app was handed, from a click on it.
+    public convenience init(actions: any SharingActions, opened url: URL) {
+        self.init(actions: actions, linkText: url.absoluteString)
+    }
+
     public var title: String { Words.title }
     public var isSignedIn: Bool { actions.account != nil }
-    public var invite: InviteLink? { InviteLink(parsing: linkText) }
+    /// The invite, when the text is a link this build made.
+    public var invite: InviteLink? { actions.environment.invite(from: linkText) }
 
     /// "Robin invited you to "Household"."
     public var invitation: String? {
@@ -157,10 +174,42 @@ public final class JoinScreen {
         return "\(who) invited you to \(what)."
     }
 
-    /// Why the link cannot be used, while one is typed.
+    /// Why the link cannot be used: it is the other build's, part of an
+    /// invite link is missing, or the text is no invite link at all. Nothing
+    /// while the field is empty.
     public var linkProblem: String? {
-        linkText.trimmingCharacters(in: .whitespaces).isEmpty || invite != nil ? nil : Words.notALink
+        guard !linkText.trimmingCharacters(in: .whitespaces).isEmpty, invite == nil else { return nil }
+        let text = linkText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let here = actions.environment
+        if text.hasPrefix("\(here.other.inviteScheme)://") { return Words.otherApp(here.other.appName) }
+        return text.hasPrefix("\(here.inviteScheme)://") ? Words.notWhole : Words.notALink
     }
+
+    /// Asks the server what the invite offers. The invitation page shows it
+    /// under who invited them. When the server cannot say, such as for an
+    /// invite already used, the page says why, and Join may still be tried.
+    public func lookUp() async {
+        guard let invite else { return }
+        failure = nil
+        do {
+            terms = try await actions.preview(invite)
+        } catch {
+            failure = AccountWording.words(for: error)
+        }
+    }
+
+    /// "You'd join at Add.", once the server has said.
+    public var levelLine: String? { levelTitle.map(Words.joinsAt) }
+
+    /// The level's name alone, "Add", for a screen that marks it out.
+    public var levelTitle: String? { terms.map { MembersScreen.Words.levelTitle($0.level) } }
+
+    /// What that level lets them do, in the words the level picker uses.
+    public var levelExplanation: String? { terms.map { MembersScreen.Words.levelExplanation($0.level) } }
+
+    /// How much of the group they would see: everything so far, or only
+    /// what is added from now on.
+    public var historyLine: String? { terms.map { Words.sees($0.history) } }
 
     /// Before anything is sent: signed out, or an address not confirmed yet.
     public var notice: String? {
@@ -174,8 +223,13 @@ public final class JoinScreen {
     /// it was confirmed on another device.
     public var offersEmailConfirmation: Bool { isSignedIn && !actions.emailVerified }
 
+    /// The account sheet signs in or makes an account. The screen offers it
+    /// while signed out.
+    public var offersSignIn: Bool { !isSignedIn }
+
     public var canJoin: Bool {
-        !isWorking && SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: isSignedIn)
+        !isWorking && SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: isSignedIn,
+                                           in: actions.environment)
     }
 
     public var joinLabel: String { isWorking ? Words.joining : Words.join }
@@ -202,7 +256,24 @@ public final class JoinScreen {
         public static let name = "Your name"
         public static let namePrompt = "How the group will see you"
         public static let notALink = "That is not a WellSpent invite link."
+        /// A link of this build's type that does not read as a whole invite,
+        /// most often one a message app cut short.
+        public static let notWhole = "Part of that invite link is missing. Ask the person who sent it to send it again."
+        /// A link the other build made, whole or cut short: live's in the
+        /// staging app, or staging's in the live app. `appName` is that build's.
+        public static func otherApp(_ appName: String) -> String {
+            "That invite link is for \(appName). Open it in \(appName)."
+        }
+        /// On the invitation page, under who invited them.
+        public static func joinsAt(_ level: String) -> String { "You'd join at \(level)." }
+        public static func sees(_ history: HistoryAccess) -> String {
+            switch history {
+            case .all: return "You'd see everything so far."
+            case .fromNow: return "You'd see the group's budgets, and only transactions added from now on."
+            }
+        }
         public static let signInToJoin = "Sign in first, or create an account. Joining adds the group to your account."
+        public static let signIn = "Sign in…"
         public static let confirmToJoin = "Confirm your email first. Joining a shared group needs it."
         public static let confirmEmail = "Confirm your email…"
         public static let join = "Join"
@@ -214,7 +285,8 @@ public final class JoinScreen {
 // MARK: - Members
 
 /// The people in a group: their names and levels, and what this person may
-/// change about them.
+/// change about them. A group's page shows them under the group's name,
+/// with one line about the group.
 @MainActor
 @Observable
 public final class MembersScreen {
@@ -236,6 +308,13 @@ public final class MembersScreen {
     public let group: GroupID
     public let groupName: String
     public private(set) var rows: [Row] = []
+    /// The line under the group's name on its page: whether it is shared,
+    /// how many people are in it, and who made it. "Shared · 3 people · Made
+    /// by you". Who made it is left out when nobody here knows their name.
+    public private(set) var summary = ""
+    /// A quiet line at the top of the page after a removal, until the next
+    /// change: "Leslie was removed."
+    public private(set) var removedNote: String?
     public private(set) var failure: String?
     public private(set) var isWorking = false
     /// The person whose removal is being asked about.
@@ -286,6 +365,17 @@ public final class MembersScreen {
             if first.level != second.level { return first.level > second.level }
             return first.name.localizedCaseInsensitiveCompare(second.name) == .orderedAscending
         }
+        // How many people only when it is shared: "Not shared" already says one.
+        var line = [rows.count > 1 ? Words.shared : Words.notShared]
+        if rows.count > 1 { line.append(Words.peopleCount(rows.count)) }
+        if let maker = rows.first(where: \.isFounder) {
+            if maker.isYou {
+                line.append(Words.madeByYou)
+            } else if let name = names[maker.id], !name.isEmpty {
+                line.append(Words.madeBy(name))
+            }
+        }
+        summary = Words.line(line)
     }
 
     /// Whether this person may leave. The founder deletes the group instead.
@@ -312,6 +402,7 @@ public final class MembersScreen {
         guard !isWorking, let row = rows.first(where: { $0.id == id }), row.level != level,
               row.levelChoices.contains(level) else { return }
         failure = nil
+        removedNote = nil
         isWorking = true
         defer { isWorking = false }
         do {
@@ -340,11 +431,13 @@ public final class MembersScreen {
         guard !isWorking, let row = rows.first(where: { $0.id == id }), row.mayRemove else { return }
         removing = nil
         failure = nil
+        removedNote = nil
         isWorking = true
         pending = Task {
             defer { isWorking = false }
             do {
                 try await actions.remove(row.id, from: group)
+                removedNote = Words.removed(row.name)
             } catch {
                 failure = AccountWording.words(for: error)
             }
@@ -391,5 +484,16 @@ public final class MembersScreen {
         public static let invite = "Invite Someone…"
         public static let done = "Done"
         public static let cancel = "Cancel"
+        /// Above the list of people on a group's page.
+        public static let people = "People"
+        /// The parts of the line under a group's name.
+        public static let shared = "Shared"
+        public static let notShared = "Not shared"
+        public static func peopleCount(_ count: Int) -> String { count == 1 ? "1 person" : "\(count) people" }
+        public static let madeByYou = "Made by you"
+        public static func madeBy(_ name: String) -> String { "Made by \(name)" }
+        /// The parts together: "Shared · 3 people · Made by you".
+        public static func line(_ parts: [String]) -> String { parts.joined(separator: " \u{00B7} ") }
+        public static func removed(_ name: String) -> String { "\(name) was removed." }
     }
 }

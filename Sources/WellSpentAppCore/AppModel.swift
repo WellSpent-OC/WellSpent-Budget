@@ -442,6 +442,13 @@ public final class AppModel {
         (try? store.transactions(in: id).count) ?? 0
     }
 
+    /// How many transactions a group's delete would take with it, in all its
+    /// budgets and every period, for the confirmation.
+    public func transactionCount(inGroup id: GroupID) -> Int {
+        let budgets = (try? store.budgets(in: id)) ?? []
+        return budgets.reduce(0) { $0 + transactionCount(inBudget: $1.id) }
+    }
+
     private func trashBudget(_ id: BudgetID, queue: Bool = true) throws {
         guard var budget = try store.budget(id) else { return }
         for transaction in try store.transactions(in: id) { try store.trash(transaction, queue: queue) }

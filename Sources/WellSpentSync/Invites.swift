@@ -89,20 +89,32 @@ public struct PendingInvite: Sendable {
 /// joining before anything is decrypted. They are not trusted for anything:
 /// the real group name arrives, encrypted, once they are in.
 public struct InviteLink: Sendable, Equatable {
-    public static let scheme = "wellspent"
+    /// Each build's link type. A computer opens a link in whichever app claims
+    /// its type, so the live and staging builds each have their own: a link
+    /// opened in the other build would reach a server that has never heard of
+    /// the invite. Live keeps the type links have always had, so links already
+    /// sent still open it. `AppEnvironment.inviteScheme` says which build has
+    /// which.
+    public static let liveScheme = "wellspent"
+    public static let stagingScheme = "wellspent-staging"
+    static let schemes = [liveScheme, stagingScheme]
 
+    /// The link's type, which says the build that made it.
+    public let scheme: String
     public let secret: Data
     public let groupName: String
     public let inviterName: String
 
-    public init(secret: Data, groupName: String, inviterName: String) {
+    public init(secret: Data, groupName: String, inviterName: String, scheme: String) {
         self.secret = secret
         self.groupName = groupName
         self.inviterName = inviterName
+        self.scheme = scheme
     }
 
-    /// `wellspent://join#s=<secret>&g=<group>&f=<inviter>`. In the fragment, so a
-    /// browser that opens it never sends any of it to a server.
+    /// `wellspent://join#s=<secret>&g=<group>&f=<inviter>`, with the link's own
+    /// type in front. In the fragment, so a browser that opens it never sends
+    /// any of it to a server.
     public var url: String {
         var components = URLComponents()
         components.queryItems = [
@@ -110,15 +122,16 @@ public struct InviteLink: Sendable, Equatable {
             URLQueryItem(name: "g", value: groupName),
             URLQueryItem(name: "f", value: inviterName),
         ]
-        return "\(Self.scheme)://join#" + (components.percentEncodedQuery ?? "")
+        return "\(scheme)://join#" + (components.percentEncodedQuery ?? "")
     }
 
-    /// Reads a pasted link. Forgiving about spaces and line breaks a message app
-    /// may have added around it, strict about everything else.
+    /// Reads a pasted link of either build's type. Forgiving about spaces and
+    /// line breaks a message app may have added around it, strict about
+    /// everything else.
     public init?(parsing text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.hasPrefix("\(Self.scheme)://join#") else { return nil }
-        let fragment = String(trimmed.dropFirst("\(Self.scheme)://join#".count))
+        guard let scheme = Self.schemes.first(where: { trimmed.hasPrefix("\($0)://join#") }) else { return nil }
+        let fragment = String(trimmed.dropFirst("\(scheme)://join#".count))
         // Foundation stops the whole app on a fragment that is not valid
         // percent-encoding, such as a link typed or pasted halfway through
         // ("...g=Vegas%"). So the fragment is checked first, and anything that
@@ -133,7 +146,7 @@ public struct InviteLink: Sendable, Equatable {
         guard let secret = value("s").flatMap(Data.init(base64URL:)), secret.count == 32 else {
             return nil
         }
-        self.init(secret: secret, groupName: value("g") ?? "", inviterName: value("f") ?? "")
+        self.init(secret: secret, groupName: value("g") ?? "", inviterName: value("f") ?? "", scheme: scheme)
     }
 }
 

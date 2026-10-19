@@ -102,6 +102,24 @@ struct ViewTests {
         #expect(texts.contains("Add Budget"), "the way to make a budget is always on screen")
     }
 
+    /// A click on a group's name opens its page. The arrow at the end of the
+    /// line hides or shows its budgets, and leaves the page as it is.
+    @Test func aClickOnAGroupsNameOpensItsPageAndTheArrowBesideItHidesItsBudgets() throws {
+        let (model, group, _) = try modelWithData()
+        let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
+        let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
+
+        try sidebar.inspect().find(button: "HOUSEHOLD").tap()
+        #expect(screen.openGroup?.id == group.id)
+        #expect(screen.sections.first?.isCollapsed == false, "a click on the name hides nothing")
+
+        try sidebar.inspect().find(ViewType.Button.self) { button in
+            try button.accessibilityLabel().string() == MainScreen.Words.hideBudgets
+        }.tap()
+        #expect(screen.sections.first?.isCollapsed == true)
+        #expect(screen.openGroup?.id == group.id)
+    }
+
     @Test func groupsCollapseAndExpandIndependently() {
         let household = GroupID(), sideBusiness = GroupID()
         var stored = ""
@@ -138,12 +156,12 @@ struct ViewTests {
     @Test func aGroupDeleteSaysWhoElseLosesIt() {
         let household = BudgetGroup(name: "Household")
         #expect(PendingDelete.group(household, budgets: 2, reach: .everyone).message
-                    .contains("Everyone you share it with loses it too"))
+                    .contains("It's deleted for everyone in it"))
         // A member who may not delete it for everyone leaves it.
         let mine = PendingDelete.group(household, budgets: 2, reach: .thisMacOnly).message
-        #expect(mine == SyncWording.leaveGroupMessage)
-        #expect(mine.contains("You leave the group"))
-        #expect(mine.contains("Other members keep it"))
+        #expect(mine.hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 2 budgets. The others in it keep it."))
+        #expect(mine.contains("The others in it keep it"))
         #expect(mine.contains("new invite link"))
         #expect(mine.contains("on this device that has not synced yet still goes to them first"),
                 "edits saved here before the leave still go")

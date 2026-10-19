@@ -17,7 +17,10 @@ public enum AccessibilityID {
 
     // MARK: The sidebar
 
-    /// A group's header, which hides or shows its budgets and holds its menu.
+    /// A group's line: its name, and the arrow at the end that hides or shows
+    /// its budgets. The list makes the line one element, so this one name is
+    /// all of it. A click opens the group's page, and a right-click shows its
+    /// menu.
     public static func sidebarGroup(_ name: String) -> String { "sidebar.group.\(name)" }
     /// A budget's row.
     public static func sidebarBudget(_ name: String) -> String { "sidebar.budget.\(name)" }
@@ -115,6 +118,31 @@ public enum AccessibilityID {
     public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
+
+    // MARK: A group's page
+
+    /// The line under the group's name: shared or not, how many people, and
+    /// who made it.
+    public static let groupSummary = "group.summary"
+    /// Invite Someone…, which opens the Share sheet.
+    public static let groupInvite = "group.invite"
+    /// Leave Group…, for a member.
+    public static let groupLeave = "group.leave"
+    /// Remove… on a person's row, by the name the row shows.
+    public static func groupRemove(_ name: String) -> String { "group.remove.\(name)" }
+    /// The quiet line at the top after a removal.
+    public static let groupRemoved = "group.removed"
+
+    // MARK: The invitation page
+
+    /// Your name, on the page a clicked invite link opens.
+    public static let invitationName = "invitation.name"
+    public static let invitationJoin = "invitation.join"
+    /// Sign in…, in place of Join while signed out.
+    public static let invitationSignIn = "invitation.signIn"
+    /// Confirm your email…, in place of Join while the address is not
+    /// confirmed yet.
+    public static let invitationConfirmEmail = "invitation.confirmEmail"
 
     // MARK: Sharing
 

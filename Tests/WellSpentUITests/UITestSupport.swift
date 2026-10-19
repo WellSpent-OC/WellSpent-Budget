@@ -76,6 +76,52 @@ final class TestApp {
 
     // MARK: - Launching and finding things
 
+    /// Opens a link with the app under test, the way a click on it does, and
+    /// refuses to go on against anything but a staging build. It uses
+    /// XCUIApplication.open(_:), which macOS has from 13.3. The SDK's header
+    /// says it launches the app with the link and returns once the app is
+    /// ready, as launch() does. It does not say whether a copy already
+    /// running stays, so a test counts on nothing that copy did.
+    ///
+    /// The app must keep its data in the run's folder, as after launch(). So
+    /// once it is open, the folder must not be empty.
+    func open(link: String) throws {
+        let url = try XCTUnwrap(URL(string: link), "not a link: \(link)")
+        app.open(url)
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30), "the window never appeared")
+        XCTAssertTrue(element(AccessibilityID.stagingBanner).waitForExistence(timeout: 10),
+                      "no staging banner: this is not a staging build, so nothing more is done")
+        let kept = (try? FileManager.default.contentsOfDirectory(atPath: dataRoot.path)) ?? []
+        XCTAssertFalse(kept.isEmpty, "the app keeps nothing in the run's folder, so it may be using this Mac's "
+                       + "own. Nothing more is done.")
+    }
+
+    /// The UI test host's bundle ID, from Xcode/project.yml.
+    static let hostBundleIdentifier = "app.wellspent.mac.uitest"
+
+    /// Clicks a link the way a click in Mail or Messages does: macOS picks the
+    /// app that claims the link's type and hands it the link. So this checks
+    /// the link type is claimed, which `open(link:)` skips.
+    ///
+    /// The app must already be running, launched by the test with the run's
+    /// folder, so the click reaches that copy. macOS starting a fresh copy
+    /// itself would skip the run's folder. And only when macOS would pick the
+    /// app under test: on a Mac where another app claims the same type, such
+    /// as an installed WellSpent Staging, the link goes straight to the app
+    /// under test instead. Returns whether macOS routed it.
+    @discardableResult
+    func click(link: String) throws -> Bool {
+        let url = try XCTUnwrap(URL(string: link), "not a link: \(link)")
+        XCTAssertEqual(app.state, .runningForeground, "the app must be running before a link is clicked")
+        let handler = NSWorkspace.shared.urlForApplication(toOpen: url).flatMap { Bundle(url: $0)?.bundleIdentifier }
+        guard handler == Self.hostBundleIdentifier else {
+            try open(link: link)
+            return false
+        }
+        XCTAssertTrue(NSWorkspace.shared.open(url), "macOS did not take the link")
+        return true
+    }
+
     /// Launches, and refuses to go on against anything but a staging build.
     func launch() {
         app.launch()
@@ -106,8 +152,68 @@ final class TestApp {
     func click(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout), "nothing called \(identifier) to click")
+        if Self.isSidebarLine(identifier) { revealInSidebar(target) }
         waitUntilHittable(target, identifier)
         target.click()
+    }
+
+    /// A group's or a budget's line in the sidebar's list.
+    static func isSidebarLine(_ identifier: String) -> Bool {
+        identifier.hasPrefix("sidebar.group.") || identifier.hasPrefix("sidebar.budget.")
+    }
+
+    /// Scrolls the sidebar until `target` sits clear of the bar at its foot.
+    /// Add Budget and the sync line sit over the list's last lines, so a line
+    /// under them exists and reads as hittable, yet a click on it lands on
+    /// the bar. A long list of test groups puts a new one there.
+    func revealInSidebar(_ target: XCUIElement) {
+        let foot = element(AccessibilityID.sidebarAdd)
+        let list = app.outlines.containing(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'")).firstMatch
+        guard target.exists, foot.exists, list.exists else { return }
+        var delta: CGFloat = -60
+        for _ in 0..<20 {
+            let line = target.frame
+            let clear = line.maxY <= foot.frame.minY - 2 && line.minY >= list.frame.minY
+            if clear || line.isEmpty { return }
+            // Below the foot, or above the list's top: scroll toward it.
+            let wanted: CGFloat = line.maxY > foot.frame.minY - 2 ? delta : -delta
+            let before = line.minY
+            list.scroll(byDeltaX: 0, deltaY: wanted)
+            let moved = target.frame.minY - before
+            // It moved the wrong way, or not at all: the other sign is down.
+            if (line.maxY > foot.frame.minY - 2 && moved >= 0) || (line.minY < list.frame.minY && moved <= 0) {
+                delta = -delta
+            }
+        }
+    }
+
+    /// Right-clicks a line until its menu offers `item`, then leaves the
+    /// menu open for clickMenuItem. A menu that opens without it, or not at
+    /// all, is closed and tried again, twice. If it never shows, the failure
+    /// says where the line and the foot were, and how many elements carry
+    /// the name, so a run in CI can be read without its screen.
+    func openMenu(on target: XCUIElement, _ name: String, offering item: String) {
+        let entry = menuItem(item)
+        for _ in 0..<3 {
+            if Self.isSidebarLine(name) { revealInSidebar(target) }
+            rightClick(target, name)
+            if entry.waitForExistence(timeout: 3) { return }
+            app.typeKey(.escape, modifierFlags: [])
+        }
+        let carriers = app.descendants(matching: .any).matching(identifier: name).count
+        XCTFail("no menu item \(item) after three right-clicks on \(name). Its frame: \(target.frame). "
+                + "The sidebar's foot: \(element(AccessibilityID.sidebarAdd).frame). Elements with its name: "
+                + "\(carriers). Menu items on screen: \(visibleMenuItems())")
+    }
+
+    /// Right-clicks once the target can be clicked. A sidebar line just added
+    /// exists before it has its place on screen, and a right-click then lands
+    /// at the screen's corner and opens the Apple menu instead (seen twice in
+    /// CI on 2026-10-19).
+    func rightClick(_ target: XCUIElement, _ name: String) {
+        XCTAssertTrue(target.waitForExistence(timeout: 10), "nothing called \(name) to right-click")
+        waitUntilHittable(target, name)
+        target.rightClick()
     }
 
     /// Clicks into a field and pastes, replacing whatever was there: the text
@@ -125,6 +231,24 @@ final class TestApp {
         clipboard.setString(text, forType: .string)
         field.typeKey("v", modifierFlags: .command)
         clipboard.clearContents()
+    }
+
+    /// Pastes, then checks the field shows exactly what was pasted.
+    func pasteAndCheck(_ pasted: String, into identifier: String,
+                       file: StaticString = #filePath, line: UInt = #line) {
+        paste(pasted, into: identifier)
+        let field = element(identifier)
+        XCTAssertTrue(wait(for: field, holds: pasted, timeout: 5),
+                      "Command-V did not paste into \(identifier): it shows \(text(of: field))",
+                      file: file, line: line)
+    }
+
+    /// Waits for a button to turn on, or off, and fails naming it when it
+    /// does not.
+    func expect(_ identifier: String, enabled: Bool, _ what: String,
+                file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(wait(for: element(identifier), until: "isEnabled == \(enabled)", timeout: 5),
+                      "\(what): it is \(enabled ? "off" : "on")", file: file, line: line)
     }
 
     /// Clicks into a field and types, replacing whatever was there.
@@ -178,6 +302,12 @@ final class TestApp {
     /// fails with what the sheet says.
     func signIn(email: String, password: String, server: String) throws {
         click(AccessibilityID.sidebarSignIn)
+        try signInOnSheet(email: email, password: password, server: server)
+    }
+
+    /// The same, from the sign-in sheet once something else has opened it,
+    /// such as Sign in… on the invitation page.
+    func signInOnSheet(email: String, password: String, server: String) throws {
         let serverField = element(AccessibilityID.accountServer)
         XCTAssertTrue(serverField.waitForExistence(timeout: 10), "the sign-in sheet did not open")
         if (serverField.value as? String) != server {
@@ -186,16 +316,17 @@ final class TestApp {
         // Pasted, not typed, the way people sign in with an address and a
         // password copied from somewhere else. A sign-in that goes through
         // proves the password field pasted too.
+        // A failed check never prints the address: CI logs are public.
         paste(email, into: AccessibilityID.accountEmail)
-        XCTAssertEqual(element(AccessibilityID.accountEmail).value as? String, email,
-                       "Command-V did not paste the address")
+        XCTAssertTrue((element(AccessibilityID.accountEmail).value as? String) == email,
+                      "Command-V did not paste the address")
         paste(password, into: AccessibilityID.accountPassword)
         click(AccessibilityID.accountSubmit)
 
         let signedIn = app.staticTexts[SyncWording.footer(signedIn: true)]
         guard signedIn.waitForExistence(timeout: 60) else {
             if element(AccessibilityID.accountCode).exists {
-                throw UITestError("\(email) has not confirmed its address. Confirm it once, then run again.")
+                throw UITestError("the test account has not confirmed its address. Confirm it once, then run again.")
             }
             throw UITestError("signing in did not finish. On screen: \(visibleTexts())")
         }
@@ -225,7 +356,15 @@ final class TestApp {
         type(name, into: AccessibilityID.groupEditorName)
         click(AccessibilityID.groupEditorSave)
         XCTAssertTrue(element(AccessibilityID.sidebarGroup(name)).waitForExistence(timeout: 10),
-                      "the new group is not in the sidebar")
+                      "the new group is not in the sidebar. The sidebar's names: \(sidebarIdentifiers())")
+    }
+
+    /// Every identifier in the window that starts "sidebar.", with its type,
+    /// for a failure message: what the tests can find there.
+    func sidebarIdentifiers() -> [String] {
+        app.windows.firstMatch.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'"))
+            .allElementsBoundByIndex.map { "\($0.identifier) (type \($0.elementType.rawValue))" }
     }
 
     /// New Budget in <group>… from the group's menu. Saving selects the new
@@ -234,7 +373,8 @@ final class TestApp {
     /// surface in the accessibility tree, and a leftover group from an
     /// aborted run could own a row with the same name.
     func addBudget(named name: String, amount: String, inGroup group: String) {
-        element(AccessibilityID.sidebarGroup(group)).rightClick()
+        openMenu(on: element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group),
+                 offering: MainScreen.Words.newBudget(in: group))
         clickMenuItem(MainScreen.Words.newBudget(in: group))
         type(name, into: AccessibilityID.budgetEditorName)
         type(amount, into: AccessibilityID.budgetEditorAmount)
@@ -260,9 +400,10 @@ final class TestApp {
     /// clipboard: reading the clipboard from another process brings up a
     /// system prompt on recent macOS, which would stop the run.
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
-        element(AccessibilityID.sidebarGroup(group)).rightClick()
+        openMenu(on: element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group),
+                 offering: MainScreen.Words.share)
         clickMenuItem(MainScreen.Words.share)
-        type(myName, into: AccessibilityID.shareName)
+        pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
         click(AccessibilityID.shareCreate)
         XCTAssertTrue(element(AccessibilityID.shareCopyLink).waitForExistence(timeout: 30),
@@ -309,6 +450,7 @@ final class TestApp {
     func openBudget(named name: String) {
         let row = sidebarBudget(name)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
+        revealInSidebar(row)
         waitUntilHittable(row, name)
         row.click()
     }
@@ -317,7 +459,7 @@ final class TestApp {
     func deleteBudget(named name: String) {
         let row = sidebarBudget(name)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
-        row.rightClick()
+        openMenu(on: row, AccessibilityID.sidebarBudget(name), offering: MainScreen.Words.delete)
         clickMenuItem(MainScreen.Words.delete)
         let label = PendingDelete.budget(Budget(groupID: GroupID(), name: name, limit: .zero()),
                                          transactions: 0).confirmLabel
@@ -496,6 +638,66 @@ final class TestApp {
         XCTAssertTrue(review.waitForExistence(timeout: 15), "the import review did not open. On screen: \(visibleTexts())")
     }
 
+    // MARK: - A group's page
+
+    /// A click on a group's name in the sidebar, which opens the group's
+    /// page. Waits for the line under the page's name.
+    func openGroupPage(named name: String) {
+        click(AccessibilityID.sidebarGroup(name))
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
+                      "\(name)'s page did not open. On screen: \(visibleTexts())")
+    }
+
+    /// The arrow at the end of a group's line in the sidebar, which hides or
+    /// shows its budgets. The list makes the whole line one element, so the
+    /// click goes to its right end, where the arrow is.
+    func clickGroupArrow(_ name: String) {
+        let identifier = AccessibilityID.sidebarGroup(name)
+        let line = element(identifier)
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
+        revealInSidebar(line)
+        waitUntilHittable(line, identifier)
+        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
+    }
+
+    /// How many elements in the sidebar carry a budget's identifier, across
+    /// every group. One row shows as more than one element, its name and its
+    /// amount, so compare counts with each other, never with a row count.
+    func sidebarBudgetCount(_ name: String) -> Int {
+        app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name)).count
+    }
+
+    /// Waits until the count `sidebarBudgetCount` gives for `name` passes `test`.
+    @discardableResult
+    func wait(forBudgetRows name: String, timeout: TimeInterval, until test: @escaping (Int) -> Bool) -> Bool {
+        let rows = app.descendants(matching: .any).matching(identifier: AccessibilityID.sidebarBudget(name))
+        let counted = NSPredicate { _, _ in test(rows.count) }
+        let expectation = XCTNSPredicateExpectation(predicate: counted, object: nil)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// People… in the group's menu, which opens the same page.
+    func openGroupPageFromMenu(named name: String) {
+        openMenu(on: element(AccessibilityID.sidebarGroup(name)), AccessibilityID.sidebarGroup(name),
+                 offering: MembersScreen.Words.menuItem)
+        clickMenuItem(MembersScreen.Words.menuItem)
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
+                      "People\u{2026} did not open \(name)'s page. On screen: \(visibleTexts())")
+    }
+
+    /// Remove… on a person's row on a group's page. It asks first, in the
+    /// shared words, and the answer is Remove.
+    func removeFromGroup(_ person: String) {
+        click(AccessibilityID.groupRemove(person))
+        XCTAssertTrue(app.staticTexts[MembersScreen.Words.removeTitle(person)].waitForExistence(timeout: 5),
+                      "no question before the removal. On screen: \(visibleTexts())")
+        guard let remove = dialogButton(MembersScreen.Words.removeButton) else {
+            XCTFail("no \(MembersScreen.Words.removeButton) on the question. On screen: \(visibleTexts())")
+            return
+        }
+        remove.click()
+    }
+
     /// Join a Group…, from the Add menu: the link pasted, a name, and Join.
     /// Joining takes the group in at once.
     func join(_ link: String, as name: String) {
@@ -516,7 +718,9 @@ final class TestApp {
     func deleteGroup(named name: String) {
         guard app.state == .runningForeground else { return }
         let header = element(AccessibilityID.sidebarGroup(name))
-        guard header.waitForExistence(timeout: 5) else { return }
+        guard header.waitForExistence(timeout: 5), wait(for: header, until: "hittable == true", timeout: 10) else {
+            return
+        }
         header.rightClick()
         let item = menuItem(MainScreen.Words.delete)
         guard item.waitForExistence(timeout: 5) else { return }

@@ -203,7 +203,9 @@ struct ReadableEndToEndTests {
             try robin.store.save(group)
             _ = try await robin.engine(robinID).sync(group: group.id, level: .superadmin)
             let invite = try await robin.client.createInvite(group: group.id, level: .write, history: .all, days: nil)
-            let link = try #require(InviteLink(token: invite.token, groupName: group.name, inviterName: "Robin"))
+            // Only the token matters to the server, so either build's link type does.
+            let link = try #require(InviteLink(token: invite.token, groupName: group.name, inviterName: "Robin",
+                                               scheme: InviteLink.liveScheme))
 
             let leslie = try Device(server)
             _ = try await leslie.client.signUp(email: "leslie@example.com", password: "a-long-password",

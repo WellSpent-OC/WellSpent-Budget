@@ -124,6 +124,34 @@ struct AppEnvironmentTests {
         #expect(staging.defaultsSuiteName != staging.bundleIdentifier)
     }
 
+    /// Two Linux apps with one ID count as one app: opening live while staging
+    /// was open only brought staging to the front. So each build has its own,
+    /// in a form GTK accepts, and the package names its menu entry after it.
+    @Test func eachLinuxBuildHasItsOwnAppID() throws {
+        #expect(AppEnvironment.live.linuxAppIdentifier == "app.wellspent.linux")
+        #expect(AppEnvironment.staging.linuxAppIdentifier == "app.wellspent.linux.staging")
+        #expect(AppEnvironment.live.linuxAppIdentifier != AppEnvironment.staging.linuxAppIdentifier)
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("Linux/scripts/package.sh"), encoding: .utf8)
+        for environment in AppEnvironment.allCases {
+            let id = environment.linuxAppIdentifier
+            #expect(id != "com.example.SwiftCrossUIApp", "SwiftCrossUI's placeholder")
+            // GLib's rules for an application ID: at most 255 characters, two or
+            // more parts split by dots, each part letters, digits, "_" or "-",
+            // and not starting with a digit.
+            let parts = id.split(separator: ".", omittingEmptySubsequences: false)
+            #expect(id.count <= 255 && parts.count >= 2, "\(id)")
+            for part in parts {
+                #expect(!part.isEmpty && !(part.first?.isNumber ?? true), "\(id)")
+                #expect(part.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") },
+                        "\(id)")
+            }
+            #expect(script.contains("APPID=\"\(id)\""), "package.sh names \(id)")
+        }
+    }
+
     /// Anything not marked live counts as staging, because the dangerous mistake
     /// is a test build that thinks it is live.
     @Test func onlyExactlyLiveIsLive() {
@@ -157,6 +185,77 @@ struct AppEnvironmentTests {
         #expect(script.contains("<key>com.apple.security.app-sandbox</key><true/>"))
         #expect(script.contains("container-migration.plist"))
         #expect(script.contains("{ApplicationSupport}/\(AppEnvironment.live.dataFolderName)</string>"))
+    }
+
+    /// macOS opens an app for a click on a link only if its Info.plist says it
+    /// takes that link type. Each build claims its own, so a click opens the
+    /// build whose server made the invite. The script writes one Info.plist
+    /// for both signings, ad hoc and App Store, so it is read here as the
+    /// script writes it, for each build with the values that build's case
+    /// sets. The UI test's host app is a staging build and claims staging's,
+    /// so the test can open a link with it.
+    @Test func eachBuildTakesItsOwnInviteLinks() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("scripts/make-app.sh"), encoding: .utf8)
+        let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
+        let end = try #require(script.range(of: "\nEOF\n", range: start.upperBound..<script.endIndex))
+        let written = String(script[start.upperBound..<end.lowerBound])
+        for environment in AppEnvironment.allCases {
+            let sets = Self.values(setFor: environment, in: script)
+            var values = ["$VERSION": "0.1.0", "$BUILD": "1", "$WELLSPENT_ENV": environment.rawValue]
+            for name in ["NAME", "BUNDLE_ID", "LINK_SCHEME"] {
+                values["$" + name] = try #require(sets[name], "the \(environment) case sets no \(name)")
+            }
+            var plist = written
+            for (name, value) in values { plist = plist.replacingOccurrences(of: name, with: value) }
+            let info = try #require(try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil)
+                                        as? [String: Any])
+            #expect(info["CFBundleIdentifier"] as? String == environment.bundleIdentifier)
+            let types = try #require(info["CFBundleURLTypes"] as? [[String: Any]], "no link types in \(info.keys)")
+            #expect(types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] } == [environment.inviteScheme],
+                    "\(environment)")
+        }
+        let appStoreOnly = try #require(script.range(of: "if [ \"$SIGN\" = appstore ]; then\n    plist="))
+        #expect(appStoreOnly.lowerBound > end.upperBound, "the Info.plist is written before the signings part ways")
+
+        let host = try String(contentsOf: root.appendingPathComponent("Xcode/project.yml"), encoding: .utf8)
+        let lines = host.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        let schemes = try #require(lines.firstIndex(of: "CFBundleURLSchemes:"), "the UI test host takes no links")
+        #expect(lines[schemes + 1] == "- \(AppEnvironment.staging.inviteScheme)")
+    }
+
+    /// The NAME="value" lines in the build script's case for `environment`.
+    private static func values(setFor environment: AppEnvironment, in script: String) -> [String: String] {
+        let lines = script.components(separatedBy: "\n")
+        guard let start = lines.firstIndex(of: "    \(environment.rawValue))") else { return [:] }
+        var values: [String: String] = [:]
+        for line in lines[(start + 1)...] {
+            let text = line.trimmingCharacters(in: .whitespaces)
+            if text == ";;" { break }
+            let parts = text.split(separator: "=", maxSplits: 1).map(String.init)
+            guard parts.count == 2, parts[1].count >= 2, parts[1].hasPrefix("\""), parts[1].hasSuffix("\"") else {
+                continue
+            }
+            values[parts[0]] = String(parts[1].dropFirst().dropLast())
+        }
+        return values
+    }
+
+    /// Each build makes and reads only its own invite links. Live's type is
+    /// the one links have always had, so links people already sent still
+    /// open the live app.
+    @Test func eachBuildReadsOnlyItsOwnInviteLinks() {
+        #expect(AppEnvironment.live.inviteScheme == "wellspent")
+        #expect(AppEnvironment.staging.inviteScheme == "wellspent-staging")
+        for build in AppEnvironment.allCases {
+            let other: AppEnvironment = build == .live ? .staging : .live
+            let link = InviteLink(secret: Data(repeating: 7, count: 32), groupName: "Household",
+                                  inviterName: "Robin", scheme: build.inviteScheme)
+            #expect(build.invite(from: link.url) == link, "\(build)")
+            #expect(build.invite(from: "  \(link.url)\n") == link, "pasted, in \(build)")
+            #expect(other.invite(from: link.url) == nil, "\(build)'s link, in \(other)")
+        }
     }
 
     // MARK: - Refusals

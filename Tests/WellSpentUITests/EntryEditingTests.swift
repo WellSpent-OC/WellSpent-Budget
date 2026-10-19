@@ -60,6 +60,7 @@ final class EntryEditingTests: XCTestCase {
         run.addEntry(merchant: "Hilltop", amount: "42.00")
         run.addEntry(merchant: "Market", amount: "9.50")
 
+        // Scenario EDIT-01, EDIT-02, EDIT-16, ENTRY-05
         // 2. One click opens a row. The arrow keys only move the selection,
         // and Return opens the selected row. The newest row, Market, is on top.
         run.clickRow("Market")
@@ -75,6 +76,7 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryAmount), holds: "42.00", timeout: 5))
         XCTAssertFalse(save.isEnabled, "nothing has changed yet")
 
+        // Scenario EDIT-02, EDIT-16, PASTE-04, PASTE-05, PASTE-07
         // 3. The keyboard in each text field. Tab from Merchant reaches
         // Amount, whose pass then types without a click.
         run.keyboardPass(AccessibilityID.entryMerchant, holding: "Hilltop")
@@ -83,6 +85,7 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: save, until: "isEnabled == false", timeout: 5),
                       "every field is back as it was, so Save stays dimmed")
 
+        // Scenario EDIT-02, EDIT-03, EDIT-16
         // 4. A real change lights Save, and Return saves it.
         run.type("40.00", into: AccessibilityID.entryAmount)
         XCTAssertTrue(run.wait(for: save, until: "isEnabled == true", timeout: 5), "Save did not light")
@@ -93,6 +96,7 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.app.staticTexts["$450.50 left"].waitForExistence(timeout: 10),
                       "the header counts $40.00 and $9.50. On screen: \(run.visibleTexts())")
 
+        // Scenario EDIT-01, EDIT-04
         // 5. Moved to Eating out: gone from Groceries' list and total, in
         // Eating out's. A click opens the row that is already selected.
         run.clickRow("Hilltop")
@@ -106,12 +110,13 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.entryRow("Hilltop").waitForExistence(timeout: 10), "Hilltop is not in Eating out")
         XCTAssertTrue(run.app.staticTexts["$160.00 left"].waitForExistence(timeout: 10), "Eating out's total")
 
+        // Scenario EDIT-06, EDIT-15
         // 6. The row's menu offers Edit… and Delete…. Delete… asks first,
         // naming the entry and its amount, and Cancel keeps it.
         let hilltop = Transaction(budgetID: BudgetID(), groupID: GroupID(), date: Date(), merchant: "Hilltop",
                                   amount: Money(minorUnits: -4000))
         let question = PendingDelete.entry(hilltop, budget: eatingOut, group: groupName, shared: false)
-        run.entryRow("Hilltop").rightClick()
+        run.rightClick(run.entryRow("Hilltop"), "the Hilltop row")
         XCTAssertTrue(run.menuItem(MainScreen.Words.edit).waitForExistence(timeout: 5),
                       "no Edit… in the row's menu. Menu items on screen: \(run.visibleMenuItems())")
         run.clickMenuItem(MainScreen.Words.delete)
@@ -120,6 +125,7 @@ final class EntryEditingTests: XCTestCase {
         try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question").click()
         XCTAssertTrue(run.entryRow("Hilltop").waitForExistence(timeout: 5), "Cancel deleted it")
 
+        // Scenario EDIT-06, EDIT-07
         // 7. Delete… in the sheet asks the same question. Delete takes the
         // row, and the bar at the top says what went.
         run.clickRow("Hilltop")
@@ -132,11 +138,13 @@ final class EntryEditingTests: XCTestCase {
         let bar = UndoOffer.Words.deleted("Hilltop", "$40.00")
         XCTAssertTrue(run.app.staticTexts[bar].waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
 
+        // Scenario EDIT-16
         // 8. Command-Z leaves the delete alone: the bar is the only undo.
         run.app.typeKey("z", modifierFlags: .command)
         XCTAssertFalse(run.entryRow("Hilltop").waitForExistence(timeout: 2), "Command-Z brought it back")
         XCTAssertTrue(run.app.staticTexts[bar].exists, "Command-Z took the bar away")
 
+        // Scenario EDIT-07
         // 9. Undo brings it back, as it was, and the bar goes.
         run.click(AccessibilityID.undoButton)
         XCTAssertTrue(run.entryRow("Hilltop").waitForExistence(timeout: 10), "Undo did not bring it back")
@@ -145,8 +153,9 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "the bar stayed after Undo")
 
+        // Scenario EDIT-15
         // 10. Delete… in the row's menu, confirmed, deletes it.
-        run.entryRow("Hilltop").rightClick()
+        run.rightClick(run.entryRow("Hilltop"), "the Hilltop row")
         run.clickMenuItem(MainScreen.Words.delete)
         try XCTUnwrap(run.dialogButton(question.confirmLabel), "no Delete on the question").click()
         XCTAssertTrue(run.rowIsGone("Hilltop"), "the menu's Delete… left the row")
@@ -173,6 +182,7 @@ final class EntryEditingTests: XCTestCase {
         let link = try await second.shareNewGroup(groupName, budget: budget, entry: "Costco",
                                                   amount: Money(minorUnits: 2863), myName: "Leslie", role: .add)
 
+        // Scenario PASTE-03, SHARE-07
         // 2. The window joins with the link, which takes the group in.
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
@@ -180,6 +190,7 @@ final class EntryEditingTests: XCTestCase {
         run.openBudget(named: budget)
         run.syncNow()
 
+        // Scenario EDIT-11
         // 3. A click opens Costco read-only: plain text, the line saying
         // why, and only Done.
         run.clickRow("Costco")
@@ -194,8 +205,9 @@ final class EntryEditingTests: XCTestCase {
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
 
+        // Scenario EDIT-15
         // 4. Its row has no menu.
-        run.entryRow("Costco").rightClick()
+        run.rightClick(run.entryRow("Costco"), "the Costco row")
         XCTAssertFalse(run.menuItem(MainScreen.Words.edit).waitForExistence(timeout: 3),
                        "Edit… on a row this person can't change")
         XCTAssertFalse(run.menuItem(MainScreen.Words.delete).exists, "Delete… on a row this person can't change")
@@ -225,6 +237,7 @@ final class EntryEditingTests: XCTestCase {
                                amount: Money(minorUnits: -1200))
         let question = PendingDelete.entry(line, budget: groceries, group: groupName, shared: false)
 
+        // Scenario IMPORT-05
         // 1. Signed in, a group with two budgets, and both lines of a
         // statement filed in Groceries.
         run.launch()
@@ -247,6 +260,7 @@ final class EntryEditingTests: XCTestCase {
         try XCTUnwrap(run.dialogButton(question.confirmLabel), "no Delete on the question").click()
         XCTAssertTrue(run.rowIsGone("Corner Bakery"), "the line was not deleted")
 
+        // Scenario IMPORT-08
         // 3. Imported again: the deleted line counts as imported, the import
         // finishes with no error, and the line stays gone.
         run.importStatement(at: statement)
@@ -258,6 +272,7 @@ final class EntryEditingTests: XCTestCase {
         XCTAssertTrue(run.rowIsGone("Corner Bakery"), "the deleted line came back")
         XCTAssertTrue(run.entryRow("Trader Joes").exists)
 
+        // Scenario IMPORT-09
         // 4. With Groceries deleted, both lines are offered again, and file
         // in Eating out.
         run.deleteBudget(named: groceries)

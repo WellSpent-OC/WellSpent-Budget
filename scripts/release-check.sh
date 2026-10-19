@@ -1,0 +1,76 @@
+#!/bin/sh
+# Checks a built WellSpent.app before it is packaged for TestFlight: that it is
+# the release it claims to be, and the live app. `make testflight` runs it right
+# after the app is built, on the exact commit that ships. Any problem stops the
+# build, so a wrong binary never reaches App Store Connect.
+#
+#   scripts/release-check.sh APP VERSION BUILD
+#
+# It checks the version and build number, the bundle ID, that the build is live,
+# its one invite link type, every icon size, the provisioning profile, the
+# signature, and the sandbox. It reads the app only and changes nothing.
+set -eu
+
+app="${1:?usage: scripts/release-check.sh APP VERSION BUILD}"
+version="${2:?usage: scripts/release-check.sh APP VERSION BUILD}"
+build="${3:?usage: scripts/release-check.sh APP VERSION BUILD}"
+plist="$app/Contents/Info.plist"
+problems=0
+
+problem() {
+    echo "release check: $*" >&2
+    problems=$((problems + 1))
+}
+
+value() {
+    /usr/libexec/PlistBuddy -c "Print :$1" "$2" 2>/dev/null || true
+}
+
+expect() {
+    got="$(value "$1" "$plist")"
+    [ "$got" = "$2" ] || problem "$1 is \"$got\", not \"$2\""
+}
+
+[ -f "$plist" ] || { echo "release check: no Info.plist in $app" >&2; exit 1; }
+
+expect CFBundleShortVersionString "$version"
+expect CFBundleVersion "$build"
+expect CFBundleIdentifier app.wellspent.mac
+expect WellSpentEnvironment live
+expect CFBundleIconFile AppIcon
+expect CFBundleURLTypes:0:CFBundleURLSchemes:0 wellspent
+[ -z "$(value CFBundleURLTypes:0:CFBundleURLSchemes:1 "$plist")" ] \
+    || problem "the app claims more than one invite link type"
+[ -z "$(value CFBundleURLTypes:1 "$plist")" ] || problem "the app claims more than one link group"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+# Every icon size macOS asks for, from the icon file in the app itself.
+icns="$app/Contents/Resources/AppIcon.icns"
+if [ -f "$icns" ] && iconutil -c iconset "$icns" -o "$work/AppIcon.iconset" 2>/dev/null; then
+    for points in 16 32 128 256 512; do
+        for file in "icon_${points}x${points}.png" "icon_${points}x${points}@2x.png"; do
+            [ -f "$work/AppIcon.iconset/$file" ] || problem "the icon has no $file"
+        done
+    done
+else
+    problem "no readable AppIcon.icns in the app"
+fi
+
+[ -f "$app/Contents/embedded.provisionprofile" ] || problem "no provisioning profile in the app"
+
+# Signed, not changed since, and sandboxed.
+codesign --verify --deep --strict "$app" 2>/dev/null || problem "the signature does not verify"
+if codesign -d --entitlements :- "$app" > "$work/entitlements.plist" 2>/dev/null; then
+    [ "$(value com.apple.security.app-sandbox "$work/entitlements.plist")" = true ] \
+        || problem "the app is not sandboxed"
+else
+    problem "the app's entitlements cannot be read"
+fi
+
+if [ "$problems" -gt 0 ]; then
+    echo "release check: $problems problem(s), so nothing was packaged." >&2
+    exit 1
+fi
+echo "release check: $app is $version ($build), live, signed and sandboxed, with every icon size."
