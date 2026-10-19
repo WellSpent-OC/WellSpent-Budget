@@ -89,7 +89,7 @@ let package = Package(
         .executableTarget(
             name: "WellSpentApp",
             dependencies: ["WellSpentAppCore"],
-            // Built from Design/AppIcon/AppIcon.svg by `make icon`.
+            // Built from the drawings in Design/AppIcon/ by `make icon`.
             resources: [.copy("Resources/AppIcon.icns")]
         ),
 
