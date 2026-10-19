@@ -9,7 +9,7 @@ title: "Quest 7: Share a group"
 **Before you start:** sign in, with the Manage, Admin or Owner level in the group. The person you invite needs WellSpent on their own computer, with their own account. Don't share the sample groups.
 
 1. Right-click **HOME** in the sidebar. Or hold Control and click it.
-2. Pick **Share…**.
+2. Pick **Share…**
 3. Type your name in **Your name**. This is the name the group sees.
 4. Under **They can**, pick **View**, **Add** or **Manage**. The line under it says what that level can do.
 5. Under **They see**, pick **Everything so far** or **Only from now on**.

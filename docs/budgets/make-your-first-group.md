@@ -9,7 +9,7 @@ title: "Quest 3: Make your first group"
 A group holds budgets you track together. It's also what you share with someone later.
 
 1. Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
-2. Pick **New Group…**.
+2. Pick **New Group…**
 3. Type a name in **Name**, like Home.
 4. Press **Add**.
 

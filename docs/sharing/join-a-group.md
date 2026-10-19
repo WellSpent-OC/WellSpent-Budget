@@ -10,7 +10,7 @@ title: "Quest 8: Join a group"
 
 1. Copy the link from their message.
 2. Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
-3. Pick **Join a Group…**.
+3. Pick **Join a Group…**
 4. Paste the link into **Invite link**.
 
    > You see who invited you, and the group's name.
