@@ -362,7 +362,11 @@ jobs:
   gate:
     name: Gate
     needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test]
-    if: always() && github.event_name == 'pull_request'
+    # Runs after a failure too, so a failed gate blocks the merge. Not after a
+    # cancel: a newer push to the same pull request cancelled this run, and
+    # its own run reports. Counting the cancel as a failure labelled and
+    # commented on pull requests that had nothing wrong with them.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
