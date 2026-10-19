@@ -1,6 +1,6 @@
 # WellSpent's user guide, published with GitHub Pages at help.wellspent.space.
 title: WellSpent help
-description: Step-by-step guides for WellSpent Budget on the Mac, Linux and the iPhone.
+description: Step-by-step guides for WellSpent Budget on the Mac and Linux.
 markdown: kramdown
 defaults:
   - scope:
