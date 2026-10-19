@@ -33,6 +33,8 @@ public enum AccessibilityID {
 
     public static let budgetImport = "budget.import"
     public static let budgetAdd = "budget.add"
+    /// ⋯ at the top right of a budget on a phone, with Edit and Delete.
+    public static let budgetMenu = "budget.menu"
     public static let toolbarSync = "toolbar.sync"
     public static let toolbarAccount = "toolbar.account"
 
