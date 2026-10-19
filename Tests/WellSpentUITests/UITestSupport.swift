@@ -63,6 +63,7 @@ final class TestApp {
     let dataRoot: URL
 
     init() throws {
+        FailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-ui-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
