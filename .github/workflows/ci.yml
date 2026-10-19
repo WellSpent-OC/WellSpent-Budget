@@ -4,16 +4,23 @@ name: CI
 #
 # Job names here are what branch protection requires, so renaming a job means
 # updating the required checks on the repository too, or merges will block on a
-# check that no longer runs.
+# check that no longer runs. Release branches require the same names, so a job
+# is never renamed while an older release may still need a patch.
+#
+# main is staging, and each release has its own branch, release/X.Y. A change
+# reaches a release branch only through a pull request, so both run here.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'release/**']
   push:
-    branches: [main]
+    branches: [main, 'release/**']
 
+# A newer push to a pull request stops its older run. A push to main or a release
+# branch never stops another: each state of those branches keeps a finished
+# result, so a hunt for what broke between releases can trust every one of them.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && format('{0}-{1}', github.ref, github.sha) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Gate 1. Everything else is only worth running if this passes.
