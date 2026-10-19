@@ -37,7 +37,9 @@ while IFS= read -r file; do
     # Sources/Crypto/Util/BoringSSL, and a debug build carries that folder's
     # path. The path is not BoringSSL, so it is let through. BoringSSL's own
     # sources live in Sources/CCryptoBoringSSL, which is still caught.
-    hits="$(strings - "$file" | grep -i -E "$pattern" | grep -v '/Sources/Crypto/Util/BoringSSL/' \
+    # Its input is /dev/null, not the loop's file list: llvm-strings, unlike
+    # Apple's, would read "-" as that input.
+    hits="$(strings - "$file" < /dev/null | grep -i -E "$pattern" | grep -v '/Sources/Crypto/Util/BoringSSL/' \
         | sort -u | head -n 5 || true)"
     [ -n "$hits" ] || continue
     echo "crypto check: ${file#"$app"/} holds encryption that is not Apple's own, such as:" >&2
