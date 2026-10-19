@@ -40,7 +40,9 @@ let package = Package(
             name: "WellSpentCrypto",
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "CryptoExtras", package: "swift-crypto"),
+                // BoringSSL comes with it, so Linux only: the Mac and iPhone apps use
+                // Apple's encryption alone, which keeps them out of export paperwork.
+                .product(name: "CryptoExtras", package: "swift-crypto", condition: .when(platforms: [.linux])),
             ]
         ),
         .target(
@@ -48,7 +50,9 @@ let package = Package(
             dependencies: [
                 "WellSpentCrypto",
                 .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "CryptoExtras", package: "swift-crypto"),
+                // BoringSSL comes with it, so Linux only: the Mac and iPhone apps use
+                // Apple's encryption alone, which keeps them out of export paperwork.
+                .product(name: "CryptoExtras", package: "swift-crypto", condition: .when(platforms: [.linux])),
             ]
         ),
         .target(

@@ -103,6 +103,8 @@ private final class RefusingKeyStore: KeyStore, @unchecked Sendable {
     func removeAll() throws { try inner.removeAll() }
 }
 
+// The file key store is Linux only, where CryptoExtras is.
+#if os(Linux)
 @Suite("File key store")
 struct FileKeyStoreTests {
     private func temporaryURL() -> URL {
@@ -193,6 +195,7 @@ struct FileKeyStoreTests {
         #expect(url.deletingLastPathComponent().lastPathComponent == "wellspent")
     }
 }
+#endif
 
 #if canImport(Security)
 import Security
