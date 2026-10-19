@@ -22,7 +22,7 @@ endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
-        iphone-ui-test testflight testflight-upload
+        iphone-ui-test testflight testflight-upload release-twin
 
 build:
 	swift build
@@ -133,21 +133,26 @@ ui-test-project:
 ui-test-build: ui-test-project
 	$(UI_TEST_XCODEBUILD) build-for-testing
 
-ui-test: ui-test-project
-	@for name in $(UI_TEST_VARS); do \
+# Stops when a test account variable is missing. The UI tests and the release twin
+# both sign in to staging with them.
+UI_TEST_VARS_SET = for name in $(UI_TEST_VARS); do \
 		eval "value=\$$$$name"; \
 		if [ -z "$$value" ]; then \
 			echo "$$name is not set. Source the file that exports the four test account variables first."; \
 			exit 1; \
 		fi; \
 	done
-	rm -rf .build/xcode/ui-test.xcresult
-	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
+# Hands the test account variables to the test runner.
+UI_TEST_ACCOUNTS = TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
-	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult
+	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER"
+
+ui-test: ui-test-project
+	@$(UI_TEST_VARS_SET)
+	rm -rf .build/xcode/ui-test.xcresult
+	$(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
 # Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
@@ -246,6 +251,7 @@ testflight:
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=live SIGN=appstore VERSION=$(TESTFLIGHT_VERSION) BUILD=$(TESTFLIGHT_BUILD) \
 		OUT=$(TESTFLIGHT_OUT) SCRATCH=.build/appstore PROFILE="$(PROFILE)" KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	scripts/release-check.sh "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
+	$(MAKE) release-twin TESTFLIGHT_VERSION=$(TESTFLIGHT_VERSION) TESTFLIGHT_BUILD=$(TESTFLIGHT_BUILD)
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh package "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_PKG)"
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh validate "$(TESTFLIGHT_PKG)"
 
@@ -253,3 +259,23 @@ testflight:
 # Connect takes a few minutes to process it, then it shows under TestFlight.
 testflight-upload:
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh upload "$(TESTFLIGHT_PKG)"
+
+# The release twin: the same commit on staging, signed for development under its
+# own app ID with a profile for this Mac only, so it runs here the way the App
+# Store build runs on a tester's Mac. scripts/make-app.sh says how it is signed.
+# A UI test signs in, adds a group, quits, opens it again, and checks it is still
+# signed in with the group there. It takes the screen for about a minute and needs
+# the four test account variables, as make ui-test does. make testflight runs it
+# before packaging, so a release that fails it never uploads.
+TWIN_PROFILE ?= $(APPLE_DIR)/WellSpent_Twin_Development.provisionprofile
+TWIN_OUT := .build/twin
+TWIN_APP := $(CURDIR)/$(TWIN_OUT)/WellSpent Twin.app
+release-twin: ui-test-project
+	@$(UI_TEST_VARS_SET)
+	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=staging SIGN=development VERSION=$(or $(TESTFLIGHT_VERSION),0.0.0-twin) \
+		BUILD=$(TESTFLIGHT_BUILD) OUT=$(TWIN_OUT) SCRATCH=.build/twin-scratch TWIN_PROFILE="$(TWIN_PROFILE)" \
+		KEYINFO="$(KEYINFO)" scripts/make-app.sh
+	$(UI_TEST_XCODEBUILD) build-for-testing
+	rm -rf .build/xcode/release-twin.xcresult
+	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" $(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
+		-only-testing:WellSpentUITests/ReleaseTwinTests -resultBundlePath .build/xcode/release-twin.xcresult
