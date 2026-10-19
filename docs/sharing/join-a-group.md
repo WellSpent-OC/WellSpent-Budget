@@ -8,15 +8,25 @@ title: "Quest 8: Join a group"
 
 **Before you start:** sign in, and confirm your email. Joining needs both. You also need the invite link from the person who shared the group.
 
-1. Copy the link from their message.
-2. Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
-3. Pick **Join a Group…**
-4. Paste the link into **Invite link**.
+1. ![A hand copies a link in an email](../assets/shots/join-a-group-1.svg)
+   Copy the link from their message.
+
+2. ![A hand clicks the small arrow beside Add Budget](../assets/shots/join-a-group-2.svg)
+   Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
+
+3. ![A hand picks Join a Group](../assets/shots/join-a-group-3.svg)
+   Pick **Join a Group…**
+
+4. ![A hand pastes the link into Invite link](../assets/shots/join-a-group-4.svg)
+   Paste the link into **Invite link**.
 
    > You see who invited you, and the group's name.
 
-5. Type your name in **Your name**. This is the name the group sees.
-6. Press **Join**.
+5. ![A hand types in Your name](../assets/shots/join-a-group-5.svg)
+   Type your name in **Your name**. This is the name the group sees.
+
+6. ![A hand presses Join](../assets/shots/join-a-group-6.svg)
+   Press **Join**.
 
    > You see the group in your sidebar. Its budgets fill in a moment later.
 

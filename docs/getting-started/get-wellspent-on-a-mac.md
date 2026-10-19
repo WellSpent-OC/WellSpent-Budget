@@ -9,15 +9,25 @@ title: "Quest 1: Get WellSpent on your Mac"
 **Before you start:** Apple's email inviting you to test WellSpent Budget, and a Mac with macOS 14 (Sonoma) or later. Use the Apple Account you use in the App Store on this Mac.
 
 1. Open the **App Store** on your Mac.
+
 2. Search for **TestFlight**.
+
 3. Click **Get**. If it changes to **Install**, click that too.
+
 4. Click **Open**.
+
 5. In Apple's email, click **View in TestFlight**.
+
 6. On the web page, click **View in TestFlight**. If Safari asks to open TestFlight, click **Allow**.
+
 7. Click **Accept**.
+
 8. Click **Install**.
+
 9. Click **App Settings**.
+
 10. Turn on **Automatic Updates**, so new versions install on their own.
+
 11. Click **Open**.
 
     > You see WellSpent, with two sample groups, **HOUSEHOLD** and **SIDE BUSINESS**. They're made up, so you can look around.

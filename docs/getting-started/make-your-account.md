@@ -10,22 +10,39 @@ title: "Quest 2: Make your account"
 
 Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets, which is how it checks who may change what and how it resets a forgotten password.
 
-1. Press **Sign in** at the bottom of the sidebar.
-2. Press **Create an account**.
-3. Type your email in **Email**.
-4. Type a password of at least 10 characters in **Password**.
-5. Type the same password in **Confirm password**.
-6. Press **Create account**.
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/make-your-account-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
+
+2. ![A hand presses Create an account](../assets/shots/make-your-account-2.svg)
+   Press **Create an account**.
+
+3. ![A hand types in Email](../assets/shots/make-your-account-3.svg)
+   Type your email in **Email**.
+
+4. ![A hand types in Password](../assets/shots/make-your-account-4.svg)
+   Type a password of at least 10 characters in **Password**.
+
+5. ![A hand types in Confirm password](../assets/shots/make-your-account-5.svg)
+   Type the same password in **Confirm password**.
+
+6. ![A hand presses Create account](../assets/shots/make-your-account-6.svg)
+   Press **Create account**.
 
    > You see **Confirm your email**, and "Enter the code sent to" your email.
 
-7. Open the email from WellSpent with the subject **Your WellSpent code**. The code is in the subject.
-8. Type the code in **Code**.
-9. Press **Confirm**.
+7. ![An email with the subject Your WellSpent code](../assets/shots/make-your-account-7.svg)
+   Open the email from WellSpent with the subject **Your WellSpent code**. The code is in the subject.
+
+8. ![A hand types the code in Code](../assets/shots/make-your-account-8.svg)
+   Type the code in **Code**.
+
+9. ![A hand presses Confirm](../assets/shots/make-your-account-9.svg)
+   Press **Confirm**.
 
    > You see "Your email is confirmed."
 
-10. Press **Done**.
+10. ![A hand presses Done](../assets/shots/make-your-account-10.svg)
+    Press **Done**.
 
     > You see **Syncs through WellSpent's server** at the bottom of the sidebar.
 

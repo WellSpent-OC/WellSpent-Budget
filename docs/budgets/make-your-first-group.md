@@ -8,10 +8,17 @@ title: "Quest 3: Make your first group"
 
 A group holds budgets you track together. It's also what you share with someone later.
 
-1. Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
-2. Pick **New Group…**
-3. Type a name in **Name**, like Home.
-4. Press **Add**.
+1. ![A hand clicks the small arrow beside Add Budget](../assets/shots/make-your-first-group-1.svg)
+   Click the small arrow just right of **Add Budget**, at the bottom of the sidebar.
+
+2. ![A hand picks New Group](../assets/shots/make-your-first-group-2.svg)
+   Pick **New Group…**
+
+3. ![A hand types Home in Name](../assets/shots/make-your-first-group-3.svg)
+   Type a name in **Name**, like Home.
+
+4. ![A hand presses Add](../assets/shots/make-your-first-group-4.svg)
+   Press **Add**.
 
    > You see **HOME** in the sidebar.
 

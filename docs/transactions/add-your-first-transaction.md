@@ -6,11 +6,20 @@ title: "Quest 5: Add your first transaction"
 
 > *Your first move: write down a coin you spent.*
 
-1. Click **Groceries** in the sidebar.
-2. Press **Add** at the top of the budget's page. On a Mac, it may show as a plus sign.
-3. Type where you spent the money in **Merchant**.
-4. Type how much in **Amount**, like 12.50. Leave **Date** as today.
-5. Press **Add**.
+1. ![A hand clicks Groceries in the sidebar](../assets/shots/add-your-first-transaction-1.svg)
+   Click **Groceries** in the sidebar.
+
+2. ![A hand presses Add at the top of the budget's page](../assets/shots/add-your-first-transaction-2.svg)
+   Press **Add** at the top of the budget's page. On a Mac, it may show as a plus sign.
+
+3. ![A hand types in Merchant](../assets/shots/add-your-first-transaction-3.svg)
+   Type where you spent the money in **Merchant**.
+
+4. ![A hand types 12.50 in Amount](../assets/shots/add-your-first-transaction-4.svg)
+   Type how much in **Amount**, like 12.50. Leave **Date** as today.
+
+5. ![A hand presses Add](../assets/shots/add-your-first-transaction-5.svg)
+   Press **Add**.
 
    > You see your transaction in the list, marked **Manual**. What's spent goes up.
 

@@ -10,12 +10,23 @@ title: "Quest 6: Bring in your first statement"
 
 There's no bank connection. You download a statement from your bank and bring it in, so your bank login stays with you.
 
-1. Click a budget in the group the statement is for.
-2. Press **Import statement**. On a Mac, it may show as an icon only.
-3. Click **Downloads**.
-4. Double-click your statement file.
-5. For each line marked **Needs a budget**, pick a budget from its menu. To skip a line, leave it on **Choose**.
-6. Press **Import**.
+1. ![A hand clicks Groceries in the sidebar](../assets/shots/import-a-bank-statement-1.svg)
+   Click a budget in the group the statement is for.
+
+2. ![A hand presses Import statement](../assets/shots/import-a-bank-statement-2.svg)
+   Press **Import statement**. On a Mac, it may show as an icon only.
+
+3. ![A hand clicks Downloads](../assets/shots/import-a-bank-statement-3.svg)
+   Click **Downloads**.
+
+4. ![A hand double-clicks statement.csv](../assets/shots/import-a-bank-statement-4.svg)
+   Double-click your statement file.
+
+5. ![A hand picks a budget from a line's menu](../assets/shots/import-a-bank-statement-5.svg)
+   For each line marked **Needs a budget**, pick a budget from its menu. To skip a line, leave it on **Choose**.
+
+6. ![A hand presses Import](../assets/shots/import-a-bank-statement-6.svg)
+   Press **Import**.
 
    > You see the new lines in your budgets, marked **Statement**.
 
