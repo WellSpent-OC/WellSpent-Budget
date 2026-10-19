@@ -7,8 +7,8 @@
 #   scripts/release-check.sh APP VERSION BUILD
 #
 # It checks the version and build number, the bundle ID, that the build is live,
-# its one invite link type, every icon size, the provisioning profile, the
-# signature, and the sandbox. It reads the app only and changes nothing.
+# its export answer, its one invite link type, every icon size, the provisioning
+# profile, the signature, and the sandbox. It reads the app and changes nothing.
 set -eu
 
 app="${1:?usage: scripts/release-check.sh APP VERSION BUILD}"
@@ -38,6 +38,7 @@ expect CFBundleVersion "$build"
 expect CFBundleIdentifier app.wellspent.mac
 expect WellSpentEnvironment live
 expect CFBundleIconFile AppIcon
+expect ITSAppUsesNonExemptEncryption false
 expect CFBundleURLTypes:0:CFBundleURLSchemes:0 wellspent
 [ -z "$(value CFBundleURLTypes:0:CFBundleURLSchemes:1 "$plist")" ] \
     || problem "the app claims more than one invite link type"
