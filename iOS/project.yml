@@ -53,6 +53,10 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         WellSpentEnvironment: staging
+        # The export question, answered: the app encrypts only through Apple's
+        # CryptoKit, as the Mac app's Info.plist says too, so an upload never
+        # waits on it.
+        ITSAppUsesNonExemptEncryption: false
     # On the target, because xcodegen's own target defaults would otherwise
     # win over the project's: iPhone and iPad, signed as a developer.
     settings:
