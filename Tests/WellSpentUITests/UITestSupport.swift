@@ -126,8 +126,58 @@ final class TestApp {
     func click(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout), "nothing called \(identifier) to click")
+        if Self.isSidebarLine(identifier) { revealInSidebar(target) }
         waitUntilHittable(target, identifier)
         target.click()
+    }
+
+    /// A group's or a budget's line in the sidebar's list.
+    static func isSidebarLine(_ identifier: String) -> Bool {
+        identifier.hasPrefix("sidebar.group.") || identifier.hasPrefix("sidebar.budget.")
+    }
+
+    /// Scrolls the sidebar until `target` sits clear of the bar at its foot.
+    /// Add Budget and the sync line sit over the list's last lines, so a line
+    /// under them exists and reads as hittable, yet a click on it lands on
+    /// the bar. A long list of test groups puts a new one there.
+    func revealInSidebar(_ target: XCUIElement) {
+        let foot = element(AccessibilityID.sidebarAdd)
+        let list = app.outlines.containing(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'")).firstMatch
+        guard target.exists, foot.exists, list.exists else { return }
+        var delta: CGFloat = -60
+        for _ in 0..<20 {
+            let line = target.frame
+            let clear = line.maxY <= foot.frame.minY - 2 && line.minY >= list.frame.minY
+            if clear || line.isEmpty { return }
+            // Below the foot, or above the list's top: scroll toward it.
+            let wanted: CGFloat = line.maxY > foot.frame.minY - 2 ? delta : -delta
+            let before = line.minY
+            list.scroll(byDeltaX: 0, deltaY: wanted)
+            let moved = target.frame.minY - before
+            // It moved the wrong way, or not at all: the other sign is down.
+            if (line.maxY > foot.frame.minY - 2 && moved >= 0) || (line.minY < list.frame.minY && moved <= 0) {
+                delta = -delta
+            }
+        }
+    }
+
+    /// Right-clicks a line until its menu offers `item`, then leaves the
+    /// menu open for clickMenuItem. A menu that opens without it, or not at
+    /// all, is closed and tried again, twice. If it never shows, the failure
+    /// says where the line and the foot were, and how many elements carry
+    /// the name, so a run in CI can be read without its screen.
+    func openMenu(on target: XCUIElement, _ name: String, offering item: String) {
+        let entry = menuItem(item)
+        for _ in 0..<3 {
+            if Self.isSidebarLine(name) { revealInSidebar(target) }
+            rightClick(target, name)
+            if entry.waitForExistence(timeout: 3) { return }
+            app.typeKey(.escape, modifierFlags: [])
+        }
+        let carriers = app.descendants(matching: .any).matching(identifier: name).count
+        XCTFail("no menu item \(item) after three right-clicks on \(name). Its frame: \(target.frame). "
+                + "The sidebar's foot: \(element(AccessibilityID.sidebarAdd).frame). Elements with its name: "
+                + "\(carriers). Menu items on screen: \(visibleMenuItems())")
     }
 
     /// Right-clicks once the target can be clicked. A sidebar line just added
@@ -297,7 +347,8 @@ final class TestApp {
     /// surface in the accessibility tree, and a leftover group from an
     /// aborted run could own a row with the same name.
     func addBudget(named name: String, amount: String, inGroup group: String) {
-        rightClick(element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group))
+        openMenu(on: element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group),
+                 offering: MainScreen.Words.newBudget(in: group))
         clickMenuItem(MainScreen.Words.newBudget(in: group))
         type(name, into: AccessibilityID.budgetEditorName)
         type(amount, into: AccessibilityID.budgetEditorAmount)
@@ -323,7 +374,8 @@ final class TestApp {
     /// clipboard: reading the clipboard from another process brings up a
     /// system prompt on recent macOS, which would stop the run.
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
-        rightClick(element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group))
+        openMenu(on: element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group),
+                 offering: MainScreen.Words.share)
         clickMenuItem(MainScreen.Words.share)
         pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
@@ -372,6 +424,7 @@ final class TestApp {
     func openBudget(named name: String) {
         let row = sidebarBudget(name)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
+        revealInSidebar(row)
         waitUntilHittable(row, name)
         row.click()
     }
@@ -380,7 +433,7 @@ final class TestApp {
     func deleteBudget(named name: String) {
         let row = sidebarBudget(name)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no budget called \(name) in the sidebar")
-        rightClick(row, AccessibilityID.sidebarBudget(name))
+        openMenu(on: row, AccessibilityID.sidebarBudget(name), offering: MainScreen.Words.delete)
         clickMenuItem(MainScreen.Words.delete)
         let label = PendingDelete.budget(Budget(groupID: GroupID(), name: name, limit: .zero()),
                                          transactions: 0).confirmLabel
@@ -576,6 +629,7 @@ final class TestApp {
         let identifier = AccessibilityID.sidebarGroup(name)
         let line = element(identifier)
         XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
+        revealInSidebar(line)
         waitUntilHittable(line, identifier)
         line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
     }
@@ -598,7 +652,8 @@ final class TestApp {
 
     /// People… in the group's menu, which opens the same page.
     func openGroupPageFromMenu(named name: String) {
-        rightClick(element(AccessibilityID.sidebarGroup(name)), AccessibilityID.sidebarGroup(name))
+        openMenu(on: element(AccessibilityID.sidebarGroup(name)), AccessibilityID.sidebarGroup(name),
+                 offering: MembersScreen.Words.menuItem)
         clickMenuItem(MembersScreen.Words.menuItem)
         XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 10),
                       "People\u{2026} did not open \(name)'s page. On screen: \(visibleTexts())")

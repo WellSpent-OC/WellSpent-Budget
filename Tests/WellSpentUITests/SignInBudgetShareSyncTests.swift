@@ -142,7 +142,8 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         // the budget and all 3 entries, Leslie's too. Cancel keeps it.
         let question = PendingDelete.group(BudgetGroup(name: groupName), budgets: 1, transactions: 3,
                                            reach: .justYou)
-        run.rightClick(run.element(AccessibilityID.sidebarGroup(groupName)), AccessibilityID.sidebarGroup(groupName))
+        run.openMenu(on: run.element(AccessibilityID.sidebarGroup(groupName)), AccessibilityID.sidebarGroup(groupName),
+                     offering: MainScreen.Words.delete)
         run.clickMenuItem(MainScreen.Words.delete)
         XCTAssertTrue(run.app.staticTexts[question.title].waitForExistence(timeout: 5),
                       "no question. On screen: \(run.visibleTexts())")
