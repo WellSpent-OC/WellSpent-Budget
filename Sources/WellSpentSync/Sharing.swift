@@ -61,7 +61,9 @@ public struct Sharing: Sendable {
             expiresAt: expiresAt))
         try store.save(SentInvite(id: secret.id, groupID: group, secret: secret.bytes, level: level,
                                   historyAccess: historyAccess, expiresAt: expiresAt, createdAt: now))
-        return InviteLink(secret: secret.bytes, groupName: groupName, inviterName: inviterName)
+        // The sealed app only ever had live's link type.
+        return InviteLink(secret: secret.bytes, groupName: groupName, inviterName: inviterName,
+                          scheme: InviteLink.liveScheme)
     }
 
     /// The same rule the membership log enforces, checked before a link is made

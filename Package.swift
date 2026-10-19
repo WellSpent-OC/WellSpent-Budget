@@ -89,13 +89,18 @@ let package = Package(
         .executableTarget(
             name: "WellSpentApp",
             dependencies: ["WellSpentAppCore"],
-            // Built from Design/AppIcon/AppIcon.svg by `make icon`.
+            // Built from the drawings in Design/AppIcon/ by `make icon`.
             resources: [.copy("Resources/AppIcon.icns")]
         ),
 
         .testTarget(name: "WellSpentCryptoTests", dependencies: ["WellSpentCrypto"]),
         .testTarget(name: "WellSpentKeyStoreTests", dependencies: ["WellSpentKeyStore"]),
-        .testTarget(name: "WellSpentStoreTests", dependencies: ["WellSpentStore"]),
+        .testTarget(
+            name: "WellSpentStoreTests",
+            dependencies: ["WellSpentStore"],
+            // Databases written by earlier releases, for the upgrade tests.
+            resources: [.copy("Fixtures")]
+        ),
         .testTarget(name: "WellSpentSyncTests", dependencies: ["WellSpentSync"]),
         .testTarget(name: "WellSpentImportTests", dependencies: ["WellSpentImport"]),
         .testTarget(

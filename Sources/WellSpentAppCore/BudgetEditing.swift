@@ -17,7 +17,6 @@ enum EditorSheet: Identifiable {
     case renameGroup(BudgetGroup)
     case share(BudgetGroup)
     case join
-    case members(BudgetGroup)
     /// An entry opened from the budget's list. The editor is made when the
     /// entry is opened, because opening it is what marks its note seen.
     case entry(EntryEditor)
@@ -30,7 +29,6 @@ enum EditorSheet: Identifiable {
         case .renameGroup(let group): return "rename-group-\(group.id)"
         case .share(let group): return "share-\(group.id)"
         case .join: return "join"
-        case .members(let group): return "members-\(group.id)"
         case .entry(let editor): return "entry-\(editor.editing.map { "\($0.id)" } ?? "")"
         }
     }

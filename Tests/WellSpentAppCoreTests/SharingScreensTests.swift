@@ -115,8 +115,8 @@ struct SharingScreensTests {
     @Test func aPastedLinkSaysWhoInvitedYou() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Person("leslie@example.com", on: server)
-        let link = try #require(InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
-                                           inviterName: "Robin"))
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
+                              inviterName: "Robin", scheme: leslie.sync.environment.inviteScheme)
         let join = JoinScreen(actions: leslie.sync, linkText: "not a link")
         #expect(join.linkProblem == "That is not a WellSpent invite link.")
         #expect(join.invitation == nil)
@@ -128,13 +128,66 @@ struct SharingScreensTests {
         #expect(join.canJoin)
     }
 
+    /// A pasted link that a message app cut short says part of it is
+    /// missing, as a clicked one does, not that it is no link at all.
+    @Test func aPastedLinkWithPartOfItMissingSaysSo() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await Person("leslie@example.com", on: server)
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                              scheme: leslie.sync.environment.inviteScheme)
+        let join = JoinScreen(actions: leslie.sync, linkText: String(link.url.prefix(30)))
+        #expect(join.linkProblem == "Part of that invite link is missing. Ask the person who sent it to send it again.")
+        #expect(join.invitation == nil)
+        join.myName = "Leslie"
+        #expect(!join.canJoin)
+    }
+
+    /// A pasted link from the other build says which app it is for, whole or
+    /// cut short, and cannot be joined. These tests run as staging, so the
+    /// other build is live.
+    @Test func aPastedLinkFromTheOtherBuildSaysWhichAppItIsFor() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await Person("leslie@example.com", on: server)
+        #expect(leslie.sync.environment == .staging)
+        let lives = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                               scheme: AppEnvironment.live.inviteScheme)
+        for text in [lives.url, String(lives.url.prefix(30))] {
+            let join = JoinScreen(actions: leslie.sync, linkText: text)
+            join.myName = "Leslie"
+            #expect(join.linkProblem == "That invite link is for WellSpent. Open it in WellSpent.", "\(text)")
+            #expect(join.invitation == nil)
+            #expect(!join.canJoin)
+        }
+    }
+
+    /// In the live app it is the other way round: live's own links work, and
+    /// a staging link names WellSpent Staging.
+    @Test func inTheLiveAppAStagingLinkNamesTheStagingApp() {
+        let live = StubSharing(me: UserID(), founder: nil, members: [:])
+        live.environment = .live
+        func link(_ build: AppEnvironment) -> String {
+            InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household", inviterName: "Robin",
+                       scheme: build.inviteScheme).url
+        }
+        let join = JoinScreen(actions: live, linkText: link(.staging))
+        join.myName = "Leslie"
+        #expect(join.linkProblem == "That invite link is for WellSpent Staging. Open it in WellSpent Staging.")
+        #expect(join.invitation == nil)
+        #expect(!join.canJoin)
+
+        join.linkText = link(.live)
+        #expect(join.linkProblem == nil)
+        #expect(join.invitation == "Robin invited you to \u{201C}Household\u{201D}.")
+        #expect(join.canJoin)
+    }
+
     /// An address not confirmed yet is said before anything is sent, and the
     /// refusal is in words if Join is pressed anyway.
     @Test func joiningNeedsAConfirmedEmail() async throws {
         let server = InMemoryReadableServer()
         let leslie = try await Person("leslie@example.com", on: server, confirmed: false)
-        let link = try #require(InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
-                                           inviterName: "Robin"))
+        let link = InviteLink(secret: Data(repeating: 1, count: 32), groupName: "Household",
+                              inviterName: "Robin", scheme: leslie.sync.environment.inviteScheme)
         let join = JoinScreen(actions: leslie.sync, linkText: link.url)
         join.myName = "Leslie"
         #expect(join.notice == "Confirm your email first. Joining a shared group needs it.")
@@ -236,6 +289,79 @@ struct SharingScreensTests {
         #expect(ShareScreen(actions: actions, group: GroupID(), groupName: "Household").roles == [.view, .add, .manage])
     }
 
+    // MARK: - A group's page
+
+    /// One line under the group's name: whether it is shared, how many
+    /// people are in it, and who made it.
+    @Test func aGroupsPageSaysWhetherItIsSharedHowManyAreInItAndWhoMadeIt() async throws {
+        let (robin, leslie, group) = try await household(leslieAt: .add)
+        await leslie.sync.syncAll()
+        #expect(MembersScreen(actions: robin.sync, group: group, groupName: "Household").summary
+                == "Shared \u{00B7} 2 people \u{00B7} Made by you")
+        #expect(MembersScreen(actions: leslie.sync, group: group, groupName: "Household").summary
+                == "Shared \u{00B7} 2 people \u{00B7} Made by Robin")
+
+        let bookClub = try #require(robin.model.addGroup(named: "Book Club"))
+        #expect(MembersScreen(actions: robin.sync, group: bookClub, groupName: "Book Club").summary
+                == "Not shared \u{00B7} Made by you")
+    }
+
+    /// Who made it is left out when nobody here knows their name. A device
+    /// that is signed out knows nobody, so it says only that it is not shared.
+    @Test func whoMadeAGroupIsLeftOutWhenTheirNameIsNotKnown() throws {
+        let me = UserID(), founder = UserID()
+        let actions = StubSharing(me: me, founder: founder, members: [me: .write, founder: .superadmin])
+        #expect(MembersScreen(actions: actions, group: GroupID(), groupName: "Household").summary
+                == "Shared \u{00B7} 2 people")
+
+        let signedOut = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
+                                        keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())
+        #expect(MembersScreen(actions: signedOut, group: GroupID(), groupName: "Household").summary == "Not shared")
+    }
+
+    /// After a removal, a quiet line on the page says who went. No pop-up.
+    @Test func afterRemovingSomeoneThePageSaysTheyWereRemoved() async throws {
+        let (robin, _, group) = try await household(leslieAt: .add)
+        let members = MembersScreen(actions: robin.sync, group: group, groupName: "Household")
+        let leslie = try #require(members.rows.first { !$0.isYou })
+        #expect(members.removedNote == nil)
+
+        members.askToRemove(leslie.id)
+        members.remove(leslie.id)
+        await members.pending?.value
+        #expect(members.failure == nil)
+        #expect(members.removedNote == "Leslie was removed.")
+        #expect(members.rows.map(\.label) == ["Robin (you)"])
+        #expect(members.summary == "Not shared \u{00B7} Made by you")
+    }
+
+    /// The line stays until the next change on the page. Asking about
+    /// someone, then keeping them, is not a change. A removal that fails
+    /// says why, and says nobody was removed.
+    @Test func theRemovedLineStaysUntilTheNextChange() async {
+        let me = UserID(), leslie = UserID(), other = UserID()
+        let actions = StubSharing(me: me, founder: me, members: [me: .superadmin, leslie: .write, other: .read],
+                                  names: [me: "Robin", leslie: "Leslie"])
+        let members = MembersScreen(actions: actions, group: GroupID(), groupName: "Household")
+        members.remove(leslie)
+        await members.pending?.value
+        #expect(members.removedNote == "Leslie was removed.")
+
+        members.askToRemove(other)
+        members.keepThem()
+        #expect(members.removedNote == "Leslie was removed.")
+        await members.setLevel(.write, for: other)
+        #expect(members.failure == nil)
+        #expect(members.removedNote == nil, "a change of level is the next change")
+
+        actions.refusesRemoval = true
+        members.remove(other)
+        await members.pending?.value
+        #expect(members.failure == "Something went wrong. Try again.")
+        #expect(members.removedNote == nil)
+        #expect(members.rows.contains { $0.id == other })
+    }
+
     @Test func theWordsArePlain() {
         let words = [
             ShareScreen.Words.shareTitle("Household"), ShareScreen.Words.name, ShareScreen.Words.namePrompt,
@@ -246,13 +372,17 @@ struct SharingScreensTests {
             JoinScreen.Words.title, JoinScreen.Words.link, JoinScreen.Words.linkPrompt, JoinScreen.Words.name,
             JoinScreen.Words.namePrompt, JoinScreen.Words.notALink, JoinScreen.Words.signInToJoin,
             JoinScreen.Words.confirmToJoin, JoinScreen.Words.confirmEmail, JoinScreen.Words.join,
-            JoinScreen.Words.joining, JoinScreen.Words.cancel,
+            JoinScreen.Words.joining, JoinScreen.Words.cancel, JoinScreen.Words.notWhole, JoinScreen.Words.signIn,
+            JoinScreen.Words.joinsAt("Add"), JoinScreen.Words.sees(.all), JoinScreen.Words.sees(.fromNow),
             MembersScreen.Words.title("Household"), MembersScreen.Words.someone, MembersScreen.Words.you("Robin"),
             MembersScreen.Words.level, MembersScreen.Words.remove, MembersScreen.Words.removeTitle("Leslie"),
             MembersScreen.Words.removeMessage("Leslie", "Household"), MembersScreen.Words.removeButton,
             MembersScreen.Words.leave, MembersScreen.Words.invite, MembersScreen.Words.done,
             MembersScreen.Words.menuItem, MembersScreen.Words.leaveTitle("Household"), MembersScreen.Words.leaveButton,
-            MembersScreen.Words.cancel,
+            MembersScreen.Words.cancel, MembersScreen.Words.people, MembersScreen.Words.shared,
+            MembersScreen.Words.notShared, MembersScreen.Words.peopleCount(1), MembersScreen.Words.peopleCount(3),
+            MembersScreen.Words.madeByYou, MembersScreen.Words.madeBy("Robin"), MembersScreen.Words.removed("Leslie"),
+            MembersScreen.Words.line([MembersScreen.Words.shared, MembersScreen.Words.peopleCount(3)]),
         ] + AccessLevel.allCases.flatMap { [MembersScreen.Words.levelTitle($0), MembersScreen.Words.levelExplanation($0)] }
         for text in words {
             #expect(!text.contains("Mac"), "\(text)")
@@ -265,27 +395,36 @@ struct SharingScreensTests {
 /// Sharing answers from a fixed list, for checking the rules alone.
 @MainActor
 private final class StubSharing: SharingActions {
+    var environment = AppEnvironment.current
     let account: String? = "me@example.com"
     let userID: UserID?
     let emailVerified = true
     private let founderID: UserID?
-    private let list: [UserID: AccessLevel]
+    private var list: [UserID: AccessLevel]
+    private let names: [UserID: String]
+    /// Set to refuse every removal, as a server would.
+    var refusesRemoval = false
 
-    init(me: UserID, founder: UserID?, members: [UserID: AccessLevel]) {
+    init(me: UserID, founder: UserID?, members: [UserID: AccessLevel], names: [UserID: String] = [:]) {
         userID = me
         founderID = founder
         list = members
+        self.names = names
     }
 
     func displayName(in group: GroupID) throws -> String? { nil }
     func share(group: GroupID, groupName: String, level: AccessLevel, historyAccess: HistoryAccess,
                myName: String) async throws -> InviteLink { throw CancellationError() }
     func join(_ link: InviteLink, myName: String) async throws -> PendingJoin { throw CancellationError() }
+    func preview(_ link: InviteLink) async throws -> InviteTerms { throw CancellationError() }
     func members(of group: GroupID) -> [UserID: AccessLevel] { list }
-    func memberNames(in group: GroupID) -> [UserID: String] { [:] }
+    func memberNames(in group: GroupID) -> [UserID: String] { names }
     func founder(of group: GroupID) -> UserID? { founderID }
-    func setLevel(_ level: AccessLevel, of user: UserID, in group: GroupID) async throws {}
-    func remove(_ user: UserID, from group: GroupID) async throws {}
+    func setLevel(_ level: AccessLevel, of user: UserID, in group: GroupID) async throws { list[user] = level }
+    func remove(_ user: UserID, from group: GroupID) async throws {
+        if refusesRemoval { throw CancellationError() }
+        list[user] = nil
+    }
     func refresh(_ group: GroupID) async {}
     func mayAddEntries(in group: GroupID) -> Bool { members(of: group)[userID ?? UserID()].map { $0.allows(.write) } ?? true }
 }

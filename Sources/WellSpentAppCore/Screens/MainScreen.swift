@@ -16,6 +16,9 @@ public final class MainScreen {
     public struct Section: Identifiable {
         public let group: BudgetGroup
         public let isCollapsed: Bool
+        /// Whether this group's page shows on the right. Its name is marked
+        /// on the left while it does, so the person knows where they are.
+        public let isPageOpen: Bool
         /// Said above the group's budgets: it is waiting on its founder.
         public let note: String?
         /// Empty while the group is hidden.
@@ -23,7 +26,8 @@ public final class MainScreen {
 
         public var id: GroupID { group.id }
         public var title: String { group.name }
-        /// The tooltip on the group's name, which hides or shows its budgets.
+        /// The tooltip on the arrow beside the group's name, which hides or
+        /// shows its budgets.
         public var toggleHelp: String { isCollapsed ? Words.showBudgets : Words.hideBudgets }
     }
 
@@ -112,10 +116,11 @@ public final class MainScreen {
     // MARK: - The left side
 
     public var sections: [Section] {
-        model.groups.map { group in
+        let open = openGroup?.id
+        return model.groups.map { group in
             let isCollapsed = SidebarRules.isCollapsed(group.id, in: collapsed)
             let waiting = sync.waitingForFounder.contains(group.id)
-            return Section(group: group, isCollapsed: isCollapsed,
+            return Section(group: group, isCollapsed: isCollapsed, isPageOpen: group.id == open,
                            note: waiting && !isCollapsed ? SyncWording.waitingForFounder : nil,
                            budgets: isCollapsed ? [] : model.summaries[group.id] ?? [])
         }
@@ -136,9 +141,68 @@ public final class MainScreen {
         defaults.saveNow()
     }
 
+    /// The budget picked on the left, and none while a group's page or an
+    /// invitation shows. Picking one opens it in place of either. The list
+    /// letting go of its pick is not a click on a budget, so they stay.
     public var selectedBudget: BudgetID? {
-        get { model.selectedBudget }
-        set { model.selectedBudget = newValue }
+        get { openGroup == nil && invitation == nil ? model.selectedBudget : nil }
+        set {
+            if newValue == nil, openGroup != nil || invitation != nil { return }
+            page = nil
+            workspace.closeInvitation()
+            model.selectedBudget = newValue
+        }
+    }
+
+    // MARK: - A group's page
+
+    /// The group whose page shows on the right, where a budget opens: its
+    /// people, and what this person may change about them. A click on the
+    /// group's name opens it, and so does People… in its menu. It closes
+    /// when a budget opens, picked on the left or opened on its own as a
+    /// new one is, and once the group is gone from here. An invitation
+    /// shows in its place.
+    public var openGroup: BudgetGroup? {
+        guard invitation == nil, let page, page.over == model.selectedBudget else { return nil }
+        return model.group(named: page.group)
+    }
+
+    /// The group whose page is open, and the budget that was open under it.
+    private var page: (group: GroupID, over: BudgetID?)?
+
+    /// Opens a group's page, in place of whatever shows on the right, an
+    /// invitation included.
+    public func openPage(of group: GroupID) {
+        workspace.closeInvitation()
+        page = (group, model.selectedBudget)
+    }
+
+    /// Leave Group… on a group's page. It asks first, with the question
+    /// Leave… in the group's menu asks, and it is always a leave, never a
+    /// delete for everyone, whatever this person's level.
+    public func askToLeave(_ group: BudgetGroup) {
+        pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
+                               transactions: model.transactionCount(inGroup: group.id), reach: .thisMacOnly)
+    }
+
+    // MARK: - An invitation
+
+    /// The invitation page a clicked invite link put up
+    /// (`Workspace.open(_:)`). It shows on the right in place of a budget or
+    /// a group's page, with nothing picked or marked on the left, until the
+    /// person joins or picks a budget or a group there.
+    public var invitation: JoinScreen? { workspace.invitation }
+
+    /// Join, on the invitation page. Once in, the page gives way to the
+    /// group's own page, with its people. False when the join did not go
+    /// through, and the page stays, saying why.
+    @discardableResult
+    public func joinInvitation() async -> Bool {
+        guard let invitation, await invitation.join(), let joined = invitation.joined else { return false }
+        // Another link opened while this one joined: its page stays up.
+        guard workspace.invitation === invitation else { return true }
+        openPage(of: joined.groupID)
+        return true
     }
 
     // MARK: - Menus
@@ -206,6 +270,7 @@ public final class MainScreen {
             pendingDelete = .budget(budget, transactions: model.transactionCount(inBudget: budget.id))
         case .deleteGroup(let group):
             pendingDelete = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
+                                   transactions: model.transactionCount(inGroup: group.id),
                                    reach: sync.deleteReach(of: group.id))
         default:
             break
@@ -215,9 +280,15 @@ public final class MainScreen {
     /// The answer yes, for the delete that was asked about. It takes it from
     /// the question itself, so a dialog closing before or after its button
     /// runs makes no difference.
+    ///
+    /// A group's page stays open unless its own group is what went. A delete
+    /// is not a click on a budget, even when the budget that was open before
+    /// the page goes and another one is picked in its place.
     public func confirm(_ pending: PendingDelete) {
         pendingDelete = nil
+        let shown = openGroup?.id
         pending.confirm(model: model, sync: sync)
+        if let shown, model.group(named: shown) != nil { page = (shown, model.selectedBudget) }
     }
 
     /// Asks before an entry's delete, with the window's own question.
@@ -232,7 +303,7 @@ public final class MainScreen {
     /// What the question says. A leave by someone at View promises nothing
     /// about changes, since they can send none.
     public func message(for pending: PendingDelete) -> String {
-        guard case .group(let group, _, _) = pending else { return pending.message }
+        guard case .group(let group, _, _, _) = pending else { return pending.message }
         return pending.message(sendsChanges: sync.mayAddEntries(in: group.id))
     }
 

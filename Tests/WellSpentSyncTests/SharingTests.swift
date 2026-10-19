@@ -379,7 +379,8 @@ struct SharingTests {
                      "wellspent://join#%zz", "wellspent://join#%", "wellspent://join#s=abc&g=Vegas Test"] {
             #expect(InviteLink(parsing: text) == nil, "\(text)")
         }
-        let link = InviteLink(secret: Data(repeating: 7, count: 32), groupName: "Vegas Test", inviterName: "Robin")
+        let link = InviteLink(secret: Data(repeating: 7, count: 32), groupName: "Vegas Test", inviterName: "Robin",
+                              scheme: InviteLink.liveScheme)
         #expect(InviteLink(parsing: link.url) == link, "a whole link, with an encoded space, still parses")
         #expect(InviteLink(parsing: "  \(link.url)\n") == link)
     }
@@ -390,7 +391,25 @@ struct SharingTests {
         #expect(InviteLink(parsing: "") == nil)
 
         let link = InviteLink(secret: Data(repeating: 7, count: 32), groupName: "Side Business & Co",
-                              inviterName: "Robin")
+                              inviterName: "Robin", scheme: InviteLink.liveScheme)
         #expect(InviteLink(parsing: link.url) == link, "names with symbols survive")
+    }
+
+    /// A link keeps the type of the build that made it, through being pasted.
+    /// Live's links are as they always were. The same invite with the other
+    /// build's type is a different link.
+    @Test func aLinkKeepsTheTypeOfTheBuildThatMadeIt() {
+        let secret = Data(repeating: 7, count: 32)
+        let live = InviteLink(secret: secret, groupName: "Household", inviterName: "Robin",
+                              scheme: InviteLink.liveScheme)
+        let staging = InviteLink(secret: secret, groupName: "Household", inviterName: "Robin",
+                                 scheme: InviteLink.stagingScheme)
+        #expect(live.url.hasPrefix("wellspent://join#"))
+        #expect(staging.url.hasPrefix("wellspent-staging://join#"))
+        #expect(InviteLink(parsing: live.url) == live)
+        #expect(InviteLink(parsing: "  \(staging.url)\n") == staging)
+        #expect(live != staging)
+        let neither = live.url.replacingOccurrences(of: "wellspent://", with: "wellspent-test://")
+        #expect(InviteLink(parsing: neither) == nil, "a type neither build has")
     }
 }

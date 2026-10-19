@@ -137,7 +137,7 @@ struct MainScreenTests {
         robin.screen.ask(.deleteGroup(group))
         let pending = try #require(robin.screen.pendingDelete)
         #expect(!pending.isLeave && pending.confirmLabel == "Delete")
-        #expect(pending.message.hasPrefix("Everyone you share it with loses it too."))
+        #expect(pending.message.hasPrefix("It's deleted for everyone in it"))
         robin.screen.keepIt()
         #expect(robin.screen.pendingDelete == nil)
         #expect(robin.model.groups.map(\.id) == [id])
@@ -154,7 +154,8 @@ struct MainScreenTests {
         #expect(pending.isLeave)
         #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
         #expect(pending.confirmLabel == "Leave")
-        #expect(pending.message == SyncWording.leaveGroupMessage)
+        #expect(pending.message.hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget. The others in it keep it."))
 
         // The dialog may clear its question before its button runs.
         leslie.screen.keepIt()
@@ -166,6 +167,125 @@ struct MainScreenTests {
         await robin.sync.syncAll()
         #expect(robin.sync.members(of: id).count == 1, "Leslie left on the server too")
         #expect(robin.model.groups.map(\.id) == [id], "Robin keeps the group")
+    }
+
+    /// A delete that takes entries asks first and says how many. Every
+    /// budget counts, and every period, not only this one. Cancel keeps all
+    /// of it.
+    @Test func deletingAGroupNamesItAndHowManyTransactionsGoAndCancelKeepsThem() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        let group = try #require(device.model.group(named: id))
+
+        device.screen.ask(.deleteGroup(group))
+        let pending = try #require(device.screen.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(device.screen.message(for: pending)
+                == "Its 2 budgets and 3 transactions will be deleted too. This cannot be undone.")
+
+        device.screen.keepIt()
+        #expect(device.screen.pendingDelete == nil)
+        #expect(device.model.groups.map(\.id) == [id])
+        #expect(try device.model.store.transactions(in: groceries).count == 2)
+        #expect(try device.model.store.transactions(in: eatingOut).count == 1)
+    }
+
+    /// Robin made Household and shares it, so his delete reaches Leslie too.
+    @Test func theOwnerOfASharedGroupIsToldHowManyTransactionsGoForEveryone() async throws {
+        let (robin, _, id) = try await household(leslieAt: .add)
+        robin.model.selectedBudget = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        robin.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: Date(), note: "")
+        let group = try #require(robin.model.group(named: id))
+
+        robin.screen.ask(.deleteGroup(group))
+        let pending = try #require(robin.screen.pendingDelete)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(robin.screen.message(for: pending)
+                == "It's deleted for everyone in it, with its 1 budget and 2 transactions. This cannot be undone.")
+    }
+
+    /// Leslie, at Add, may not delete Robin's group for everyone, so Delete is
+    /// a leave. The question still says how many go from her devices.
+    @Test func leavingSaysHowManyTransactionsGoFromYourDevices() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .add)
+        let groceries = try #require(robin.model.summaries[id]?.first?.budget.id)
+        robin.model.selectedBudget = groceries
+        robin.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(142.08), date: Date(), note: "")
+        await robin.sync.syncAll()
+        await leslie.sync.syncAll()
+        leslie.model.selectedBudget = groceries
+        leslie.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: Date(), note: "")
+        let group = try #require(leslie.model.group(named: id))
+
+        leslie.screen.ask(.deleteGroup(group))
+        let pending = try #require(leslie.screen.pendingDelete)
+        #expect(pending.isLeave)
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(leslie.screen.message(for: pending).hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget and 2 transactions. "
+            + "The others in it keep it."))
+    }
+
+    /// What a group's delete counts: live transactions in every budget and
+    /// every period, and none from another group.
+    @Test func aGroupCountsItsTransactionsInEveryBudgetAndPeriod() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id)
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id)
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        let gone = try #require(device.model.transactions.first)
+        device.model.deleteEntry(gone.id)
+        device.model.addTransaction(merchant: "Riverside Grill", amount: .dollars(30), date: Date(), note: "")
+        let other = try #require(device.model.addGroup(named: "Side Business"))
+        device.model.addBudget(named: "Materials", limit: .dollars(900), in: other)
+        device.model.addTransaction(merchant: "Lumber", amount: .dollars(300), date: Date(), note: "")
+
+        #expect(device.model.transactionCount(inGroup: id) == 3, "the deleted one does not count")
+        #expect(device.model.transactionCount(inGroup: other) == 1)
+        #expect(device.model.transactionCount(inGroup: GroupID()) == 0)
+    }
+
+    /// The question says how many go, and that many go: every transaction
+    /// still in the group, in every period, and nothing from another group.
+    @Test func aGroupsDeleteTakesAsManyTransactionsAsItsQuestionSaid() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(42), date: Date(), note: "")
+        let longAgo = try #require(Calendar.current.date(byAdding: .month, value: -2, to: Date()))
+        device.model.addTransaction(merchant: "Costco", amount: .dollars(28.63), date: longAgo, note: "")
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        device.model.addTransaction(merchant: "Sunrise Cafe", amount: .dollars(12), date: Date(), note: "")
+        device.model.deleteEntry(try #require(device.model.transactions.first).id)
+        device.model.addTransaction(merchant: "Riverside Grill", amount: .dollars(30), date: Date(), note: "")
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        let materials = try #require(device.model.addBudget(named: "Materials", limit: .dollars(900), in: side))
+        device.model.addTransaction(merchant: "Lumber", amount: .dollars(300), date: Date(), note: "")
+        let store = device.model.store
+        let inHousehold = try store.transactions(in: groceries).count + store.transactions(in: eatingOut).count
+        #expect(inHousehold == 3)
+
+        device.screen.ask(.deleteGroup(try #require(device.model.group(named: id))))
+        let pending = try #require(device.screen.pendingDelete)
+        #expect(device.screen.message(for: pending)
+                == "Its 2 budgets and 3 transactions will be deleted too. This cannot be undone.")
+        device.screen.confirm(pending)
+
+        #expect(try store.transactions(in: groceries).isEmpty && store.transactions(in: eatingOut).isEmpty,
+                "all 3 went")
+        #expect(try store.budgets(in: id).isEmpty)
+        #expect(try store.transactions(in: materials).map(\.merchant) == ["Lumber"], "nothing else went")
     }
 
     @Test func deletingABudgetSaysWhatGoesWithIt() async throws {
@@ -196,6 +316,150 @@ struct MainScreenTests {
         #expect(!MainScreen.Action.renameGroup(group).asksFirst)
         device.screen.ask(.renameGroup(group))
         #expect(device.screen.pendingDelete == nil)
+    }
+
+    // MARK: - A group's page
+
+    /// A click on a group's name, or People… in its menu, opens the group's
+    /// page on the right, where a budget opens. A click on a budget opens it
+    /// again, even the one that was open before.
+    @Test func aGroupsPageOpensInPlaceOfTheBudgetUntilABudgetIsPicked() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        #expect(device.screen.selectedBudget == groceries)
+        #expect(device.screen.openGroup == nil)
+
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id)
+        #expect(device.screen.openGroup?.name == "Household")
+        #expect(device.screen.selectedBudget == nil, "no budget is picked on the left while the page shows")
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == groceries)
+        #expect(device.screen.detail == .budget(try #require(device.model.summary(for: groceries))))
+    }
+
+    /// The left side marks the group whose page shows, so the person knows
+    /// where they are, and marks none once a budget shows instead.
+    @Test func theLeftSideMarksTheGroupWhosePageShows() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        #expect(device.screen.sections.filter(\.isPageOpen).isEmpty)
+
+        device.screen.openPage(of: side)
+        #expect(device.screen.sections.filter(\.isPageOpen).map(\.id) == [side])
+
+        device.screen.openPage(of: household)
+        #expect(device.screen.sections.filter(\.isPageOpen).map(\.id) == [household])
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.sections.filter(\.isPageOpen).isEmpty, "a budget shows in place of the page")
+    }
+
+    /// The list on the left may let go of its pick while the page shows. That
+    /// is not a click on a budget, so the page stays.
+    @Test func aGroupsPageStaysWhenTheListLetsGoOfItsPick() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.screen.openPage(of: id)
+
+        device.screen.selectedBudget = nil
+        #expect(device.screen.openGroup?.id == id)
+        #expect(device.model.selectedBudget == groceries, "the budget under the page is still the one picked")
+    }
+
+    /// A budget that opens on its own, as a new one does once it is saved,
+    /// shows in place of the page.
+    @Test func aNewBudgetOpensInPlaceOfTheGroupsPage() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id)
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id)
+
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: id))
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == eatingOut)
+    }
+
+    @Test func aGroupsPageClosesOnceTheGroupIsGone() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let group = try #require(device.model.group(named: id))
+        let other = try #require(device.model.addGroup(named: "Side Business"))
+        device.screen.openPage(of: other)
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id, "the last one asked for")
+
+        device.screen.ask(.deleteGroup(group))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.screen.openGroup == nil)
+        #expect(device.model.groups.map(\.id) == [other])
+    }
+
+    /// A delete on the left is not a click on a budget, so the page stays.
+    /// That holds for the budget that was open before the page, and for
+    /// another group with that budget in it.
+    @Test func aGroupsPageStaysWhenABudgetOrAnotherGroupIsDeleted() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Eating out", limit: .dollars(200), in: household)
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        let materials = try #require(device.model.addBudget(named: "Materials", limit: .dollars(900), in: side))
+
+        device.screen.selectedBudget = groceries
+        device.screen.openPage(of: household)
+        device.screen.ask(.deleteBudget(try #require(device.model.budget(for: groceries))))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.model.budget(for: groceries) == nil)
+        #expect(device.screen.openGroup?.id == household, "the budget under the page went, and the page stays")
+        #expect(device.screen.selectedBudget == nil, "no budget is picked on the left while the page shows")
+
+        device.screen.selectedBudget = materials
+        device.screen.openPage(of: household)
+        device.screen.ask(.deleteGroup(try #require(device.model.group(named: side))))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.model.groups.map(\.id) == [household])
+        #expect(device.screen.openGroup?.id == household, "another group went, with the budget under the page")
+    }
+
+    /// Leave Group… on the page is always a leave, never a delete for
+    /// everyone, whatever this person's level. Leslie is an admin, so her
+    /// group's menu offers Delete…, but the page leaves.
+    @Test func leaveGroupOnAGroupsPageAsksFirstAndIsAlwaysALeave() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .manage)
+        let owners = MembersScreen(actions: robin.sync, group: id, groupName: "Household")
+        await owners.refresh()
+        await owners.setLevel(.admin, for: try #require(owners.rows.first { !$0.isYou }).id)
+        await leslie.sync.syncAll()
+        let group = try #require(leslie.model.group(named: id))
+        #expect(titles(leslie.screen.groupMenu(group)).last == ["Delete…"], "her menu deletes it for everyone")
+
+        leslie.screen.openPage(of: id)
+        leslie.screen.askToLeave(group)
+        let pending = try #require(leslie.screen.pendingDelete)
+        #expect(pending.isLeave && pending.confirmLabel == "Leave")
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(leslie.screen.message(for: pending).hasPrefix(
+            "You leave the group, and it is removed from all your devices, with its 1 budget. The others in it keep it."))
+
+        leslie.screen.keepIt()
+        #expect(leslie.model.groups.map(\.id) == [id], "Cancel keeps it")
+        leslie.screen.askToLeave(group)
+        leslie.screen.confirm(try #require(leslie.screen.pendingDelete))
+        #expect(leslie.model.groups.isEmpty)
+        #expect(leslie.screen.openGroup == nil, "the page goes with the group")
+
+        await leslie.sync.syncAll()
+        await robin.sync.syncAll()
+        #expect(robin.model.groups.map(\.id) == [id], "Robin keeps it: she left, and deleted nothing")
+        #expect(robin.sync.members(of: id).count == 1)
     }
 
     // MARK: - Entries
@@ -331,5 +595,67 @@ struct MainScreenTests {
         await device.screen.syncNow()
         #expect(device.screen.syncFailure == nil)
         #expect(!device.screen.isBusy && !device.screen.syncShowsProgress)
+    }
+}
+
+/// The question a group's delete asks first, in the shared words: it names
+/// the group and says how many budgets and transactions go with it, at each
+/// reach. A group's delete is final on the server, so it never offers Undo
+/// and always says it cannot be undone.
+@Suite("The group delete question")
+struct GroupDeleteQuestionTests {
+    private let household = BudgetGroup(name: "Household")
+
+    /// Nobody else is in the group.
+    @Test func nobodyElseInItIsToldHowManyTransactionsAreDeleted() {
+        let pending = PendingDelete.group(household, budgets: 2, transactions: 14, reach: .justYou)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(pending.message == "Its 2 budgets and 14 transactions will be deleted too. This cannot be undone.")
+        #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
+    }
+
+    /// Shared, and this person may delete it for every member.
+    @Test func everyoneItIsSharedWithLosesItAndIsToldHowMany() {
+        let pending = PendingDelete.group(household, budgets: 2, transactions: 14, reach: .everyone)
+        #expect(pending.title == "Delete \u{201C}Household\u{201D}?")
+        #expect(pending.message
+                == "It's deleted for everyone in it, with its 2 budgets and 14 transactions. This cannot be undone.")
+        #expect(pending.confirmLabel == "Delete" && !pending.isLeave)
+    }
+
+    /// Shared, and only its founder or an admin may delete it for everyone:
+    /// this person leaves it. It goes from their devices, and the others keep
+    /// it, so nothing is said to be deleted.
+    @Test func aLeaveSaysHowManyGoFromYourDevicesAndTheOthersKeepThem() {
+        let pending = PendingDelete.group(household, budgets: 1, transactions: 1, reach: .thisMacOnly)
+        #expect(pending.title == "Leave \u{201C}Household\u{201D}?")
+        #expect(pending.confirmLabel == "Leave" && pending.isLeave)
+        #expect(pending.message(sendsChanges: true)
+                == "You leave the group, and it is removed from all your devices, with its 1 budget and "
+                + "1 transaction. The others in it keep it. Anything you changed in it on this device that has "
+                + "not synced yet still goes to them first. Changes on your other devices that have not synced "
+                + "yet do not reach them. Only the person who made it, or an admin, can delete it for everyone. "
+                + "To come back, ask for a new invite link.")
+        #expect(pending.message(sendsChanges: false)
+                == "You leave the group, and it is removed from all your devices, with its 1 budget and "
+                + "1 transaction. The others in it keep it. Only the person who made it, or an admin, can delete "
+                + "it for everyone. To come back, ask for a new invite link.")
+        #expect(!pending.message.contains("deleted"))
+    }
+
+    /// One is said as one, and a count of none is left out.
+    @Test func oneIsSaidAsOneAndNoneIsLeftOut() {
+        func words(_ budgets: Int, _ transactions: Int, _ reach: GroupDeleteReach = .justYou) -> String {
+            PendingDelete.group(household, budgets: budgets, transactions: transactions, reach: reach).message
+        }
+        #expect(words(1, 1) == "Its 1 budget and 1 transaction will be deleted too. This cannot be undone.")
+        #expect(words(3, 0) == "Its 3 budgets will be deleted too. This cannot be undone.")
+        #expect(words(0, 0) == "This cannot be undone.")
+        #expect(words(0, 0, .thisMacOnly)
+                == "You leave the group, and it is removed from all your devices. The others in it keep it. "
+                + "Anything you changed in it on this device that has not synced yet still goes to them first. "
+                + "Changes on your other devices that have not synced yet do not reach them. Only the person "
+                + "who made it, or an admin, can delete it for everyone. To come back, ask for a new invite link.",
+                "today's words, with nothing to count")
     }
 }

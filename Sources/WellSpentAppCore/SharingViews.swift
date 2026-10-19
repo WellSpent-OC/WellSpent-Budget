@@ -143,10 +143,6 @@ struct JoinSheet: View {
         _screen = State(initialValue: JoinScreen(actions: sync, linkText: linkText))
     }
 
-    static func canJoin(linkText: String, myName: String, signedIn: Bool) -> Bool {
-        SharingRules.canJoin(linkText: linkText, myName: myName, signedIn: signedIn)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(screen.title)
@@ -196,66 +192,200 @@ struct JoinSheet: View {
     }
 }
 
-// MARK: - People
+// MARK: - The invitation page
 
-/// Draws MembersScreen: who is in a group, their levels, and what this person
-/// may change. Layout only.
-struct MembersSheet: View {
+/// Draws the page a clicked invite link opens (JoinScreen, from
+/// `Workspace.open(_:)`), on the right where a budget opens. Who invited
+/// them and to what, the level and what it lets them do, how much they
+/// would see, Your name, and Join. Signed out or not confirmed yet, the
+/// notice and its button stand in place of Join. No Decline: a link has no
+/// invite to decline. Layout only.
+struct InvitationPage: View {
     @Bindable var sync: SyncCoordinator
-    let model: AppModel
+    @Bindable var screen: JoinScreen
+    /// The window's rules. Join goes through them, so the group's page
+    /// opens once in.
+    let main: MainScreen
+    @Binding var showingAccount: Bool
+    private typealias Words = JoinScreen.Words
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let invitation = screen.invitation {
+                    offer(invitation)
+                    answer
+                } else {
+                    Text(screen.title)
+                        .font(.system(size: 22, weight: .semibold))
+                    if let problem = screen.linkProblem {
+                        note(problem, warning: true)
+                    }
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Palette.surface)
+        .toolbar {
+            ToolbarItemGroup {
+                if main.showsSync {
+                    SyncButton(sync: sync, showingAccount: $showingAccount)
+                }
+                AccountButton(sync: sync, showingAccount: $showingAccount)
+            }
+        }
+        .navigationTitle(screen.title)
+    }
+
+    /// Who invited them and to what, then what the server says it offers,
+    /// once it has said.
+    private func offer(_ invitation: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(invitation)
+                .font(.system(size: 22, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            if let line = screen.levelLine {
+                Text(marking(screen.levelTitle, in: line))
+                    .font(.system(size: 13))
+            }
+            if let explanation = screen.levelExplanation {
+                Text(explanation)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let history = screen.historyLine {
+                Text(history)
+                    .font(.system(size: 13))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Your name, then Join, or what stands in its way and the button that
+    /// deals with it.
+    private var answer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text(Words.name)
+                    .font(.system(size: 13))
+                TextField(Words.name, text: $screen.myName, prompt: Text(Words.namePrompt))
+                    .textFieldStyle(.roundedBorder)
+                    .labelsHidden()
+                    .frame(maxWidth: 260)
+                    .accessibilityIdentifier(AccessibilityID.invitationName)
+            }
+            if let notice = screen.notice {
+                note(notice, warning: true)
+                if screen.offersSignIn {
+                    Button(Words.signIn) { showingAccount = true }
+                        .accessibilityIdentifier(AccessibilityID.invitationSignIn)
+                } else if screen.offersEmailConfirmation {
+                    Button(Words.confirmEmail) { showingAccount = true }
+                        .accessibilityIdentifier(AccessibilityID.invitationConfirmEmail)
+                }
+            } else {
+                Button(screen.joinLabel) { Task { await main.joinInvitation() } }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!screen.canJoin)
+                    .accessibilityIdentifier(AccessibilityID.invitationJoin)
+            }
+            if let failure = screen.failure, failure != screen.notice {
+                note(failure, warning: true)
+            }
+        }
+    }
+
+    /// The line with the level's name in bold, so it stands out.
+    private func marking(_ level: String?, in line: String) -> AttributedString {
+        var text = AttributedString(line)
+        if let level, let range = text.range(of: level) {
+            text[range].font = .system(size: 13, weight: .semibold)
+        }
+        return text
+    }
+}
+
+// MARK: - A group's page
+
+/// Draws a group's page, on the right where a budget opens: its name, the
+/// line under it, and its people, with what this person may change. A click
+/// on the group's name opens it, and so does People… in its menu. The
+/// people and the words are MembersScreen's, and Leave Group… asks the
+/// window's own question. Layout only.
+struct GroupPage: View {
+    @Bindable var sync: SyncCoordinator
     let group: BudgetGroup
-    /// Opens the share sheet for this group.
+    /// The window's rules, and its question before a leave.
+    let main: MainScreen
+    @Binding var showingAccount: Bool
+    /// Opens the Share sheet for this group.
     let invite: () -> Void
     @State private var screen: MembersScreen
-    @State private var leaving: PendingDelete?
-    @Environment(\.dismiss) private var dismiss
     private typealias Words = MembersScreen.Words
 
-    init(sync: SyncCoordinator, model: AppModel, group: BudgetGroup, invite: @escaping () -> Void = {}) {
+    /// `screen` opens the page on one made already, for tests.
+    init(sync: SyncCoordinator, group: BudgetGroup, main: MainScreen, showingAccount: Binding<Bool>,
+         invite: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
         self.sync = sync
-        self.model = model
         self.group = group
+        self.main = main
+        _showingAccount = showingAccount
         self.invite = invite
-        _screen = State(initialValue: MembersScreen(actions: sync, group: group.id, groupName: group.name))
+        _screen = State(initialValue: screen ?? MembersScreen(actions: sync, group: group.id, groupName: group.name))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(screen.title)
-                .font(.system(size: 17, weight: .semibold))
-
-            VStack(spacing: 0) {
-                ForEach(screen.rows) { row in
-                    person(row)
-                    if row.id != screen.rows.last?.id { Divider() }
+        VStack(spacing: 0) {
+            // After a removal, a quiet line at the top, where the Undo bar
+            // sits on a budget. No pop-up.
+            if let removed = screen.removedNote {
+                HStack {
+                    Text(removed)
+                        .font(.system(size: 12))
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Palette.sidebar)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AccessibilityID.groupRemoved)
+                Divider()
             }
-            .padding(.horizontal, 12)
-            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
-
-            if let failure = screen.failure {
-                note(failure, warning: true)
-            }
-
-            HStack {
-                if screen.mayLeave {
-                    Button(Words.leave) {
-                        // Always a leave, never a delete for everyone, whatever
-                        // this person's level: the stricter reading wins.
-                        leaving = .group(group, budgets: model.summaries[group.id]?.count ?? 0, reach: .thisMacOnly)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    if !screen.rows.isEmpty {
+                        people
+                    }
+                    if let failure = screen.failure {
+                        note(failure, warning: true)
+                    }
+                    if screen.mayLeave {
+                        Button(Words.leave) { main.askToLeave(group) }
+                            .disabled(screen.isWorking)
+                            .accessibilityIdentifier(AccessibilityID.groupLeave)
                     }
                 }
-                Spacer()
-                if screen.mayInvite {
-                    Button(Words.invite) { invite() }
-                }
-                Button(Words.done) { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(20)
-        .frame(width: 480)
+        .background(Palette.surface)
+        .toolbar {
+            ToolbarItemGroup {
+                if main.showsSync {
+                    SyncButton(sync: sync, showingAccount: $showingAccount)
+                }
+                AccountButton(sync: sync, showingAccount: $showingAccount)
+            }
+        }
+        .navigationTitle(group.name)
+        // Whoever joined since the last sync shows as the page opens, and
+        // after each sync while it stays open.
         .task { await screen.refresh() }
+        .onChange(of: sync.lastSyncedAt) { screen.reload() }
         .confirmationDialog(screen.removeQuestion ?? "",
                             isPresented: Binding(get: { screen.removing != nil },
                                                  set: { if !$0 { screen.keepThem() } }),
@@ -266,20 +396,47 @@ struct MembersSheet: View {
         } message: { _ in
             Text(screen.removeMessage ?? "")
         }
-        .confirmationDialog(Words.leaveTitle(group.name),
-                            isPresented: Binding(get: { leaving != nil }, set: { if !$0 { leaving = nil } }),
-                            titleVisibility: .visible,
-                            presenting: leaving) { pending in
-            Button(Words.leaveButton, role: .destructive) {
-                pending.confirm(model: model, sync: sync)
-                dismiss()
+    }
+
+    /// The name, with Invite Someone… on the right, and the line under it.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(group.name)
+                    .font(.system(size: 22, weight: .semibold))
+                Spacer()
+                if screen.mayInvite {
+                    Button(Words.invite) { invite() }
+                        .accessibilityIdentifier(AccessibilityID.groupInvite)
+                }
             }
-            Button(Words.cancel, role: .cancel) {}
-        } message: { _ in
-            Text(screen.leaveMessage)
+            Text(screen.summary)
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+                .accessibilityIdentifier(AccessibilityID.groupSummary)
         }
     }
 
+    private var people: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(Words.people.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.7)
+                .foregroundStyle(Palette.muted)
+            VStack(spacing: 0) {
+                ForEach(screen.rows) { row in
+                    person(row)
+                    if row.id != screen.rows.last?.id { Divider() }
+                }
+            }
+            .padding(.horizontal, 12)
+            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    /// One person: their name, what their level lets them do, and the level.
+    /// The picker and Remove… show only where this person may change them.
+    /// Anyone else's level is a small label.
     private func person(_ row: MembersScreen.Row) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
@@ -293,8 +450,11 @@ struct MembersSheet: View {
             Spacer()
             if row.levelChoices.isEmpty {
                 Text(row.levelTitle)
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(Palette.muted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Palette.muted.opacity(0.4)))
             } else {
                 Picker(Words.level, selection: Binding(get: { row.level }, set: { level in
                     Task { await screen.setLevel(level, for: row.id) }
@@ -308,6 +468,7 @@ struct MembersSheet: View {
             if row.mayRemove {
                 Button(Words.remove) { screen.askToRemove(row.id) }
                     .disabled(screen.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.groupRemove(row.name))
             }
         }
         .padding(.vertical, 8)

@@ -58,19 +58,31 @@ struct RootView: View {
             SidebarView(screen: screen, editor: $editor, showingAccount: $showingAccount)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
-            switch screen.detail {
-            case .budget(let summary):
-                BudgetDetailView(model: model, sync: sync, summary: summary,
-                                 showingAddTransaction: $showingAddTransaction,
-                                 showingFileImporter: $showingFileImporter,
-                                 showingAccount: $showingAccount,
-                                 editor: $editor, main: screen)
-            case .noBudgets:
-                noBudgets
-            case .noneSelected:
-                ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
-                                       systemImage: "tray",
-                                       description: Text(MainScreen.Words.noneSelectedText))
+            if let invitation = screen.invitation {
+                InvitationPage(sync: sync, screen: invitation, main: screen, showingAccount: $showingAccount)
+                    // A page of its own for each link opened.
+                    .id(ObjectIdentifier(invitation))
+            } else if let group = screen.openGroup {
+                GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
+                          invite: { editor = .share(group) })
+                    // A page of its own for each group, and again after a
+                    // rename, so its words name the group as it is now.
+                    .id([group.id.uuid.uuidString, group.name])
+            } else {
+                switch screen.detail {
+                case .budget(let summary):
+                    BudgetDetailView(model: model, sync: sync, summary: summary,
+                                     showingAddTransaction: $showingAddTransaction,
+                                     showingFileImporter: $showingFileImporter,
+                                     showingAccount: $showingAccount,
+                                     editor: $editor, main: screen)
+                case .noBudgets:
+                    noBudgets
+                case .noneSelected:
+                    ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
+                                           systemImage: "tray",
+                                           description: Text(MainScreen.Words.noneSelectedText))
+                }
             }
         }
         .stagingBanner(workspace.environment)
@@ -141,8 +153,6 @@ struct RootView: View {
                 editor = nil
                 DispatchQueue.main.async { showingAccount = true }
             })
-        case .members(let group):
-            MembersSheet(sync: sync, model: model, group: group, invite: { editor = .share(group) })
         case .entry(let opened):
             EntrySheet(editor: opened)
         }
@@ -186,7 +196,9 @@ extension View {
 // MARK: - Sidebar
 
 /// Draws MainScreen's left side: the groups, their budgets, the menus, the
-/// question a delete or a leave asks, and the footer. Layout only.
+/// question a delete or a leave asks, and the footer. A click on a group's
+/// name opens its page, and the arrow beside it hides or shows its budgets.
+/// Layout only.
 struct SidebarView: View {
     let screen: MainScreen
     @Binding var editor: EditorSheet?
@@ -254,24 +266,47 @@ struct SidebarView: View {
         }
     }
 
+    /// The group's name, highlighted while its page is open, and the arrow at
+    /// the end of the line. A click on the name, or anywhere on the line but
+    /// the arrow, opens the page. The arrow hides or shows the budgets. The
+    /// whole line carries the group's menu.
+    ///
+    /// The sidebar's list makes a group's line one element for VoiceOver and
+    /// the UI tests, joining the identifiers of everything in it. So only the
+    /// name has one, and the arrow sits at the end, where a click finds it.
     private func header(_ section: MainScreen.Section) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
-        } label: {
-            HStack(spacing: 6) {
-                Text(section.title.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.7)
-                Spacer()
+        HStack(spacing: 2) {
+            Button {
+                screen.openPage(of: section.group.id)
+            } label: {
+                HStack(spacing: 0) {
+                    Text(section.title.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.7)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 4))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+            .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+            } label: {
                 Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Palette.muted)
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .help(section.toggleHelp)
+            .accessibilityLabel(section.toggleHelp)
         }
-        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-        .buttonStyle(.plain)
-        .help(section.toggleHelp)
         .contextMenu { menu(screen.groupMenu(section.group)) }
     }
 
@@ -309,7 +344,8 @@ struct SidebarView: View {
         .padding(.vertical, 8)
     }
 
-    /// A delete or a leave asks first; anything else opens its sheet.
+    /// A delete or a leave asks first. People… opens the group's page, and
+    /// anything else opens its sheet.
     private func perform(_ action: MainScreen.Action) {
         if action.asksFirst {
             screen.ask(action)
@@ -321,7 +357,7 @@ struct SidebarView: View {
         case .newGroup: editor = .newGroup
         case .renameGroup(let group): editor = .renameGroup(group)
         case .share(let group): editor = .share(group)
-        case .people(let group): editor = .members(group)
+        case .people(let group): screen.openPage(of: group.id)
         case .join: editor = .join
         case .deleteBudget, .deleteGroup: break
         }

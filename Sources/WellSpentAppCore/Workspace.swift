@@ -16,6 +16,11 @@ public final class Workspace {
     /// Which build this is. A staging window has an orange banner, and its Dock
     /// icon a badge.
     public var environment: AppEnvironment { sync.environment }
+    /// The invitation page an opened invite link put up, on the right where
+    /// a budget opens. Nil when no link is open. It stays through signing in,
+    /// signing up and confirming the email, until the person joins, picks a
+    /// budget or a group on the left, or opens another link (`MainScreen`).
+    public private(set) var invitation: JoinScreen?
 
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil) {
         self.model = model
@@ -42,6 +47,41 @@ public final class Workspace {
         model.mayManageEntries = { [sync] group in sync.mayManageBudgets(in: group) }
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
+    }
+
+    // MARK: - Opened links
+
+    /// Opens a link the system handed the app: a click on one of this
+    /// build's invite links, whether it started the app or the app was
+    /// running. The one way in for every desktop: each hands it the link it
+    /// was given.
+    /// The Mac does it from its app delegate. On Linux it is the link in the
+    /// launch arguments, or one a second launch passed to the copy already
+    /// running.
+    ///
+    /// It puts up the invitation page at once, in `invitation`, which
+    /// `MainScreen.invitation` shows: who invited this person, to which
+    /// group, a Your name field, and Join. Then it asks the server what the
+    /// invite offers, and the page adds the level, what it lets them do, and
+    /// how much of the group they would see. Signed out, or with the email
+    /// not confirmed yet, the page says so in place of Join, with a way to
+    /// do it (`JoinScreen.notice`). A link with part of it missing says so,
+    /// plainly, and asks the server nothing (`JoinScreen.linkProblem`).
+    /// Join goes through `MainScreen.joinInvitation()`.
+    ///
+    /// Call it in a Task: the page is up before the server answers. Safe
+    /// with anything: a link that does not read as an invite never stops the
+    /// app. Another link replaces the page that is up.
+    public func open(_ url: URL) async {
+        let page = JoinScreen(actions: sync, opened: url)
+        invitation = page
+        await page.lookUp()
+    }
+
+    /// Takes the invitation page down, when the person goes elsewhere or has
+    /// joined. `MainScreen` decides when.
+    func closeInvitation() {
+        invitation = nil
     }
 
     /// The real app: every account's budgets in Application Support, keys in the

@@ -33,22 +33,21 @@ public enum SyncWording {
 
     /// Asked before a member who may not delete a shared group for everyone
     /// deletes it: for them, it is leaving.
-    public static let leaveGroupMessage = """
-        You leave the group, and it is removed from all your devices. Other members keep it. \
-        Anything you changed in it on this device that has not synced yet still goes to them first. \
-        Changes on your other devices that have not synced yet do not reach them. \
-        Only the person who made it, or an admin, can delete it for everyone. \
-        To come back, ask for a new invite link.
-        """
+    public static let leaveGroupMessage = leaveGroupMessage(sendsChanges: true)
 
-    /// For someone at View, who cannot leave changes behind: they have none to
-    /// send.
-    public static func leaveGroupMessage(sendsChanges: Bool) -> String {
-        sendsChanges ? leaveGroupMessage : """
-            You leave the group, and it is removed from all your devices. Other members keep it. \
-            Only the person who made it, or an admin, can delete it for everyone. \
-            To come back, ask for a new invite link.
-            """
+    /// The same, for someone who can or cannot send changes. Someone at View
+    /// cannot leave changes behind: they have none to send. `contents` is
+    /// what goes from their devices with the group, such as "2 budgets and
+    /// 14 transactions", when there is any.
+    public static func leaveGroupMessage(sendsChanges: Bool, taking contents: String? = nil) -> String {
+        let removed = "You leave the group, and it is removed from all your devices"
+            + (contents.map { ", with its \($0)" } ?? "") + ". The others in it keep it. "
+        let changes = sendsChanges
+            ? "Anything you changed in it on this device that has not synced yet still goes to them first. "
+                + "Changes on your other devices that have not synced yet do not reach them. "
+            : ""
+        return removed + changes + "Only the person who made it, or an admin, can delete it for everyone. "
+            + "To come back, ask for a new invite link."
     }
 
     /// When someone at View tries to add an entry or import a statement.
