@@ -3,6 +3,9 @@
 # Store Connect check it, and uploads it. `make testflight` runs package and
 # validate and never uploads. `make testflight-upload` runs upload alone.
 #
+# The iPhone app uses validate and upload too, on the .ipa Xcode's export made
+# (scripts/make-iphone-ipa.sh), with PLATFORM=ios. The Mac's is the default.
+#
 #   scripts/testflight.sh package APP PKG   builds PKG around APP, signed with the
 #                                           Mac Installer Distribution certificate
 #   scripts/testflight.sh validate PKG      has App Store Connect check PKG, and
@@ -44,7 +47,7 @@ asc() {
     key_id="$(setting KEY_ID)"
     issuer_id="$(setting ISSUER_ID)"
     API_PRIVATE_KEYS_DIR="$(dirname "$KEYINFO")" \
-        xcrun altool "$@" --platform macos --api-key "$key_id" --api-issuer "$issuer_id"
+        xcrun altool "$@" --platform "${PLATFORM:-macos}" --api-key "$key_id" --api-issuer "$issuer_id"
 }
 
 case "${1:-}" in
