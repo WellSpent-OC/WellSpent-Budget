@@ -159,15 +159,23 @@ XCODE ?= /Applications/Xcode.app/Contents/Developer
 APPLE_DIR ?= $(HOME)/.config/wellspent/apple
 PROFILE ?= $(APPLE_DIR)/WellSpent_Mac_App_Store.provisionprofile
 KEYINFO ?= $(APPLE_DIR)/keyinfo.txt
-TESTFLIGHT_VERSION ?= 0.1.0
-TESTFLIGHT_BUILD ?= $(shell date -u +%Y%m%d%H%M)
+# The version is the release's, from the vX.Y.Z tag on the commit being built,
+# since a TestFlight build comes only from a release tag. Without one, make
+# testflight stops, unless TESTFLIGHT_VERSION is given for a trial build.
+TESTFLIGHT_VERSION ?= $(patsubst v%,%,$(shell git describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null))
+# Worked out once, so every step of one run uses the same build number.
+ifeq ($(origin TESTFLIGHT_BUILD),undefined)
+TESTFLIGHT_BUILD := $(shell date -u +%Y%m%d%H%M)
+endif
 TESTFLIGHT_OUT := .build/testflight
 TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
 TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
 
 testflight:
+	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make testflight builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=live SIGN=appstore VERSION=$(TESTFLIGHT_VERSION) BUILD=$(TESTFLIGHT_BUILD) \
 		OUT=$(TESTFLIGHT_OUT) SCRATCH=.build/appstore PROFILE="$(PROFILE)" KEYINFO="$(KEYINFO)" scripts/make-app.sh
+	scripts/release-check.sh "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh package "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_PKG)"
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh validate "$(TESTFLIGHT_PKG)"
 
