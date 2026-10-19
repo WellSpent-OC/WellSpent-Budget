@@ -1,6 +1,12 @@
 // Renders the app icon into every size macOS wants and packs them into
 // Sources/WellSpentApp/Resources/AppIcon.icns. Run with `make icon`.
 //
+// With `iphone PATH`, it draws the iPhone's icon instead: the same drawing, full
+// bleed and opaque, one 1024 pixel square written to PATH. The master draws a
+// rounded square inside a clear edge, and an iPhone icon is a plain square the
+// phone rounds itself, so the drawing is scaled until its square fills the frame.
+// Run with `make iphone-icon`.
+//
 // Two drawings, by size. Design/AppIcon/AppIcon.svg is for 32 pixels and up.
 // Design/AppIcon/AppIcon_Small.svg, with thicker lines and fewer parts, is for
 // the 16 pixel slot, where the full drawing turns to texture. The 16 point
@@ -31,6 +37,33 @@ func png(_ image: NSImage, _ pixels: Int) -> Data {
     image.draw(in: NSRect(x: 0, y: 0, width: pixels, height: pixels))
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
+}
+
+/// The iPhone's icon: the master's 824 point square, from 100 to 924, scaled to
+/// fill 1024 pixels, on the square's own black, with no alpha channel, as the App
+/// Store asks.
+func iPhonePNG(_ image: NSImage) -> Data {
+    let pixels = 1024
+    // AppKit draws only into a bitmap with alpha, so the drawing goes into a Core
+    // Graphics canvas that has none.
+    let canvas = CGContext(data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,
+                           space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: canvas, flipped: false)
+    NSColor.black.setFill()
+    NSRect(x: 0, y: 0, width: pixels, height: pixels).fill()
+    let scale = 1024.0 / 824.0
+    image.draw(in: NSRect(x: -100 * scale, y: -100 * scale, width: 1024 * scale, height: 1024 * scale))
+    NSGraphicsContext.restoreGraphicsState()
+    return NSBitmapImageRep(cgImage: canvas.makeImage()!).representation(using: .png, properties: [:])!
+}
+
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "iphone" {
+    let out = URL(fileURLWithPath: CommandLine.arguments[2])
+    try! iPhonePNG(full).write(to: out)
+    print(out.path)
+    exit(0)
 }
 
 for points in [16, 32, 128, 256, 512] {
