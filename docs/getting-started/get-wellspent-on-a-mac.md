@@ -6,7 +6,7 @@ title: "Quest 1: Get WellSpent on your Mac"
 
 > *Every adventure starts with the gear. Here's yours.*
 
-**Before you start:** Apple's email inviting you to test WellSpent Budget, and a Mac with macOS 14 (Sonoma) or later. Use the Apple Account you use in the App Store on this Mac.
+**Before you start:** Apple's email inviting you to test WellSpent Budget, and a Mac with macOS 14 or later. Sign in with the same account you use in the App Store on this Mac.
 
 1. ![A hand opens the App Store](../assets/shots/get-wellspent-on-a-mac-1.svg)
    Open the **App Store** app on your Mac.
