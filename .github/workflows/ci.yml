@@ -327,6 +327,10 @@ jobs:
       - name: Build the app and the UI test
         run: make ui-test-build
 
+      # The export answer counts on the Mac app using Apple's encryption alone.
+      - name: Apple's encryption only, in the built Mac app
+        run: scripts/crypto-check.sh .build/xcode/Build/Products/Debug/WellSpentUITestHost.app
+
       - name: Run the UI test against staging
         if: env.HAS_UI_TEST_ACCOUNTS == 'true'
         env:
@@ -415,6 +419,10 @@ jobs:
 
       - name: Build the iPhone app and its UI tests
         run: make iphone-ui-test-build
+
+      # The export answer counts on the iPhone app using Apple's encryption alone.
+      - name: Apple's encryption only, in the built iPhone app
+        run: scripts/crypto-check.sh .build/xcode-iphone/Build/Products/Debug-iphonesimulator/WellSpentPhone.app
 
       - name: Run the iPhone UI tests
         env:
