@@ -271,7 +271,10 @@ IPHONE_TESTFLIGHT_IPA := $(IPHONE_TESTFLIGHT_OUT)/WellSpentPhone.ipa
 iphone-testflight: iphone-project
 	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make iphone-testflight builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
 	DEVELOPER_DIR=$(XCODE) scripts/make-iphone-ipa.sh "$(IPHONE_PROFILE)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)" "$(IPHONE_TESTFLIGHT_OUT)"
-	scripts/release-check.sh "$(IPHONE_TESTFLIGHT_OUT)/WellSpentPhone.xcarchive/Products/Applications/WellSpentPhone.app" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
+	@# The release check reads the app inside the .ipa, the one that uploads, as
+	@# the export signed it, not the archive's.
+	rm -rf "$(IPHONE_TESTFLIGHT_OUT)/check" && unzip -q "$(IPHONE_TESTFLIGHT_IPA)" -d "$(IPHONE_TESTFLIGHT_OUT)/check"
+	scripts/release-check.sh "$(IPHONE_TESTFLIGHT_OUT)/check/Payload/WellSpentPhone.app" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" PLATFORM=ios scripts/testflight.sh validate "$(IPHONE_TESTFLIGHT_IPA)"
 
 # Uploads the .ipa make iphone-testflight validated, and nothing else.
