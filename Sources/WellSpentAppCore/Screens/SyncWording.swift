@@ -2,9 +2,15 @@ import Foundation
 
 /// Words about syncing shown around the main window, on any desktop.
 public enum SyncWording {
+    /// What the words call the device this app runs on, as in "Kept on this
+    /// iPhone only". Each app sets it once at launch, before any screen is
+    /// drawn, and never again, which is why reading it needs no actor. An app
+    /// that never sets it, such as the Linux one, says "computer".
+    nonisolated(unsafe) public static var device = "computer"
+
     /// The foot of the sidebar.
-    public static func footer(signedIn: Bool) -> String {
-        signedIn ? "Syncs through WellSpent's server" : "Kept on this computer only"
+    public static func footer(signedIn: Bool, device: String = device) -> String {
+        signedIn ? "Syncs through WellSpent's server" : "Kept on this \(device) only"
     }
 
     public static let signedOutHelp = "Sign in to sync with your other devices."
@@ -58,7 +64,11 @@ public enum SyncWording {
     public static let inviteNote = "Send this to the person you are inviting. It works once and expires in 7 days."
 
     /// At the foot of the import review.
-    public static let importNote = "Read on this computer. Nothing is sent until you add it."
+    public static var importNote: String { importNote(device: device) }
+
+    public static func importNote(device: String) -> String {
+        "Read on this \(device). Nothing is sent until you add it."
+    }
 
     // MARK: - The sync button
 

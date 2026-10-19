@@ -80,8 +80,10 @@ targets:
   WellSpentUITests:
     type: bundle.ui-testing
     platform: macOS
+    # The Mac's own tests, and what they share with the iPhone's.
     sources:
       - path: ../Tests/WellSpentUITests
+      - path: ../Tests/UITestShared
     # The host, and the package products the headless second account uses.
     # WellSpentCrypto names the IDs a test builds the screens' words with.
     dependencies:

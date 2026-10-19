@@ -5,7 +5,8 @@ import WellSpentSync
 /// Errors from signing in, signing up, confirming an address and changing
 /// a password, in words a person can act on.
 public enum AccountWording {
-    public static func words(for error: any Error) -> String {
+    /// `device` names this device where the words need it. See `SyncWording.device`.
+    public static func words(for error: any Error, device: String = SyncWording.device) -> String {
         if let failure = error as? SyncCoordinator.Failure {
             switch failure {
             case .notSignedIn: return "Sign in first."
@@ -45,7 +46,7 @@ public enum AccountWording {
         if let failure = error as? URLError {
             switch failure.code {
             case .notConnectedToInternet, .networkConnectionLost:
-                return "This computer is not connected to the internet."
+                return "This \(device) is not connected to the internet."
             case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .timedOut:
                 return "Could not reach the server. Check its address and your connection."
             default:

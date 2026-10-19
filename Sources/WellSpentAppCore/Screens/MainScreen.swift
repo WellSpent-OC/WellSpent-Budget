@@ -205,6 +205,12 @@ public final class MainScreen {
         return true
     }
 
+    /// Opens the first budget shown on the left, as a tap on it would. For a
+    /// window asked to start on a budget (`StartingScreen`).
+    public func openFirstBudget() {
+        selectedBudget = sections.lazy.compactMap { $0.budgets.first?.budget.id }.first
+    }
+
     // MARK: - Menus
 
     /// A group's menu, in parts the screens separate with dividers.
@@ -368,5 +374,7 @@ public final class MainScreen {
         public static let cancel = "Cancel"
         /// The title of the window's alert when something fails.
         public static let errorTitle = "Something went wrong"
+        /// Shown in place of the window when the budgets cannot be opened at all.
+        public static func couldNotOpen(_ appName: String) -> String { "\(appName) could not open its database" }
     }
 }

@@ -414,6 +414,20 @@ struct AccountFlowTests {
         #expect(SyncWording.waitingGroups(3).hasPrefix("3 groups are waiting"))
     }
 
+    /// Each app names its own device. The iPhone app hands in "iPhone" at
+    /// launch. An app that hands in nothing, like this test run or the Linux
+    /// app, says "computer".
+    @Test func theWordsNameTheDeviceTheAppRunsOn() {
+        #expect(SyncWording.device == "computer", "nothing in a test run sets it")
+
+        #expect(SyncWording.footer(signedIn: false, device: "iPhone") == "Kept on this iPhone only")
+        #expect(SyncWording.footer(signedIn: true, device: "iPhone") == "Syncs through WellSpent's server")
+        #expect(SyncWording.importNote(device: "iPhone") == "Read on this iPhone. Nothing is sent until you add it.")
+        #expect(AccountWording.words(for: URLError(.notConnectedToInternet), device: "iPhone")
+                == "This iPhone is not connected to the internet.")
+        #expect(SyncWording.footer(signedIn: false, device: "Mac") == "Kept on this Mac only")
+    }
+
     /// The words on every step: plain, with no "Mac", no dashes standing in
     /// for punctuation, and no semicolons.
     @Test func theWordsArePlain() {

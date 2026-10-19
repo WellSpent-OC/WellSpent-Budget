@@ -67,11 +67,20 @@ public final class AppModel {
         public var chosenBudgets: [Int: BudgetID] = [:]
     }
 
+    /// Whether a budget opens by itself while none is open: one at launch,
+    /// and another after the open one is deleted. Right beside a list, as on
+    /// the Mac, where the right side would otherwise be empty. A phone shows
+    /// a budget in place of the list, so there only a tap opens one, and
+    /// deleting the open one goes back to the list.
+    public let opensFirstBudget: Bool
+
     /// `undoWindow` is how long the bar after a delete stays. Tests pass a
     /// short one, as `AutoSync` takes its wait time.
-    public init(store: Store, undoWindow: Duration = AppModel.defaultUndoWindow) {
+    public init(store: Store, undoWindow: Duration = AppModel.defaultUndoWindow,
+                opensFirstBudget: Bool = true) {
         self.store = store
         self.undoWindow = undoWindow
+        self.opensFirstBudget = opensFirstBudget
         reload()
     }
 
@@ -97,7 +106,12 @@ public final class AppModel {
                 loaded[group.id] = try store.summaries(in: group.id)
             }
             summaries = loaded
-            if selectedBudget == nil {
+            // A budget deleted on another device closes here, as one
+            // deleted on this device does.
+            if let open = selectedBudget, !loaded.values.contains(where: { $0.contains { $0.budget.id == open } }) {
+                selectedBudget = nil
+            }
+            if selectedBudget == nil, opensFirstBudget {
                 selectedBudget = loaded.values.flatMap(\.self).first?.budget.id
             }
             reloadTransactions()

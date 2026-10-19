@@ -1,0 +1,118 @@
+# The Xcode project for the iPhone app.
+#
+# WellSpentPhone.xcodeproj is generated next to this file by `make iphone-project`
+# (xcodegen generate --spec iOS/project.yml) and is ignored by git, like every
+# .xcodeproj here. The Swift package at the repo root stays the source of truth.
+# The app is the package's WellSpentAppCore, with the iPhone's own screens,
+# around the one shell file in this folder. An iPhone app needs an Xcode
+# project, a bundled .app and xcodebuild, none of which a package has.
+#
+# One target for now, WellSpentPhone: the staging build, run only in the
+# simulator. Its bundle ID is app.wellspent.mac.staging, as for the Mac's
+# staging build, so the live iPhone build can later share the Mac's
+# app.wellspent.mac. WellSpentEnvironment below is what the app reads to decide
+# which build it is: anything but "live" is staging, with the orange banner, its
+# own budgets, and the live server refused.
+name: WellSpentPhone
+options:
+  minimumXcodeGenVersion: "2.40.0"
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+packages:
+  WellSpentBudget:
+    path: ..
+
+targets:
+  WellSpentPhone:
+    type: application
+    platform: iOS
+    sources:
+      - path: WellSpentPhoneApp.swift
+    dependencies:
+      - package: WellSpentBudget
+        product: WellSpentAppCore
+    # Written by xcodegen into the ignored .build folder.
+    info:
+      path: ../.build/xcodegen/WellSpentPhone-Info.plist
+      properties:
+        CFBundleDisplayName: WellSpent Staging
+        CFBundleShortVersionString: 0.1.0
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        WellSpentEnvironment: staging
+        # The export question, answered: the app encrypts only through Apple's
+        # CryptoKit, as the Mac app's Info.plist says too, so an upload never
+        # waits on it.
+        ITSAppUsesNonExemptEncryption: false
+    # On the target, because xcodegen's own target defaults would otherwise
+    # win over the project's: iPhone and iPad, signed as a developer.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.staging
+        PRODUCT_NAME: WellSpentPhone
+        GENERATE_INFOPLIST_FILE: NO
+        # iPhone only. iPad later is one more value here, plus its layout work.
+        TARGETED_DEVICE_FAMILY: "1"
+        # A simulator build signs itself to run locally. No team, no profile.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+
+  # The iPhone's own UI tests (UITests/), and what they share with the Mac's
+  # (../Tests/UITestShared). They drive WellSpentPhone in the simulator. The
+  # package products are for the headless second person and the screens' words.
+  WellSpentPhoneUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+      - path: ../Tests/UITestShared
+    dependencies:
+      - target: WellSpentPhone
+      - package: WellSpentBudget
+        product: WellSpentAppCore
+      - package: WellSpentBudget
+        product: WellSpentCrypto
+      - package: WellSpentBudget
+        product: WellSpentSync
+      - package: WellSpentBudget
+        product: WellSpentStore
+      - package: WellSpentBudget
+        product: WellSpentKeyStore
+      - package: WellSpentBudget
+        product: WellSpentModel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.phone-uitests
+        TEST_TARGET_NAME: WellSpentPhone
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+
+schemes:
+  WellSpentPhone:
+    build:
+      targets:
+        WellSpentPhone: all
+        WellSpentPhoneUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WellSpentPhoneUITests
