@@ -118,3 +118,8 @@ schemes:
       config: Debug
       targets:
         - WellSpentUITests
+      # No picture at every click and keystroke: one taken while the sign-in
+      # fields hold a test account's address would publish it in a public
+      # repo's CI artifact. FailureScreenshots' own picture, checked by
+      # ScreenPrivacy first, is the one a failure keeps.
+      captureScreenshotsAutomatically: false
