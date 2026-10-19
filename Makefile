@@ -22,7 +22,7 @@ endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
-        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload
+        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin
 
 build:
 	swift build
@@ -170,26 +170,32 @@ ui-test-project:
 ui-test-build: ui-test-project
 	$(UI_TEST_XCODEBUILD) build-for-testing
 
-ui-test: ui-test-project
-	@for name in $(UI_TEST_VARS); do \
+# Stops when a test account variable is missing. The UI tests and the release twin
+# both sign in to staging with them.
+UI_TEST_VARS_SET = for name in $(UI_TEST_VARS); do \
 		eval "value=\$$$$name"; \
 		if [ -z "$$value" ]; then \
 			echo "$$name is not set. Source the file that exports the four test account variables first."; \
 			exit 1; \
 		fi; \
 	done
+# Hands the test account variables to the test runner.
+UI_TEST_ACCOUNTS = TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN"
+
+ui-test: ui-test-project
+	@$(UI_TEST_VARS_SET)
 	rm -rf .build/xcode/ui-test.xcresult
 	only="$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))"; \
 	if [ -n "$(UI_TEST_SHARD)" ]; then \
 		only=$$(scripts/ui-test-shard.sh Tests/WellSpentUITests WellSpentUITests "$(UI_TEST_SHARD)") || exit 1; \
 		echo "This part's classes:" $$only; \
 	fi; \
-	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
-	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
+	$(UI_TEST_ACCOUNTS) \
 	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
 		-resultBundlePath .build/xcode/ui-test.xcresult $$only || true; \
 	DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh .build/xcode/ui-test.xcresult
@@ -318,6 +324,7 @@ testflight:
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=live SIGN=appstore VERSION=$(TESTFLIGHT_VERSION) BUILD=$(TESTFLIGHT_BUILD) \
 		OUT=$(TESTFLIGHT_OUT) SCRATCH=.build/appstore PROFILE="$(PROFILE)" KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	scripts/release-check.sh "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
+	$(MAKE) release-twin TESTFLIGHT_VERSION=$(TESTFLIGHT_VERSION) TESTFLIGHT_BUILD=$(TESTFLIGHT_BUILD)
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh package "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_PKG)"
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh validate "$(TESTFLIGHT_PKG)"
 
@@ -347,3 +354,23 @@ iphone-testflight: iphone-project
 # Uploads the .ipa make iphone-testflight validated, and nothing else.
 iphone-testflight-upload:
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" PLATFORM=ios scripts/testflight.sh upload "$(IPHONE_TESTFLIGHT_IPA)"
+
+# The release twin: the same commit on staging, signed for development under its
+# own app ID with a profile for this Mac only, so it runs here the way the App
+# Store build runs on a tester's Mac. scripts/make-app.sh says how it is signed.
+# A UI test signs in, adds a group, quits, opens it again, and checks it is still
+# signed in with the group there. It takes the screen for about a minute and needs
+# the four test account variables, as make ui-test does. make testflight runs it
+# before packaging, so a release that fails it never uploads.
+TWIN_PROFILE ?= $(APPLE_DIR)/WellSpent_Twin_Development.provisionprofile
+TWIN_OUT := .build/twin
+TWIN_APP := $(CURDIR)/$(TWIN_OUT)/WellSpent Twin.app
+release-twin: ui-test-project
+	@$(UI_TEST_VARS_SET)
+	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=staging SIGN=development VERSION=$(or $(TESTFLIGHT_VERSION),0.0.0-twin) \
+		BUILD=$(TESTFLIGHT_BUILD) OUT=$(TWIN_OUT) SCRATCH=.build/twin-scratch TWIN_PROFILE="$(TWIN_PROFILE)" \
+		KEYINFO="$(KEYINFO)" scripts/make-app.sh
+	$(UI_TEST_XCODEBUILD) build-for-testing
+	rm -rf .build/xcode/release-twin.xcresult
+	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" $(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
+		-only-testing:WellSpentUITests/ReleaseTwinTests -resultBundlePath .build/xcode/release-twin.xcresult
