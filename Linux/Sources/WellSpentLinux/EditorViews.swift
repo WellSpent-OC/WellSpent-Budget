@@ -181,10 +181,11 @@ struct EntryEditorView: View {
         // The sheet asks its own delete question, so it shows over the sheet.
         .alert(question(pending), isPresented: Binding(get: { pending != nil },
                                                        set: { if !$0 { editor.cancelDelete() } })) {
+            // Cancel first: GTK focuses the first button, so Return keeps it.
+            Button(Words.cancel) { editor.cancelDelete() }
             Button(pending?.confirmLabel ?? Words.delete) {
                 if editor.confirmDelete() { close() }
             }
-            Button(Words.cancel) { editor.cancelDelete() }
         }
     }
 

@@ -72,10 +72,11 @@ struct RootView: View {
         }
         .alert(question(pendingDelete), isPresented: Binding(get: { pendingDelete != nil },
                                                                    set: { if !$0 { screen.keepIt() } })) {
+            // Cancel first: GTK focuses the first button, so Return keeps it.
+            Button(MainScreen.Words.cancel) { screen.keepIt() }
             Button(pendingDelete?.confirmLabel ?? "Delete") {
                 if let pendingDelete { screen.confirm(pendingDelete) }
             }
-            Button(MainScreen.Words.cancel) { screen.keepIt() }
         }
         .alert(Binding(get: { problem.map { "Something went wrong: \($0)" } },
                        set: { if $0 == nil { model.dismissError() } })) {

@@ -199,12 +199,15 @@ struct MembersView: View {
         .task { await screen.refresh() }
         .alert(removeQuestion, isPresented: Binding(get: { removing != nil },
                                                     set: { if !$0 { screen.keepThem() } })) {
+            // Cancel first: GTK focuses the first button, so Return keeps it.
+            Button(Words.cancel) { screen.keepThem() }
             Button(Words.removeButton) {
                 if let removing { screen.remove(removing.id) }
             }
-            Button(Words.cancel) { screen.keepThem() }
         }
         .alert(leaveQuestion, isPresented: Binding(get: { leavingNow != nil }, set: { if !$0 { leaving = nil } })) {
+            // Cancel first: GTK focuses the first button, so Return keeps it.
+            Button(Words.cancel) { leaving = nil }
             Button(Words.leaveButton) {
                 if let leavingNow {
                     leaving = nil
@@ -212,7 +215,6 @@ struct MembersView: View {
                     close()
                 }
             }
-            Button(Words.cancel) { leaving = nil }
         }
     }
 

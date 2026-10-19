@@ -52,8 +52,9 @@ struct AccountView: View {
         .alert("\(Words.signOutEverywhereTitle)\n\n\(Words.signOutEverywhereMessage)",
                isPresented: Binding(get: { askingEverywhere },
                                     set: { if !$0 { flow.keepDevicesSignedIn() } })) {
-            Button(Words.signOutEverywhereButton) { flow.signOutEverywhere() }
+            // Cancel first: GTK focuses the first button, so Return keeps it.
             Button(Words.cancel) { flow.keepDevicesSignedIn() }
+            Button(Words.signOutEverywhereButton) { flow.signOutEverywhere() }
         }
     }
 
