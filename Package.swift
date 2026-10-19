@@ -95,7 +95,12 @@ let package = Package(
 
         .testTarget(name: "WellSpentCryptoTests", dependencies: ["WellSpentCrypto"]),
         .testTarget(name: "WellSpentKeyStoreTests", dependencies: ["WellSpentKeyStore"]),
-        .testTarget(name: "WellSpentStoreTests", dependencies: ["WellSpentStore"]),
+        .testTarget(
+            name: "WellSpentStoreTests",
+            dependencies: ["WellSpentStore"],
+            // Databases written by earlier releases, for the upgrade tests.
+            resources: [.copy("Fixtures")]
+        ),
         .testTarget(name: "WellSpentSyncTests", dependencies: ["WellSpentSync"]),
         .testTarget(name: "WellSpentImportTests", dependencies: ["WellSpentImport"]),
         .testTarget(
