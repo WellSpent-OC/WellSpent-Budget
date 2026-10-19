@@ -15,7 +15,7 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 3. Type your email in **Email**.
 4. Type a password of at least 10 characters in **Password**.
 5. Type the same password in **Confirm password**.
-6. Press **Create account**. If your Mac asks about keychain items, click **Always Allow**.
+6. Press **Create account**.
 
    > You see **Confirm your email**, and "Enter the code sent to" your email.
 

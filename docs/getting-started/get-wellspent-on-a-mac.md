@@ -18,7 +18,7 @@ title: "Quest 1: Get WellSpent on your Mac"
 8. Click **Install**.
 9. Click **App Settings**.
 10. Turn on **Automatic Updates**, so new versions install on their own.
-11. Click **Open**. If your Mac asks about keychain items, click **Always Allow**.
+11. Click **Open**.
 
     > You see WellSpent, with two sample groups, **HOUSEHOLD** and **SIDE BUSINESS**. They're made up, so you can look around.
 
