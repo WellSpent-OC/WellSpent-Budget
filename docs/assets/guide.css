@@ -30,7 +30,7 @@ ol > li { counter-increment: step; position: relative; padding: 10px 14px 10px 5
 ol > li::before { content: counter(step); position: absolute; left: 14px; top: 9px; font-family: "Luckiest Guy", Impact, sans-serif; font-size: 22px; color: var(--green); }
 strong { font-weight: 700; }
 ul { padding-left: 22px; }
-/* Screenshots: a sticker edge and a hard shadow. */
+/* Pictures outside a step: a sticker edge and a hard shadow. */
 img { max-width: 100%; height: auto; border: 3px solid var(--ink); border-radius: 12px; box-shadow: 4px 4px 0 var(--shadow); margin: 8px 0; }
 /* "What you see" and platform notes. */
 blockquote { margin: 14px 0; padding: 10px 16px; background: var(--cream); color: #111111; border: 2px solid #111111; border-radius: 12px; }

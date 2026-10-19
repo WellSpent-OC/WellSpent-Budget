@@ -9,7 +9,7 @@ The guide stays easy to copy and move to another documentation service:
 - **Plain Markdown pages,** with only a title in the front matter. No GitHub-only features,
   no Jekyll plugins in pages, and no wiki. Any static site tool or documentation service
   can take these files as they are.
-- **Everything lives in this folder:** screenshots in `assets/shots/`, with example data
+- **Everything lives in this folder:** drawings in `assets/shots/`, with example data
   only, and fonts in `assets/fonts/`, with their licences. Nothing is linked from elsewhere.
 - **The page frame is one small file** (`_layouts/default.html`) plus one style sheet. A new
   service replaces those two and keeps every page.
@@ -26,7 +26,7 @@ The guide stays easy to copy and move to another documentation service:
   list swapped, and needs no new drawings.
 - **"You see" lines only where the next picture doesn't show it.**
 - **One drawing serves the Mac and Linux** where both do the step the same way. A step done
-  differently gets one drawing per system, with `-mac` or `-linux` at the end of its name.
+  differently gets one drawing per system, with `-mac`, `-linux` or `-iphone` at the end of its name.
 - **Pictures are SVG files** in `assets/shots/`, named for the task and the step:
   `import-a-bank-statement-1.svg`. Each one has a short description for screen readers.
 - **A step with a picture** puts the picture first and the caption on the next line:
