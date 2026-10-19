@@ -8,7 +8,7 @@
 #
 # It checks the version and build number, the bundle ID, that the build is live,
 # its export answer, its one invite link type, every icon size, the provisioning
-# profile, the signature, and the sandbox. It reads the app and changes nothing.
+# profile and that it fits the app, the signature, and the sandbox. It reads the app and changes nothing.
 set -eu
 
 app="${1:?usage: scripts/release-check.sh APP VERSION BUILD}"
@@ -60,6 +60,8 @@ else
 fi
 
 [ -f "$app/Contents/embedded.provisionprofile" ] || problem "no provisioning profile in the app"
+# The profile fits the app: its team, its permissions, its certificate, its date.
+"$(dirname "$0")/profile-fit.sh" "$app" || problem "the provisioning profile does not fit the app"
 
 # Signed, not changed since, and sandboxed.
 codesign --verify --deep --strict "$app" 2>/dev/null || problem "the signature does not verify"
