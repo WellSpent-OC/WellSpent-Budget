@@ -106,14 +106,14 @@ final class PhoneSignInSyncTests: XCTestCase {
         run.openBudget(named: budgetName)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text("Leslie").exists, "her entry does not say she added it")
+        XCTAssertTrue(run.shows("Leslie"), "her entry does not say she added it. On screen: \(run.visibleTexts())")
         run.goBack()
 
         // Scenario ACCT-11
         // 5. Sign out: the foot says the budgets are kept on this iPhone,
         // and the account's group goes from Home.
         run.signOut()
-        XCTAssertTrue(run.text(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)).exists,
+        XCTAssertTrue(run.shows(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)),
                       "still signed in. On screen: \(run.visibleTexts())")
         XCTAssertFalse(header.exists, "the account's group is still on Home")
 

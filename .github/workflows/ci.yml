@@ -348,7 +348,7 @@ jobs:
         run: |
           if [ -d .build/xcode/ui-test.xcresult ]; then
             xcrun xcresulttool export attachments --path .build/xcode/ui-test.xcresult --output-path .build/xcode/ui-test-screenshots
-            find .build/xcode/ui-test-screenshots -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+            scripts/keep-images.sh .build/xcode/ui-test-screenshots
           fi
 
       - name: Keep the screenshots when the test fails
@@ -435,7 +435,7 @@ jobs:
             bundle=.build/xcode-iphone/ui-test-$look.xcresult
             if [ -d "$bundle" ]; then
               xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/screenshots-$look
-              find .build/xcode-iphone/screenshots-$look -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+              scripts/keep-images.sh .build/xcode-iphone/screenshots-$look
             fi
           done
 

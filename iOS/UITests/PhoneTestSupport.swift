@@ -54,6 +54,15 @@ final class PhoneTestApp {
         app.staticTexts[words].firstMatch
     }
 
+    /// Whether these words show on screen within the time given. A slow
+    /// runner draws a change late, so a check right after an action waits
+    /// for it. Capitals are ignored: the phone's keyboard may start a note
+    /// with one.
+    func shows(_ words: String, timeout: TimeInterval = 10) -> Bool {
+        app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", words)).firstMatch
+            .waitForExistence(timeout: timeout)
+    }
+
     func tap(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout),
