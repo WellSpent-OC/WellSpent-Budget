@@ -61,16 +61,11 @@ struct CryptoCheckTests {
 
     // MARK: - Running the script
 
-    struct Result {
-        let status: Int32
-        let said: String
-    }
-
     /// The first 32 bytes of a 64-bit arm64 executable, which `file` reads as Mach-O.
     static let machHeader = Data([0xCF, 0xFA, 0xED, 0xFE, 0x0C, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
                                   0x02, 0x00, 0x00, 0x00] + [UInt8](repeating: 0, count: 16))
 
-    static func check(code: [String: String], other: [String: String] = [:]) throws -> Result {
+    static func check(code: [String: String], other: [String: String] = [:]) throws -> ScriptRun {
         let app = FileManager.default.temporaryDirectory
             .appendingPathComponent("crypto-check-\(UUID().uuidString)/WellSpent.app", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: app.deletingLastPathComponent()) }
@@ -85,20 +80,7 @@ struct CryptoCheckTests {
             try Data(text.utf8).write(to: url)
         }
         try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
-
-        let script = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("scripts/crypto-check.sh")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = [script.path, app.path]
-        let errors = Pipe()
-        process.standardError = errors
-        process.standardOutput = Pipe()
-        try process.run()
-        let said = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        return Result(status: process.terminationStatus, said: said)
+        return try ScriptRun.run("crypto-check.sh", [app.path])
     }
 }
 #endif
