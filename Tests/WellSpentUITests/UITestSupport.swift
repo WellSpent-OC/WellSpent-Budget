@@ -19,6 +19,7 @@ final class TestApp {
     let dataRoot: URL
 
     init() throws {
+        FailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-ui-test-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
@@ -118,16 +119,18 @@ final class TestApp {
         identifier.hasPrefix("sidebar.group.") || identifier.hasPrefix("sidebar.budget.")
     }
 
-    /// Scrolls the sidebar until `target` sits clear of the bar at its foot.
-    /// Add Budget and the sync line sit over the list's last lines, so a line
-    /// under them exists and reads as hittable, yet a click on it lands on
-    /// the bar. A long list of test groups puts a new one there.
+    /// Scrolls the sidebar until `target` sits clear of the bar at its foot,
+    /// and holds still there. Add Budget and the sync line sit over the
+    /// list's last lines, so a line under them exists and reads as hittable,
+    /// yet a click on it lands on the bar. A long list of test groups puts a
+    /// new one there.
     func revealInSidebar(_ target: XCUIElement) {
         let foot = element(AccessibilityID.sidebarAdd)
         let list = app.outlines.containing(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'")).firstMatch
         guard target.exists, foot.exists, list.exists else { return }
         var delta: CGFloat = -60
         for _ in 0..<20 {
+            waitUntilStill(target)
             let line = target.frame
             let clear = line.maxY <= foot.frame.minY - 2 && line.minY >= list.frame.minY
             if clear || line.isEmpty { return }
@@ -140,6 +143,19 @@ final class TestApp {
             if (line.maxY > foot.frame.minY - 2 && moved >= 0) || (line.minY < list.frame.minY && moved <= 0) {
                 delta = -delta
             }
+        }
+    }
+
+    /// Waits, up to two seconds, for a line to stop moving. A scroll glides
+    /// on after the call returns, and a click on a line still moving lands on
+    /// the line beside it: another group, whose menu has the same items.
+    private func waitUntilStill(_ target: XCUIElement) {
+        var last = target.frame
+        for _ in 0..<10 {
+            Thread.sleep(forTimeInterval: 0.2)
+            let now = target.frame
+            if now == last { return }
+            last = now
         }
     }
 
@@ -356,9 +372,7 @@ final class TestApp {
     /// clipboard: reading the clipboard from another process brings up a
     /// system prompt on recent macOS, which would stop the run.
     func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
-        openMenu(on: element(AccessibilityID.sidebarGroup(group)), AccessibilityID.sidebarGroup(group),
-                 offering: MainScreen.Words.share)
-        clickMenuItem(MainScreen.Words.share)
+        openShareSheet(for: group)
         pasteAndCheck(myName, into: AccessibilityID.shareName)
         choose(role: role)
         click(AccessibilityID.shareCreate)
@@ -371,6 +385,26 @@ final class TestApp {
         }
         click(AccessibilityID.shareDone)
         return link
+    }
+
+    /// Share… from the group's menu, until the sheet that opens is titled
+    /// with this group. A right-click that lands on the line beside it opens
+    /// another group's menu, which offers Share… too, and the link then names
+    /// that group (seen in CI on 2026-10-19). Such a sheet is cancelled and
+    /// the menu tried again, twice.
+    private func openShareSheet(for group: String) {
+        let line = AccessibilityID.sidebarGroup(group)
+        let form = element(AccessibilityID.shareName)
+        let title = app.staticTexts[ShareScreen.Words.shareTitle(group)].firstMatch
+        for _ in 0..<3 {
+            openMenu(on: element(line), line, offering: MainScreen.Words.share)
+            clickMenuItem(MainScreen.Words.share)
+            XCTAssertTrue(form.waitForExistence(timeout: 10), "Share\u{2026} opened no sheet. On screen: \(visibleTexts())")
+            if title.waitForExistence(timeout: 3) { return }
+            click(AccessibilityID.shareCancel)
+            wait(for: form, until: "exists == false", timeout: 10)
+        }
+        XCTFail("Share\u{2026} never opened the sheet for \(group). On screen: \(visibleTexts())")
     }
 
     /// The role segment, when the picker shows one by that name. The owner's

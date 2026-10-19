@@ -22,7 +22,7 @@ endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
-        iphone-ui-test testflight testflight-upload
+        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload
 
 build:
 	swift build
@@ -89,6 +89,11 @@ icon:
 	@iconset=$$(swift scripts/make-app-icon.swift) && \
 	iconutil -c icns "$$iconset" -o Sources/WellSpentApp/Resources/AppIcon.icns && \
 	echo "Wrote Sources/WellSpentApp/Resources/AppIcon.icns"
+
+# The iPhone's icon, from the same master drawing, full bleed and opaque.
+iphone-icon:
+	@swift scripts/make-app-icon.swift iphone iOS/Assets.xcassets/AppIcon.appiconset/AppIcon.png && \
+	echo "Wrote iOS/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
 
 # Builds ".build/app/WellSpent Staging.app", signed ad hoc. WELLSPENT_ENV=live
 # builds .build/app/WellSpent.app instead. The beta workflow runs this as live,
@@ -253,3 +258,25 @@ testflight:
 # Connect takes a few minutes to process it, then it shows under TestFlight.
 testflight-upload:
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh upload "$(TESTFLIGHT_PKG)"
+
+# The iPhone's TestFlight build: the live iPhone app, archived and exported by
+# Xcode, signed for the App Store, as one .ipa, release-checked and checked by
+# App Store Connect. It never uploads. The version comes from the release tag,
+# as for the Mac, and the build number is the same UTC minute. The iPhone App
+# Store profile lives in the same folder outside the repo.
+IPHONE_PROFILE ?= $(APPLE_DIR)/WellSpent_iPhone_App_Store.mobileprovision
+IPHONE_TESTFLIGHT_OUT := .build/iphone-testflight
+IPHONE_TESTFLIGHT_IPA := $(IPHONE_TESTFLIGHT_OUT)/WellSpentPhone.ipa
+
+iphone-testflight: iphone-project
+	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make iphone-testflight builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
+	DEVELOPER_DIR=$(XCODE) scripts/make-iphone-ipa.sh "$(IPHONE_PROFILE)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)" "$(IPHONE_TESTFLIGHT_OUT)"
+	@# The release check reads the app inside the .ipa, the one that uploads, as
+	@# the export signed it, not the archive's.
+	rm -rf "$(IPHONE_TESTFLIGHT_OUT)/check" && unzip -q "$(IPHONE_TESTFLIGHT_IPA)" -d "$(IPHONE_TESTFLIGHT_OUT)/check"
+	scripts/release-check.sh "$(IPHONE_TESTFLIGHT_OUT)/check/Payload/WellSpentPhone.app" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
+	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" PLATFORM=ios scripts/testflight.sh validate "$(IPHONE_TESTFLIGHT_IPA)"
+
+# Uploads the .ipa make iphone-testflight validated, and nothing else.
+iphone-testflight-upload:
+	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" PLATFORM=ios scripts/testflight.sh upload "$(IPHONE_TESTFLIGHT_IPA)"
