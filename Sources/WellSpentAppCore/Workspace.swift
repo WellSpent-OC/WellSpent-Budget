@@ -29,10 +29,12 @@ public final class Workspace {
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
         sync.didSync = { [weak self] in self?.model.reload() }
-        // The new account's budgets keep the Undo bar's window.
+        // The new account's budgets keep the Undo bar's window, and open the
+        // way this device's always do.
         sync.didSwitchStore = { [weak self] store in
             guard let self else { return }
-            self.model = AppModel(store: store, undoWindow: self.model.undoWindow)
+            self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
+                                  opensFirstBudget: self.model.opensFirstBudget)
         }
         watchForEdits()
     }
@@ -91,8 +93,10 @@ public final class Workspace {
     /// `processEnvironment` is the process's own unless a test hands one in. A
     /// staging build with `AccountDirectory.dataRootVariable` set keeps all of
     /// it under that folder instead; see `AccountDirectory.standard`.
-    public static func launch(processEnvironment: [String: String] = ProcessInfo.processInfo.environment)
-        throws -> Workspace {
+    ///
+    /// A phone passes false for `opensFirstBudget`. See `AppModel.opensFirstBudget`.
+    public static func launch(processEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+                              opensFirstBudget: Bool = true) throws -> Workspace {
         let environment = AppEnvironment.current
         if environment == .live, let bareRun = UserDefaults(suiteName: AppEnvironment.bareRunSuiteName) {
             AppEnvironment.carryOver(from: bareRun, into: environment.defaults)
@@ -101,7 +105,8 @@ public final class Workspace {
         // The directory's own settings, which are this build's unless a UI
         // test pointed it at a folder. The same thing for a normal launch.
         return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment,
-                          undoWindow: undoWindow(for: environment, in: processEnvironment))
+                          undoWindow: undoWindow(for: environment, in: processEnvironment),
+                          opensFirstBudget: opensFirstBudget)
     }
 
     /// The environment variable a UI test sets so the Undo bar after a
@@ -125,7 +130,8 @@ public final class Workspace {
     public static func launch(accounts: AccountDirectory, defaults: UserDefaults? = nil,
                        environment: AppEnvironment = .current,
                        makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil,
-                       undoWindow: Duration = AppModel.defaultUndoWindow) throws -> Workspace {
+                       undoWindow: Duration = AppModel.defaultUndoWindow,
+                       opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
         let sync: SyncCoordinator
         if let makeTransport {
@@ -134,7 +140,7 @@ public final class Workspace {
         } else {
             sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
-        let model = AppModel(store: sync.store, undoWindow: undoWindow)
+        let model = AppModel(store: sync.store, undoWindow: undoWindow, opensFirstBudget: opensFirstBudget)
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {
             try accounts.noteSamples(try model.seedFirstRun(), in: model.store)
         }

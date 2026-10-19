@@ -334,6 +334,23 @@ struct ViewTests {
         #expect(Palette.budgetColor(0) == Palette.budgetColor(4), "four colours, then it repeats")
         #expect(Palette.budgetColor(0) == Palette.accent)
     }
+
+    /// The Mac draws each colour's light value in light and dark mode alike,
+    /// as it always has, until dark mode is placed in a Mac build. The phone
+    /// follows the device's setting from the same pairs.
+    @Test(arguments: [(Palette.surface, PaletteValues.surface), (Palette.muted, PaletteValues.muted),
+                      (Palette.warning, PaletteValues.warning), (Palette.track, PaletteValues.track),
+                      (Palette.budgetColor(2), PaletteValues.purple)])
+    func theMacKeepsItsLightColoursInDarkMode(colour: Color, values: ColorPair) {
+        for scheme in [ColorScheme.light, .dark] {
+            var environment = EnvironmentValues()
+            environment.colorScheme = scheme
+            let drawn = colour.resolve(in: environment)
+            #expect(abs(Double(drawn.red) - values.light.red) < 0.005, "\(scheme)")
+            #expect(abs(Double(drawn.green) - values.light.green) < 0.005, "\(scheme)")
+            #expect(abs(Double(drawn.blue) - values.light.blue) < 0.005, "\(scheme)")
+        }
+    }
 }
 
 #endif

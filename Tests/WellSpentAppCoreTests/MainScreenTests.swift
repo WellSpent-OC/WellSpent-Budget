@@ -97,6 +97,45 @@ struct MainScreenTests {
         #expect(device.screen.detail == .budget(try #require(device.model.summary(for: budget))))
     }
 
+    // MARK: - Starting on one screen
+
+    /// A test or a screenshot can ask a staging build to open on one screen.
+    /// A live build never does, and an unknown name opens nothing.
+    @Test func onlyAStagingBuildOpensOnTheScreenATestAsksFor() {
+        let asked = [StartingScreen.variable: "add"]
+        #expect(StartingScreen.requested(in: asked, environment: .staging) == .add)
+        #expect(StartingScreen.requested(in: asked, environment: .live) == nil, "never a live build")
+        #expect(StartingScreen.requested(in: [:], environment: .staging) == nil)
+        #expect(StartingScreen.requested(in: [StartingScreen.variable: "Add"], environment: .staging) == nil)
+        #expect(StartingScreen.allCases.filter(\.opensABudget) == [.budget, .add])
+        // The iPhone's screenshot steps use it by name.
+        #expect(StartingScreen.variable == "WELLSPENT_START_ON")
+    }
+
+    /// The first budget on the list, as a tap on it would open: the groups by
+    /// name, a hidden group's budgets skipped.
+    @Test func openingTheFirstBudgetTakesTheFirstOneShownOnTheList() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let club = try #require(device.model.addGroup(named: "Book Club"))
+        let novels = try #require(device.model.addBudget(named: "Novels", limit: .dollars(50), in: club))
+
+        device.screen.selectedBudget = nil
+        device.screen.openFirstBudget()
+        #expect(device.screen.selectedBudget == novels, "Book Club comes first")
+
+        device.screen.toggle(club)
+        device.screen.openFirstBudget()
+        #expect(device.screen.selectedBudget == groceries, "a hidden group's budgets are not on the list")
+    }
+
+    /// Each app's shell says it in place of the window, the Mac in an alert.
+    /// These are the words the Mac's alert has always used.
+    @Test func whenTheBudgetsCannotOpenTheAppSaysSo() {
+        #expect(MainScreen.Words.couldNotOpen("WellSpent Staging") == "WellSpent Staging could not open its database")
+    }
+
     // MARK: - Menus
 
     /// A group only on this device is its owner's: every item, and a delete.

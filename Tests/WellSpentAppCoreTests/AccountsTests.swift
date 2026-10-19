@@ -23,10 +23,11 @@ private final class Mac {
     }
     let transport = StubReadableTransport()
 
-    func launch() throws -> Workspace {
+    /// `opensFirstBudget` false launches it the way a phone launches.
+    func launch(opensFirstBudget: Bool = true) throws -> Workspace {
         let transport = self.transport
         return try Workspace.launch(accounts: accounts, defaults: defaults,
-                                    makeTransport: { _ in transport })
+                                    makeTransport: { _ in transport }, opensFirstBudget: opensFirstBudget)
     }
 }
 
@@ -59,6 +60,26 @@ struct AccountsTests {
         // Back to Robin: his, not hers.
         try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
         #expect(app.model.groups.map(\.name) == robins)
+    }
+
+    /// A phone opens no budget by itself: not at launch with the samples, and
+    /// not when signing in brings another account's budgets. The Mac opens one.
+    @Test func aPhoneOpensNoBudgetByItselfBeforeOrAfterSigningIn() async throws {
+        let mac = Mac()
+        #expect(try mac.launch().model.selectedBudget != nil, "the Mac opens one beside the list")
+
+        // Kept for the whole test: its account directory holds it unowned.
+        let device = Mac()
+        let phone = try device.launch(opensFirstBudget: false)
+        #expect(!phone.model.groups.isEmpty, "a fresh install starts with the samples")
+        #expect(phone.model.selectedBudget == nil)
+        let trip = try #require(phone.model.addGroup(named: "Road trip"))
+        phone.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip)
+
+        try await phone.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(phone.model.groups.map(\.id) == [trip], "the account's own budgets")
+        #expect(!phone.model.opensFirstBudget)
+        #expect(phone.model.selectedBudget == nil, "they open on the list too")
     }
 
     @Test func theLastAccountIsStillSignedInAfterAQuit() async throws {
@@ -237,6 +258,25 @@ struct AccountsTests {
         // The UI test and the Makefile use these by name.
         #expect(AccountDirectory.dataRootVariable == "WELLSPENT_DATA_ROOT")
         #expect(AccountDirectory.testDefaultsSuiteName == "app.wellspent.uitest")
+    }
+
+    /// A test folder that does not exist yet is a new run, so its settings
+    /// start afresh. On a phone the test cannot reach the app's settings to
+    /// wipe them, as the Mac's test does. A folder that exists, as on a
+    /// relaunch within the same run, keeps them.
+    @Test func aNewTestFolderStartsWithFreshSettings() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-fresh-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(!AccountDirectory.testing(at: root).samplesSeeded, "a new folder starts afresh")
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(AccountDirectory.testing(at: root).samplesSeeded, "the same run keeps its settings")
     }
 
     /// The app itself, launched the way main.swift launches it, with the
