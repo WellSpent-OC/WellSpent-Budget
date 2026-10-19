@@ -8,7 +8,8 @@
 #
 # It checks the version and build number, the bundle ID, that the build is live,
 # its one invite link type, every icon size, the provisioning profile and that it
-# fits the app, the signature, and the sandbox. It reads the app and changes nothing.
+# fits the app, Apple's encryption only, the signature, and the sandbox. It reads
+# the app and changes nothing.
 set -eu
 
 app="${1:?usage: scripts/release-check.sh APP VERSION BUILD}"
@@ -61,6 +62,8 @@ fi
 [ -f "$app/Contents/embedded.provisionprofile" ] || problem "no provisioning profile in the app"
 # The profile fits the app: its team, its permissions, its certificate, its date.
 "$(dirname "$0")/profile-fit.sh" "$app" || problem "the provisioning profile does not fit the app"
+# Apple's encryption only, which the export answer counts on.
+"$(dirname "$0")/crypto-check.sh" "$app" || problem "the app holds encryption that is not Apple's own"
 
 # Signed, not changed since, and sandboxed.
 codesign --verify --deep --strict "$app" 2>/dev/null || problem "the signature does not verify"
