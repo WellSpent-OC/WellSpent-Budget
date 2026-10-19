@@ -403,4 +403,34 @@ struct ReadableHTTPTransportTests {
         let reset = try object(ReadableStub.requests[1].body)
         #expect(reset["code"] as? String == "ABCD-EFGH" && reset["newPassword"] as? String == "a new long password")
     }
+
+    /// A network that takes the request and never answers, as a Wi-Fi with no
+    /// internet behind it does. The request gives up at the deadline, as
+    /// "could not reach the server". Without a deadline of its own, the Linux
+    /// app showed "Syncing" for minutes.
+    @Test func aRequestNobodyAnswersGivesUpAtTheDeadline() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SilentStub.self]
+        let client = ReadableHTTPTransport(baseURL: URL(string: "https://example.test")!,
+                                           urlSession: URLSession(configuration: configuration),
+                                           requestDeadline: .milliseconds(300))
+        let clock = ContinuousClock()
+        let start = clock.now
+        do {
+            _ = try await client.health()
+            Issue.record("a request nobody answered succeeded")
+        } catch let error as URLError {
+            #expect(error.code == .timedOut)
+        }
+        #expect(clock.now - start < .seconds(10))
+        #expect(ReadableHTTPTransport.defaultRequestDeadline == .seconds(30))
+    }
+}
+
+/// Takes every request and never answers.
+private final class SilentStub: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {}
+    override func stopLoading() {}
 }

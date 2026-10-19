@@ -21,15 +21,18 @@ set -eu
 WELLSPENT_ENV="${WELLSPENT_ENV:-staging}"
 OUT="${OUT:-Linux/dist}"
 
-# These must match AppEnvironment.swift: appName and dataFolderName.
+# These must match AppEnvironment.swift: appName, dataFolderName and
+# linuxAppIdentifier.
 case "$WELLSPENT_ENV" in
     live)
         NAME="WellSpent"
         SLUG="wellspent"
+        APPID="app.wellspent.linux"
         ;;
     staging)
         NAME="WellSpent Staging"
         SLUG="wellspent-staging"
+        APPID="app.wellspent.linux.staging"
         ;;
     *)
         echo "WELLSPENT_ENV must be live or staging, not $WELLSPENT_ENV" >&2
@@ -50,7 +53,8 @@ strip "$DEST/$SLUG"
 cp -R "$BIN/WellSpentLinux_WellSpentLinux.resources" "$DEST/"
 printf '%s\n' "$WELLSPENT_ENV" > "$DEST/WellSpentLinux_WellSpentLinux.resources/environment"
 cp Design/AppIcon/AppIcon.svg "$DEST/$SLUG.svg"
-sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" Linux/scripts/install.sh.in > "$DEST/install.sh"
+sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" \
+    Linux/scripts/install.sh.in > "$DEST/install.sh"
 chmod +x "$DEST/install.sh" "$DEST/$SLUG"
 
 tar -C "$OUT" -czf "$OUT/$SLUG.tar.gz" "$SLUG"

@@ -203,6 +203,40 @@ struct EditorScreensTests {
         #expect(!screen.isOpen)
         #expect(try model.store.transactions(in: groceries).count == 1)
     }
+
+    /// A line given a budget will be added, so the counts and its row say so
+    /// at once, and say "Needs a budget" again if the choice is taken back. They
+    /// used to stay as the statement was first read, until Import.
+    @Test func choosingABudgetMovesALineToToAdd() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Household"))
+        let groceries = try #require(model.addBudget(named: "Groceries", limit: .dollars(500), in: group))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("statement-\(UUID().uuidString).csv")
+        try """
+        Date,Description,Amount
+        09/22/2026,"HILLTOP #17 SPRING HILL OH",-142.08
+        09/21/2026,"COSTCO WHSE #0472",-286.31
+        """.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let screen = ImportReviewScreen(model: model)
+        model.prepareImport(from: url)
+        #expect(screen.tiles.map(\.count) == [0, 0, 0, 2])
+
+        screen.choose(groceries, for: 0)
+        #expect(screen.tiles.map(\.count) == [0, 1, 0, 1])
+        #expect(screen.rows.map(\.status) == ["Will be added", "Needs a budget"])
+        #expect(screen.rows.map(\.tone) == [.toAdd, .needsBudget])
+        #expect(screen.rows[0].needsBudget, "its budget can still be changed")
+
+        screen.choose(groceries, for: 1)
+        #expect(screen.tiles.map(\.count) == [0, 2, 0, 0])
+
+        screen.choose(nil, for: 0)
+        #expect(screen.tiles.map(\.count) == [0, 1, 0, 1])
+        #expect(screen.rows[0].status == "Needs a budget" && screen.rows[0].tone == .needsBudget)
+        screen.cancel()
+    }
 }
 
 // MARK: - Entry, changed
