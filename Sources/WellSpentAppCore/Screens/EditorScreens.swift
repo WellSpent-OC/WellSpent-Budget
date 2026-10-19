@@ -23,14 +23,18 @@ public final class BudgetEditor {
     public var groupID: GroupID?
     /// With no group of their own to put it in, a new budget gets a new one.
     public var newGroupName = Words.defaultGroupName
+    /// How this person's region writes numbers, for the amount.
+    public let locale: Locale
     private let model: AppModel
 
-    public init(model: AppModel, editing: Budget? = nil, group: GroupID? = nil, groups: [BudgetGroup]? = nil) {
+    public init(model: AppModel, editing: Budget? = nil, group: GroupID? = nil, groups: [BudgetGroup]? = nil,
+                locale: Locale = .autoupdatingCurrent) {
         self.model = model
         self.editing = editing
         self.groups = groups ?? model.groups
+        self.locale = locale
         name = editing?.name ?? ""
-        amountText = editing.map { $0.limit.magnitude.description } ?? ""
+        amountText = editing.map { TypedAmount.text($0.limit.magnitude, locale: locale) } ?? ""
         groupID = editing?.groupID ?? group ?? self.groups.first?.id
     }
 
@@ -42,22 +46,30 @@ public final class BudgetEditor {
     /// A new budget, with groups to choose from.
     public var showsGroupPicker: Bool { editing == nil && !groups.isEmpty }
 
-    /// A name, and an amount above zero.
-    public static func canSave(name: String, amountText: String) -> Bool {
+    /// A name, and an amount above zero, read the way the region writes one.
+    public static func canSave(name: String, amountText: String, locale: Locale = .autoupdatingCurrent) -> Bool {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty,
-              let amount = StatementParser.parseAmount(amountText, currency: .usd) else { return false }
+              let amount = TypedAmount(amountText, locale: locale).money else { return false }
         return amount.minorUnits != 0
     }
 
     public var canSave: Bool {
-        Self.canSave(name: name, amountText: amountText)
+        Self.canSave(name: name, amountText: amountText, locale: locale)
             && (!needsNewGroup || !newGroupName.trimmingCharacters(in: .whitespaces).isEmpty)
     }
+
+    /// Under the amount, when what is typed can't be read clearly.
+    public var amountProblem: String? {
+        TypedAmount(amountText, locale: locale) == .unclear ? TypedAmount.Words.unclear(locale: locale) : nil
+    }
+
+    /// The empty amount field's example, written the region's way.
+    public var amountPrompt: String { TypedAmount.text(Money(minorUnits: 50_000), locale: locale) }
 
     /// True when saved.
     @discardableResult
     public func save() -> Bool {
-        guard canSave, let amount = StatementParser.parseAmount(amountText, currency: .usd) else { return false }
+        guard canSave, let amount = TypedAmount(amountText, locale: locale).money else { return false }
         if let editing {
             model.updateBudget(editing.id, name: name, limit: amount)
             return true
@@ -72,7 +84,6 @@ public final class BudgetEditor {
         public static let name = "Name"
         public static let namePrompt = "Groceries"
         public static let amount = "Each month"
-        public static let amountPrompt = "500.00"
         public static let group = "Group"
         public static let defaultGroupName = "Personal"
         public static let resets = "Starts again on the 1st of each month."
@@ -155,15 +166,19 @@ public final class EntryEditor {
     /// The delete question, while it is asked. The sheet asks it itself, so
     /// it shows over the sheet.
     public private(set) var pendingDelete: PendingDelete?
+    /// How this person's region writes numbers, for the amount.
+    public let locale: Locale
     private let model: AppModel
 
     /// With `editing`, the entry fills the form, and only the fields changed
     /// from it are saved.
-    public init(model: AppModel, editing: Transaction? = nil, date: Date = Date()) {
+    public init(model: AppModel, editing: Transaction? = nil, date: Date = Date(),
+                locale: Locale = .autoupdatingCurrent) {
         self.model = model
         self.editing = editing
+        self.locale = locale
         merchant = editing?.merchant ?? ""
-        amountText = editing.map { $0.amount.magnitude.description } ?? ""
+        amountText = editing.map { TypedAmount.text($0.amount.magnitude, locale: locale) } ?? ""
         note = editing?.note ?? ""
         self.date = editing?.date ?? date
         budgetID = editing?.budgetID
@@ -181,14 +196,22 @@ public final class EntryEditor {
     public var title: String { editing == nil ? Words.title : Words.editTitle }
     public var saveLabel: String { editing == nil ? Words.add : Words.save }
 
-    /// Someone it went to, and an amount. A negative or zero amount is taken
-    /// as money out, as every entry is.
-    public static func canAdd(merchant: String, amountText: String) -> Bool {
+    /// Someone it went to, and an amount read the way the region writes one.
+    /// A negative or zero amount is taken as money out, as every entry is.
+    public static func canAdd(merchant: String, amountText: String, locale: Locale = .autoupdatingCurrent) -> Bool {
         !merchant.trimmingCharacters(in: .whitespaces).isEmpty
-            && StatementParser.parseAmount(amountText, currency: .usd) != nil
+            && TypedAmount(amountText, locale: locale).money != nil
     }
 
-    public var canAdd: Bool { Self.canAdd(merchant: merchant, amountText: amountText) }
+    public var canAdd: Bool { Self.canAdd(merchant: merchant, amountText: amountText, locale: locale) }
+
+    /// The empty amount field's example, written the region's way.
+    public var amountPrompt: String { TypedAmount.text(Money(minorUnits: 0), locale: locale) }
+
+    /// Under the amount, when what is typed can't be read clearly.
+    public var amountProblem: String? {
+        TypedAmount(amountText, locale: locale) == .unclear ? TypedAmount.Words.unclear(locale: locale) : nil
+    }
 
     /// Add's rule, and for an opened entry, at least one field changed.
     public var canSave: Bool {
@@ -278,7 +301,7 @@ public final class EntryEditor {
         guard let editing else { return nil }
         var changes = EntryChange()
         if merchant != editing.merchant { changes.merchant = merchant }
-        if let amount = StatementParser.parseAmount(amountText, currency: editing.amount.currency),
+        if let amount = TypedAmount(amountText, currency: editing.amount.currency, locale: locale).money,
            amount.magnitude != editing.amount.magnitude {
             changes.amount = amount.magnitude
         }
@@ -292,7 +315,7 @@ public final class EntryEditor {
     /// is added.
     @discardableResult
     public func add() -> Bool {
-        guard canAdd, let amount = StatementParser.parseAmount(amountText, currency: .usd),
+        guard canAdd, let amount = TypedAmount(amountText, locale: locale).money,
               let budget = model.selectedBudget, model.budget(for: budget) != nil else { return false }
         model.addTransaction(merchant: merchant, amount: amount, date: date, note: note)
         return model.errorMessage == nil

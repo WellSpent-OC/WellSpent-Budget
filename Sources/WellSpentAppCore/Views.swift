@@ -723,6 +723,12 @@ struct EntrySheet: View {
             TextField(Words.amount, text: Bindable(editor).amountText)
                 .font(.money(13, weight: .regular))
                 .accessibilityIdentifier(AccessibilityID.entryAmount)
+            if let problem = editor.amountProblem {
+                Text(problem)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.warning)
+                    .accessibilityIdentifier(AccessibilityID.entryAmountProblem)
+            }
             DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
                 .accessibilityIdentifier(AccessibilityID.entryDate)
             if let line = editor.periodLine {

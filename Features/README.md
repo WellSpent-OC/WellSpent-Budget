@@ -51,9 +51,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 134 | 45 |
-| Linux | 127 | 0 |
-| iPhone | 125 | 23 |
+| Mac | 137 | 45 |
+| Linux | 130 | 0 |
+| iPhone | 128 | 23 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -107,6 +107,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | None yet |
 | BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | None yet |
 | BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | iPhone |
+| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | None yet |
 
 ### [Entries.md](Entries.md)
 
@@ -123,6 +124,8 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | None yet |
 | ENTRY-11 | The keyboard adds and cancels | Mac | None yet |
+| ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | None yet |
+| ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | None yet |
 
 ### [EditEntry.md](EditEntry.md)
 

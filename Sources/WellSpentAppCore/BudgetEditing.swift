@@ -59,9 +59,15 @@ struct BudgetSheet: View {
             Form {
                 TextField(Words.name, text: Bindable(editor).name, prompt: Text(Words.namePrompt))
                     .accessibilityIdentifier(AccessibilityID.budgetEditorName)
-                TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(Words.amountPrompt))
+                TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(editor.amountPrompt))
                     .font(.money(13, weight: .regular))
                     .accessibilityIdentifier(AccessibilityID.budgetEditorAmount)
+                if let problem = editor.amountProblem {
+                    Text(problem)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.warning)
+                        .accessibilityIdentifier(AccessibilityID.budgetEditorAmountProblem)
+                }
                 if editor.needsNewGroup {
                     TextField(Words.group, text: Bindable(editor).newGroupName)
                         .accessibilityIdentifier(AccessibilityID.budgetEditorGroup)

@@ -85,3 +85,21 @@ Platforms: Mac
 - When he fills in Merchant and Amount and presses Return
 - Then the transaction is added, and the sheet closes
 - And Escape closes the sheet without adding anything
+
+## ENTRY-12 Where a comma marks decimals, 12,50 is twelve fifty
+
+- Given Robin's computer is set to a region that writes decimals with a comma, such as Germany
+- And Groceries is open
+- When he adds Hilltop Grocery with the amount "12,50"
+- Then Hilltop Grocery shows $12.50 in Groceries' list
+- And when he opens it again, its amount reads "12,50"
+
+## ENTRY-13 An amount that can't be read clearly is refused, never guessed
+
+- Given Robin's computer is set to a region that writes decimals with a dot, such as the United States
+- And the "New transaction" sheet is open, with Hilltop Grocery as the merchant
+- When he types "12,50" as the amount
+- Then "Add" stays dimmed
+- And under the amount it says "That amount can't be read clearly. Type it like 12.50."
+- When he types "12.50" instead
+- Then the line goes, and "Add" lights

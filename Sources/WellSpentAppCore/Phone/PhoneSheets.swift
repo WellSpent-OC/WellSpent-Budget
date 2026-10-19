@@ -33,6 +33,12 @@ struct PhoneEntrySheet: View {
                             .keyboardType(.decimalPad)
                             .accessibilityIdentifier(AccessibilityID.entryAmount)
                     }
+                    if let problem = editor.amountProblem {
+                        Text(problem)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.warning)
+                            .accessibilityIdentifier(AccessibilityID.entryAmountProblem)
+                    }
                     DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
                         .accessibilityIdentifier(AccessibilityID.entryDate)
                     PhoneField(Words.note) {
@@ -88,9 +94,15 @@ struct PhoneBudgetSheet: View {
                             .accessibilityIdentifier(AccessibilityID.budgetEditorName)
                     }
                     PhoneField(Words.amount) {
-                        TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(Words.amountPrompt))
+                        TextField(Words.amount, text: Bindable(editor).amountText, prompt: Text(editor.amountPrompt))
                             .keyboardType(.decimalPad)
                             .accessibilityIdentifier(AccessibilityID.budgetEditorAmount)
+                    }
+                    if let problem = editor.amountProblem {
+                        Text(problem)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.warning)
+                            .accessibilityIdentifier(AccessibilityID.budgetEditorAmountProblem)
                     }
                     if editor.needsNewGroup {
                         PhoneField(Words.group) {

@@ -146,3 +146,14 @@ Platforms: Mac, Linux
 - And in place of what is left it says "$15.00 over", in a warning colour
 - And the bar is full
 - And the list shows -$15.00 beside Groceries, in a warning colour
+
+## BUDGET-16 A budget's amount is read the way the region writes numbers
+
+- Given Robin's computer is set to a region that writes decimals with a comma, such as Germany
+- When he opens "New Budget"
+- Then the empty "Each month" shows "500,00" as its example
+- When he types Groceries as the name, and "1.500,00" for each month
+- Then "Add" lights, and adding makes Groceries $1,500.00 a month
+- When he types "500.00" for each month instead
+- Then "Add" stays dimmed
+- And under the amount it says "That amount can't be read clearly. Type it like 12,50."
