@@ -78,7 +78,7 @@ private func buttons(_ view: some View) throws -> [String] {
 struct EntrySheetTests {
     // MARK: - The sheet
 
-    /// Cooper's sheet: the top line, the four fields and the Budget list,
+    /// The design's sheet: the top line, the four fields and the Budget list,
     /// with Delete… on the left and Save dimmed until something changes.
     @Test func anOpenedEntryShowsItsFieldsWithDeleteOnTheLeftAndSaveDimmed() throws {
         let drawn = try Drawn()
