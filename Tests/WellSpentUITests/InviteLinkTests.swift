@@ -48,6 +48,7 @@ final class InviteLinkTests: XCTestCase {
         let link = try await second.shareNewGroup(groupName, budget: "Bulk", entry: "Costco",
                                                   amount: Money(minorUnits: 2863), myName: "Leslie", role: .add)
 
+        // Scenario CLICK-02, CLICK-08
         // 2. A link cut short, the way a message app can cut one, starts the
         // app on a page that says part of it is missing. There is no Join.
         try run.open(link: String(link.url.prefix("\(link.scheme)://join#s=".count + 20)))
@@ -55,6 +56,7 @@ final class InviteLinkTests: XCTestCase {
                       "no line saying part of the link is missing. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, for a link with part missing")
 
+        // Scenario CLICK-01, CLICK-05
         // 3. The whole link: who invited this person and to what, the level
         // and what it lets them do, and how much they would see. Signed out,
         // the notice and Sign in… stand in place of Join.
@@ -71,6 +73,7 @@ final class InviteLinkTests: XCTestCase {
                       "no notice to sign in first. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, while signed out")
 
+        // Scenario CLICK-05
         // 4. Sign in… opens the sign-in sheet. Signed in, the page stays, and
         // Join takes the notice's place.
         run.click(AccessibilityID.invitationSignIn)
@@ -79,6 +82,7 @@ final class InviteLinkTests: XCTestCase {
                       "no Join once signed in. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.listText(invited).exists, "the page did not stay through signing in")
 
+        // Scenario CLICK-04, PAGE-06
         // 5. A name, pasted, then Join: the group is in the sidebar, and its
         // page opens with both people in it.
         run.pasteAndCheck("Robin", into: AccessibilityID.invitationName)

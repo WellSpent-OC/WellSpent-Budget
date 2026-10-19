@@ -47,20 +47,25 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         let second = try SecondAccount(server: accounts.server)
         let groupName = "UI Test \(Self.stamp())"
 
+        // Scenario ACCT-15
         // 1. A staging build, signed out.
         run.launch()
 
+        // Scenario ACCT-08, PASTE-01, PASTE-02
         // 2. Signed in as the first account.
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
 
+        // Scenario BUDGET-01, BUDGET-03
         // 3 and 4. A group of this run's own, with one budget.
         run.addGroup(named: groupName)
         run.addBudget(named: "Groceries", amount: "500", inGroup: groupName)
 
+        // Scenario ENTRY-01
         // 5. Two entries, both in the table.
         run.addEntry(merchant: "Hilltop", amount: "42.00")
         run.addEntry(merchant: "Market", amount: "9.50")
 
+        // Scenario SHARE-02
         // 6. Shared, with a link that reads back.
         let link = try run.share(group: groupName, myName: "Robin", role: .add)
         XCTAssertEqual(link.groupName, groupName)
@@ -80,6 +85,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertNil(model.errorMessage)
         try await second.syncAll()
 
+        // Scenario ENTRY-08, ENTRY-09, SHARE-14
         // 8. Back in the window, a sync brings it in, added by Leslie.
         run.syncNow()
         XCTAssertTrue(run.app.staticTexts["Costco"].waitForExistence(timeout: 30),
@@ -87,6 +93,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.app.staticTexts["Leslie"].waitForExistence(timeout: 15),
                       "the Added by column does not name her")
 
+        // Scenario PAGE-01, PAGE-06, PAGE-08, PAGE-13
         // 9. A click on the group's name opens its page, with both people on
         // it, and Invite Someone… opens the Share sheet.
         run.openGroupPage(named: groupName)
@@ -105,6 +112,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
                       "the Share sheet did not close")
 
+        // Scenario PAGE-05
         // 10. The arrow at the end of the group's line hides its budgets and
         // shows them again. The page stays. Other groups on the account may
         // have a Groceries too, so the count must drop, then come back.
@@ -118,6 +126,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
                       "the arrow did not show the budgets again. Sidebar: \(run.sidebarIdentifiers())")
         XCTAssertTrue(run.element(AccessibilityID.groupSummary).exists, "the arrow closed the page")
 
+        // Scenario PAGE-02, PAGE-03
         // 11. A click on a budget opens it in place of the page, and People…
         // in the group's menu opens the page again.
         run.openBudget(named: "Groceries")
@@ -126,6 +135,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.budgetAdd).waitForExistence(timeout: 10), "Groceries did not open")
         run.openGroupPageFromMenu(named: groupName)
 
+        // Scenario SHARE-16
         // 12. Remove… on Leslie's row asks first. Remove takes her row away,
         // a quiet line says so, and the line under the name says nobody else
         // is in the group. With nobody else in it, the line gives no count.
@@ -138,6 +148,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: alone, timeout: 15),
                       "the page's line is not \(alone). On screen: \(run.visibleTexts())")
 
+        // Scenario BUDGET-11
         // 13. Delete… asks first, naming the group and how many go with it:
         // the budget and all 3 entries, Leslie's too. Cancel keeps it.
         let question = PendingDelete.group(BudgetGroup(name: groupName), budgets: 1, transactions: 3,
