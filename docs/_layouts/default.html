@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+<meta name="description" content="{{ page.description | default: site.description }}">
+<link rel="icon" href="{{ '/assets/icon.svg' | relative_url }}">
+<link rel="stylesheet" href="{{ '/assets/guide.css' | relative_url }}">
+</head>
+<body>
+<header class="band">
+  <div class="top">
+    <a class="word" href="{{ '/' | relative_url }}">WellSpent <span>help</span></a>
+    <a class="out" href="https://wellspent.space">wellspent.space</a>
+  </div>
+</header>
+<main class="wrap">
+{% unless page.url == '/' %}<p class="crumb"><a href="{{ '/' | relative_url }}">All guides</a></p>{% endunless %}
+{{ content }}
+</main>
+<footer class="wrap">WellSpent Budget.</footer>
+</body>
+</html>
