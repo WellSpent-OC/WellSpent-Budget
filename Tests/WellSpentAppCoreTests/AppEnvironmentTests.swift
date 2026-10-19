@@ -197,6 +197,29 @@ struct AppEnvironmentTests {
         #expect(lines[schemes + 1] == "- \(AppEnvironment.staging.inviteScheme)")
     }
 
+    /// App Store Connect asks every upload whether the app uses encryption that
+    /// export rules do not exempt. The first two builds were declared "no", so
+    /// the app says so itself and an upload no longer waits on the question.
+    /// The release check refuses a build that does not say it.
+    @Test func theAppAnswersTheExportQuestionItself() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("scripts/make-app.sh"), encoding: .utf8)
+        let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
+        let end = try #require(script.range(of: "\nEOF\n", range: start.upperBound..<script.endIndex))
+        var plist = String(script[start.upperBound..<end.lowerBound])
+        for (name, value) in ["$NAME": "WellSpent", "$BUNDLE_ID": "app.wellspent.mac", "$LINK_SCHEME": "wellspent",
+                              "$VERSION": "0.2.0", "$BUILD": "1", "$WELLSPENT_ENV": "live"] {
+            plist = plist.replacingOccurrences(of: name, with: value)
+        }
+        let info = try #require(try PropertyListSerialization.propertyList(from: Data(plist.utf8), format: nil)
+                                    as? [String: Any])
+        #expect(info["ITSAppUsesNonExemptEncryption"] as? Bool == false)
+
+        let check = try String(contentsOf: root.appendingPathComponent("scripts/release-check.sh"), encoding: .utf8)
+        #expect(check.contains("expect ITSAppUsesNonExemptEncryption false"))
+    }
+
     /// The NAME="value" lines in the build script's case for `environment`.
     private static func values(setFor environment: AppEnvironment, in script: String) -> [String: String] {
         let lines = script.components(separatedBy: "\n")
