@@ -10,7 +10,7 @@ title: "Quest 5: Add your first transaction"
    Click **Groceries** in the sidebar.
 
 2. ![A hand presses Add at the top of the budget's page](../assets/shots/add-your-first-transaction-2.svg)
-   Press **Add** at the top of the budget's page. On a Mac, it may show as a plus sign.
+   Press **Add**, the plus sign at the top of the budget's page.
 
 3. ![A hand types in Merchant](../assets/shots/add-your-first-transaction-3.svg)
    Type where you spent the money in **Merchant**.

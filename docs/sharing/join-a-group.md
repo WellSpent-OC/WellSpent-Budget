@@ -36,7 +36,7 @@ On a Mac, click the link in the message. WellSpent opens to the invite. Type you
 
 ## If it doesn't work
 
-- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, and type the code WellSpent emails you. Then try again.
+- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, press **Send a code**, and type the code WellSpent emails you. Then try again.
 - **"Sign in first, or create an account.":** sign in, and try again. No account yet? Do [Quest 2: Make your account](../getting-started/make-your-account.md).
 - **"That invite has expired or can no longer be used." or "That invite has already been accepted.":** ask for a new link. A link works once, for 7 days.
 - **"Part of that invite link is missing." or "That is not a WellSpent invite link.":** copy the whole link again, and paste it.

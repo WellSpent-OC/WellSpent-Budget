@@ -14,7 +14,7 @@ There's no bank connection. You download a statement from your bank and bring it
    Click a budget in the group the statement is for.
 
 2. ![A hand presses Import statement](../assets/shots/import-a-bank-statement-2.svg)
-   Press **Import statement**. On a Mac, it may show as an icon only.
+   Press **Import statement**, the box with an arrow pointing down, at the top of the budget's page.
 
 3. ![A hand clicks Downloads](../assets/shots/import-a-bank-statement-3.svg)
    Click **Downloads**.
