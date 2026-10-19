@@ -7,9 +7,9 @@ import WellSpentLinuxNative
 import WellSpentModel
 import WellSpentSync
 
-// Sharing on Linux: the shared ShareScreen, JoinScreen and MembersScreen,
-// drawn with GTK. What each holds, checks and says is the Mac's; this is
-// layout only.
+// Sharing on Linux: the shared ShareScreen and JoinScreen, drawn with GTK.
+// A group's people are on its page (GroupPageView). What each holds, checks
+// and says is the Mac's; this is layout only.
 
 // MARK: - Share
 
@@ -137,126 +137,5 @@ struct JoinView: View {
         }
         .padding(20)
         .frame(width: 480)
-    }
-}
-
-// MARK: - People
-
-struct MembersView: View {
-    @State var screen: MembersScreen
-    let group: BudgetGroup
-    var model: AppModel
-    var sync: SyncCoordinator
-    var close: () -> Void
-    /// Opens the share sheet for this group.
-    var invite: () -> Void
-    @State var leaving: PendingDelete?
-    private typealias Words = MembersScreen.Words
-
-    init(screen: MembersScreen, group: BudgetGroup, model: AppModel, sync: SyncCoordinator,
-         close: @escaping () -> Void, invite: @escaping () -> Void) {
-        _screen = State(wrappedValue: screen)
-        self.group = group
-        self.model = model
-        self.sync = sync
-        self.close = close
-        self.invite = invite
-    }
-
-    var body: some View {
-        // Copies the alerts' buttons keep: GTK closes an alert, which clears
-        // its question, before the button's action runs.
-        let removing = screen.removing
-        let leavingNow = leaving
-        VStack(alignment: .leading, spacing: 12) {
-            Text(screen.title)
-                .font(.title3)
-            ForEach(screen.rows) { row in
-                person(row)
-            }
-            if let failure = screen.failure {
-                Note(failure, warning: true)
-            }
-            HStack {
-                if screen.mayLeave {
-                    Button(Words.leave) {
-                        // Always a leave, never a delete for everyone, whatever
-                        // this person's level.
-                        leaving = .group(group, budgets: model.summaries[group.id]?.count ?? 0,
-                                         reach: .thisMacOnly)
-                    }
-                }
-                Spacer()
-                if screen.mayInvite {
-                    Button(Words.invite) { invite() }
-                }
-                Button(Words.done) { close() }
-            }
-        }
-        .padding(20)
-        .frame(width: 520)
-        // Whoever joined since the last sync shows at once.
-        .task { await screen.refresh() }
-        .alert(removeQuestion, isPresented: Binding(get: { removing != nil },
-                                                    set: { if !$0 { screen.keepThem() } })) {
-            // Cancel first: GTK focuses the first button, so Return keeps it.
-            Button(Words.cancel) { screen.keepThem() }
-            Button(Words.removeButton) {
-                if let removing { screen.remove(removing.id) }
-            }
-        }
-        .alert(leaveQuestion, isPresented: Binding(get: { leavingNow != nil }, set: { if !$0 { leaving = nil } })) {
-            // Cancel first: GTK focuses the first button, so Return keeps it.
-            Button(Words.cancel) { leaving = nil }
-            Button(Words.leaveButton) {
-                if let leavingNow {
-                    leaving = nil
-                    leavingNow.confirm(model: model, sync: sync)
-                    close()
-                }
-            }
-        }
-    }
-
-    /// GTK's alert has a title and no message, so the two go together.
-    private var removeQuestion: String {
-        guard let title = screen.removeQuestion, let message = screen.removeMessage else { return "" }
-        return "\(title)\n\n\(message)"
-    }
-
-    private var leaveQuestion: String {
-        "\(Words.leaveTitle(group.name))\n\n\(screen.leaveMessage)"
-    }
-
-    private func levelChoices(_ row: MembersScreen.Row) -> [Choice<AccessLevel>] {
-        row.levelChoices.map { Choice(value: $0, description: Words.levelTitle($0)) }
-    }
-
-    private func person(_ row: MembersScreen.Row) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.label)
-                Text(Words.levelExplanation(row.level))
-                    .font(.system(size: 11))
-                    .foregroundColor(.gray)
-            }
-            Spacer()
-            if row.levelChoices.isEmpty {
-                Text(row.levelTitle)
-                    .foregroundColor(.gray)
-            } else {
-                Picker(of: levelChoices(row), selection: Binding(
-                    get: { levelChoices(row).first { $0.value == row.level } },
-                    set: { choice in
-                        guard let level = choice?.value else { return }
-                        Task { await screen.setLevel(level, for: row.id) }
-                    }))
-                    .disabled(screen.isWorking)
-            }
-            if row.mayRemove {
-                Button(Words.remove) { screen.askToRemove(row.id) }
-                    .disabled(screen.isWorking)
-            }
-        }
     }
 }
