@@ -20,7 +20,7 @@ title: "Quest 5: Add your first transaction"
 
 - **Add stays dimmed:** **Merchant** and **Amount** both need something. Type the amount as a number.
 - **It isn't in the list:** a budget's page shows this month only, from the 1st. A transaction dated earlier is saved, but doesn't show there.
-- **The amount came out 100 times too big:** type amounts with a dot, like 12.50, not a comma.
+- **The amount came out 100 times too big:** in places that write decimals with a comma, type a dot instead for now, like 12.50.
 
 ## Next quest
 
