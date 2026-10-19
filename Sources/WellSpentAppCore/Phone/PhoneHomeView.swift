@@ -143,6 +143,9 @@ struct PhoneHomeView: View {
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Palette.accent))
             }
+            // In the order written, Add Budget first, as the design lists them.
+            // Left to itself, iOS turns a menu opened from the bottom upside down.
+            .menuOrder(.fixed)
             .accessibilityLabel(screen.addButton.title)
             .accessibilityIdentifier(AccessibilityID.sidebarAdd)
         }
