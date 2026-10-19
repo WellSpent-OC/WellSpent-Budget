@@ -96,6 +96,32 @@ final class TestApp {
                        + "own. Nothing more is done.")
     }
 
+    /// The UI test host's bundle ID, from Xcode/project.yml.
+    static let hostBundleIdentifier = "app.wellspent.mac.uitest"
+
+    /// Clicks a link the way a click in Mail or Messages does: macOS picks the
+    /// app that claims the link's type and hands it the link. So this checks
+    /// the link type is claimed, which `open(link:)` skips.
+    ///
+    /// The app must already be running, launched by the test with the run's
+    /// folder, so the click reaches that copy. macOS starting a fresh copy
+    /// itself would skip the run's folder. And only when macOS would pick the
+    /// app under test: on a Mac where another app claims the same type, such
+    /// as an installed WellSpent Staging, the link goes straight to the app
+    /// under test instead. Returns whether macOS routed it.
+    @discardableResult
+    func click(link: String) throws -> Bool {
+        let url = try XCTUnwrap(URL(string: link), "not a link: \(link)")
+        XCTAssertEqual(app.state, .runningForeground, "the app must be running before a link is clicked")
+        let handler = NSWorkspace.shared.urlForApplication(toOpen: url).flatMap { Bundle(url: $0)?.bundleIdentifier }
+        guard handler == Self.hostBundleIdentifier else {
+            try open(link: link)
+            return false
+        }
+        XCTAssertTrue(NSWorkspace.shared.open(url), "macOS did not take the link")
+        return true
+    }
+
     /// Launches, and refuses to go on against anything but a staging build.
     func launch() {
         app.launch()

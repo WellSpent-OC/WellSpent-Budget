@@ -7,8 +7,10 @@ import WellSpentSync
 /// A click on an invite link, in the real window: the link opens the app on
 /// its invitation page, and Join takes the group in.
 ///
-/// The link goes to the app with XCUIApplication.open(_:), so it reaches
-/// the app under test whatever else on this Mac takes staging's links.
+/// The cut link goes to the app with XCUIApplication.open(_:), which also
+/// starts it with the run's folder. The whole link is then clicked through
+/// macOS, which checks the app claims staging's link type, unless another
+/// app on this Mac claims it too (see TestApp.click(link:)).
 /// The second person, with no window, makes the group and the link, as in
 /// EntryEditingTests.
 ///
@@ -57,10 +59,11 @@ final class InviteLinkTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, for a link with part missing")
 
         // Scenario CLICK-01, CLICK-05
-        // 3. The whole link: who invited this person and to what, the level
-        // and what it lets them do, and how much they would see. Signed out,
-        // the notice and Sign in… stand in place of Join.
-        try run.open(link: link.url)
+        // 3. The whole link, clicked the way a click in Mail is, so macOS
+        // picks the app by its link type: who invited this person and to
+        // what, the level and what it lets them do, and how much they would
+        // see. Signed out, the notice and Sign in… stand in place of Join.
+        try run.click(link: link.url)
         let invited = "Leslie invited you to \u{201C}\(groupName)\u{201D}."
         XCTAssertTrue(run.listText(invited).waitForExistence(timeout: 15),
                       "the page does not say who invited them. On screen: \(run.visibleTexts())")
