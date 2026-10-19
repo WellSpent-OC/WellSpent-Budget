@@ -566,6 +566,61 @@ struct AppModelImportTests {
         #expect(model.selectedBudget == nil)
     }
 
+    /// Beside a list, as on the Mac, a budget opens by itself while none is
+    /// open. A phone shows a budget in place of the list, so there nothing
+    /// opens one but a tap, and deleting the open one goes back to the list.
+    @Test func onAPhoneOnlyATapOpensABudget() throws {
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let setUp = AppModel(store: store)
+        let group = try #require(setUp.addGroup(named: "Household"))
+        let groceries = try #require(setUp.addBudget(named: "Groceries", limit: Money(minorUnits: 100_000), in: group))
+        let eatingOut = try #require(setUp.addBudget(named: "Eating out", limit: Money(minorUnits: 30_000), in: group))
+        let utilities = try #require(setUp.addBudget(named: "Utilities", limit: Money(minorUnits: 45_000), in: group))
+
+        let phone = AppModel(store: store, opensFirstBudget: false)
+        #expect(phone.selectedBudget == nil, "it starts on the list")
+        phone.reload()
+        #expect(phone.selectedBudget == nil, "a sync bringing changes in opens nothing")
+
+        phone.selectedBudget = groceries
+        phone.reload()
+        #expect(phone.selectedBudget == groceries, "a tapped budget stays open through a sync")
+        phone.deleteBudget(groceries)
+        #expect(phone.selectedBudget == nil, "back to the list, not into the next budget")
+
+        // The Mac, over the same budgets: one opens at once, and another
+        // after the open one is deleted.
+        let mac = AppModel(store: store)
+        #expect(mac.selectedBudget == eatingOut)
+        mac.deleteBudget(eatingOut)
+        #expect(mac.selectedBudget == utilities)
+    }
+
+    /// A budget deleted on another device closes here when the sync brings
+    /// the delete in, as one deleted here does: a phone goes back to the
+    /// list, and the Mac opens the next budget.
+    @Test func aBudgetDeletedElsewhereClosesAtTheNextSync() throws {
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let setUp = AppModel(store: store)
+        let group = try #require(setUp.addGroup(named: "Household"))
+        let groceries = try #require(setUp.addBudget(named: "Groceries", limit: Money(minorUnits: 100_000), in: group))
+        let eatingOut = try #require(setUp.addBudget(named: "Eating out", limit: Money(minorUnits: 30_000), in: group))
+
+        let phone = AppModel(store: store, opensFirstBudget: false)
+        phone.selectedBudget = groceries
+        let mac = AppModel(store: store)
+        mac.selectedBudget = groceries
+
+        // The other device's delete, as a sync writes it into this store.
+        AppModel(store: store).deleteBudget(groceries)
+        phone.reload()
+        mac.reload()
+
+        #expect(phone.selectedBudget == nil, "back to the list")
+        #expect(phone.transactions.isEmpty)
+        #expect(mac.selectedBudget == eatingOut, "the next budget, as after a delete here")
+    }
+
     /// Only a delete the person was told reaches everyone, or nobody else
     /// because nobody else is in it, queues anything. The other two stay on
     /// this Mac whatever the store says by the time they are confirmed.
@@ -916,6 +971,15 @@ struct UndoTests {
         let after = try #require(s.model.summary(for: s.groceries))
         #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo == s.model.undoOffer)
         #expect(BudgetScreen(summary: after, model: s.model, me: s.leslie).undo?.button == "Undo")
+    }
+
+    /// Under each entry on a phone: when it was added, and how.
+    @Test func eachRowSaysWhenAndHowItWasAdded() throws {
+        let s = try Household()
+        let summary = try #require(s.model.summary(for: s.groceries))
+        let rows = BudgetScreen(summary: summary, model: s.model, me: s.leslie).rows
+        let row = try #require(rows.first { $0.id == s.hilltop })
+        #expect(row.detailLine == "\(BudgetScreen.shortDate(row.date)) · Manual")
     }
 }
 

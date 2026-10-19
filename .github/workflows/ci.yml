@@ -356,12 +356,103 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-test-screenshots
+          # A failure on the sign-in screen can show the test account's
+          # email, and artifacts on a public repo are public. Kept briefly.
+          retention-days: 3
           path: .build/xcode/ui-test-screenshots
+          if-no-files-found: ignore
+
+  # Gate 8. Every shared library built for the iPhone simulator. Until the
+  # Mac's own screens are fenced to the Mac, they compile for the iPhone too,
+  # so a Mac-only call outside an `#if os(macOS)` fence fails here, on the pull
+  # request that adds it, and not on the next iPhone build. Nothing runs and no
+  # simulator starts.
+  ios-build:
+    name: iPhone build
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Show the iPhone simulator SDKs
+        run: xcodebuild -showsdks | grep -i simulator
+
+      - name: Build every library for the iPhone simulator
+        run: |
+          xcodebuild -scheme WellSpentAppCore -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/xcode-ios-libs build
+
+  # Gate 9. The iPhone app in the iOS Simulator, driven by XCUITest the way a
+  # person uses a phone, once in light and once in dark, each on a simulator
+  # made for the run and deleted after. No window opens. The tests that need
+  # no account run on every pull request. The signed-in one runs when the
+  # staging test accounts are in this repository's secrets, and skips without
+  # them, as for a pull request from a fork.
+  iphone-ui-test:
+    name: iPhone UI test
+    needs: unit-tests
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      HAS_UI_TEST_ACCOUNTS: ${{ secrets.WELLSPENT_UI_TEST_EMAIL != '' && secrets.WELLSPENT_UI_TEST_EMAIL_2 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Show the iPhone simulators on the image
+        run: xcrun simctl list runtimes available | grep '^iOS '
+
+      - name: Build the iPhone app and its UI tests
+        run: make iphone-ui-test-build
+
+      - name: Run the iPhone UI tests
+        env:
+          WELLSPENT_UI_TEST_EMAIL: ${{ secrets.WELLSPENT_UI_TEST_EMAIL }}
+          WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
+          WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
+          WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
+        run: make iphone-ui-test
+
+      - name: Say why the signed-in test was skipped
+        if: env.HAS_UI_TEST_ACCOUNTS != 'true'
+        run: echo "::notice::The iPhone UI tests ran without the signed-in one. The staging test accounts are not available to this pull request, which is expected for a fork."
+
+      # As for the Mac: the result bundles never leave the runner, because
+      # XCUITest's activity log records what is typed into the sign-in fields.
+      # Only the screenshots are kept.
+      - name: Pull the screenshots out of a failed run
+        if: failure()
+        run: |
+          for look in light dark; do
+            bundle=.build/xcode-iphone/ui-test-$look.xcresult
+            if [ -d "$bundle" ]; then
+              xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/screenshots-$look
+              find .build/xcode-iphone/screenshots-$look -type f ! -name '*.png' ! -name '*.jpg' ! -name '*.jpeg' -delete
+            fi
+          done
+
+      - name: Keep the screenshots when the test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-ui-test-screenshots
+          # A failure on the sign-in screen can show the test account's
+          # email, and artifacts on a public repo are public. Kept briefly.
+          retention-days: 3
+          path: .build/xcode-iphone/screenshots-*
           if-no-files-found: ignore
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -380,7 +471,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success' || needs.iphone-ui-test.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -400,7 +491,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success' && needs.ios-build.result == 'success' && needs.iphone-ui-test.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
