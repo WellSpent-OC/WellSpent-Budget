@@ -8,19 +8,19 @@ name: CI
 # is never renamed while an older release may still need a patch.
 #
 # main is staging, and each release has its own branch, release/X.Y. A change
-# reaches a release branch only through a pull request, so both run here.
+# reaches either only through a pull request, so pull requests into both run
+# here. Nothing runs on a push: main and a release branch only ever move forward
+# to a pull request's head, which must be up to date and has already passed
+# every check, and those results stay on that commit. A second run would test
+# the same commit again and double the load on staging's test accounts.
 on:
   pull_request:
     branches: [main, 'release/**']
-  push:
-    branches: [main, 'release/**']
 
-# A newer push to a pull request stops its older run. A push to main or a release
-# branch never stops another: each state of those branches keeps a finished
-# result, so a hunt for what broke between releases can trust every one of them.
+# A newer push to a pull request stops its older run.
 concurrency:
-  group: ci-${{ github.event_name == 'push' && format('{0}-{1}', github.ref, github.sha) || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Gate 1. Everything else is only worth running if this passes.
