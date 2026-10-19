@@ -111,7 +111,7 @@ final class EntryEditingTests: XCTestCase {
         let hilltop = Transaction(budgetID: BudgetID(), groupID: GroupID(), date: Date(), merchant: "Hilltop",
                                   amount: Money(minorUnits: -4000))
         let question = PendingDelete.entry(hilltop, budget: eatingOut, group: groupName, shared: false)
-        run.entryRow("Hilltop").rightClick()
+        run.rightClick(run.entryRow("Hilltop"), "the Hilltop row")
         XCTAssertTrue(run.menuItem(MainScreen.Words.edit).waitForExistence(timeout: 5),
                       "no Edit… in the row's menu. Menu items on screen: \(run.visibleMenuItems())")
         run.clickMenuItem(MainScreen.Words.delete)
@@ -146,7 +146,7 @@ final class EntryEditingTests: XCTestCase {
                       "the bar stayed after Undo")
 
         // 10. Delete… in the row's menu, confirmed, deletes it.
-        run.entryRow("Hilltop").rightClick()
+        run.rightClick(run.entryRow("Hilltop"), "the Hilltop row")
         run.clickMenuItem(MainScreen.Words.delete)
         try XCTUnwrap(run.dialogButton(question.confirmLabel), "no Delete on the question").click()
         XCTAssertTrue(run.rowIsGone("Hilltop"), "the menu's Delete… left the row")
@@ -195,7 +195,7 @@ final class EntryEditingTests: XCTestCase {
         run.expectNoSheet()
 
         // 4. Its row has no menu.
-        run.entryRow("Costco").rightClick()
+        run.rightClick(run.entryRow("Costco"), "the Costco row")
         XCTAssertFalse(run.menuItem(MainScreen.Words.edit).waitForExistence(timeout: 3),
                        "Edit… on a row this person can't change")
         XCTAssertFalse(run.menuItem(MainScreen.Words.delete).exists, "Delete… on a row this person can't change")
