@@ -139,43 +139,146 @@ struct GroupEditorView: View {
 
 // MARK: - Entry
 
-/// Draws EntryEditor: money spent, added to the budget on screen.
+/// Draws EntryEditor: a new entry for the budget on screen, or one opened
+/// from the list to change, move or delete. What it may do, what it says, and
+/// when it turns read-only are the shared code's, as on the Mac.
 struct EntryEditorView: View {
     @State var editor: EntryEditor
     var close: () -> Void
     private typealias Words = EntryEditor.Words
 
+    /// A new entry.
     init(model: AppModel, close: @escaping () -> Void) {
         _editor = State(wrappedValue: EntryEditor(model: model))
         self.close = close
     }
 
+    /// An entry opened from the list. The editor is made once, by whoever
+    /// opens it, because opening it is what marks its note seen.
+    init(editor: EntryEditor, close: @escaping () -> Void) {
+        _editor = State(wrappedValue: editor)
+        self.close = close
+    }
+
     var body: some View {
+        // Read here, so a change redraws the sheet, and kept for the alert's
+        // buttons, because GTK closes the alert before a button's action runs.
+        let pending = editor.pendingDelete
         VStack(alignment: .leading, spacing: 12) {
-            Text(editor.title)
-                .font(.title3)
-            Field(label: Words.merchant, prompt: Words.merchant,
-                  text: Binding(get: { editor.merchant }, set: { editor.merchant = $0 }))
-            Field(label: Words.amount, prompt: "0.00",
-                  text: Binding(get: { editor.amountText }, set: { editor.amountText = $0 }))
-            DatePicker(selection: Binding(get: { editor.date }, set: { editor.date = $0 }),
-                       displayedComponents: .date) {
-                Text(Words.date)
-                    .font(.system(size: 12))
+            heading
+            if editor.isReadOnly {
+                details
+            } else {
+                fields
             }
-            Field(label: Words.note, prompt: Words.note,
-                  text: Binding(get: { editor.note }, set: { editor.note = $0 }))
-            HStack {
-                Spacer()
-                Button(Words.cancel) { close() }
-                Button(Words.add) {
-                    if editor.add() { close() }
-                }
-                .disabled(!editor.canAdd)
+            if let line = editor.readOnlyLine {
+                Note(line)
             }
+            buttons
         }
         .padding(20)
         .frame(width: 420)
+        // The sheet asks its own delete question, so it shows over the sheet.
+        .alert(question(pending), isPresented: Binding(get: { pending != nil },
+                                                       set: { if !$0 { editor.cancelDelete() } })) {
+            Button(pending?.confirmLabel ?? Words.delete) {
+                if editor.confirmDelete() { close() }
+            }
+            Button(Words.cancel) { editor.cancelDelete() }
+        }
+    }
+
+    /// GTK's alert has a title and no message, so the two go together.
+    private func question(_ pending: PendingDelete?) -> String {
+        guard let pending else { return "" }
+        return "\(pending.title)\n\n\(pending.message)"
+    }
+
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(editor.title)
+                .font(.title3)
+            if let top = editor.topLine {
+                Text(top)
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+            if let notice = editor.noticeLine {
+                Note(notice, warning: true)
+            }
+        }
+    }
+
+    private var budgetChoices: [Choice<BudgetID?>] {
+        editor.budgetChoices.map { Choice(value: $0.id, description: $0.name) }
+    }
+
+    @ViewBuilder
+    private var fields: some View {
+        Field(label: Words.merchant, prompt: Words.merchant,
+              text: Binding(get: { editor.merchant }, set: { editor.merchant = $0 }))
+        Field(label: Words.amount, prompt: "0.00",
+              text: Binding(get: { editor.amountText }, set: { editor.amountText = $0 }))
+        DatePicker(selection: Binding(get: { editor.date }, set: { editor.date = $0 }),
+                   displayedComponents: .date) {
+            Text(Words.date)
+                .font(.system(size: 12))
+        }
+        if let line = editor.periodLine {
+            Note(line, warning: true)
+        }
+        Field(label: Words.note, prompt: Words.note,
+              text: Binding(get: { editor.note }, set: { editor.note = $0 }))
+        if editor.editing != nil {
+            Text(Words.budget)
+                .font(.system(size: 12))
+            Picker(of: budgetChoices, selection: Binding(
+                get: { budgetChoices.first { $0.value == editor.budgetID } },
+                set: { editor.budgetID = $0?.value ?? editor.budgetID }))
+        }
+    }
+
+    /// The entry as it was opened, as plain words, in place of the fields.
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(editor.details) { detail in
+                HStack(alignment: .top, spacing: 12) {
+                    Text(detail.label)
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                        .frame(width: 70, alignment: .leading)
+                    Text(detail.value)
+                }
+            }
+        }
+    }
+
+    /// Delete… on the left, apart from Save. Cancel and Save, or Add, on the
+    /// right, or Done alone when read-only.
+    private var buttons: some View {
+        HStack {
+            if editor.offersDelete {
+                Button(Words.delete) { editor.askDelete() }
+            }
+            Spacer()
+            if editor.isReadOnly {
+                Button(Words.done) { close() }
+            } else {
+                Button(Words.cancel) { close() }
+                if editor.editing == nil {
+                    Button(Words.add) {
+                        if editor.add() { close() }
+                    }
+                    .disabled(!editor.canAdd)
+                } else {
+                    // Refused, the sheet stays open, read-only, and says why.
+                    Button(editor.saveLabel) {
+                        if editor.save() { close() }
+                    }
+                    .disabled(!editor.canSave)
+                }
+            }
+        }
     }
 }
 

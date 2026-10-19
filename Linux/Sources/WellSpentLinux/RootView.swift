@@ -15,6 +15,8 @@ struct RootView: View {
     /// The sheet a menu or a button asked for.
     @State var sheet: MainScreen.Action?
     @State var showingEntry = false
+    /// An entry opened from the budget's list, to change, move or delete.
+    @State var openedEntry: EntryEditor?
 
     init(workspace: Workspace) {
         self.workspace = workspace
@@ -53,6 +55,11 @@ struct RootView: View {
         .sheet(isPresented: $showingEntry) {
             EntryEditorView(model: model, close: { showingEntry = false })
         }
+        .sheet(isPresented: Binding(get: { openedEntry != nil }, set: { if !$0 { openedEntry = nil } })) {
+            if let openedEntry {
+                EntryEditorView(editor: openedEntry, close: { self.openedEntry = nil })
+            }
+        }
         .sheet(isPresented: Binding(get: { importing },
                                     set: { if !$0 { model.cancelImport() } })) {
             ImportReviewView(model: model)
@@ -89,7 +96,7 @@ struct RootView: View {
         case .budget(let summary):
             BudgetDetailView(screen: BudgetScreen(summary: summary, model: model, me: sync.userID),
                              model: model, menu: screen.budgetMenu(summary.budget), perform: perform,
-                             addEntry: { showingEntry = true })
+                             addEntry: { showingEntry = true }, openEntry: open(entry:))
         case .noBudgets:
             ContentUnavailableView {
                 Text(MainScreen.Words.noBudgetsTitle)
@@ -105,6 +112,12 @@ struct RootView: View {
                 Text(MainScreen.Words.noneSelectedText)
             }
         }
+    }
+
+    /// A click on a row opens it. The editor is made here, once, because
+    /// opening it is what marks its note seen.
+    private func open(entry id: RecordID) {
+        openedEntry = EntryEditor(model: model, entry: id)
     }
 
     /// A delete or a leave asks first; anything else opens its sheet.
@@ -326,12 +339,24 @@ struct BudgetDetailView: View {
     let menu: [[MainScreen.MenuItem]]
     var perform: (MainScreen.Action) -> Void
     var addEntry: () -> Void
+    /// A click on a row: opens the entry to change, move or delete it.
+    var openEntry: (RecordID) -> Void
     @Environment(\.chooseFile) var chooseFile
 
     private typealias Words = BudgetScreen.Words
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // After a delete: what went, and Undo, the only way to undo it.
+            if let undo = screen.undo {
+                HStack(spacing: 10) {
+                    Text(undo.message)
+                        .font(.system(size: 12))
+                    Spacer()
+                    Button(undo.button) { model.undoDelete() }
+                }
+                Divider()
+            }
             HStack {
                 Text(screen.title)
                     .font(.title2)
@@ -374,6 +399,7 @@ struct BudgetDetailView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(screen.rows) { row in
                             EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                                .onTapGesture { openEntry(row.id) }
                         }
                     }
                 }
@@ -399,6 +425,13 @@ struct EntryRow: View {
                     Text(row.note)
                         .font(.system(size: 11))
                         .foregroundColor(.gray)
+                }
+                // This computer's last change to it didn't go through, until
+                // it is opened.
+                if let notice = row.notice {
+                    Text(notice)
+                        .font(.system(size: 11))
+                        .foregroundColor(.red)
                 }
             }
             Spacer()
