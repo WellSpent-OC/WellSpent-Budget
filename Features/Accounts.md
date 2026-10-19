@@ -17,7 +17,7 @@ An account keeps Robin's budgets on WellSpent's server, so they sync to his othe
 - Given Robin is not signed in
 - When he presses "Sign in", then "Create an account"
 - Then the sheet shows "Create an account", with "Email", "Password", "Confirm password" and "Server"
-- And it says "Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets, which is how it checks who may change what and how it resets a forgotten password."
+- And it says "Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets. That's how it checks who may change what, and why resetting a forgotten password doesn't lose your budgets."
 - And "Create account" stays dimmed until Email, Password and Confirm password all hold something
 - When he types "Robin@Example.com", types the same password of at least 10 characters in both password fields, and presses "Create account"
 - Then the sheet moves on to "Confirm your email" and says "Enter the code sent to robin@example.com."
