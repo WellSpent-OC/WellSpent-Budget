@@ -21,6 +21,6 @@ title: "Tour: A transaction"
 
 **Add** on a budget's page opens a shorter window, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**.
 
-At the View level, a transaction opens to read only. At Add, you can change only the ones you added.
+At the View level, you can read a transaction but not change it. At Add, you can change only the ones you added.
 
 <!-- Scenarios: ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->
