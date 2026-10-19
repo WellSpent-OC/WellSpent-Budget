@@ -136,3 +136,11 @@ Platforms: Mac, Linux
 - Then Household's page stays open
 - When he deletes Household from its menu
 - Then Household's page closes
+
+## PAGE-17 Someone removed leaves what they added
+
+- Given Leslie, at Add in Household, added Costco to Groceries
+- When Robin removes her from Household's page
+- Then at the next sync Costco is still in Groceries, for everyone still in Household
+- And its Added by column still says Leslie
+- And only someone at Manage or above can change or delete it
