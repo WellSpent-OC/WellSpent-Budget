@@ -51,9 +51,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 134 | 45 |
-| Linux | 127 | 0 |
-| iPhone | 125 | 23 |
+| Mac | 135 | 45 |
+| Linux | 128 | 0 |
+| iPhone | 126 | 23 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -205,6 +205,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | None yet |
 | PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | None yet |
 | PAGE-16 | The page stays open until its own group goes | Mac, Linux | None yet |
+| PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | None yet |
 
 ### [ClickToJoin.md](ClickToJoin.md)
 
