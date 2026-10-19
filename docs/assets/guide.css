@@ -49,11 +49,11 @@ ol:has(img) > li::before { position: static; display: block; font-size: 36px; li
 li img { display: block; width: 100%; margin: 0 0 10px; border: 2px solid #111111; border-radius: 10px; box-shadow: none; background: #FFFFFF; }
 li > p { margin: 0; }
 /* A tour of a screen: one picture with a numbered marker on every part, then a caption per
-   marker. Each caption's badge matches its marker: a dark badge with a gold number. */
-p:has(> img):has(+ ol) { overflow-x: auto; padding: 0 6px 6px 0; }
-p:has(> img) + ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px 16px; margin-top: 14px; }
-p:has(> img) + ol > li { margin: 0; padding: 9px 12px 9px 54px; border-width: 2px; box-shadow: 3px 3px 0 var(--shadow); }
-p:has(> img) + ol > li::before { left: 10px; top: 7px; width: 30px; height: 30px; border-radius: 50%; background: #1A1A1A; color: #D4AF37;
+   marker. The picture may sit in a link, as some renderers wrap it. Each caption's badge matches its marker: a dark badge with a gold number. */
+p:has(> img):has(+ ol), p:has(> a > img):has(+ ol) { overflow-x: auto; padding: 0 6px 6px 0; }
+p:has(> img) + ol, p:has(> a > img) + ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px 16px; margin-top: 14px; }
+p:has(> img) + ol > li, p:has(> a > img) + ol > li { margin: 0; padding: 9px 12px 9px 54px; border-width: 2px; box-shadow: 3px 3px 0 var(--shadow); }
+p:has(> img) + ol > li::before, p:has(> a > img) + ol > li::before { left: 10px; top: 7px; width: 30px; height: 30px; border-radius: 50%; background: #1A1A1A; color: #D4AF37;
                                  border: 2px solid #FFFFFF; box-shadow: 0 0 0 2px #111111; font-size: 17px; line-height: 31px; text-align: center; }
 li blockquote { margin: 10px 0 0; padding: 6px 12px; font-size: 15px; }
 /* The guide list on the front page. */
@@ -65,4 +65,4 @@ footer { color: var(--muted); font-size: 14px; padding-top: 24px; padding-bottom
 @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ol > li, h1 + blockquote { break-inside: avoid; } }
 @media (max-width: 640px) { body { font-size: 16px; } ol > li { padding-left: 46px; }
   /* On a phone, a tour picture keeps a size where its markers read, and scrolls sideways in its own box. */
-  p:has(> img):has(+ ol) > img { width: 700px; max-width: none; } }
+  p:has(> img):has(+ ol) > img, p:has(> a > img):has(+ ol) img { width: 700px; max-width: none; } }
