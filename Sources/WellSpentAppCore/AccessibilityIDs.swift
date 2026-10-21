@@ -78,6 +78,7 @@ public enum AccessibilityID {
 
     /// An entry's row, by its merchant: the cell with the merchant and the
     /// note. A click on it opens the entry, and a right-click shows its menu.
+    /// On a phone it is a tap, with a swipe or a long press for its menu.
     public static func entryRow(_ merchant: String) -> String { "entry.row.\(merchant)" }
     /// The bar at the top of the budget after a delete.
     public static let undoBar = "undo.bar"
@@ -95,7 +96,8 @@ public enum AccessibilityID {
     public static let entryCancel = "entry.cancel"
     /// Save, on an opened entry.
     public static let entrySave = "entry.save"
-    /// Delete…, on the left of an opened entry.
+    /// Delete…, on the left of an opened entry. On a phone it is the row at
+    /// the end.
     public static let entryDelete = "entry.delete"
     /// The only button on an entry that can't be changed.
     public static let entryDone = "entry.done"

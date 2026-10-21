@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | - | - | - |
 | Mac | 149 | 54 |
 | Linux | 142 | 0 |
-| iPhone | 140 | 48 |
+| iPhone | 141 | 58 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -131,22 +131,23 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac |
-| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac |
-| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac |
-| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac |
-| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | None yet |
-| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac |
-| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac |
-| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | None yet |
+| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | iPhone |
+| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | iPhone |
 | EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | None yet |
 | EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | None yet |
-| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac |
+| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, iPhone |
 | EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | None yet |
 | EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | None yet |
 | EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | None yet |
 | EDIT-15 | Right-click offers Edit… and Delete… where they are allowed | Mac | Mac |
 | EDIT-16 | The keyboard in the list and in the sheet | Mac | Mac |
+| EDIT-17 | A swipe or a long press offers Edit and Delete where they are allowed | iPhone | iPhone |
 
 ### [Import.md](Import.md)
 

@@ -21,7 +21,7 @@ A click on a transaction in a budget's list opens it, to change it, move it to a
 - When Robin changes any of Merchant, Amount, Date, Note or Budget
 - Then Save lights
 - When he puts it back as it was
-- Then Save dims again, and an amount of 142.080 counts the same as 142.08
+- Then Save dims again, and an amount of $142.08 counts the same as 142.08
 - And Save stays dimmed while Merchant is empty or only spaces, or Amount is not a number
 
 ## EDIT-03 Save changes it, and the totals follow at once
@@ -167,3 +167,14 @@ Platforms: Mac
 - And Return saves when "Save" is lit, and Escape closes the sheet without saving
 - And in the delete question, Escape is "Cancel"
 - And after a delete, Command-Z leaves the transaction deleted, and the bar stays
+
+## EDIT-17 A swipe or a long press offers Edit and Delete where they are allowed
+
+Platforms: iPhone
+
+- Given Robin may change Hilltop Grocery
+- When he swipes its row to the left
+- Then it offers "Edit" and "Delete"
+- And a long press on the row offers the same two in a menu
+- And "Edit" opens its sheet, and "Delete" asks the sheet's question, with the same bar after "Delete"
+- And on a row he may not change, at View or on Leslie's transaction at Add, a swipe offers nothing and a long press shows no menu

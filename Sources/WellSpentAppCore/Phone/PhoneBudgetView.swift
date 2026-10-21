@@ -36,10 +36,14 @@ struct PhoneBudgetView: View {
                 }
                 ForEach(screen.rows) { row in
                     PhoneEntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                        // A tap, a swipe and a long press: PhoneEntryEditing.swift.
+                        .phoneEntryActions(row, main: main)
                 }
             }
             .listRowBackground(Palette.surface)
         }
+        // The opened entry's sheet and the Undo bar: PhoneEntryEditing.swift.
+        .phoneEntryEditing(model: model, undo: screen.undo)
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Palette.ground)
@@ -151,7 +155,9 @@ struct PhoneEntryRow: View {
                 }
             }
         }
-        .accessibilityElement(children: .contain)
+        // One element, read as its words in order. A tap opens it, so it is
+        // read as a button: PhoneEntryEditing.swift.
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier(AccessibilityID.entryRow(row.merchant))
     }
 }

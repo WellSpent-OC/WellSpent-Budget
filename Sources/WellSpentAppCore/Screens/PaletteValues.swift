@@ -115,4 +115,22 @@ public enum PaletteValues {
     public static let wheelLeft = ColorPair(light: RGB(hex: 0x76A24D), dark: RGB(hex: 0x76A24D))
     /// The wheel's two edges and its tick.
     public static let wheelEdge = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xF2EEE4))
+
+    /// The design's dark band. It is the same in light and dark, and words
+    /// on it are white.
+    public static let band = ColorPair(light: RGB(hex: 0x1A1A1A), dark: RGB(hex: 0x1A1A1A))
+
+    /// The fills behind Edit and Delete when an entry's row is swiped on a
+    /// phone. The system writes their words in white, so they are the same
+    /// in light and dark.
+    public static let swipeEdit = band
+    public static let swipeDelete = ColorPair(light: RGB(hex: 0xB4532A), dark: RGB(hex: 0xB4532A))
+
+    /// The bar on a phone after a delete: the band with white words, and
+    /// Undo as a gold button with near-black words. The design draws it the
+    /// same in light and dark.
+    public static let undoBar = band
+    public static let undoBarWords = ColorPair(light: RGB(hex: 0xFFFFFF), dark: RGB(hex: 0xFFFFFF))
+    public static let undoButton = ColorPair(light: RGB(hex: 0xD4AF37), dark: RGB(hex: 0xD4AF37))
+    public static let undoButtonWords = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0x111111))
 }

@@ -49,6 +49,33 @@ struct PaletteValuesTests {
         }
     }
 
+    /// A phone's swipe buttons hold words the system writes in white, in
+    /// light and dark alike: about 17 to 1 on Edit's fill and 5.0 on Delete's.
+    @Test func whiteWordsReadOnTheSwipeFillsInLightAndDark() {
+        let white = RGB(hex: 0xFFFFFF)
+        for fill in [PaletteValues.swipeEdit, PaletteValues.swipeDelete] {
+            #expect(white.contrast(with: fill.light) >= 4.5)
+            #expect(white.contrast(with: fill.dark) >= 4.5)
+        }
+    }
+
+    /// The bar after a delete stays the design's dark band in dark mode too,
+    /// never a pale card. Its words read on it at about 17 to 1, Undo's
+    /// words on the gold at about 9, and the gold shows on the band at about
+    /// 8, in light and dark alike.
+    @Test func theUndoBarIsTheDarkBandInLightAndDark() {
+        let bar = PaletteValues.undoBar, words = PaletteValues.undoBarWords
+        let gold = PaletteValues.undoButton, goldWords = PaletteValues.undoButtonWords
+        #expect(bar.light == RGB(hex: 0x1A1A1A) && bar.dark == RGB(hex: 0x1A1A1A))
+        #expect(bar == PaletteValues.swipeEdit, "the same band as a swipe's Edit")
+        #expect(bar.dark != PaletteValues.ink.dark, "not the cream of dark mode's words")
+        for (look, pick) in [("light", { (pair: ColorPair) in pair.light }), ("dark", { (pair: ColorPair) in pair.dark })] {
+            #expect(pick(words).contrast(with: pick(bar)) >= 4.5, "the bar's words, \(look)")
+            #expect(pick(goldWords).contrast(with: pick(gold)) >= 4.5, "Undo's words, \(look)")
+            #expect(pick(gold).contrast(with: pick(bar)) >= 3, "Undo on the bar, \(look)")
+        }
+    }
+
     /// The measure agrees with the design's own published figures, so the
     /// checks above mean what they say.
     @Test func contrastIsMeasuredAsTheDesignMeasuresIt() {
