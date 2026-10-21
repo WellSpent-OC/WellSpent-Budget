@@ -272,33 +272,6 @@ jobs:
       - name: Build
         run: swift build --package-path Linux
 
-  # Gate enforcement, without branch protection.
-  #
-  # Branch protection and rulesets both need GitHub Pro on a private repo, so
-  # GitHub will not disable the merge button for us.
-  #
-  # A draft pull request cannot be merged, which is the one free lever that
-  # genuinely blocks. But the default GITHUB_TOKEN is NOT permitted to convert a
-  # pull request to a draft: the GraphQL mutation answers "Resource not
-  # accessible by integration" even with pull-requests: write. That is a GitHub
-  # restriction, not a setting.
-  #
-  # So this job does what it can with the token it has, and tells you plainly
-  # when it cannot block:
-  #
-  #   With a GATE_TOKEN secret  -> converts the PR to a draft. A real block.
-  #   Without one               -> labels it and fails the check. Advisory only.
-  #
-  # To make it block, create a fine-grained personal access token with
-  # "Pull requests: write" on this repository and save it as the GATE_TOKEN
-  # secret. Or pay for GitHub Pro, which makes this whole job unnecessary.
-  # Gate 7. The real Mac window, driven by XCUITest against staging. The build
-  # half runs on every pull request. The run half needs the two staging test
-  # accounts, which live in this repository's secrets: a pull request from a
-  # fork has none, so there only the build is checked. The project rule (2026-10-15):
-  # the UI test gates every commit like the other checks. The four account values
-  # go into the secrets only after the test's first green run on a Mac, so a test
-  # that has never passed cannot block a merge (project rule, 2026-10-15).
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
   # screen through GTK's accessibility tree and act as a person does. Not a
   # required check until its first green run.
@@ -344,6 +317,33 @@ jobs:
           path: .build/linux-ui-test/*.png
           if-no-files-found: ignore
 
+  # Gate enforcement, without branch protection.
+  #
+  # Branch protection and rulesets both need GitHub Pro on a private repo, so
+  # GitHub will not disable the merge button for us.
+  #
+  # A draft pull request cannot be merged, which is the one free lever that
+  # genuinely blocks. But the default GITHUB_TOKEN is NOT permitted to convert a
+  # pull request to a draft: the GraphQL mutation answers "Resource not
+  # accessible by integration" even with pull-requests: write. That is a GitHub
+  # restriction, not a setting.
+  #
+  # So this job does what it can with the token it has, and tells you plainly
+  # when it cannot block:
+  #
+  #   With a GATE_TOKEN secret  -> converts the PR to a draft. A real block.
+  #   Without one               -> labels it and fails the check. Advisory only.
+  #
+  # To make it block, create a fine-grained personal access token with
+  # "Pull requests: write" on this repository and save it as the GATE_TOKEN
+  # secret. Or pay for GitHub Pro, which makes this whole job unnecessary.
+  # Gate 7. The real Mac window, driven by XCUITest against staging. The build
+  # half runs on every pull request. The run half needs the two staging test
+  # accounts, which live in this repository's secrets: a pull request from a
+  # fork has none, so there only the build is checked. The project rule (2026-10-15):
+  # the UI test gates every commit like the other checks. The four account values
+  # go into the secrets only after the test's first green run on a Mac, so a test
+  # that has never passed cannot block a merge (project rule, 2026-10-15).
   mac-ui-test:
     name: Mac UI test
     needs: unit-tests
