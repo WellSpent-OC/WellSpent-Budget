@@ -89,6 +89,7 @@ Platforms: iPhone
 - Then its wheel is orange all the way round, with no tick
 - And its middle says "Over", "$15" and "of $100"
 - And beside the wheel it says "Spent" $115.00 and "Over" $15.00, with nothing about the pace
+- And with $100.20 spent, its middle says "Over", "$1" and "of $100", never "$0"
 
 ## WHEEL-11 A group's page opens with its money for the month
 

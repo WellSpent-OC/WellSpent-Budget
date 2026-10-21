@@ -144,7 +144,13 @@ public struct MoneyWheel: Equatable, Sendable {
     }
 
     /// In the wheel's middle, in whole units: what is left, or how far over.
-    public var middleAmount: String { (isOver ? spent - budgeted : left).wholeDisplay }
+    /// Over by less than half a unit still shows one whole unit, so an
+    /// orange wheel never says "Over $0".
+    public var middleAmount: String {
+        guard isOver else { return left.wholeDisplay }
+        let over = spent - budgeted
+        return Money(minorUnits: max(over.minorUnits, over.minorUnitsPerUnit), currency: over.currency).wholeDisplay
+    }
     /// Under the amount in the wheel's middle: "of $1,000".
     public var middleOf: String { Words.of(budgeted.wholeDisplay) }
     /// Under the amount in Home's small wheel: "left" or "over".
@@ -300,9 +306,12 @@ public extension Money {
 }
 
 extension Money {
+    /// How many minor units make one whole unit: 100 cents to the dollar.
+    var minorUnitsPerUnit: Int { Int(pow(10.0, Double(currency.minorUnitDigits))) }
+
     /// The size of the amount in whole units, rounded half up.
     var wholeUnits: Int {
-        let divisor = Int(pow(10.0, Double(currency.minorUnitDigits)))
+        let divisor = minorUnitsPerUnit
         return (abs(minorUnits) + divisor / 2) / divisor
     }
 }

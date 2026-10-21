@@ -211,6 +211,33 @@ struct MoneyWheelTests {
         #expect(groceries.spokenSummary == "Over $15 of $100")
     }
 
+    // Scenario WHEEL-10
+    /// Over by a few cents, the orange wheel still says how far over: at least
+    /// a whole dollar, never "Over $0". Past that it rounds half up, as every
+    /// whole amount in the middle does.
+    @Test func overByLessThanADollarTheMiddleSaysOneDollar() {
+        let cents = wheel(limit: 10_000, spent: 10_020, on: october18)
+        #expect(cents.isOver)
+        #expect(cents.middleKey == "Over" && cents.middleAmount == "$1" && cents.middleOf == "of $100")
+        #expect(cents.spokenSummary == "Over $1 of $100")
+        #expect(cents.figures.last == MoneyWheel.Figure(label: "Over", amount: "$0.20", isWarning: true),
+                "the figure keeps the cents")
+        #expect(wheel(limit: 10_000, spent: 10_001, on: october18).middleAmount == "$1", "one cent over")
+        #expect(wheel(limit: 10_000, spent: 10_050, on: october18).middleAmount == "$1")
+        #expect(wheel(limit: 10_000, spent: 10_149, on: october18).middleAmount == "$1")
+        #expect(wheel(limit: 10_000, spent: 10_150, on: october18).middleAmount == "$2")
+    }
+
+    // Scenario WHEEL-12
+    @Test func overByLessThanADollarAGroupsMiddleSaysOneDollar() {
+        let household = MoneyWheel(scope: .group, budgeted: Money(minorUnits: 130_000),
+                                   spent: Money(minorUnits: 130_020),
+                                   day: PeriodDay(period: WheelCalendar.month(of: october18), now: october18,
+                                                  calendar: calendar))
+        #expect(household.spokenSummary == "Over this month $1 of $1,300")
+        #expect(household.middleAmount == "$1" && household.compactWord == "over", "Home's card says $1 over")
+    }
+
     // Scenario WHEEL-12
     @Test func overItsMonthsBudgetsAGroupsWheelSaysHowFarOver() {
         let household = MoneyWheel(scope: .group, budgeted: Money(minorUnits: 130_000),
