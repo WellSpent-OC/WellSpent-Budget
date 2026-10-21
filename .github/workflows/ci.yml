@@ -392,13 +392,13 @@ jobs:
   # staging test accounts are in this repository's secrets, and skips without
   # them, as for a pull request from a fork. A runner takes two to three times
   # as long as a Mac at a desk, and the two looks run one after the other, so
-  # the job has 100 minutes. It stays one job, since the branch rules require
-  # it by this name.
+  # a run takes about 80 minutes and the job has 120. It stays one job, since
+  # the branch rules require it by this name.
   iphone-ui-test:
     name: iPhone UI test
     needs: unit-tests
     runs-on: macos-latest
-    timeout-minutes: 100
+    timeout-minutes: 120
     env:
       HAS_UI_TEST_ACCOUNTS: ${{ secrets.WELLSPENT_UI_TEST_EMAIL != '' && secrets.WELLSPENT_UI_TEST_EMAIL_2 != '' }}
     steps:
