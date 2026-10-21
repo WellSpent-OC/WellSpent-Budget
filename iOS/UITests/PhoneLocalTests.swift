@@ -74,7 +74,10 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Trip")).waitForExistence(timeout: 10))
 
         // Scenario BUDGET-02
-        // 2. Rename from the group's menu.
+        // 2. Rename from the group's menu. Home's card above the groups
+        // leaves a new group low on the screen, where a long press opens
+        // nothing, so it is scrolled up first.
+        run.scrollTo(AccessibilityID.sidebarGroup("Trip"))
         run.longPress(AccessibilityID.sidebarGroup("Trip"))
         run.tapMenuItem(MainScreen.Words.rename)
         run.type("Holiday", into: AccessibilityID.groupEditorName)
@@ -86,6 +89,7 @@ final class PhoneLocalTests: XCTestCase {
         // 3. New Budget from the group's menu. Add stays dimmed without a
         // name and an amount above zero. Saving opens the new budget, with
         // nothing spent.
+        run.scrollTo(AccessibilityID.sidebarGroup("Holiday"))
         run.longPress(AccessibilityID.sidebarGroup("Holiday"))
         run.tapMenuItem(MainScreen.Words.newBudget(in: "Holiday"))
         let budgetSave = run.button(AccessibilityID.budgetEditorSave)
@@ -125,6 +129,7 @@ final class PhoneLocalTests: XCTestCase {
 
         // Scenario BUDGET-11
         // 6. Deleting the group asks first, then it goes.
+        run.scrollTo(AccessibilityID.sidebarGroup("Holiday"))
         run.longPress(AccessibilityID.sidebarGroup("Holiday"))
         run.tapMenuItem(MainScreen.Words.delete)
         let groupQuestion = PendingDelete.group(BudgetGroup(name: "Holiday"), budgets: 0, reach: .justYou)
@@ -168,7 +173,7 @@ final class PhoneLocalTests: XCTestCase {
 
         // Scenario ENTRY-05, BUDGET-15
         // 3. The newest is on top. Over the limit, the page says how far
-        // over, and Home shows it below zero.
+        // over, and Home shows how far over.
         run.addEntry(merchant: "Market", amount: "75.00")
         let market = run.element(AccessibilityID.entryRow("Market"))
         let bakery = run.element(AccessibilityID.entryRow("Corner Bakery"))
@@ -179,7 +184,7 @@ final class PhoneLocalTests: XCTestCase {
         run.goBack()
         let row = run.element(AccessibilityID.sidebarBudget("Treats"))
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        XCTAssertTrue(row.label.contains("-$15.00"), "Home does not show -$15.00: \(row.label)")
+        XCTAssertTrue(row.label.contains("$15.00 over"), "Home does not show $15.00 over: \(row.label)")
     }
 
     /// "Oct 1", the way a budget's count line names the start of the month.
