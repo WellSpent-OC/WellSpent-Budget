@@ -32,7 +32,8 @@ public struct BudgetScreen {
 
     public let summary: BudgetSummary
     public let rows: [Row]
-    /// "Added by" only means something once someone else is in the group.
+    /// "Added by" means something once someone else is in the group, or
+    /// once any entry here is someone else's, even after they left.
     public let showsAddedBy: Bool
     /// Whether Add and Import statement are offered: they take Add, as the
     /// server decides.
@@ -61,7 +62,11 @@ public struct BudgetScreen {
                 mayChange: model.access(to: transaction, mayAdd: mayAdd, mayManage: mayManage).mayChange,
                 notice: model.notices.contains(transaction.id) ? Words.notice : nil)
         }
+        // Shown while someone else is in the group, and while any entry is
+        // someone else's, so a removed person's entries keep their name
+        // (PAGE-17). Only this person's own entries, alone, show none.
         showsAddedBy = model.isShared(group)
+            || model.transactions.contains { $0.createdBy != nil && $0.createdBy != me }
         self.mayAdd = mayAdd
         undo = model.undoOffer
         let wheel = MoneyWheel(budget: summary, now: now ?? model.today(), calendar: calendar)
