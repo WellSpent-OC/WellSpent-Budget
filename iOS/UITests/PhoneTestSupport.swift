@@ -211,12 +211,27 @@ final class PhoneTestApp {
         _ = app.collectionViews.firstMatch.waitForExistence(timeout: 2)
     }
 
-    /// Closes the iPhone's own share sheet without sending anything.
+    /// Closes the iPhone's own share sheet without sending anything: its
+    /// close button, or a swipe down on it where iOS draws none.
     func closeShareSheetWithoutSending() {
-        let close = app.buttons["Close"].firstMatch
-        XCTAssertTrue(close.waitForExistence(timeout: 20), "the share sheet has no Close. On screen: \(visibleButtons())")
-        close.tap()
-        XCTAssertTrue(wait(for: close, until: "exists == false", timeout: 10), "the share sheet stayed")
+        let copy = app.buttons["Copy"].firstMatch
+        let copyCell = app.cells["Copy"].firstMatch
+        let deadline = Date().addingTimeInterval(30)
+        while !copy.exists, !copyCell.exists, Date() < deadline { _ = copy.waitForExistence(timeout: 0.5) }
+        XCTAssertTrue(copy.exists || copyCell.exists, "the share sheet never opened. On screen: \(visibleTexts())")
+        let close = app.buttons.matching(NSPredicate(format: "label ==[c] 'close' OR identifier ==[c] 'close'"))
+            .firstMatch
+        if close.exists, close.isHittable {
+            close.tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
+                       withVelocity: .fast, thenHoldForDuration: 0)
+        }
+        let gone = wait(for: copy, until: "exists == false", timeout: 10)
+            && wait(for: copyCell, until: "exists == false", timeout: 5)
+        XCTAssertTrue(gone, "the share sheet stayed. Its buttons: "
+                      + app.buttons.allElementsBoundByIndex.prefix(30).map(\.label).joined(separator: ", "))
     }
 
     /// Copy, in the iPhone's own share sheet, once it has slid up. The
@@ -379,6 +394,8 @@ final class PhoneTestApp {
         }
         account.tap()
         let signOut = element(AccessibilityID.accountSignOut)
+        // A tap while the screen is still sliding back can be lost: once more.
+        if !signOut.waitForExistence(timeout: 5), account.isHittable { account.tap() }
         guard signOut.waitForExistence(timeout: 10) else {
             XCTFail("the account sheet shows no Sign out. On screen: \(visibleTexts()) \(visibleButtons())")
             return
