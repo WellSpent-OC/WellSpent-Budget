@@ -54,6 +54,23 @@ struct PhoneOpenedEntrySheet: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .accessibilityIdentifier(AccessibilityID.entryDelete)
+                        // The sheet asks its own question, so it shows over
+                        // the sheet. It hangs on the Delete row, so iOS 26
+                        // draws it from that row at the foot of the sheet,
+                        // where a tap outside it is Cancel. Earlier iOS
+                        // draws it from the bottom of the screen, with the
+                        // red Delete apart from Cancel.
+                        .confirmationDialog(editor.pendingDelete?.title ?? "",
+                                            isPresented: asking,
+                                            titleVisibility: .visible,
+                                            presenting: editor.pendingDelete) { pending in
+                            Button(pending.confirmLabel, role: .destructive) {
+                                if editor.confirmDelete() { dismiss() }
+                            }
+                            Button(Words.cancel, role: .cancel) { editor.cancelDelete() }
+                        } message: { pending in
+                            Text(pending.message)
+                        }
                     }
                     .listRowBackground(Palette.surface)
                 }
@@ -61,20 +78,13 @@ struct PhoneOpenedEntrySheet: View {
             .phoneSheet(title: editor.title)
             .toolbar { buttons }
         }
-        // The sheet asks its own question, from the bottom of the screen, so
-        // it shows over the sheet. The red Delete stands apart from Cancel.
-        .confirmationDialog(editor.pendingDelete?.title ?? "",
-                            isPresented: Binding(get: { editor.pendingDelete != nil },
-                                                 set: { if !$0 { editor.cancelDelete() } }),
-                            titleVisibility: .visible,
-                            presenting: editor.pendingDelete) { pending in
-            Button(pending.confirmLabel, role: .destructive) {
-                if editor.confirmDelete() { dismiss() }
-            }
-            Button(Words.cancel, role: .cancel) { editor.cancelDelete() }
-        } message: { pending in
-            Text(pending.message)
-        }
+    }
+
+    /// Whether the delete question is up. Closing it any way but its Delete
+    /// is Cancel.
+    private var asking: Binding<Bool> {
+        Binding(get: { editor.pendingDelete != nil },
+                set: { if !$0 { editor.cancelDelete() } })
     }
 
     /// The entry as plain text, with the line saying why it can't be changed.
