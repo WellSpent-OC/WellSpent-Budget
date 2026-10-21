@@ -22,11 +22,13 @@ struct PaletteValuesTests {
         }
     }
 
-    /// The wells behind a link or a list of people hold words and small words.
+    /// The wells behind a link or a list of people hold words and small words,
+    /// and a group's MONEY well holds the Over figure in the warning colour.
     @Test func wordsReadInAWellInLightAndDark() {
-        for colour in [PaletteValues.ink, PaletteValues.muted] {
-            #expect(colour.light.contrast(with: PaletteValues.sidebar.light) >= 4.5)
-            #expect(colour.dark.contrast(with: PaletteValues.sidebar.dark) >= 4.5)
+        for (word, colour) in [("words", PaletteValues.ink), ("small words", PaletteValues.muted),
+                               ("warning", PaletteValues.warning)] {
+            #expect(colour.light.contrast(with: PaletteValues.sidebar.light) >= 4.5, "\(word) in a well, light")
+            #expect(colour.dark.contrast(with: PaletteValues.sidebar.dark) >= 4.5, "\(word) in a well, dark")
         }
     }
 
