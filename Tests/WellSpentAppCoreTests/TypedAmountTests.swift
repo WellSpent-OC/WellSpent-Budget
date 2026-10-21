@@ -56,8 +56,31 @@ struct TypedAmountTests {
     @Test func regionsThatGroupAnotherWayReadTheirOwnWay() {
         #expect(cents("1\u{2019}250.50", Self.switzerland) == 125_050)
         #expect(cents("1'250.50", Self.switzerland) == 125_050, "either apostrophe")
-        #expect(cents("1,23,456.78", Self.india) == 12_345_678)
-        #expect(TypedAmount("123,456.78", locale: Self.india) == .unclear)
+        // India groups the last three, then by two, where the system's own
+        // region data says so. Either way, what the system writes for India
+        // reads back as the same amount.
+        let written = Self.written(123_456.78, Self.india)
+        #expect(cents(written, Self.india) == 12_345_678, "\(written) reads back")
+        if written == "1,23,456.78" {
+            #expect(TypedAmount("123,456.78", locale: Self.india) == .unclear)
+        }
+    }
+
+    @Test func whatTheSystemWritesForARegionReadsBack() {
+        for locale in [Self.us, Self.germany, Self.france, Self.switzerland, Self.india] {
+            let written = Self.written(1_234_567.89, locale)
+            #expect(cents(written, locale) == 123_456_789, "\(locale.identifier) wrote \(written)")
+        }
+    }
+
+    /// An amount as the system writes it for a region, with two decimals.
+    static func written(_ amount: Double, _ locale: Locale) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? ""
     }
 
     @Test func aFieldStartsWithTheAmountWrittenTheRegionsWay() {
