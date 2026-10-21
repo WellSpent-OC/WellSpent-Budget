@@ -40,6 +40,12 @@ enum LinuxSetup {
         let accounts = AccountDirectory(root: dataRoot, defaults: defaults, makeKeyStore: { namespace in
             KeyringKeyStore(service: environment.keychainService(for: namespace))
         })
-        return try Workspace.launch(accounts: accounts, defaults: defaults, environment: environment)
+        // A staging build takes the same two test settings as the Mac's: how
+        // long Undo stays, and a pinned day of the month for the money wheel.
+        // A live build ignores both.
+        let process = ProcessInfo.processInfo.environment
+        return try Workspace.launch(accounts: accounts, defaults: defaults, environment: environment,
+                                    undoWindow: Workspace.undoWindow(for: environment, in: process),
+                                    pinnedDay: Workspace.pinnedDay(for: environment, in: process))
     }
 }
