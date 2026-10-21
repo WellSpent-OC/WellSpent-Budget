@@ -462,9 +462,25 @@ jobs:
           path: .build/xcode-iphone/screenshots-*
           if-no-files-found: ignore
 
+  # Every UI test's "Scenario" line names a real scenario, on a platform that
+  # scenario names, and the tables in Features/README.md match the tags (the
+  # Definition of Done, item 3). The run's summary lists what still has no
+  # test. Once nothing is left, this adds --require-all, and a scenario
+  # without a test on one of its platforms fails the pull request.
+  scenario-check:
+    name: Scenario check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tags and tables
+        shell: bash
+        run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
+
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test, scenario-check]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -483,7 +499,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success' || needs.iphone-ui-test.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success' || needs.iphone-ui-test.result != 'success' || needs.scenario-check.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
