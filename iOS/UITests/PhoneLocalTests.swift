@@ -325,7 +325,10 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.text(MainScreen.Words.noBudgetsTitle).waitForExistence(timeout: 10),
                       "Home does not say there are no budgets. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(MainScreen.Words.noBudgetsText).exists, "no line saying what a budget is")
-        run.app.buttons[MainScreen.Words.addBudget].firstMatch.tap()
+        // The empty list's own Add Budget, not the + at the foot, which goes
+        // by the same name.
+        run.app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", MainScreen.Words.addBudget,
+                                             AccessibilityID.sidebarAdd)).firstMatch.tap()
 
         // Scenario BUDGET-05
         // 2. With no group to put it in, New Budget asks for a group's name,

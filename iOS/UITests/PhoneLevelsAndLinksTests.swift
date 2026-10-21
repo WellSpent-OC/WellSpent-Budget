@@ -190,6 +190,10 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
                                                         amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
+        // Opened once and quit, as on any phone that has it: a phone hands a
+        // link only to an app it has seen start.
+        run.launch()
+        run.app.terminate()
 
         // Scenario CLICK-02
         // 1. With WellSpent not running, a tap on the link starts it on the
@@ -363,13 +367,20 @@ extension PhoneTestApp {
     }
 
     /// Holds a budget on Home and checks it offers no Edit and no Delete.
+    /// With no menu to show, letting go opens the budget, as a tap does, so
+    /// it goes back to Home after.
     func expectBudgetMenuIsEmpty(_ budget: String) {
         scrollTo(AccessibilityID.sidebarBudget(budget))
         longPress(AccessibilityID.sidebarBudget(budget))
         for item in [MainScreen.Words.edit, MainScreen.Words.delete] {
             XCTAssertFalse(menuItem(item).waitForExistence(timeout: 2), "\(budget) offers \(item)")
         }
-        dismissMenu()
+        if app.navigationBars[budget].waitForExistence(timeout: 2) {
+            goBack()
+            XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+        } else {
+            dismissMenu()
+        }
     }
 
     /// Signs in on the account sheet already open, pasting the email and the

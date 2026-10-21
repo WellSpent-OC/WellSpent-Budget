@@ -212,6 +212,8 @@ final class PhoneNewAccountTests: XCTestCase {
         run.open(link: link.url)
         XCTAssertTrue(run.text("Robin invited you to \u{201C}\(groupName)\u{201D}.").waitForExistence(timeout: 15), "no invitation")
         run.type("Leslie", into: AccessibilityID.invitationName)
+        // Return puts the keyboard away, which covered Sign in.
+        run.element(AccessibilityID.invitationName).typeText("\n")
         run.tap(AccessibilityID.invitationSignIn)
         run.makeAccount(address, password: Self.password, server: mailbox.server, fromHome: false)
         XCTAssertTrue(run.text(JoinScreen.Words.confirmToJoin).waitForExistence(timeout: 20),

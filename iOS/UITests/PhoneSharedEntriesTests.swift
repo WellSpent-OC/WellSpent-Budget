@@ -245,6 +245,9 @@ final class PhoneSharedEntriesTests: XCTestCase {
         try await leslie.addEntry("Hilltop", amount: Money(minorUnits: -1500), inBudget: budget, group: groupName)
         run.syncThroughHome(reopening: budget)
         try run.deleteEntryKeepingTheBar("Hilltop")
+        // The delete reaches the server first: a move down before it would
+        // refuse the delete itself, and leave nothing to undo.
+        run.syncThroughHome(reopening: budget)
         try await leslie.setLevelOfTheOther(.read, in: groupName)
         run.syncThroughHome(reopening: budget)
         run.tap(AccessibilityID.undoButton)
@@ -259,6 +262,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         try await leslie.addEntry("Hilltop Two", amount: Money(minorUnits: -1600), inBudget: budget, group: groupName)
         run.syncThroughHome(reopening: budget)
         try run.deleteEntryKeepingTheBar("Hilltop Two")
+        run.syncThroughHome(reopening: budget)
         try await leslie.setLevelOfTheOther(.write, in: groupName)
         run.syncThroughHome(reopening: budget)
         run.tap(AccessibilityID.undoButton)

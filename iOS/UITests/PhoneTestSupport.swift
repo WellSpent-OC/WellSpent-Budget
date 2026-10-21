@@ -54,7 +54,10 @@ final class PhoneTestApp {
 
     /// Words on screen, wherever they are.
     func text(_ words: String) -> XCUIElement {
-        app.staticTexts[words].firstMatch
+        // A query by words takes at most 128 characters. Longer ones, such as
+        // a question's message, are matched by label.
+        guard words.count > 128 else { return app.staticTexts[words].firstMatch }
+        return app.staticTexts.matching(NSPredicate(format: "label == %@", words)).firstMatch
     }
 
     /// Whether these words show on screen within the time given. A slow
