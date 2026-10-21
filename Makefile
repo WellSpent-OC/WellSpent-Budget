@@ -225,7 +225,9 @@ iphone-ui-test: iphone-ui-test-build
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneSharedEntriesTests \
-				-skip-testing:WellSpentPhoneUITests/PhoneLevelsAndLinksTests; fi) \
+				-skip-testing:WellSpentPhoneUITests/PhoneLevelsAndLinksTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneAccountTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneNewAccountTests; fi) \
 			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \

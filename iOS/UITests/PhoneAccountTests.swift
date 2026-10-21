@@ -200,7 +200,8 @@ final class PhoneAccountTests: XCTestCase {
         try await otherDevice.signIn(email: address, password: Self.newPassword)
         try await otherDevice.sync.signOutEverywhere()
         run.pullDown()
-        XCTAssertTrue(run.text(SyncCoordinator.sessionEndedReason).waitForExistence(timeout: 30),
+        let signedOut = "You were signed out on this device. Sign in again. Your budgets are still here."
+        XCTAssertTrue(run.text(signedOut).waitForExistence(timeout: 30),
                       "the sign-in did not open by itself. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.fieldText(AccessibilityID.accountEmail), address, "the address is not filled in")
         run.paste(Self.newPassword, into: AccessibilityID.accountPassword)

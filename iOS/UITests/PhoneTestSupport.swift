@@ -166,6 +166,9 @@ final class PhoneTestApp {
     func pullDown() {
         let list = app.collectionViews.firstMatch
         XCTAssertTrue(list.waitForExistence(timeout: 10), "no list to pull down")
+        // A pull only syncs from the top of the list. Scrolled down, as after
+        // a step that scrolled to a row, the drag only scrolls back up.
+        for _ in 0..<3 { list.swipeDown() }
         let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
         start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 400)))
     }
@@ -242,9 +245,11 @@ final class PhoneTestApp {
     /// Pulls Home down and waits for the sync it starts to end, so every
     /// change made so far is on the server.
     func syncAndWait() {
-        pullDown()
-        Thread.sleep(forTimeInterval: 1)
         let done = text(SyncWording.footer(signedIn: true, device: Self.device))
+        pullDown()
+        // The foot says Syncing while it syncs. A sync that ends within the
+        // first look is missed, which is fine: it has ended.
+        _ = wait(for: done, until: "exists == false", timeout: 3)
         XCTAssertTrue(wait(for: done, until: "exists == true", timeout: 30),
                       "the sync did not end. On screen: \(visibleTexts())")
     }
