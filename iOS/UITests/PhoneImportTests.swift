@@ -370,24 +370,18 @@ final class PhoneImportTests: XCTestCase {
         let file = try Self.save("Date,Description,Amount\n\(today),\"TRADER JOES #123\",-54.20",
                                  as: "picked.csv", in: folder)
         defer { try? FileManager.default.removeItem(at: file) }
-        // Files lists a file written into its folder while the picker is open
-        // a moment before it will hand it over. On CI's slow runners that
-        // moment ran past two taps 10 seconds apart. So each try closes the
-        // picker, opens it again with the file already there, and picks it,
-        // three times at most.
+        // Files is slow to hand over a file written into its folder while
+        // the picker is open. So the picker closes and opens again with the
+        // file already there, as a person's file would be, and the file is
+        // picked once it is ready.
+        let cancel = run.app.buttons["Cancel"].firstMatch
+        cancel.tap()
+        XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 15), "the Files picker did not close")
+        run.openFilesPicker()
+        let picked = run.pickInOnMyIPhone("picked")
         let review = run.element(AccessibilityID.importConfirm)
-        var picked = run.app.cells.firstMatch
-        for _ in 0..<3 where !review.exists {
-            let cancel = run.app.buttons["Cancel"].firstMatch
-            guard cancel.exists else { break }
-            cancel.tap()
-            XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 15), "the Files picker did not close")
-            run.openFilesPicker()
-            picked = run.pickInOnMyIPhone("picked")
-            _ = review.waitForExistence(timeout: 15)
-        }
-        XCTAssertTrue(review.waitForExistence(timeout: 15),
-                      "the review did not open after three picks. The file's row was "
+        XCTAssertTrue(review.waitForExistence(timeout: 30),
+                      "the review did not open after the pick. The file's row was "
                       + "\(!picked.exists ? "gone" : picked.isEnabled ? "enabled" : "dimmed"). On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(Words.title(into: "Household")), "no heading. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("picked.csv"), "the file's name does not show. On screen: \(run.visibleTexts())")
@@ -478,8 +472,9 @@ extension PhoneTestApp {
         XCTAssertTrue(row.waitForExistence(timeout: 15), "\(name) is not in On My iPhone. On screen: \(visibleTexts())")
         // A file Files has not finished reading yet is listed dimmed, and a
         // tap on it picks nothing.
-        wait(for: row, until: "enabled == true", timeout: 15)
+        XCTAssertTrue(wait(for: row, until: "enabled == true", timeout: 30), "\(name) stayed dimmed in On My iPhone")
         waitUntilHittable(row, name)
+        waitUntilStill(row, name)
         row.tap()
         return row
     }

@@ -328,20 +328,18 @@ extension PhoneTestApp {
         let row = element(AccessibilityID.entryRow(merchant))
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no \(merchant) to swipe")
         waitUntilHittable(row, merchant)
+        // Just after Undo puts a row back, the list is still sliding it into
+        // place, and a swipe then is lost.
+        waitUntilStill(row, merchant)
         row.swipeLeft()
     }
 
-    /// Swipes an entry's row to the left until its Delete shows. A swipe
-    /// made while the list is still settling, such as just after Undo puts a
-    /// row back, is lost on CI's slow runners. So it swipes again, three
-    /// times at most, and never while the buttons are already out.
+    /// Swipes an entry's row to the left, then waits for its Delete. The wait
+    /// is long because on CI one look at the screen can take 9 seconds.
     func swipeOpen(entry merchant: String) {
-        let delete = app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch
-        for _ in 0..<3 where !delete.exists {
-            swipeLeft(onEntry: merchant)
-            _ = delete.waitForExistence(timeout: 10)
-        }
-        XCTAssertTrue(delete.exists, "the swipe offers no Delete after three swipes. On screen: \(visibleButtons())")
+        swipeLeft(onEntry: merchant)
+        XCTAssertTrue(app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch.waitForExistence(timeout: 30),
+                      "the swipe offers no Delete. On screen: \(visibleButtons())")
     }
 
     /// Taps a button on the question a delete asks. The question is its own

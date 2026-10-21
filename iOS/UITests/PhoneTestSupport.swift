@@ -88,19 +88,33 @@ final class PhoneTestApp {
     }
 
     func tap(_ identifier: String, timeout: TimeInterval = 10) {
-        let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: timeout),
-                      "nothing called \(identifier) to tap. On screen: \(visibleTexts())")
+        let target = find(identifier, timeout: timeout)
+        XCTAssertTrue(target.exists, "nothing called \(identifier) to tap. On screen: \(visibleTexts())")
         waitUntilHittable(target, identifier)
         target.tap()
     }
 
     /// Holds a finger on it, which opens its menu.
     func longPress(_ identifier: String) {
-        let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: 10), "nothing called \(identifier) to press")
+        let target = find(identifier, timeout: 10)
+        XCTAssertTrue(target.exists, "nothing called \(identifier) to press. On screen: \(visibleTexts())")
         waitUntilHittable(target, identifier)
+        // A press on a row the list is still moving is taken as a tap, which
+        // opens the row instead of its menu.
+        waitUntilStill(target, identifier)
         target.press(forDuration: 1.2)
+    }
+
+    /// Waits for an element. If it has not shown, a Save Password sheet in
+    /// front is answered, and then the list is scrolled to it: a test account
+    /// keeps the groups earlier runs made, so a row just made can sit below
+    /// the bottom of Home, where the list has not drawn it.
+    private func find(_ identifier: String, timeout: TimeInterval) -> XCUIElement {
+        let target = element(identifier)
+        if target.waitForExistence(timeout: timeout) { return target }
+        if answerSavePasswordIfAsked(), target.waitForExistence(timeout: timeout) { return target }
+        scrollTo(identifier)
+        return target
     }
 
     /// An item in the menu on screen, by its title as the shared words write
@@ -295,6 +309,9 @@ final class PhoneTestApp {
             for candidate in [app.buttons["Copy"], app.cells["Copy"]] where candidate.firstMatch.exists {
                 let copy = candidate.firstMatch
                 if copy.isHittable {
+                    // The share sheet is still sliding up when Copy can first
+                    // be tapped, and a tap then misses it.
+                    waitUntilStill(copy, "Copy")
                     copy.tap()
                     return
                 }
@@ -324,7 +341,13 @@ final class PhoneTestApp {
         for _ in 0..<3 where !element(AccessibilityID.sidebarGroup(name)).exists { app.swipeDown() }
         let header = scrollTo(AccessibilityID.sidebarGroup(name))
         XCTAssertTrue(header.exists, "no group called \(name) on Home. On screen: \(visibleTexts())")
+        waitUntilStill(header, name)
         tap(AccessibilityID.sidebarGroup(name))
+        // One tap, then a long wait: on CI a look at the screen can take 9
+        // seconds. If the page never comes, the buttons say whether the tap
+        // was taken as a long press, which opens the group's menu instead.
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 30),
+                      "a tap on \(name) opened no page. On screen: \(visibleTexts()) \(visibleButtons())")
     }
 
     /// A control inside a sheet exists before the sheet has finished sliding
@@ -332,8 +355,41 @@ final class PhoneTestApp {
     /// The wait is long because CI's runners are slow: one look at the screen
     /// there took 9 seconds while a sheet slid in after a menu.
     func waitUntilHittable(_ target: XCUIElement, _ identifier: String) {
-        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 30),
-                      "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
+        var hittable = wait(for: target, until: "hittable == true", timeout: 30)
+        if !hittable, answerSavePasswordIfAsked() {
+            hittable = wait(for: target, until: "hittable == true", timeout: 30)
+        }
+        XCTAssertTrue(hittable, "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
+    }
+
+    /// After a form with a password goes away, iOS may offer to save the
+    /// password, in a sheet over the app. A person answers it, and so does a
+    /// test: Not Now. This answers only a sheet already showing, and says
+    /// whether there was one.
+    @discardableResult
+    func answerSavePasswordIfAsked() -> Bool {
+        guard app.staticTexts["Save Password?"].exists else { return false }
+        let notNow = app.buttons["Not Now"].firstMatch
+        XCTAssertTrue(notNow.waitForExistence(timeout: 10),
+                      "the Save Password sheet has no Not Now. On screen: \(visibleButtons())")
+        notNow.tap()
+        XCTAssertTrue(wait(for: notNow, until: "exists == false", timeout: 15), "the Save Password sheet stayed")
+        return true
+    }
+
+    /// A row a list is still sliding into place is hittable before it is
+    /// still, and a swipe or tap on it then lands in the wrong place. So this
+    /// waits for two looks in a row to find it in the same place.
+    func waitUntilStill(_ target: XCUIElement, _ identifier: String) {
+        let deadline = Date().addingTimeInterval(30)
+        var last = target.frame
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.5)
+            let now = target.frame
+            if now == last { return }
+            last = now
+        }
+        XCTFail("\(identifier) kept moving for 30 seconds")
     }
 
     /// Waits for a condition on an element, such as "isEnabled == true" or

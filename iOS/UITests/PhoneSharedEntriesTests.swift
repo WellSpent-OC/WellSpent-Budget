@@ -460,7 +460,7 @@ extension PhoneTestApp {
         type(name, into: AccessibilityID.shareName)
         tap(AccessibilityID.shareCreate)
         copyInShareSheet()
-        XCTAssertTrue(wait(for: text(ShareScreen.Words.shareTitle(group)), until: "exists == false", timeout: 10),
+        XCTAssertTrue(wait(for: text(ShareScreen.Words.shareTitle(group)), until: "exists == false", timeout: 30),
                       "the Share sheet stayed after Copy")
         openAddMenu()
         tapMenuItem(MainScreen.Words.join)

@@ -175,7 +175,7 @@ final class PhoneAccountTests: XCTestCase {
         run.tap(AccessibilityID.accountSubmit)
         XCTAssertTrue(run.text(AccountFlow.Words.resetCodeSent(to: address)).waitForExistence(timeout: 20),
                       "no words after Send code. On screen: \(run.visibleTexts())")
-        for field in [AccessibilityID.accountCode, AccessibilityID.accountPassword, AccessibilityID.accountConfirmation,
+        for field in [AccessibilityID.accountCode, AccessibilityID.accountNewPassword, AccessibilityID.accountConfirmation,
                       AccessibilityID.accountStartOver] {
             XCTAssertTrue(run.element(field).exists, "no \(field)")
         }
@@ -183,7 +183,7 @@ final class PhoneAccountTests: XCTestCase {
         // password pasted twice, light Set password.
         let resetCode = try await mailbox.code(for: address, after: code)
         run.paste(resetCode, into: AccessibilityID.accountCode)
-        run.paste(Self.newPassword, into: AccessibilityID.accountPassword)
+        run.paste(Self.newPassword, into: AccessibilityID.accountNewPassword)
         run.paste(Self.newPassword, into: AccessibilityID.accountConfirmation)
         XCTAssertTrue(run.button(AccessibilityID.accountSubmit).isEnabled, "Set password did not light once pasted")
         run.tap(AccessibilityID.accountSubmit)
