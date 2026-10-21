@@ -91,15 +91,16 @@ struct PaletteValuesTests {
         #expect(abs(RGB(hex: 0xB5AE9F).contrast(with: RGB(hex: 0x36322C)) - 5.8) < 0.05)
     }
 
-    /// Light mode keeps exactly the colours the Mac has always drawn.
+    /// Light mode keeps exactly the colours the Mac has always drawn, but for
+    /// the warning colour, a little darker since 0.2.0 so it reads in a well.
     @Test func lightModeIsTodaysLook() {
         #expect(PaletteValues.surface.light == RGB(red: 0.992, green: 0.988, blue: 0.980))
         #expect(PaletteValues.accent.light == RGB(red: 0.122, green: 0.373, blue: 0.294))
-        #expect(PaletteValues.warning.light == RGB(red: 0.706, green: 0.325, blue: 0.165))
+        #expect(PaletteValues.warning.light == RGB(red: 0.657, green: 0.302, blue: 0.153))
         #expect(PaletteValues.track.light == PaletteValues.line.light)
         #expect(PaletteValues.budgetColors.map(\.light) == [
             RGB(red: 0.122, green: 0.373, blue: 0.294), RGB(red: 0.169, green: 0.361, blue: 0.494),
-            RGB(red: 0.478, green: 0.290, blue: 0.549), RGB(red: 0.706, green: 0.325, blue: 0.165),
+            RGB(red: 0.478, green: 0.290, blue: 0.549), RGB(red: 0.657, green: 0.302, blue: 0.153),
         ])
     }
 
