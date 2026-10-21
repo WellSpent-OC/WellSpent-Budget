@@ -1,7 +1,8 @@
 // The iPhone app's shell. Everything a person sees is drawn by the iPhone's
 // own views in WellSpentAppCore, over the rules and words every app shares.
 // This file only starts them: it opens this build's budgets, keeps them
-// syncing, and says so on screen if they cannot be opened.
+// syncing and current from day to day, and says so on screen if they cannot
+// be opened.
 import SwiftUI
 import UIKit
 import WellSpentAppCore
@@ -30,6 +31,13 @@ struct WellSpentPhoneApp: App {
             switch launch {
             case .success(let workspace):
                 wellSpentPhoneRootView(workspace: workspace, startingOn: start)
+                    // Midnight, the clocks moving or a new time zone: a new
+                    // day may begin a new month, so the budgets are read
+                    // again for it.
+                    .onReceive(NotificationCenter.default.publisher(
+                        for: UIApplication.significantTimeChangeNotification)) { _ in
+                        workspace.dayChanged()
+                    }
             case .failure(let error):
                 ContentUnavailableView {
                     Label(MainScreen.Words.couldNotOpen(AppEnvironment.current.appName),
@@ -39,10 +47,11 @@ struct WellSpentPhoneApp: App {
                 }
             }
         }
-        // Coming to the front syncs, as on the Mac. It happens at launch too.
+        // Coming to the front syncs, as on the Mac, or, signed out, reads the
+        // budgets again. It happens at launch too.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, case .success(let workspace) = launch else { return }
-            Task { await workspace.autoSync.syncIfIdle() }
+            Task { await workspace.cameToFront() }
         }
     }
 }

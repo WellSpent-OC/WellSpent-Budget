@@ -69,13 +69,17 @@ struct PeriodDayTests {
 
     /// A day read outside its period stays within it: the summary read
     /// before midnight on the last day stays on that day until the app reads
-    /// its budgets again.
+    /// its budgets again. Its month stays the period's too, so October's
+    /// money is never named November.
     @Test func aDayOutsideItsPeriodStaysWithinIt() throws {
         let october = WheelCalendar.month(of: WheelCalendar.date(2026, 10, 18))
         let after = try #require(PeriodDay(period: october, now: WheelCalendar.date(2026, 11, 2), calendar: calendar))
         #expect(after.day == 31 && after.days == 31)
+        #expect(after.month == "October")
+        #expect(after.line == "October · day 31 of 31")
         let before = try #require(PeriodDay(period: october, now: WheelCalendar.date(2026, 9, 28), calendar: calendar))
         #expect(before.day == 1)
+        #expect(before.line == "October · day 1 of 31")
     }
 
     /// A period of a week, from Sunday October 18 to the next Sunday.
@@ -86,6 +90,17 @@ struct PeriodDayTests {
         let today = try #require(PeriodDay(period: week, now: wednesday, calendar: calendar))
         #expect(today.day == 4 && today.days == 7)
         #expect(today.isLastWeek)
+    }
+
+    /// A week from Thursday October 29 to the next Thursday names the month
+    /// of each day it counts.
+    @Test func aWeekAcrossTwoMonthsNamesTheMonthOfEachDay() throws {
+        let week = BudgetPeriod(start: calendar.startOfDay(for: WheelCalendar.date(2026, 10, 29)),
+                                end: calendar.startOfDay(for: WheelCalendar.date(2026, 11, 5)))
+        let friday = try #require(PeriodDay(period: week, now: WheelCalendar.date(2026, 10, 30), calendar: calendar))
+        #expect(friday.line == "October · day 2 of 7")
+        let monday = try #require(PeriodDay(period: week, now: WheelCalendar.date(2026, 11, 2), calendar: calendar))
+        #expect(monday.line == "November · day 5 of 7")
     }
 
     /// A budget that never resets has no period to be partway through.
@@ -189,6 +204,20 @@ struct MoneyWheelTests {
         #expect(gas.middleKey == "Left" && gas.middleAmount == "$58" && gas.middleOf == "of $180")
     }
 
+    /// Rent is $1,850.00 a month and was paid in full on October 1. Nothing is
+    /// left, which is not a pace: the wheel is empty, not over, and has no
+    /// orange to show, while the tick and the expected figure stay.
+    @Test func aBudgetSpentToTheCentIsNotOverPace() {
+        let rent = wheel(limit: 185_000, spent: 185_000, on: october18)
+        #expect(rent.left == Money(minorUnits: 0))
+        #expect(rent.arc == 0)
+        #expect(!rent.isOver && !rent.isOverPace && !rent.isWarning)
+        #expect(rent.arcColor == PaletteValues.wheelLeft)
+        #expect(rent.tick == 13.0 / 31)
+        #expect(rent.expectedLeft == Money(minorUnits: 77_581), "185000 × 13 ÷ 31 is 77580.65")
+        #expect(rent.spokenSummary == "Left $0 of $1,850")
+    }
+
     // Scenario WHEEL-10
     @Test func overItsLimitTheWheelIsOrangeAllTheWayRoundAndSaysHowFarOver() {
         let groceries = wheel(limit: 10_000, spent: 11_500, on: october18)
@@ -204,20 +233,6 @@ struct MoneyWheelTests {
         #expect(groceries.figures == [
             MoneyWheel.Figure(label: "Spent", amount: "$115.00"),
             MoneyWheel.Figure(label: "Over", amount: "$15.00", isWarning: true),
-    /// Rent is $1,850.00 a month and was paid in full on October 1. Nothing is
-    /// left, which is not a pace: the wheel is empty, not over, and has no
-    /// orange to show, while the tick and the expected figure stay.
-    @Test func aBudgetSpentToTheCentIsNotOverPace() {
-        let rent = wheel(limit: 185_000, spent: 185_000, on: october18)
-        #expect(rent.left == Money(minorUnits: 0))
-        #expect(rent.arc == 0)
-        #expect(!rent.isOver && !rent.isOverPace && !rent.isWarning)
-        #expect(rent.arcColor == PaletteValues.wheelLeft)
-        #expect(rent.tick == 13.0 / 31)
-        #expect(rent.expectedLeft == Money(minorUnits: 77_581), "185000 × 13 ÷ 31 is 77580.65")
-        #expect(rent.spokenSummary == "Left $0 of $1,850")
-    }
-
         ])
         #expect(groceries.arcColor == PaletteValues.warning)
         #expect(groceries.amountColor == PaletteValues.warning)

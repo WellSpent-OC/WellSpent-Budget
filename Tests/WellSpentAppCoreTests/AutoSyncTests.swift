@@ -129,6 +129,47 @@ struct AutoSyncTests {
 
         #expect(s.autoSync.pending != nil)
     }
+
+    /// Signed out, nothing syncs, so coming to the front reads the budgets
+    /// again by itself: a new month may have begun while the app was away.
+    /// Here another reader of the same budgets adds one the window has not
+    /// read yet.
+    @Test func comingToTheFrontSignedOutReadsTheBudgetsAgain() async throws {
+        let s = try Setup()
+        let group = try #require(s.model.groups.first)
+        AppModel(store: s.model.store).addBudget(named: "Eating out", limit: Money(minorUnits: 30_000),
+                                                 in: group.id)
+        #expect(s.model.summaries[group.id]?.count == 1, "not read yet")
+
+        await s.workspace.cameToFront()
+
+        #expect(s.model.summaries[group.id]?.map(\.budget.name).sorted() == ["Eating out", "Groceries"])
+        #expect(s.autoSync.runs == 0, "nothing syncs while signed out")
+    }
+
+    /// Signed in, coming to the front syncs, and the sync reads the budgets
+    /// again when it is done.
+    @Test func comingToTheFrontSignedInSyncs() async throws {
+        let s = try Setup()
+        try await s.sync.signUp(email: "robin@example.com", password: "a-long-password")
+
+        await s.workspace.cameToFront()
+
+        #expect(s.autoSync.runs == 1)
+    }
+
+    /// A new day reads the budgets again, signed in or not, so a new month
+    /// shows its own money from its first minute.
+    @Test func aNewDayReadsTheBudgetsAgain() throws {
+        let s = try Setup()
+        let group = try #require(s.model.groups.first)
+        AppModel(store: s.model.store).addBudget(named: "Eating out", limit: Money(minorUnits: 30_000),
+                                                 in: group.id)
+
+        s.workspace.dayChanged()
+
+        #expect(s.model.summaries[group.id]?.map(\.budget.name).sorted() == ["Eating out", "Groceries"])
+    }
 }
 
 @Suite("Edits announce themselves")
