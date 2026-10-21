@@ -45,15 +45,15 @@ A UI test names a scenario with one comment line, directly above the step that c
 - To find every test that names a scenario, search for its ID: `git grep -n "PAGE-05"`.
 - When a tag is added or taken out, change the tables below to match.
 
-The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI tests that name a scenario yet.
+The Mac's UI tests are in `Tests/WellSpentUITests` and the iPhone's in `iOS/UITests`. Linux has none that name a scenario yet.
 
 ## Every scenario, and which platforms have a test for it
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 138 | 45 |
-| Linux | 131 | 0 |
-| iPhone | 129 | 23 |
+| Mac | 149 | 45 |
+| Linux | 142 | 0 |
+| iPhone | 140 | 23 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -242,3 +242,21 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | PASTE-08 | The Edit menu holds the editing commands | Mac | None yet |
 | PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | Mac |
 | PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | Mac |
+
+### [MoneyWheel.md](MoneyWheel.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| WHEEL-01 | A budget's row fills as far as its money is used | Mac, Linux, iPhone | None yet |
+| WHEEL-02 | Over its limit, the row fills all the way and says how far over | Mac, Linux, iPhone | None yet |
+| WHEEL-03 | The open budget's row keeps its fill, with an outline | Mac, Linux | None yet |
+| WHEEL-04 | In dark mode, the rows use the dark colours | iPhone | None yet |
+| WHEEL-05 | A budget's page shows its wheel in place of the bar | Mac, Linux, iPhone | None yet |
+| WHEEL-06 | The wheel is full before anything is spent, and empties as money goes out | Mac, Linux, iPhone | None yet |
+| WHEEL-07 | The tick marks where an even pace would be today | Mac, Linux, iPhone | None yet |
+| WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | None yet |
+| WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | None yet |
+| WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | None yet |
+| WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | None yet |
+| WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | None yet |
+| WHEEL-13 | Home starts with a group's wheel | iPhone | None yet |
