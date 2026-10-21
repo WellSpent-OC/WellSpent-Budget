@@ -71,10 +71,12 @@ struct SharingScreensTests {
         share.myName = "Robin"
         #expect(share.canCreate)
         #expect(share.createLabel == "Create Link")
+        #expect(share.note == "You get a link to send by text or email.")
 
         #expect(await share.create())
         let link = try #require(share.link)
         #expect(link.groupName == "Household" && link.inviterName == "Robin")
+        #expect(share.note == "Send this to the person you are inviting. It works once and expires in 7 days.")
     }
 
     @Test func signedOutThereIsNoLink() throws {

@@ -30,6 +30,9 @@ struct WellSpentPhoneApp: App {
             switch launch {
             case .success(let workspace):
                 wellSpentPhoneRootView(workspace: workspace, startingOn: start)
+                    // A tap on one of this build's invite links, whether it
+                    // started the app or the app was running.
+                    .onOpenURL { url in Task { await workspace.open(url) } }
             case .failure(let error):
                 ContentUnavailableView {
                     Label(MainScreen.Words.couldNotOpen(AppEnvironment.current.appName),

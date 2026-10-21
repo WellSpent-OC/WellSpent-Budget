@@ -6,8 +6,9 @@ import SwiftUI
 import WellSpentCrypto
 import WellSpentModel
 
-/// The iPhone's one stack of screens: Home, then a budget. It holds the
-/// sheets, the delete questions and the error alert, as the Mac's window does.
+/// The iPhone's one stack of screens: Home, then a budget, a group's page or
+/// the invitation page a clicked invite link opens. It holds the sheets, the
+/// delete questions and the error alert, as the Mac's window does.
 struct PhoneRootView: View {
     @State var workspace: Workspace
     /// The main window's rules and words, shared with every app.
@@ -16,6 +17,9 @@ struct PhoneRootView: View {
     /// A question to ask once the sheet that asked for it has closed, such as
     /// Delete in the Edit Budget sheet.
     @State private var afterSheet: MainScreen.Action?
+    /// The account sheet, to open once the sheet that asked for it has
+    /// closed, such as Sign in… in Join a Group.
+    @State private var accountAfterSheet = false
     @State private var showingAccount = false
     @State private var addingEntry = false
     /// The screen a staging build was asked to open on, applied once.
@@ -31,9 +35,9 @@ struct PhoneRootView: View {
     }
 
     var body: some View {
-        NavigationStack(path: openBudget) {
+        NavigationStack(path: path) {
             PhoneHomeView(screen: screen, perform: perform, showingAccount: $showingAccount)
-                .navigationDestination(for: BudgetID.self) { _ in budget }
+                .navigationDestination(for: PhoneRoute.self) { route in destination(route) }
         }
         .tint(Palette.accent)
         .stagingBanner(workspace.environment)
@@ -74,19 +78,49 @@ struct PhoneRootView: View {
         }
     }
 
-    /// The open budget is the stack's one pushed screen. Back closes it, and
-    /// a budget deleted here or on another device takes the stack back to
-    /// Home.
-    private var openBudget: Binding<[BudgetID]> {
-        Binding(get: { model.selectedBudget.map { [$0] } ?? [] },
-                set: { model.selectedBudget = $0.last })
+    /// The stack's one pushed screen: an invitation, a group's page or a
+    /// budget, in that order, as `MainScreen` says which shows. Back closes
+    /// it. A budget or group gone, here or on another device, takes the
+    /// stack back to Home.
+    private var path: Binding<[PhoneRoute]> {
+        Binding(get: {
+            if screen.invitation != nil { return [.invitation] }
+            if let group = screen.openGroup { return [.group(group.id)] }
+            return model.selectedBudget.map { [.budget($0)] } ?? []
+        }, set: { path in
+            switch path.last {
+            case .budget(let id): screen.selectedBudget = id
+            case .group(let id): screen.openPage(of: id)
+            case .invitation: break
+            case nil:
+                workspace.closeInvitation()
+                screen.closePage()
+                model.selectedBudget = nil
+            }
+        })
     }
 
     @ViewBuilder
-    private var budget: some View {
-        if case .budget(let summary) = screen.detail {
-            PhoneBudgetView(model: model, sync: sync, summary: summary, main: screen, perform: perform,
-                            addingEntry: $addingEntry)
+    private func destination(_ route: PhoneRoute) -> some View {
+        switch route {
+        case .budget:
+            if case .budget(let summary) = screen.detail {
+                PhoneBudgetView(model: model, sync: sync, summary: summary, main: screen, perform: perform,
+                                addingEntry: $addingEntry)
+            }
+        case .group:
+            if let group = screen.openGroup {
+                PhoneGroupView(sync: sync, group: group, main: screen, perform: perform)
+                    // A page of its own for each group, and again after a
+                    // rename, so its words name the group as it is now.
+                    .id([group.id.uuid.uuidString, group.name])
+            }
+        case .invitation:
+            if let invitation = screen.invitation {
+                PhoneInvitationView(screen: invitation, main: screen, showingAccount: $showingAccount)
+                    // A page of its own for each link opened.
+                    .id(ObjectIdentifier(invitation))
+            }
         }
     }
 
@@ -101,7 +135,10 @@ struct PhoneRootView: View {
         case .editBudget(let budget): editor = .editBudget(budget)
         case .newGroup: editor = .newGroup
         case .renameGroup(let group): editor = .renameGroup(group)
-        case .share, .people, .join, .deleteBudget, .deleteGroup: break
+        case .share(let group): editor = .share(group)
+        case .people(let group): screen.openPage(of: group.id)
+        case .join: editor = .join
+        case .deleteBudget, .deleteGroup: break
         }
     }
 
@@ -116,13 +153,25 @@ struct PhoneRootView: View {
             PhoneGroupSheet(model: model)
         case .renameGroup(let group):
             PhoneGroupSheet(model: model, renaming: group)
-        case .share, .join, .entry:
+        case .share(let group):
+            PhoneShareSheet(sync: sync, group: group)
+        case .join:
+            PhoneJoinSheet(sync: sync, openAccount: {
+                // One sheet at a time: Join a Group closes, then the account opens.
+                accountAfterSheet = true
+                editor = nil
+            })
+        case .entry:
             EmptyView()
         }
     }
 
     /// One sheet or question at a time: the sheet closes, then it asks.
     private func askAfterSheet() {
+        if accountAfterSheet {
+            accountAfterSheet = false
+            showingAccount = true
+        }
         guard let action = afterSheet else { return }
         afterSheet = nil
         perform(action)
@@ -141,25 +190,20 @@ struct PhoneRootView: View {
     }
 }
 
-extension MainScreen.Action {
-    /// Whether the iPhone has a screen for it yet. Sharing, joining and a
-    /// group's people come with the iPhone's second milestone.
-    var isOnThePhone: Bool {
-        switch self {
-        case .share, .people, .join: return false
-        default: return true
-        }
-    }
+/// What the stack has pushed over Home.
+enum PhoneRoute: Hashable {
+    case budget(BudgetID)
+    case group(GroupID)
+    case invitation
 }
 
-/// A menu's parts, with a divider between each, holding only what the
-/// iPhone has a screen for.
+/// A menu's parts, with a divider between each.
 struct PhoneMenu: View {
     let parts: [[MainScreen.MenuItem]]
     let perform: (MainScreen.Action) -> Void
 
     var body: some View {
-        let shown = parts.map { $0.filter(\.action.isOnThePhone) }.filter { !$0.isEmpty }
+        let shown = parts.filter { !$0.isEmpty }
         ForEach(Array(shown.enumerated()), id: \.offset) { index, part in
             if index > 0 { Divider() }
             ForEach(part) { item in

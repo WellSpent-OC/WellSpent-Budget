@@ -9,10 +9,9 @@
 #
 # For both apps it checks the version and build number, the bundle ID, that the
 # build is live, that its code holds Apple's encryption only (crypto-check.sh)
-# and its export answer says so, and that the provisioning profile fits the app
-# (profile-fit.sh).
-# For the Mac app: its one invite link type, every icon size, the signature, and
-# the sandbox. For the iPhone app, told apart by its Info.plist sitting at the
+# and its export answer says so, its one invite link type, and that the
+# provisioning profile fits the app (profile-fit.sh).
+# For the Mac app: every icon size, the signature, and the sandbox. For the iPhone app, told apart by its Info.plist sitting at the
 # top of the app: iPhone only, the oldest iOS, the icon, the privacy file, a
 # profile that is not a development one, and the signature. It reads the app and
 # changes nothing.
@@ -56,6 +55,11 @@ expect WellSpentEnvironment live
 # The export answer: no encryption that export rules do not exempt. Without it,
 # App Store Connect holds the upload until someone answers by hand.
 expect ITSAppUsesNonExemptEncryption false
+# Live's invite links, and no other type, so a staging link never opens it.
+expect CFBundleURLTypes:0:CFBundleURLSchemes:0 wellspent
+[ -z "$(value CFBundleURLTypes:0:CFBundleURLSchemes:1 "$plist")" ] \
+    || problem "the app claims more than one invite link type"
+[ -z "$(value CFBundleURLTypes:1 "$plist")" ] || problem "the app claims more than one link group"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -92,10 +96,6 @@ if [ "$platform" = iphone ]; then
 fi
 
 expect CFBundleIconFile AppIcon
-expect CFBundleURLTypes:0:CFBundleURLSchemes:0 wellspent
-[ -z "$(value CFBundleURLTypes:0:CFBundleURLSchemes:1 "$plist")" ] \
-    || problem "the app claims more than one invite link type"
-[ -z "$(value CFBundleURLTypes:1 "$plist")" ] || problem "the app claims more than one link group"
 
 # Every icon size macOS asks for, from the icon file in the app itself.
 icns="$app/Contents/Resources/AppIcon.icns"

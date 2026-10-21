@@ -67,7 +67,7 @@ struct ShareView: View {
             Note(failure, warning: true)
         }
         HStack {
-            Note(Words.linkNote)
+            Note(screen.note)
             Spacer()
             Button(Words.cancel) { close() }
             Button(screen.createLabel) { Task { await screen.create() } }
@@ -80,7 +80,7 @@ struct ShareView: View {
         Text(link.url)
             .font(.system(size: 11))
             .textSelectionEnabled()
-        Note(SyncWording.inviteNote)
+        Note(screen.note)
         HStack {
             Button(Words.copyLink) { wellspent_clipboard_set_text(link.url) }
             Spacer()
