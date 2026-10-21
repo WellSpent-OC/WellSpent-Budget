@@ -8,13 +8,17 @@ title: "Side quest: Change a budget's name or amount"
 
 **Before you start:** you need the Manage level or higher.
 
-1. Right-click the budget in the sidebar.
+1. ![A hand right-clicks a budget in the sidebar](../assets/shots/change-a-budget-1-mac.svg)
+   Right-click the budget in the sidebar.
 
-2. Pick **Edit…**
+2. ![A hand picks Edit](../assets/shots/change-a-budget-2.svg)
+   Pick **Edit…**
 
-3. Change **Name**, or **Each month**.
+3. ![A hand types in Each month](../assets/shots/change-a-budget-3.svg)
+   Change **Name**, or **Each month**.
 
-4. Press **Save**.
+4. ![A hand presses Save](../assets/shots/change-a-budget-4.svg)
+   Press **Save**.
 
    > You see the budget's new name or amount, and what's left follows at once.
 

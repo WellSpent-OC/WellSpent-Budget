@@ -8,13 +8,16 @@ title: "Side quest: Delete a group"
 
 **Before you start:** only the person who made the group, or an Admin, can delete it. A shared group is deleted for everyone in it. This can't be undone.
 
-1. Right-click the group's name in the sidebar.
+1. ![A hand right-clicks the group's name in the sidebar](../assets/shots/delete-a-group-1-mac.svg)
+   Right-click the group's name in the sidebar.
 
-2. Pick **Delete…**
+2. ![A hand picks Delete](../assets/shots/delete-a-group-2.svg)
+   Pick **Delete…**
 
    > You see a question that names the group, and how many budgets and transactions go with it.
 
-3. Press **Delete** in the question.
+3. ![A hand presses Delete in the question](../assets/shots/delete-a-group-3.svg)
+   Press **Delete** in the question.
 
    > You see the group gone from your sidebar.
 
