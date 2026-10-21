@@ -111,6 +111,9 @@ public final class MainScreen {
         self.workspace = workspace
         defaults = workspace.sync.defaults
         collapsed = defaults.string(forKey: Self.collapsedKey) ?? ""
+        // Someone else deleting the group, or taking this person out of it,
+        // closes its page for good.
+        workspace.afterReload.append { [weak self] in self?.closePageIfItsGroupIsGone() }
     }
 
     // MARK: - The left side
@@ -171,9 +174,12 @@ public final class MainScreen {
     private var page: (group: GroupID, over: BudgetID?)?
 
     /// Opens a group's page, in place of whatever shows on the right, an
-    /// invitation included.
+    /// invitation included. On a phone, whose budgets open only by a tap,
+    /// the page is a screen of its own over the list: the open budget
+    /// closes, so Back, or a leave, goes to the list and not to it.
     public func openPage(of group: GroupID) {
         workspace.closeInvitation()
+        if !model.opensFirstBudget { model.selectedBudget = nil }
         page = (group, model.selectedBudget)
     }
 
@@ -181,6 +187,12 @@ public final class MainScreen {
     /// phone. A desktop never needs it: something else always opens there.
     public func closePage() {
         page = nil
+    }
+
+    /// A page whose group is gone closes for good, so it does not come back
+    /// by itself if the group does, such as after joining it again.
+    private func closePageIfItsGroupIsGone() {
+        if let page, model.group(named: page.group) == nil { self.page = nil }
     }
 
     /// Leave Group… on a group's page. It asks first, with the question
@@ -301,6 +313,7 @@ public final class MainScreen {
         let shown = openGroup?.id
         pending.confirm(model: model, sync: sync)
         if let shown, model.group(named: shown) != nil { page = (shown, model.selectedBudget) }
+        closePageIfItsGroupIsGone()
     }
 
     /// Asks before an entry's delete, with the window's own question.

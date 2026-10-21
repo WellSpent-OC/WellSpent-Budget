@@ -16,13 +16,14 @@ private struct Device {
     let screen: MainScreen
     var model: AppModel { workspace.model }
 
+    /// `opensFirstBudget` false is a phone's, where only a tap opens a budget.
     init(_ email: String? = nil, on server: InMemoryReadableServer = InMemoryReadableServer(),
-         defaults: UserDefaults = isolatedDefaults()) async throws {
+         defaults: UserDefaults = isolatedDefaults(), opensFirstBudget: Bool = true) async throws {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let transport = StubReadableTransport(server: server)
         sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: defaults,
                                makeTransport: { _ in transport })
-        workspace = Workspace(model: AppModel(store: store), sync: sync)
+        workspace = Workspace(model: AppModel(store: store, opensFirstBudget: opensFirstBudget), sync: sync)
         screen = MainScreen(workspace: workspace)
         if let email {
             try await sync.signUp(email: email, password: "a-long-password")
@@ -52,6 +53,19 @@ private func household(leslieAt level: InviteRole) async throws -> (robin: Devic
     await leslie.sync.syncAll()
     await robin.sync.syncAll()
     return (robin, leslie, group)
+}
+
+/// Robin invites Leslie into his group again, and she joins. Both sync.
+@MainActor
+private func rejoin(_ leslie: Device, _ robin: Device, _ group: GroupID) async throws {
+    let share = ShareScreen(actions: robin.sync, group: group, groupName: "Household")
+    share.myName = "Robin"
+    #expect(await share.create())
+    let join = JoinScreen(actions: leslie.sync, linkText: try #require(share.link).url)
+    join.myName = "Leslie"
+    #expect(await join.join())
+    await leslie.sync.syncAll()
+    await robin.sync.syncAll()
 }
 
 private func titles(_ menu: [[MainScreen.MenuItem]]) -> [[String]] {
@@ -459,6 +473,56 @@ struct MainScreenTests {
         device.screen.confirm(try #require(device.screen.pendingDelete))
         #expect(device.screen.openGroup == nil)
         #expect(device.model.groups.map(\.id) == [other])
+    }
+
+    /// A page whose group goes stays closed when the group comes back, such
+    /// as when Leslie joins it again: only a tap opens it. That holds when she
+    /// left it herself, and when Robin took her out and a sync said so.
+    @Test func aGroupsPageStaysClosedWhenItsGroupComesBack() async throws {
+        let (robin, leslie, id) = try await household(leslieAt: .add)
+        leslie.screen.openPage(of: id)
+        leslie.screen.askToLeave(try #require(leslie.model.group(named: id)))
+        leslie.screen.confirm(try #require(leslie.screen.pendingDelete))
+        await leslie.sync.syncAll()
+        await robin.sync.syncAll()
+        #expect(leslie.screen.openGroup == nil)
+
+        try await rejoin(leslie, robin, id)
+        #expect(leslie.model.group(named: id) != nil, "she is back in")
+        #expect(leslie.screen.openGroup == nil, "her page came back by itself after she left")
+
+        leslie.screen.openPage(of: id)
+        let owners = MembersScreen(actions: robin.sync, group: id, groupName: "Household")
+        await owners.refresh()
+        owners.remove(try #require(owners.rows.first { !$0.isYou }).id)
+        await owners.pending?.value
+        await leslie.sync.syncAll()
+        #expect(leslie.model.group(named: id) == nil, "Robin took her out")
+        #expect(leslie.screen.openGroup == nil)
+
+        try await rejoin(leslie, robin, id)
+        #expect(leslie.model.group(named: id) != nil, "she is back in")
+        #expect(leslie.screen.openGroup == nil, "her page came back by itself after she was taken out")
+    }
+
+    /// On a phone a group's page is a screen of its own over the list, so no
+    /// budget sits under it: Back, or the group going, lands on the list.
+    @Test func onAPhoneNoBudgetSitsUnderAGroupsPage() async throws {
+        let device = try await Device(opensFirstBudget: false)
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        device.screen.selectedBudget = groceries
+
+        device.screen.openPage(of: side)
+        #expect(device.screen.openGroup?.id == side)
+        #expect(device.model.selectedBudget == nil, "Groceries is still open under the page")
+
+        device.screen.ask(.deleteGroup(try #require(device.model.group(named: side))))
+        device.screen.confirm(try #require(device.screen.pendingDelete))
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == nil, "the group went and Groceries opened in its place")
+        #expect(device.screen.detail == .noneSelected)
     }
 
     /// A delete on the left is not a click on a budget, so the page stays.
