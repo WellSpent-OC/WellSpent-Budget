@@ -1,6 +1,8 @@
 // What the Linux app needs from C: the desktop keyring (Secret Service, through
 // libsecret, whose calls are variadic and so not callable from Swift), the GTK
-// clipboard, and handing a clicked link to the copy of the app already running.
+// clipboard, handing a clicked link to the copy of the app already running, and
+// what a screen reader says about a widget (GTK's accessibility calls are
+// variadic too).
 #pragma once
 
 /// Stores `value` under (service, item) in the default keyring. 1 on success.
@@ -30,3 +32,15 @@ typedef void (*wellspent_link_receiver)(const char *link);
 /// link goes to that copy's action, and this launch stops without a window.
 /// When none is running, the launch goes on as before.
 void wellspent_link_handoff(const char *app_id, const char *link, wellspent_link_receiver receive);
+
+/// What a screen reader names `widget` (a GtkWidget), in place of what it
+/// shows: for a widget whose look carries its meaning, such as an arrow.
+void wellspent_accessible_set_label(void *widget, const char *label);
+
+/// What a screen reader says after the widget's name, such as how much of a
+/// budget is used.
+void wellspent_accessible_set_description(void *widget, const char *description);
+
+/// Whether a screen reader hears the widget as the one picked, such as the
+/// open budget's row. 1 for picked, 0 for not.
+void wellspent_accessible_set_selected(void *widget, int selected);

@@ -102,3 +102,18 @@ void wellspent_link_handoff(const char *app_id, const char *link, wellspent_link
         g_signal_connect_data(app, "handle-local-options", G_CALLBACK(hand_link_over), g_strdup(link),
                               free_link, 0);
 }
+
+void wellspent_accessible_set_label(void *widget, const char *label) {
+    if (!GTK_IS_ACCESSIBLE(widget) || !label) return;
+    gtk_accessible_update_property(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_PROPERTY_LABEL, label, -1);
+}
+
+void wellspent_accessible_set_description(void *widget, const char *description) {
+    if (!GTK_IS_ACCESSIBLE(widget) || !description) return;
+    gtk_accessible_update_property(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, description, -1);
+}
+
+void wellspent_accessible_set_selected(void *widget, int selected) {
+    if (!GTK_IS_ACCESSIBLE(widget)) return;
+    gtk_accessible_update_state(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_STATE_SELECTED, selected ? TRUE : FALSE, -1);
+}
