@@ -83,8 +83,12 @@ struct PhoneOpenedEntrySheet: View {
             ForEach(editor.details) { detail in
                 LabeledContent(detail.label) {
                     Text(detail.value)
-                        .accessibilityIdentifier(AccessibilityID.entryDetail(detail.label))
                 }
+                // One element, read as its label, then the detail.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(detail.label)
+                .accessibilityValue(detail.value)
+                .accessibilityIdentifier(AccessibilityID.entryDetail(detail.label))
             }
         } footer: {
             if let line = editor.readOnlyLine {
