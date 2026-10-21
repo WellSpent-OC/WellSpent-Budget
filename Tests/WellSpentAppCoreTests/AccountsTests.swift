@@ -279,6 +279,25 @@ struct AccountsTests {
         #expect(AccountDirectory.testing(at: root).samplesSeeded, "the same run keeps its settings")
     }
 
+    /// The Mac's test makes its folder before the first launch, and its
+    /// sandboxed runner can't reach the app's settings to wipe them. So a
+    /// folder that exists must still start afresh on its first launch, and
+    /// keep its settings only on a relaunch.
+    @Test func aFolderMadeBeforeTheFirstLaunchStillStartsAfresh() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-made-first-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(!AccountDirectory.testing(at: root).samplesSeeded, "the first launch starts afresh")
+
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(AccountDirectory.testing(at: root).samplesSeeded, "a relaunch keeps its settings")
+    }
+
     /// The app itself, launched the way main.swift launches it, with the
     /// variable set: its budgets land in the folder and its settings in the
     /// test suite, with nothing asked of the keychain.
