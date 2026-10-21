@@ -92,11 +92,10 @@ jobs:
 
       # Covers the library targets. WellSpentApp is an executable with no test
       # target depending on it, so it is not linked into the test binary and
-      # cannot be measured here. See scripts/coverage.sh and STATUS.md.
+      # cannot be measured here. See scripts/coverage.sh and STATUS.md. The
+      # floor is coverage.sh's own, 90 percent, the sign-off rule's number.
       - name: Line coverage
         run: ./scripts/coverage.sh
-        env:
-          COVERAGE_MINIMUM: 85
 
   # The server ships as a Linux container, and nothing else in this workflow
   # compiles it for Linux. A macOS build passing says nothing about whether
