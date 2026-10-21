@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 37 |
+| Linux | 142 | 44 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -131,14 +131,14 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | iPhone |
-| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | iPhone |
+| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Linux, iPhone |
 | EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | None yet |
 | EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | None yet |
 | EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, iPhone |
