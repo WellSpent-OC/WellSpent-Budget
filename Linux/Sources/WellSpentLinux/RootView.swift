@@ -6,8 +6,9 @@ import WellSpentCrypto
 import WellSpentModel
 
 /// The window, drawn from MainScreen: groups and budgets on the left, the
-/// chosen budget on the right, and the sheets over them. The rules and words
-/// are the Mac's, from the shared code; this is layout only.
+/// chosen budget or a group's page on the right, and the sheets over them.
+/// The rules and words are the Mac's, from the shared code; this is layout
+/// only.
 struct RootView: View {
     var workspace: Workspace
     @State var screen: MainScreen
@@ -17,6 +18,8 @@ struct RootView: View {
     @State var showingEntry = false
     /// An entry opened from the budget's list, to change, move or delete.
     @State var openedEntry: EntryEditor?
+    /// The people on the group's page, while one shows.
+    @State var openPage = OpenGroupPage()
 
     init(workspace: Workspace) {
         self.workspace = workspace
@@ -34,6 +37,8 @@ struct RootView: View {
         let pendingDelete = screen.pendingDelete
         let importing = model.pendingImport != nil
         let problem = model.errorMessage
+        let openGroup = screen.openGroup
+        let people = openPage.screen(for: openGroup, sync: sync)
         VStack(spacing: 0) {
             if workspace.environment == .staging {
                 StagingBanner()
@@ -41,7 +46,12 @@ struct RootView: View {
             NavigationSplitView {
                 SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
             } detail: {
-                detail
+                if let openGroup, let people {
+                    GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
+                                  invite: { sheet = .share(openGroup) })
+                } else {
+                    detail
+                }
             }
         }
         .sheet(isPresented: $showingAccount) {
@@ -121,10 +131,13 @@ struct RootView: View {
         openedEntry = EntryEditor(model: model, entry: id)
     }
 
-    /// A delete or a leave asks first; anything else opens its sheet.
+    /// A delete or a leave asks first. People… opens the group's page, and
+    /// anything else opens its sheet.
     private func perform(_ action: MainScreen.Action) {
         if action.asksFirst {
             screen.ask(action)
+        } else if case .people(let group) = action {
+            screen.openPage(of: group.id)
         } else {
             sheet = action
         }
@@ -146,10 +159,6 @@ struct RootView: View {
             GroupEditorView(editor: GroupEditor(model: model, renaming: group), close: closeSheet)
         case .share(let group):
             ShareView(screen: ShareScreen(actions: sync, group: group.id, groupName: group.name), close: closeSheet)
-        case .people(let group):
-            MembersView(screen: MembersScreen(actions: sync, group: group.id, groupName: group.name),
-                        group: group, model: model, sync: sync, close: closeSheet,
-                        invite: { sheet = .share(group) })
         case .join:
             JoinView(screen: JoinScreen(actions: sync), close: closeSheet, openAccount: {
                 // One sheet at a time: the join closes, then the account opens.
@@ -159,7 +168,7 @@ struct RootView: View {
                     showingAccount = true
                 }
             })
-        case .deleteBudget, .deleteGroup:
+        case .people, .deleteBudget, .deleteGroup:
             EmptyView()
         }
     }
@@ -184,7 +193,7 @@ struct StagingBanner: View {
 // MARK: - Sidebar
 
 /// One line of the sidebar. A flat list, because each group's name is a row
-/// of its own above its budgets: clicking it hides or shows them.
+/// of its own above its budgets: clicking it opens the group's page.
 enum SidebarRow: Identifiable {
     case group(MainScreen.Section)
     case budget(BudgetSummary)
@@ -215,23 +224,28 @@ struct SidebarView: View {
         return rows
     }
 
-    /// Picking a budget shows it; picking a group's name hides or shows its
-    /// budgets and leaves the chosen budget as it was.
+    /// Picking a budget shows it, and picking a group's name opens its page.
+    /// The list marks whichever shows on the right.
     private var selection: Binding<String?> {
-        Binding(get: { screen.selectedBudget.map { "budget:\($0.uuid)" } },
+        Binding(get: {
+                    if let group = screen.openGroup { return "group:\(group.id.uuid)" }
+                    return screen.selectedBudget.map { "budget:\($0.uuid)" }
+                },
                 set: { picked in
                     guard let picked, let row = rows.first(where: { $0.id == picked }) else { return }
                     switch row {
                     case .budget(let summary): screen.selectedBudget = summary.budget.id
-                    case .group(let section): screen.toggle(section.id)
+                    case .group(let section): screen.openPage(of: section.id)
                     case .note: break
                     }
                 })
     }
 
     var body: some View {
-        // Read here, so choosing a budget elsewhere redraws the highlight.
+        // Read here, so opening a budget or a page elsewhere redraws the
+        // highlight.
         _ = screen.selectedBudget
+        _ = screen.openGroup
         return VStack(spacing: 0) {
             List(rows, selection: selection) { row in
                 rowView(row)
@@ -254,14 +268,16 @@ struct SidebarView: View {
             HStack {
                 Text(section.title.uppercased())
                     .font(.system(size: 11, weight: .semibold))
-                Text(section.isCollapsed ? "▸" : "▾")
-                    .foregroundColor(.gray)
                 Spacer()
                 // GTK has no right-click menu here, so each group has a button
                 // that opens the menu the Mac shows on a right-click.
                 Menu("⋯") {
                     menuItems(screen.groupMenu(section.group))
                 }
+                // The arrow at the end of the line hides or shows the budgets,
+                // as on the Mac. The rest of the line opens the page.
+                Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
+                    .help(section.toggleHelp)
             }
         case .budget(let summary):
             HStack {
