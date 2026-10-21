@@ -650,7 +650,8 @@ class App:
         """Makes a fresh account on staging for this copy, as a person does:
         Sign in, Create an account, an email and a password, then the emailed
         code. Signed in afterwards. Gives back the email."""
-        self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{name.lower()}@example.com"
+        slug = "".join(ch for ch in name.lower() if ch.isalnum())
+        self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
         self.password = secrets.token_urlsafe(18)
         self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
@@ -688,6 +689,19 @@ class App:
         self.button("Sync", within=self.main)
         self.sync()
         return self.email
+
+    def sign_out(self):
+        """Account, then Sign out. Signed out afterwards, with the sheet
+        closed."""
+        self.button("Account", within=self.main).press()
+        sheet = self.wait_for_window(2, "the account sheet")
+        self.button("Sign out", within=sheet).press()
+        self.until(lambda: len(self.windows()) == 1 or self.shows("Sign in", within=self.front, role="push button"),
+                   "signing out")
+        if len(self.windows()) > 1:
+            self.button("Cancel", within=self.front).press()
+            self.wait_for_window(1, "the account sheet to close")
+        self.button("Sign in", within=self.main)
 
     def remove_group(self, name):
         """Takes a group a test made off this person's computer and, for its
