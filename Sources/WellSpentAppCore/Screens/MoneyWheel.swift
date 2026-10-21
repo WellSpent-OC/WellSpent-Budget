@@ -35,7 +35,7 @@ public struct PeriodDay: Equatable, Sendable {
         self.days = days
         self.start = start
         let counted = calendar.date(byAdding: .day, value: day - 1, to: start) ?? now
-        month = counted.formatted(Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
+        month = counted.formatted(Date.FormatStyle(locale: calendar.locale ?? AppLocale.current, calendar: calendar,
                                                    timeZone: calendar.timeZone).month(.wide))
     }
 
@@ -93,7 +93,7 @@ public struct MoneyWheel: Equatable, Sendable {
     }
 
     /// A budget's wheel, from its summary and its own period.
-    public init(budget summary: BudgetSummary, now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) {
+    public init(budget summary: BudgetSummary, now: Date = Date(), calendar: Calendar = AppLocale.calendar) {
         self.init(scope: .budget, budgeted: summary.budget.limit, spent: summary.spent,
                   day: PeriodDay(period: summary.period, now: now, calendar: calendar))
     }

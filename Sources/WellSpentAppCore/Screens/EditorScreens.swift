@@ -28,7 +28,7 @@ public final class BudgetEditor {
     private let model: AppModel
 
     public init(model: AppModel, editing: Budget? = nil, group: GroupID? = nil, groups: [BudgetGroup]? = nil,
-                locale: Locale = .autoupdatingCurrent) {
+                locale: Locale = AppLocale.current) {
         self.model = model
         self.editing = editing
         self.groups = groups ?? model.groups
@@ -47,7 +47,7 @@ public final class BudgetEditor {
     public var showsGroupPicker: Bool { editing == nil && !groups.isEmpty }
 
     /// A name, and an amount above zero, read the way the region writes one.
-    public static func canSave(name: String, amountText: String, locale: Locale = .autoupdatingCurrent) -> Bool {
+    public static func canSave(name: String, amountText: String, locale: Locale = AppLocale.current) -> Bool {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty,
               let amount = TypedAmount(amountText, locale: locale).money else { return false }
         return amount.minorUnits != 0
@@ -173,7 +173,7 @@ public final class EntryEditor {
     /// With `editing`, the entry fills the form, and only the fields changed
     /// from it are saved.
     public init(model: AppModel, editing: Transaction? = nil, date: Date = Date(),
-                locale: Locale = .autoupdatingCurrent) {
+                locale: Locale = AppLocale.current) {
         self.model = model
         self.editing = editing
         self.locale = locale
@@ -198,7 +198,7 @@ public final class EntryEditor {
 
     /// Someone it went to, and an amount read the way the region writes one.
     /// A negative or zero amount is taken as money out, as every entry is.
-    public static func canAdd(merchant: String, amountText: String, locale: Locale = .autoupdatingCurrent) -> Bool {
+    public static func canAdd(merchant: String, amountText: String, locale: Locale = AppLocale.current) -> Bool {
         !merchant.trimmingCharacters(in: .whitespaces).isEmpty
             && TypedAmount(amountText, locale: locale).money != nil
     }
@@ -305,7 +305,7 @@ public final class EntryEditor {
            amount.magnitude != editing.amount.magnitude {
             changes.amount = amount.magnitude
         }
-        if !Calendar.autoupdatingCurrent.isDate(date, inSameDayAs: editing.date) { changes.date = date }
+        if !AppLocale.calendar.isDate(date, inSameDayAs: editing.date) { changes.date = date }
         if note != editing.note { changes.note = note }
         if let budgetID, budgetID != editing.budgetID { changes.budget = budgetID }
         return changes == EntryChange() ? nil : changes
@@ -375,7 +375,10 @@ public final class EntryEditor {
         public static let aMember = "a member"
         public static func addedBy(_ who: String) -> String { "Added by \(who)" }
         /// A read-only entry's date, such as "Oct 5, 2026".
-        public static func fullDate(_ date: Date) -> String { date.formatted(date: .abbreviated, time: .omitted) }
+        public static func fullDate(_ date: Date) -> String {
+            date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: AppLocale.current,
+                                            calendar: AppLocale.calendar))
+        }
         public static let outOfPeriod = "This moves it out of this period."
         public static let notice = "Your last change to this didn't go through. This is the version everyone sees."
         public static let nothingChanged = "Nothing was changed."

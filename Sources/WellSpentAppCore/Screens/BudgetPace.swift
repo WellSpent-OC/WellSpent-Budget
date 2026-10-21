@@ -21,7 +21,7 @@ public struct BudgetPace: Equatable, Sendable {
     /// With nothing left, the money has run out already, so there is no day
     /// ahead for it to run out on. Rent paid in full on the 1st would
     /// otherwise run out "around" today, on every day of the month.
-    public init?(wheel: MoneyWheel, budgetName: String, mayEdit: Bool, calendar: Calendar = .autoupdatingCurrent) {
+    public init?(wheel: MoneyWheel, budgetName: String, mayEdit: Bool, calendar: Calendar = AppLocale.calendar) {
         guard wheel.scope == .budget, !wheel.isOver, wheel.left.minorUnits > 0, let day = wheel.day,
               let expected = wheel.expectedLeft else { return nil }
         let left = wheel.left
@@ -31,7 +31,7 @@ public struct BudgetPace: Equatable, Sendable {
             // something is spent, so this never divides by nothing.
             let runsOut = wheel.budgeted.minorUnits * day.day / wheel.spent.minorUnits
             let date = calendar.date(byAdding: .day, value: runsOut - 1, to: day.start) ?? day.start
-            let style = Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
+            let style = Date.FormatStyle(locale: calendar.locale ?? AppLocale.current, calendar: calendar,
                                          timeZone: calendar.timeZone)
             kind = .overPace
             text = Words.runsOut(budgetName, around: date.formatted(style.month(.abbreviated).day()),
