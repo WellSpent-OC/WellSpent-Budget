@@ -152,6 +152,32 @@ struct AppEnvironmentTests {
         }
     }
 
+    /// A click on an invite link opens the build whose server made it, on
+    /// Linux too. The menu entry the install writes claims the build's own
+    /// link type, and hands the clicked link to the app as its argument
+    /// (%u). It is read here as package.sh fills it in for each build.
+    @Test func eachLinuxBuildTakesItsOwnInviteLinks() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: root.appendingPathComponent("Linux/scripts/package.sh"), encoding: .utf8)
+        let install = try String(contentsOf: root.appendingPathComponent("Linux/scripts/install.sh.in"),
+                                 encoding: .utf8)
+        for environment in AppEnvironment.allCases {
+            let sets = Self.values(setFor: environment, in: script)
+            #expect(sets["SCHEME"] == environment.inviteScheme, "\(environment)")
+            var filled = install
+            for (name, value) in sets {
+                #expect(script.contains("-e \"s/@\(name)@/$\(name)/g\""), "package.sh fills in @\(name)@")
+                filled = filled.replacingOccurrences(of: "@\(name)@", with: value)
+            }
+            #expect(filled.range(of: "@[A-Z_]+@", options: .regularExpression) == nil, "\(environment)")
+            let lines = filled.components(separatedBy: "\n")
+            #expect(lines.contains("MimeType=x-scheme-handler/\(environment.inviteScheme);"), "\(environment)")
+            let exec = try #require(lines.first { $0.hasPrefix("Exec=") }, "the entry starts no app")
+            #expect(exec.hasSuffix(" %u"), "the clicked link goes to the app: \(exec)")
+        }
+    }
+
     /// Anything not marked live counts as staging, because the dangerous mistake
     /// is a test build that thinks it is live.
     @Test func onlyExactlyLiveIsLive() {
