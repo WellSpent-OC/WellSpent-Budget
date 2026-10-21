@@ -77,7 +77,7 @@ struct ShareSheet: View {
             }
 
             HStack {
-                Text(Words.linkNote)
+                Text(screen.note)
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.muted)
                 Spacer()
@@ -103,7 +103,7 @@ struct ShareSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
 
-            Text(SyncWording.inviteNote)
+            Text(screen.note)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
                 .fixedSize(horizontal: false, vertical: true)

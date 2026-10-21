@@ -8,8 +8,9 @@ import WellSpentSync
 
 /// Share: your name, what they can do, what they see, and Create Link, which
 /// opens the iPhone's own share sheet with the link in it. No extra screen
-/// with the link. Closed without sending, the sheet stays, and Send… opens
-/// the share sheet again for the same link. Draws `ShareScreen`. Layout only.
+/// with the link. Closed without sending, the sheet stays, says the link
+/// works once, and Send… opens the share sheet again for the same link.
+/// Draws `ShareScreen`. Layout only.
 struct PhoneShareSheet: View {
     @State private var screen: ShareScreen
     @Environment(\.dismiss) private var dismiss
@@ -75,7 +76,7 @@ struct PhoneShareSheet: View {
                     .disabled(screen.link == nil && !screen.canCreate)
                     .accessibilityIdentifier(AccessibilityID.shareCreate)
                 } footer: {
-                    Text(Words.linkNote)
+                    Text(screen.note)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -84,10 +85,14 @@ struct PhoneShareSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(screen.link == nil ? Words.cancel : Words.done) { dismiss() }
+                        .disabled(screen.isWorking)
                         .accessibilityIdentifier(AccessibilityID.shareCancel)
                 }
             }
         }
+        // While the link is being made, the sheet stays: the share sheet
+        // opens over it once the link is there, and never over what is left.
+        .interactiveDismissDisabled(screen.isWorking)
     }
 
     /// Makes the link the first time, then hands it to the share sheet.
