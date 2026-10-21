@@ -74,6 +74,7 @@ final class ImportGapTests: XCTestCase {
         // title names the group, with the file's name beside it. The four
         // counts sit across the top, each line has a row, and the note sits
         // at the foot beside Cancel and Import. Nothing is in Groceries yet.
+        run.expect(button: AccessibilityID.budgetImport, says: BudgetScreen.Words.importStatement)
         run.importStatement(at: statement)
         run.expectTitle(Words.title(into: household), beside: statement.lastPathComponent)
         for bank in [joes, bakery] {
@@ -118,7 +119,9 @@ final class ImportGapTests: XCTestCase {
 
         // Scenario IMPORT-06
         // 5. Corner Bakery given Groceries, Trader Joes left at Choose, then
-        // Import: only Corner Bakery is added.
+        // Import: only Corner Bakery is added. Imported again, Trader Joes
+        // still needs a budget, so it went into none of the group's budgets:
+        // a line added to any of them says Already imported.
         run.choose(groceries, in: AccessibilityID.importLineBudget(bakery))
         run.click(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
@@ -130,12 +133,13 @@ final class ImportGapTests: XCTestCase {
         run.expect(wheel: AccessibilityID.budgetWheel, reads: bakeryOnly.wheel.spokenSummary,
                    "Groceries, with Corner Bakery")
         run.expect(figures: bakeryOnly.wheel.figures, "Groceries, with Corner Bakery")
+        run.importStatement(at: statement)
+        XCTAssertEqual(run.status(of: joes), Words.needsBudget, "a line left at Choose went into a budget")
 
         // Scenario IMPORT-02
-        // 6. Imported again, Trader Joes is given Groceries. Once imported,
-        // it shows in Groceries as Trader Joes, with the bank's words under
-        // it, Statement under Source, and $54.20.
-        run.importStatement(at: statement)
+        // 6. Trader Joes is given Groceries. Once imported, it shows in
+        // Groceries as Trader Joes, with the bank's words under it,
+        // Statement under Source, and $54.20.
         run.choose(groceries, in: AccessibilityID.importLineBudget(joes))
         run.click(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
@@ -185,10 +189,18 @@ final class ImportGapTests: XCTestCase {
         let groceries = "Groceries \(stamp)", eatingOut = "Eating out \(stamp)"
         let costco = "COSTCO WHSE #0472", hilltop = "HILLTOP GROCERY #17", bakery = "CORNER BAKERY"
         let farm = "FARM STAND #9", orchard = "APPLE ORCHARD #2"
-        let statement = try run.writeStatement(named: "statement.csv", [(costco, "-286.31", 0), (hilltop, "-58.10", 0)])
+        // The Costco line is dated the day before Costco is typed. The rule
+        // counts the days between them either way.
+        let statement = try run.writeStatement(named: "statement.csv", [(costco, "-286.31", 1), (hilltop, "-58.10", 0)])
+        // The name the review gives the Costco line, made by the app's own
+        // tidying of the bank's words, which drops the store number.
+        let costcoName = StatementLine(date: Date(), rawDescription: costco, amount: Money(minorUnits: -28_631))
+            .cleanedDescription
+        let eatingOutUntouched = TodaysBudget(limit: 20_000, spent: 0)
 
         // 1. A group with two budgets, and in Groceries, Hilltop Grocery,
-        // $42.00, and Costco, $286.31, typed by hand.
+        // $42.00, and Costco, $286.31, typed by hand. Then Eating out is
+        // opened, so the open budget is not where Hilltop Grocery went.
         run.launch()
         run.addGroup(named: household)
         run.addBudget(named: eatingOut, amount: "200", inGroup: household)
@@ -196,12 +208,17 @@ final class ImportGapTests: XCTestCase {
         run.addEntry(merchant: "Hilltop Grocery", amount: "42.00")
         run.addEntry(merchant: "Costco", amount: "286.31")
         let typed = (costco: run.entryRows("Costco"), hilltop: run.entryRows("Hilltop Grocery"))
+        run.click(AccessibilityID.sidebarBudget(eatingOut))
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched.wheel.spokenSummary,
+                   "Eating out, opened")
 
         // Scenario IMPORT-03, IMPORT-04
-        // 2. The Costco line matches Costco, typed by hand, and Matched
-        // counts it. The Hilltop line shows Hilltop Grocery and will be
-        // added, with no budget list, and To add counts it.
+        // 2. The statement goes into Household, Eating out's group. The
+        // Costco line, a day from Costco typed by hand, matches it, and
+        // Matched counts it. The Hilltop line shows Hilltop Grocery and will
+        // be added, with no budget list, and To add counts it.
         run.importStatement(at: statement)
+        run.expect(line: costco, shows: [costcoName])
         XCTAssertEqual(run.status(of: costco), Words.matchedEntry)
         run.expect(line: hilltop, shows: ["Hilltop Grocery"])
         XCTAssertEqual(run.status(of: hilltop), Words.willBeAdded)
@@ -210,14 +227,23 @@ final class ImportGapTests: XCTestCase {
         run.expect(counts: [1, 1, 0, 0], "one line matched and one to add")
 
         // Scenario IMPORT-03, IMPORT-04
-        // 3. Import: Groceries still holds one Costco, the one typed by hand,
-        // and a second Hilltop Grocery, $58.10. Only $58.10 more is spent.
+        // 3. Import: the Hilltop line goes where Hilltop Grocery went before,
+        // not into Eating out, which is open. Groceries holds a second
+        // Hilltop Grocery, $58.10, and still one Costco, the one typed by
+        // hand, with no row for the Costco line. Only $58.10 more is spent.
         run.click(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).waitForExistence(timeout: 3),
+                       "the Hilltop line went into Eating out, the open budget")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched.wheel.spokenSummary,
+                   "Eating out, after Import")
+        run.click(AccessibilityID.sidebarBudget(groceries))
         XCTAssertTrue(run.wait(forEntryRows: "Hilltop Grocery", timeout: 10) { $0 == typed.hilltop * 2 },
                       "no second Hilltop Grocery. On screen: \(run.visibleTexts())")
         run.expect(entry: "Hilltop Grocery", shows: ["$58.10"])
-        XCTAssertEqual(run.entryRows("Costco"), typed.costco, "Costco was added again")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow(costcoName)).waitForExistence(timeout: 3),
+                       "the Costco line was added, as \(costcoName)")
+        XCTAssertEqual(run.entryRows("Costco"), typed.costco, "a second Costco shows")
         run.expect(entry: "Costco", shows: [Self.manualSource, "$286.31"])
         let filed = TodaysBudget(limit: 50_000, spent: 38_641)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: filed.wheel.spokenSummary,
@@ -408,6 +434,16 @@ private extension TestApp {
                                     file: file, line: line)
         XCTAssertLessThan(abs(below.frame.minX - top.frame.minX), 4, "\(lower) does not start where \(upper) does \(place)",
                           file: file, line: line)
+    }
+
+    /// Checks a button says these words, as its title or as its name, which
+    /// is what a toolbar button that shows only its picture says.
+    func expect(button identifier: String, says words: String, file: StaticString = #filePath, line: UInt = #line) {
+        let button = element(identifier)
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "no \(words) button. On screen: \(visibleTexts())",
+                      file: file, line: line)
+        XCTAssertTrue([button.title, button.label].contains(words),
+                      "\(identifier) says \(button.title) \(button.label), not \(words)", file: file, line: line)
     }
 
     // MARK: The review
