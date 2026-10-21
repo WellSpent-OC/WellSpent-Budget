@@ -32,7 +32,7 @@ title: "Side quest: Change someone's level, or remove them"
 
 2. Tap the person.
 
-3. Under **Level**, pick the new one. Or tap **Remove**, then **Remove** again, to take them out of the group.
+3. Under **Can**, pick the new level. Or tap **Remove**, then **Remove** again, to take them out of the group.
 
 ## Related
 
