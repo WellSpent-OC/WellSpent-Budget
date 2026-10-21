@@ -333,6 +333,13 @@ final class PhoneImportTests: XCTestCase {
         let file = try Self.save("Date,Description,Amount\n\(today),\"TRADER JOES #123\",-54.20",
                                  as: "picked.csv", in: folder)
         defer { try? FileManager.default.removeItem(at: file) }
+        // Files lists a file written into its folder while the picker is open
+        // a moment before it will hand it over. So the picker closes, and
+        // opens again with the file already there.
+        let cancel = run.app.buttons["Cancel"].firstMatch
+        cancel.tap()
+        XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 10), "the Files picker did not close")
+        run.openFilesPicker()
         let browse = run.app.tabBars.buttons["Browse"].firstMatch
         XCTAssertTrue(browse.waitForExistence(timeout: 10), "no Browse in the Files picker. On screen: \(run.visibleButtons())")
         browse.tap()
@@ -341,8 +348,14 @@ final class PhoneImportTests: XCTestCase {
         onMyIPhone.tap()
         let picked = run.app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", "picked")).firstMatch
         XCTAssertTrue(picked.waitForExistence(timeout: 15), "picked.csv is not in On My iPhone. On screen: \(run.visibleTexts())")
+        // On a slow runner the list is still settling when the file shows, and
+        // a tap then picks nothing. So the tap waits for the file to take one,
+        // and taps once more if the picker is still up.
+        run.waitUntilHittable(picked, "picked.csv")
         picked.tap()
-        XCTAssertTrue(run.element(AccessibilityID.importConfirm).waitForExistence(timeout: 15),
+        let review = run.element(AccessibilityID.importConfirm)
+        if !review.waitForExistence(timeout: 8), picked.exists, picked.isHittable { picked.tap() }
+        XCTAssertTrue(review.waitForExistence(timeout: 15),
                       "the review did not open after a pick. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(Words.title(into: "Household")), "no heading. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("picked.csv"), "the file's name does not show. On screen: \(run.visibleTexts())")
