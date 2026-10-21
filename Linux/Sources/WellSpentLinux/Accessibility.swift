@@ -33,4 +33,15 @@ extension View {
             }
         }
     }
+
+    /// A DatePicker's calendar, which is GTK's own: names its arrows, which
+    /// GTK leaves unnamed (the Mac's date picker names its own), and makes a
+    /// move by them choose the day the calendar shows chosen. Same rule as
+    /// above: once per view, before anything that wraps it.
+    func calendarArrows() -> some View {
+        inspect([.onCreate, .afterUpdate]) { (widget: Gtk.Widget) in
+            wellspent_calendar_arrows(widget.widgetPointer, "Previous month", "Next month",
+                                      "Previous year", "Next year")
+        }
+    }
 }

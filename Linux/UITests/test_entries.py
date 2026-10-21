@@ -83,6 +83,36 @@ class Entries(unittest.TestCase):
                            "Corner Bakery to show")
         self.assertEqual("birthday cake", bakery[2])
 
+    def test_a_date_before_this_period(self):
+        app = launch_fresh(self)
+        today = datetime.date.today()
+        last_month = today.replace(day=1) - datetime.timedelta(days=1)
+        app.new_group("Shop")
+        app.new_budget("Food", "500", group="Shop")
+
+        # Scenario ENTRY-06
+        # 1. Hilltop, 42.00, dated last month with the calendar's Previous
+        # month: Food doesn't list it, and still says $0.00 and no
+        # transactions since the 1st.
+        sheet = self.open_sheet(app)
+        app.field("Merchant", sheet).type("Hilltop")
+        app.field("Amount", sheet).type("42.00")
+        app.button("Previous month", within=sheet).press()
+        app.wait_shows(f"{last_month:%B}", within=sheet)
+        app.button("Add", within=sheet).press()
+        app.wait_for_window(1, "the sheet to close")
+        app.wait_shows("Nothing spent in this budget this period.", within=app.main)
+        self.assertEqual([], app.entries())
+        self.assertTrue(app.reads(["Spent", "$0.00"], within=app.main))
+        app.wait_shows(f"0 transactions since {short_date(today.replace(day=1))}", within=app.main)
+
+        # Scenario ENTRY-06
+        # 2. It's kept all the same: deleting Food counts it.
+        app.button("Delete…", within=app.main).press()
+        self.assertEqual("Delete “Food”? Its 1 transaction will be deleted too. This cannot be undone.",
+                         app.question())
+        app.answer("Cancel")
+
     def test_every_amount_is_money_spent(self):
         app = launch_fresh(self)
         app.new_group("Shop")

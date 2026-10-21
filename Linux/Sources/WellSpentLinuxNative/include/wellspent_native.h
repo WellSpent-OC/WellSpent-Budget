@@ -45,6 +45,14 @@ void wellspent_accessible_set_description(void *widget, const char *description)
 /// open budget's row. 1 for picked, 0 for not.
 void wellspent_accessible_set_selected(void *widget, int selected);
 
+/// The four arrows of the GTK calendar inside `widget` (a GtkWidget): names
+/// them, since GTK leaves them unnamed and a screen reader hears four plain
+/// buttons, in the order GTK shows them (the month back and on, then the
+/// year back and on). And a move by them chooses the day the calendar then
+/// shows chosen, as a click on a day does. Call after every update.
+void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
+                               const char *previous_year, const char *next_year);
+
 /// Quits the way the app's own last window would when the system asks it to
 /// stop (SIGTERM), as a desktop does at log out, instead of the process just
 /// ending. Call once, after the app's GtkApplication is made.
