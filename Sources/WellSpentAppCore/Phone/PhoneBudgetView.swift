@@ -5,8 +5,8 @@ import WellSpentCrypto
 import WellSpentModel
 
 /// One budget: spent, of, left or over, the bar, the count and its entries,
-/// with Add at the foot in thumb reach and the budget's menu under ⋯. Draws
-/// `BudgetScreen`. Layout only.
+/// with Add at the foot in thumb reach and the budget's menu under ⋯: Import
+/// statement, Edit and Delete. Draws `BudgetScreen`. Layout only.
 struct PhoneBudgetView: View {
     @Bindable var model: AppModel
     @Bindable var sync: SyncCoordinator
@@ -47,9 +47,12 @@ struct PhoneBudgetView: View {
         .navigationTitle(screen.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            if !menu.isEmpty {
+            // Import statement takes Add, as Add does. Edit and Delete take
+            // Manage. PhoneImportStatement.swift
+            if screen.mayAdd || !menu.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        if screen.mayAdd { PhoneImportMenuItem() }
                         PhoneMenu(parts: menu, perform: perform)
                     } label: {
                         Image(systemName: "ellipsis")

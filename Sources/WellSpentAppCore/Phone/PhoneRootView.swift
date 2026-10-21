@@ -41,6 +41,8 @@ struct PhoneRootView: View {
         // staging build never writes into live's.
         .defaultAppStorage(sync.defaults)
         .sheet(item: $editor, onDismiss: askAfterSheet) { sheet in editorView(sheet) }
+        // Import statement: the Files picker and the review. PhoneImportStatement.swift
+        .phoneStatementImport(model: model)
         // A different account means different budgets: a fresh stack, not the
         // last account's open budget.
         .id(ObjectIdentifier(model))

@@ -191,6 +191,24 @@ struct ImportReviewScreenTests {
     }
     #endif
 
+    // MARK: - The names UI tests find the review's parts by
+
+    #if canImport(SwiftUI)
+    /// A line's row, its status and its budget list each have a name of their
+    /// own, and every name in the review starts with "import.", so a test can
+    /// tell a line's list from an option of the same name in the list it opens.
+    @Test func eachPartOfTheReviewHasANameOfItsOwn() {
+        let bank = "TRADER JOES #123"
+        let names = [AccessibilityID.importLine(bank), AccessibilityID.importLineStatus(bank),
+                     AccessibilityID.importLineBudget(bank), AccessibilityID.importCount(Words.toAdd),
+                     AccessibilityID.importConfirm, AccessibilityID.importCancel]
+        #expect(Set(names).count == names.count)
+        #expect(names.allSatisfy { $0.hasPrefix("import.") }, "\(names)")
+        #expect(AccessibilityID.importLine(bank) != AccessibilityID.importLine("CORNER BAKERY"))
+        #expect(AccessibilityID.importCount(Words.toAdd) != AccessibilityID.importCount(Words.needsBudget))
+    }
+    #endif
+
     // MARK: - The statement a UI test hands a staging build
 
     @Test func onlyAStagingBuildReadsTheStatementATestNames() {
