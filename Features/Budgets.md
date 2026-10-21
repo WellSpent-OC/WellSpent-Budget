@@ -131,21 +131,21 @@ Platforms: Mac, Linux
 - Given it is October 18, and Groceries is $500.00 a month
 - And Groceries holds Hilltop Grocery, $142.08, and Corner Bakery, $12.00, from this month, and Market, $9.50, from September
 - When Robin picks Groceries in the list
-- Then Groceries opens on the right and says "$154.08", "of $500.00 this period" and "$345.92 left"
-- And a bar shows how much of the $500.00 is spent
-- And the line under the bar says "2 transactions since Oct 1"
+- Then Groceries opens on the right and says "Spent" $154.08 and "Left" $345.92
+- And its wheel shows what is left of the $500.00
+- And the line under them says "2 transactions since Oct 1"
 - And it lists Hilltop Grocery and Corner Bakery, and not Market
 - And the list shows $345.92 beside Groceries
-- And with one transaction, the line under the bar says "1 transaction since Oct 1"
+- And with one transaction, the line says "1 transaction since Oct 1"
 
 ## BUDGET-15 Over its limit, a budget says how far over
 
 - Given Groceries is $100.00 a month
 - When Robin adds $40.00 and then $75.00 to it
-- Then Groceries says "$115.00" and "of $100.00 this period"
-- And in place of what is left it says "$15.00 over", in a warning colour
-- And the bar is full
-- And the list shows -$15.00 beside Groceries, in a warning colour
+- Then Groceries says "Spent" $115.00
+- And in place of what is left it says "Over" $15.00, in a warning colour
+- And its wheel is orange all the way round
+- And the list shows "$15.00 over" beside Groceries
 
 ## BUDGET-16 A budget's amount is read the way the region writes numbers
 

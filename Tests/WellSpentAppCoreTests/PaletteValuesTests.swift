@@ -73,4 +73,76 @@ struct PaletteValuesTests {
             RGB(red: 0.478, green: 0.290, blue: 0.549), RGB(red: 0.706, green: 0.325, blue: 0.165),
         ])
     }
+
+    // MARK: - The money wheel
+
+    /// A row's three colours: its track, its fill, and its fill when over.
+    static let rowColours: [(String, ColorPair)] = [
+        ("the track", PaletteValues.rowTrack), ("the fill", PaletteValues.rowUsed),
+        ("the over fill", PaletteValues.rowOver),
+    ]
+
+    // Scenario WHEEL-04
+    @Test func theRowAndWheelColoursAreTheDesignsOwn() {
+        func pair(_ light: UInt32, _ dark: UInt32) -> ColorPair {
+            ColorPair(light: RGB(hex: light), dark: RGB(hex: dark))
+        }
+        #expect(PaletteValues.rowTrack == pair(0xE5DFD5, 0x242424))
+        #expect(PaletteValues.rowUsed == pair(0xD5E6C2, 0x3D5E2E))
+        #expect(PaletteValues.rowOver == pair(0xF0C8B5, 0x8A3A1C))
+        #expect(PaletteValues.rowWords == pair(0x111111, 0xF2F2F2))
+        #expect(PaletteValues.rowAmount == pair(0x111111, 0xD9D9D9))
+        #expect(PaletteValues.rowOutline == pair(0x111111, 0xF2EEE4))
+        #expect(PaletteValues.wheelTrack == pair(0xE5DFD5, 0x1F1D19))
+        #expect(PaletteValues.wheelLeft == pair(0x76A24D, 0x76A24D))
+        #expect(PaletteValues.wheelEdge == pair(0x111111, 0xF2EEE4))
+    }
+
+    // Scenario WHEEL-04
+    @Test func aRowsNameAndAmountReadOnItsTrackAndItsFillInLightAndDark() {
+        for (word, colour) in [("the name", PaletteValues.rowWords), ("the amount", PaletteValues.rowAmount)] {
+            for (part, behind) in Self.rowColours {
+                #expect(colour.light.contrast(with: behind.light) >= 4.5, "\(word) on \(part), light")
+                #expect(colour.dark.contrast(with: behind.dark) >= 4.5, "\(word) on \(part), dark")
+            }
+        }
+    }
+
+    /// The row fill design's own figures, to within a tenth: near-black
+    /// words read at 14.3, 14.3 and 12.3 to 1 in light mode, the dark names
+    /// at 13.9, 6.6 and 6.9, and the dark amounts at 11.0, 5.2 and 5.5.
+    @Test func theRowsContrastIsWhatTheDesignMeasured() {
+        let measured: [(ColorPair, [Double], [Double])] = [
+            (PaletteValues.rowWords, [14.3, 14.3, 12.3], [13.9, 6.6, 6.9]),
+            (PaletteValues.rowAmount, [14.3, 14.3, 12.3], [11.0, 5.2, 5.5]),
+        ]
+        for (colour, light, dark) in measured {
+            for ((_, behind), (lightFigure, darkFigure)) in zip(Self.rowColours, zip(light, dark)) {
+                #expect(abs(colour.light.contrast(with: behind.light) - lightFigure) < 0.1)
+                #expect(abs(colour.dark.contrast(with: behind.dark) - darkFigure) < 0.1)
+            }
+        }
+    }
+
+    // Scenario WHEEL-03
+    @Test func theOpenBudgetsOutlineShowsOnEveryRowColour() {
+        for (part, behind) in Self.rowColours {
+            #expect(PaletteValues.rowOutline.light.contrast(with: behind.light) >= 3, "on \(part), light")
+            #expect(PaletteValues.rowOutline.dark.contrast(with: behind.dark) >= 3, "on \(part), dark")
+        }
+    }
+
+    /// The wheel's edges and tick show on its track, on a card and on the
+    /// page. Its warning shows on its track, and so does its green in dark
+    /// mode. The light green on the light track is the design's choice, at
+    /// 2.25 to 1: the black edges frame it, and words carry every number.
+    @Test func theWheelsEdgesAndWarningShowOnItsTrack() {
+        for behind in [PaletteValues.wheelTrack, PaletteValues.surface, PaletteValues.ground] {
+            #expect(PaletteValues.wheelEdge.light.contrast(with: behind.light) >= 3)
+            #expect(PaletteValues.wheelEdge.dark.contrast(with: behind.dark) >= 3)
+        }
+        #expect(PaletteValues.warning.light.contrast(with: PaletteValues.wheelTrack.light) >= 3)
+        #expect(PaletteValues.warning.dark.contrast(with: PaletteValues.wheelTrack.dark) >= 3)
+        #expect(PaletteValues.wheelLeft.dark.contrast(with: PaletteValues.wheelTrack.dark) >= 3)
+    }
 }

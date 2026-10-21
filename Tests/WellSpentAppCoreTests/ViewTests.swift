@@ -72,7 +72,7 @@ struct ViewTests {
     }
 
     /// An overspent budget has to look different, not just be different.
-    @Test func anOverspentRowShowsANegativeRemainder() throws {
+    @Test func anOverspentRowSaysHowFarOver() throws {
         let (model, _, budget) = try modelWithData()
         model.addTransaction(merchant: "oops", amount: Money(minorUnits: 120_000),
                              date: Date(), note: "")
@@ -81,7 +81,7 @@ struct ViewTests {
 
         let texts = try BudgetRow(summary: summary).inspect()
             .findAll(ViewType.Text.self).map { try $0.string() }
-        #expect(texts.contains { $0.contains("-") && $0.contains("200.00") }, "got \(texts)")
+        #expect(texts.contains("$200.00 over"), "got \(texts)")
     }
 
     // MARK: - Sidebar
@@ -184,7 +184,7 @@ struct ViewTests {
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
         #expect(texts.contains { $0.contains("142.08") }, "what was spent, got \(texts)")
-        #expect(texts.contains { $0.contains("1000.00") }, "the limit")
+        #expect(texts.contains("of $1,000"), "the limit, in the wheel's middle")
         #expect(texts.contains { $0.contains("857.92") }, "what is left")
     }
 
@@ -197,8 +197,8 @@ struct ViewTests {
         let view = detailView(model, summary)
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
-        #expect(texts.contains { $0.contains("over") }, "got \(texts)")
-        #expect(!texts.contains { $0.contains("left") })
+        #expect(texts.contains { $0.contains("Over") }, "got \(texts)")
+        #expect(!texts.contains { $0.contains("left") }, "no expected figure while over")
     }
 
     // MARK: - Add transaction

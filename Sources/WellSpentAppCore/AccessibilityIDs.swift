@@ -123,6 +123,24 @@ public enum AccessibilityID {
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
 
+    // MARK: The money wheel
+
+    /// A budget's wheel, one element. Its label is what its middle says:
+    /// "Left $445 of $1,000".
+    public static let budgetWheel = "budget.wheel"
+    /// The line under a budget's name: "October · day 18 of 31".
+    public static let budgetDayLine = "budget.dayLine"
+    /// The pace words under a budget's figures.
+    public static let budgetPace = "budget.pace"
+    /// Edit Budget beside the pace words.
+    public static let budgetPaceEdit = "budget.paceEdit"
+    /// The MONEY section on a group's page.
+    public static let groupMoney = "group.money"
+    /// The group's wheel in it, one element, labelled like a budget's wheel.
+    public static let groupWheel = "group.wheel"
+    /// The card at the top of Home on a phone.
+    public static let homeMoney = "home.money"
+
     // MARK: A group's page
 
     /// The line under the group's name: shared or not, how many people, and

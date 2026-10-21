@@ -93,8 +93,10 @@ final class EntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.listText("$40.00").waitForExistence(timeout: 10),
                       "the row says $40.00. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.app.staticTexts["$450.50 left"].waitForExistence(timeout: 10),
-                      "the header counts $40.00 and $9.50. On screen: \(run.visibleTexts())")
+        let changed = TodaysBudget(limit: 50_000, spent: 4_950)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: changed.wheel.spokenSummary,
+                   "the wheel counts $40.00 and $9.50")
+        run.expect(figures: changed.wheel.figures, "the figures count $40.00 and $9.50")
 
         // Scenario EDIT-01, EDIT-04
         // 5. Moved to Eating out: gone from Groceries' list and total, in
@@ -105,10 +107,14 @@ final class EntryEditingTests: XCTestCase {
         run.click(AccessibilityID.entrySave)
         run.expectNoSheet()
         XCTAssertTrue(run.rowIsGone("Hilltop"), "Hilltop is still in Groceries")
-        XCTAssertTrue(run.app.staticTexts["$490.50 left"].waitForExistence(timeout: 10), "Groceries' total")
+        let groceriesLeft = TodaysBudget(limit: 50_000, spent: 950)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: groceriesLeft.wheel.spokenSummary, "Groceries' wheel")
+        run.expect(figures: groceriesLeft.wheel.figures, "Groceries' figures")
         run.openBudget(named: eatingOut)
         XCTAssertTrue(run.entryRow("Hilltop").waitForExistence(timeout: 10), "Hilltop is not in Eating out")
-        XCTAssertTrue(run.app.staticTexts["$160.00 left"].waitForExistence(timeout: 10), "Eating out's total")
+        let eatingOutLeft = TodaysBudget(limit: 20_000, spent: 4_000)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutLeft.wheel.spokenSummary, "Eating out's wheel")
+        run.expect(figures: eatingOutLeft.wheel.figures, "Eating out's figures")
 
         // Scenario EDIT-06, EDIT-15
         // 6. The row's menu offers Edit… and Delete…. Delete… asks first,

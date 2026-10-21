@@ -310,10 +310,11 @@ struct InvitationPage: View {
 // MARK: - A group's page
 
 /// Draws a group's page, on the right where a budget opens: its name, the
-/// line under it, and its people, with what this person may change. A click
-/// on the group's name opens it, and so does People… in its menu. The
-/// people and the words are MembersScreen's, and Leave Group… asks the
-/// window's own question. Layout only.
+/// line under it, its money for the month, and its people, with what this
+/// person may change. A click on the group's name opens it, and so does
+/// People… in its menu. The people and the words are MembersScreen's, the
+/// money is MainScreen's, and Leave Group… asks the window's own question.
+/// Layout only.
 struct GroupPage: View {
     @Bindable var sync: SyncCoordinator
     let group: BudgetGroup
@@ -356,6 +357,11 @@ struct GroupPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     header
+                    // Every budget in the group added up for the month, above
+                    // its people. None for a group with no budgets.
+                    if let money = main.money(of: group.id) {
+                        GroupMoneySection(money: money)
+                    }
                     if !screen.rows.isEmpty {
                         people
                     }
