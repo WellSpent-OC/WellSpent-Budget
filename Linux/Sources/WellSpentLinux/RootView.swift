@@ -434,8 +434,14 @@ struct BudgetDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(screen.rows) { row in
-                            EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
-                                .onTapGesture { openEntry(row.id) }
+                            // A button, not a tap, so the keyboard and a
+                            // screen reader reach the row, as in the sidebar.
+                            // The plain style adds no padding or background.
+                            Button(action: { openEntry(row.id) }) {
+                                EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                                    .frame(maxWidth: Self.widestRow)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -444,6 +450,11 @@ struct BudgetDetailView: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    /// How wide a row's button may grow. As in the sidebar, SwiftCrossUI
+    /// 0.10.0's Button needs a finite width for a label holding a Spacer, and
+    /// this is far wider than any window.
+    private static let widestRow: Double = 10_000
 }
 
 struct EntryRow: View {

@@ -271,6 +271,51 @@ jobs:
       - name: Build
         run: swift build --package-path Linux
 
+  # The Linux app's UI tests (Linux/UITests), headless: they find what's on
+  # screen through GTK's accessibility tree and act as a person does. Not a
+  # required check until its first green run.
+  linux-ui-test:
+    name: Linux UI test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: swift:6.2.4-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
+        run: |
+          apt-get update -q
+          xargs -a Linux/UITests/packages.txt apt-get install -y -q --no-install-recommends
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Linux/.build
+          key: spm-linux-app-${{ hashFiles('Linux/Package.resolved', 'Package.resolved') }}
+          restore-keys: spm-linux-app-
+
+      - name: Build the app
+        run: swift build --package-path Linux
+
+      - name: Run the UI tests
+        env:
+          # Staging's test mailbox, for the tests that make an account. A
+          # fork's pull request has none, and those tests are skipped.
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+          WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
+        run: WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" Linux/UITests/run.sh
+
+      - name: Keep the screenshots when the test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-ui-test-screenshots
+          # A failure on the account sheet can show a test address, and
+          # artifacts on a public repo are public. Kept briefly.
+          retention-days: 3
+          path: .build/linux-ui-test/*.png
+          if-no-files-found: ignore
+
   # Gate enforcement, without branch protection.
   #
   # Branch protection and rulesets both need GitHub Pro on a private repo, so
