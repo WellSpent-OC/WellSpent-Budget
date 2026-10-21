@@ -446,4 +446,36 @@ struct SyncV2Tests {
                     "the hidden records are stepped over, not asked for again")
         }
     }
+
+    /// A pull whose place or page size doesn't read is answered, never
+    /// refused, so a device can't stall on its own cursor: a place that isn't
+    /// a number, or below zero, starts from the beginning, and a page size
+    /// that isn't a number, or below one, still hands over at least one record.
+    @Test func aGarbledPlaceOrPageSizeIsReadSafely() async throws {
+        try await withV2App { app, _ in
+            let (founder, groupID, _) = try await setUp("v2-sync-garbled", on: app)
+            let everything = try #require(try await pull(groupID, as: founder, on: app).1)
+            #expect(everything.records.count == 2)
+
+            for query in ["since=abc", "since=-5", "since=", "since=1.5"] {
+                let page = try #require(try await pullRaw(groupID, query, as: founder, on: app), "\(query)")
+                #expect(page.records.map(\.id) == everything.records.map(\.id), "\(query) starts from the beginning")
+            }
+            for query in ["limit=0", "limit=-3", "limit=abc"] {
+                let page = try #require(try await pullRaw(groupID, query, as: founder, on: app), "\(query)")
+                #expect(!page.records.isEmpty, "\(query) still hands over a record")
+            }
+        }
+    }
+}
+
+/// A pull with the query exactly as given, for queries `pull` can't spell.
+private func pullRaw(_ groupID: UUID, _ query: String, as device: Device, on app: Application) async throws -> PullReply? {
+    var reply: PullReply?
+    try await app.testing().test(.GET, "api/v2/groups/\(groupID)/pull?\(query)",
+                                 headers: v2Bearer(device.session.token), afterResponse: { response async throws in
+        #expect(response.status == .ok, "\(query) answered \(response.status.code)")
+        if response.status == .ok { reply = try response.content.decode(PullReply.self) }
+    })
+    return reply
 }
