@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 11 |
+| Linux | 142 | 18 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -113,19 +113,19 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | iPhone |
-| ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | None yet |
-| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | iPhone |
+| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | Linux, iPhone |
+| ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Linux |
+| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | None yet |
-| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | iPhone |
+| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | None yet |
 | ENTRY-11 | The keyboard adds and cancels | Mac | None yet |
-| ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | None yet |
-| ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | None yet |
+| ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Linux |
+| ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Linux |
 
 ### [EditEntry.md](EditEntry.md)
 
