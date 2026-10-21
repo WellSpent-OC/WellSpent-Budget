@@ -172,12 +172,19 @@ final class PhoneTestApp {
     /// field with Paste from the field's own menu, the way a person pastes on
     /// a phone. The pasteboard is emptied again after.
     func paste(_ text: String, into identifier: String) {
+        UIPasteboard.general.string = text
+        pasteCopied(into: identifier)
+    }
+
+    /// Pastes whatever was copied, such as a link copied in the share sheet,
+    /// into an empty field with Paste from the field's own menu. The
+    /// pasteboard is emptied after.
+    func pasteCopied(into identifier: String) {
         let field = element(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
         waitUntilHittable(field, identifier)
         field.tap()
         clear(field)
-        UIPasteboard.general.string = text
         field.tap()
         let paste = app.menuItems["Paste"].firstMatch
         if !paste.waitForExistence(timeout: 3) {
@@ -186,6 +193,85 @@ final class PhoneTestApp {
         XCTAssertTrue(paste.waitForExistence(timeout: 5), "the field's menu shows no Paste. On screen: \(visibleButtons())")
         paste.tap()
         UIPasteboard.general.items = []
+    }
+
+    /// Pulls Home down and waits for the sync it starts to end, so every
+    /// change made so far is on the server.
+    func syncAndWait() {
+        pullDown()
+        Thread.sleep(forTimeInterval: 1)
+        let done = text(SyncWording.footer(signedIn: true, device: Self.device))
+        XCTAssertTrue(wait(for: done, until: "exists == true", timeout: 30),
+                      "the sync did not end. On screen: \(visibleTexts())")
+    }
+
+    /// Closes a menu that is open, with a tap beside it, as a person does.
+    func dismissMenu() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.6)).tap()
+        _ = app.collectionViews.firstMatch.waitForExistence(timeout: 2)
+    }
+
+    /// Closes the iPhone's own share sheet without sending anything: its
+    /// close button, or a swipe down on it where iOS draws none.
+    func closeShareSheetWithoutSending() {
+        let copy = app.buttons["Copy"].firstMatch
+        let copyCell = app.cells["Copy"].firstMatch
+        let deadline = Date().addingTimeInterval(30)
+        while !copy.exists, !copyCell.exists, Date() < deadline { _ = copy.waitForExistence(timeout: 0.5) }
+        XCTAssertTrue(copy.exists || copyCell.exists, "the share sheet never opened. On screen: \(visibleTexts())")
+        let close = app.buttons.matching(NSPredicate(format: "label ==[c] 'close' OR identifier ==[c] 'close'"))
+            .firstMatch
+        if close.exists, close.isHittable {
+            close.tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
+                       withVelocity: .fast, thenHoldForDuration: 0)
+        }
+        let gone = wait(for: copy, until: "exists == false", timeout: 10)
+            && wait(for: copyCell, until: "exists == false", timeout: 5)
+        XCTAssertTrue(gone, "the share sheet stayed. Its buttons: "
+                      + app.buttons.allElementsBoundByIndex.prefix(30).map(\.label).joined(separator: ", "))
+    }
+
+    /// Copy, in the iPhone's own share sheet, once it has slid up. The
+    /// share sheet draws Copy as a button or a cell, by iOS version.
+    func copyInShareSheet() {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            for candidate in [app.buttons["Copy"], app.cells["Copy"]] where candidate.firstMatch.exists {
+                let copy = candidate.firstMatch
+                if copy.isHittable {
+                    copy.tap()
+                    return
+                }
+            }
+            _ = app.buttons["Copy"].waitForExistence(timeout: 0.5)
+        }
+        XCTFail("the share sheet shows no Copy. On screen: \(visibleButtons())")
+    }
+
+    /// A tap on a link, as in Messages: the system hands it to the copy of
+    /// the app already running. Not XCUIApplication.open(_:), which may start
+    /// a fresh copy: a test run keeps its keys in memory only, so that copy
+    /// would have no session. iOS may ask first whether to open the app.
+    func open(link: String) {
+        guard let url = URL(string: link) else {
+            XCTFail("\(link) is not a link")
+            return
+        }
+        XCUIDevice.shared.system.open(url)
+        let ask = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if ask.waitForExistence(timeout: 3) { ask.tap() }
+    }
+
+    /// A tap on a group's name on Home, which opens its page. Home is
+    /// scrolled to the top first, since a list only scrolls down to it.
+    func openGroupPage(named name: String) {
+        for _ in 0..<3 where !element(AccessibilityID.sidebarGroup(name)).exists { app.swipeDown() }
+        let header = scrollTo(AccessibilityID.sidebarGroup(name))
+        XCTAssertTrue(header.exists, "no group called \(name) on Home. On screen: \(visibleTexts())")
+        tap(AccessibilityID.sidebarGroup(name))
     }
 
     /// A control inside a sheet exists before the sheet has finished sliding
@@ -296,16 +382,25 @@ final class PhoneTestApp {
         }
     }
 
-    /// Sign out, from Account at the foot of Home. Best effort.
+    /// Sign out, from Account at the foot of Home. A step of its own, so it
+    /// fails the test when it cannot. Changes not sent yet are not sent: wait
+    /// for the sync first (`syncAndWait()`).
     func signOut() {
         guard app.state == .runningForeground else { return }
-        let account = element(AccessibilityID.toolbarAccount)
+        let account = button(AccessibilityID.toolbarAccount)
         guard account.waitForExistence(timeout: 5), wait(for: account, until: "isEnabled == true", timeout: 30) else {
+            XCTFail("Account never lit, so no sign out. On screen: \(visibleTexts())")
             return
         }
         account.tap()
         let signOut = element(AccessibilityID.accountSignOut)
-        guard signOut.waitForExistence(timeout: 5) else { return }
+        // A tap while the screen is still sliding back can be lost: once more.
+        if !signOut.waitForExistence(timeout: 5), account.isHittable { account.tap() }
+        guard signOut.waitForExistence(timeout: 10) else {
+            XCTFail("the account sheet shows no Sign out. On screen: \(visibleTexts()) \(visibleButtons())")
+            return
+        }
+        waitUntilHittable(signOut, AccessibilityID.accountSignOut)
         signOut.tap()
         wait(for: text(SyncWording.footer(signedIn: false, device: Self.device)), until: "exists == true",
              timeout: 15)

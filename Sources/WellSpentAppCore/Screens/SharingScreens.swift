@@ -95,6 +95,10 @@ public final class ShareScreen {
 
     public var createLabel: String { isWorking ? Words.creating : Words.createLink }
 
+    /// The line under the sheet: how the link travels before it is made,
+    /// then that it works once and for how long.
+    public var note: String { link == nil ? Words.linkNote : SyncWording.inviteNote }
+
     /// True once the link is made.
     public func create() async -> Bool {
         guard canCreate else { return false }

@@ -21,6 +21,10 @@ public final class Workspace {
     /// signing up and confirming the email, until the person joins, picks a
     /// budget or a group on the left, or opens another link (`MainScreen`).
     public private(set) var invitation: JoinScreen?
+    /// What else runs once a sync's changes are in, or another account's
+    /// budgets are: a screen holding something they can take away, such as
+    /// a group's page (`MainScreen`).
+    @ObservationIgnored var afterReload: [@MainActor () -> Void] = []
 
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil) {
         self.model = model
@@ -28,13 +32,17 @@ public final class Workspace {
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
-        sync.didSync = { [weak self] in self?.model.reload() }
+        sync.didSync = { [weak self] in
+            self?.model.reload()
+            self?.afterReload.forEach { $0() }
+        }
         // The new account's budgets keep the Undo bar's window, and open the
         // way this device's always do.
         sync.didSwitchStore = { [weak self] store in
             guard let self else { return }
             self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
                                   opensFirstBudget: self.model.opensFirstBudget)
+            self.afterReload.forEach { $0() }
         }
         watchForEdits()
     }

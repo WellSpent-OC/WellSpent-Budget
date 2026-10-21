@@ -63,6 +63,13 @@ targets:
         # before every upload (scripts/crypto-check.sh), so an upload never
         # waits on the question.
         ITSAppUsesNonExemptEncryption: false
+        # This build's invite links open in it: wellspent:// for live and
+        # wellspent-staging:// for staging, so neither opens the other's.
+        CFBundleURLTypes:
+          - CFBundleURLName: app.wellspent.invite
+            CFBundleURLSchemes:
+              - $(WELLSPENT_INVITE_SCHEME)
+            CFBundleTypeRole: Viewer
     # On the target, because xcodegen's own target defaults would otherwise
     # win over the project's.
     #
@@ -87,6 +94,7 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.staging
           WELLSPENT_ENVIRONMENT: staging
           WELLSPENT_DISPLAY_NAME: WellSpent Staging
+          WELLSPENT_INVITE_SCHEME: wellspent-staging
           CODE_SIGN_IDENTITY: "-"
           DEVELOPMENT_TEAM: ""
         Release:
@@ -94,6 +102,7 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac
           WELLSPENT_ENVIRONMENT: live
           WELLSPENT_DISPLAY_NAME: WellSpent
+          WELLSPENT_INVITE_SCHEME: wellspent
           CODE_SIGN_IDENTITY: Apple Distribution
 
   # The iPhone's own UI tests (UITests/), and what they share with the Mac's
