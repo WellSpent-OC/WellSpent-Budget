@@ -33,7 +33,8 @@ public enum AccessibilityID {
 
     public static let budgetImport = "budget.import"
     public static let budgetAdd = "budget.add"
-    /// ⋯ at the top right of a budget on a phone, with Edit and Delete.
+    /// ⋯ at the top right of a budget on a phone, with Import statement, Edit
+    /// and Delete.
     public static let budgetMenu = "budget.menu"
     public static let toolbarSync = "toolbar.sync"
     public static let toolbarAccount = "toolbar.account"
@@ -124,6 +125,12 @@ public enum AccessibilityID {
     public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
+    /// A line's row on a phone, by the bank's text: its date and name, its
+    /// amount, the bank's words, its status and its budget list.
+    public static func importLine(_ bankText: String) -> String { "import.line.\(bankText)" }
+    /// One of the counts at the top on a phone, by its label, such as To add.
+    /// Its value is the count.
+    public static func importCount(_ label: String) -> String { "import.count.\(label)" }
 
     // MARK: The money wheel
 
