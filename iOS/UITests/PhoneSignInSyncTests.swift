@@ -49,6 +49,9 @@ final class PhoneSignInSyncTests: XCTestCase {
         // Named for the run too: an earlier run's group can still be on Home
         // while its delete syncs, and a test taps rows by name.
         let budgetName = "Costs \(stamp)"
+        // The phone's own group, named like the run's so a later run clears it.
+        let phoneGroup = groupName + " mine"
+        let phoneBudget = "Trip \(stamp)"
         run.launch()
 
         // Scenario PASTE-02, ACCT-08
@@ -64,16 +67,30 @@ final class PhoneSignInSyncTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup("Side Business")),
                                until: "exists == false", timeout: 10), "a sample group came into the account")
 
+        // Scenario BUDGET-01, BUDGET-03, ENTRY-01
+        // 3. What the phone makes reaches the server: a group, a budget in it
+        // and an entry, made on the phone while signed in, all arrive on
+        // Robin's other device, signed in to the same account.
+        try await robinsOtherDevice.signIn(email: accounts.email, password: accounts.password)
+        await robinsOtherDevice.deleteLeftoverRuns()
+        run.addGroup(named: phoneGroup)
+        run.addBudget(named: phoneBudget, amount: "300", inGroup: phoneGroup)
+        run.addEntry(merchant: "Ferry", amount: "25.00")
+        run.goBack()
+        // No pull: the app sends each change a moment after it is made.
+        let arrived = try await robinsOtherDevice.waitFor(group: phoneGroup, budget: phoneBudget, merchant: "Ferry")
+        XCTAssertTrue(arrived, "the phone's group, budget and entry did not reach the other device")
+
         // Scenario ENTRY-08, ENTRY-09
-        // 3. Leslie shares a group with an entry in it, and Robin's account
+        // 4. Leslie shares a group with an entry in it, and Robin's account
         // takes the invite on his other device. Pulling Home down brings the
         // group in, and her entry says she added it.
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await leslie.deleteLeftoverRuns()
         let link = try await leslie.shareNewGroup(groupName, budget: budgetName, entry: "Costco",
                                                   amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
-        try await robinsOtherDevice.signIn(email: accounts.email, password: accounts.password)
         _ = try await robinsOtherDevice.join(link, as: "Robin")
+        run.app.swipeDown()
         run.pullDown()
         // The account may hold other groups, so the new one can be below the
         // bottom of the screen.
@@ -89,19 +106,20 @@ final class PhoneSignInSyncTests: XCTestCase {
         run.openBudget(named: budgetName)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text("Leslie").exists, "her entry does not say she added it")
+        XCTAssertTrue(run.shows("Leslie"), "her entry does not say she added it. On screen: \(run.visibleTexts())")
         run.goBack()
 
         // Scenario ACCT-11
-        // 4. Sign out: the foot says the budgets are kept on this iPhone,
+        // 5. Sign out: the foot says the budgets are kept on this iPhone,
         // and the account's group goes from Home.
         run.signOut()
-        XCTAssertTrue(run.text(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)).exists,
+        XCTAssertTrue(run.shows(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)),
                       "still signed in. On screen: \(run.visibleTexts())")
         XCTAssertFalse(header.exists, "the account's group is still on Home")
 
-        // 5. Tidy: the group goes for everyone, every session ends.
+        // 6. Tidy: both groups go for everyone, every session ends.
         await leslie.deleteGroup(named: groupName)
+        await robinsOtherDevice.deleteGroup(named: phoneGroup)
         await robinsOtherDevice.cleanUp()
         await leslie.cleanUp()
     }

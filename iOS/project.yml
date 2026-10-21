@@ -136,3 +136,7 @@ schemes:
       config: Debug
       targets:
         - WellSpentPhoneUITests
+      # No picture at every tap and keystroke: one taken while the sign-in
+      # fields hold a test account's address would publish it in a public
+      # repo's CI artifact. A failure's own picture, guarded, is enough.
+      captureScreenshotsAutomatically: false

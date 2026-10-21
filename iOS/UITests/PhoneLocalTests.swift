@@ -52,7 +52,7 @@ final class PhoneLocalTests: XCTestCase {
 
         // Scenario ACCT-01
         // 3. The foot says the budgets are kept on this iPhone, with Sign in.
-        XCTAssertTrue(run.text(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)).exists,
+        XCTAssertTrue(run.shows(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)),
                       "the foot does not say where the budgets are kept. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.element(AccessibilityID.sidebarSignIn).exists, "no Sign in at the foot")
     }
@@ -97,9 +97,9 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.wait(for: budgetSave, until: "isEnabled == true", timeout: 5), "Add stayed dimmed")
         run.tap(AccessibilityID.budgetEditorSave)
         XCTAssertTrue(run.app.navigationBars["Flights"].waitForExistence(timeout: 10), "Flights did not open")
-        XCTAssertTrue(run.text("$0.00").exists)
-        XCTAssertTrue(run.text("of $800.00 this period").exists)
-        XCTAssertTrue(run.text("$800.00 left").exists)
+        XCTAssertTrue(run.shows("$0.00"), "$0.00 does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("of $800.00 this period"), "of $800.00 this period does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$800.00 left"), "$800.00 left does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-06
         // 4. Edit under ⋯ changes the monthly amount.
@@ -107,7 +107,7 @@ final class PhoneLocalTests: XCTestCase {
         run.tapMenuItem(MainScreen.Words.edit)
         run.type("650", into: AccessibilityID.budgetEditorAmount)
         run.tap(AccessibilityID.budgetEditorSave)
-        XCTAssertTrue(run.text("of $650.00 this period").waitForExistence(timeout: 10),
+        XCTAssertTrue(run.shows("of $650.00 this period"),
                       "the new amount does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-08
@@ -116,8 +116,8 @@ final class PhoneLocalTests: XCTestCase {
         run.openBudgetMenu()
         run.tapMenuItem(MainScreen.Words.delete)
         let question = PendingDelete.budget(Budget(groupID: GroupID(), name: "Flights", limit: .zero()), transactions: 0)
-        XCTAssertTrue(run.text(question.title).waitForExistence(timeout: 5), "no question. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text(question.message).exists)
+        XCTAssertTrue(run.shows(question.title), "no question. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows(question.message), "\(question.message) does not show. On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.questionButton(question.confirmLabel), "no \(question.confirmLabel) on the question").tap()
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Holiday")).waitForExistence(timeout: 10),
                       "not back on Home")
@@ -128,7 +128,7 @@ final class PhoneLocalTests: XCTestCase {
         run.longPress(AccessibilityID.sidebarGroup("Holiday"))
         run.tapMenuItem(MainScreen.Words.delete)
         let groupQuestion = PendingDelete.group(BudgetGroup(name: "Holiday"), budgets: 0, reach: .justYou)
-        XCTAssertTrue(run.text(groupQuestion.title).waitForExistence(timeout: 5))
+        XCTAssertTrue(run.shows(groupQuestion.title), "\(groupQuestion.title) does not show. On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.questionButton(groupQuestion.confirmLabel)).tap()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup("Holiday")), until: "exists == false",
                                timeout: 10), "Holiday is still on Home")
@@ -161,10 +161,10 @@ final class PhoneLocalTests: XCTestCase {
         // amount, and the note under the merchant. The page adds it up.
         run.addEntry(merchant: "Corner Bakery", amount: "40.00", note: "birthday cake")
         let today = BudgetScreen.shortDate(Date())
-        XCTAssertTrue(run.text("\(today) · Manual").exists, "no date and source line. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text("birthday cake").exists)
-        XCTAssertTrue(run.text("$60.00 left").exists, "what is left is wrong. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text("1 transaction since \(Self.startOfMonth())").exists)
+        XCTAssertTrue(run.shows("\(today) · Manual"), "no date and source line. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("birthday cake"), "birthday cake does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$60.00 left"), "what is left is wrong. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("1 transaction since \(Self.startOfMonth())"), "1 transaction since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
 
         // Scenario ENTRY-05, BUDGET-15
         // 3. The newest is on top. Over the limit, the page says how far
@@ -173,9 +173,9 @@ final class PhoneLocalTests: XCTestCase {
         let market = run.element(AccessibilityID.entryRow("Market"))
         let bakery = run.element(AccessibilityID.entryRow("Corner Bakery"))
         XCTAssertLessThan(market.frame.minY, bakery.frame.minY, "Market is not on top")
-        XCTAssertTrue(run.text("$115.00").exists)
-        XCTAssertTrue(run.text("$15.00 over").exists, "no over. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text("2 transactions since \(Self.startOfMonth())").exists)
+        XCTAssertTrue(run.shows("$115.00"), "$115.00 does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$15.00 over"), "no over. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "2 transactions since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
         run.goBack()
         let row = run.element(AccessibilityID.sidebarBudget("Treats"))
         XCTAssertTrue(row.waitForExistence(timeout: 10))

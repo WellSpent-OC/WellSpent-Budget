@@ -54,6 +54,15 @@ final class PhoneTestApp {
         app.staticTexts[words].firstMatch
     }
 
+    /// Whether these words show on screen within the time given. A slow
+    /// runner draws a change late, so a check right after an action waits
+    /// for it. Capitals are ignored: the phone's keyboard may start a note
+    /// with one.
+    func shows(_ words: String, timeout: TimeInterval = 10) -> Bool {
+        app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", words)).firstMatch
+            .waitForExistence(timeout: timeout)
+    }
+
     func tap(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout),
@@ -118,6 +127,14 @@ final class PhoneTestApp {
         let deadline = Date().addingTimeInterval(timeout)
         while !target.exists, Date() < deadline {
             if list.exists { list.swipeUp() } else { app.swipeUp() }
+        }
+        // Low on the screen, a row sits against Home's foot bar, where a long
+        // press opens nothing. Drag the list until the row is mid screen.
+        let screen = app.frame
+        if target.exists, list.exists, target.frame.maxY > screen.height * 0.6 {
+            let distance = target.frame.midY - screen.height * 0.45
+            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
         }
         return target
     }
@@ -228,12 +245,15 @@ final class PhoneTestApp {
         tapMenuItem(MainScreen.Words.newGroup)
         type(name, into: AccessibilityID.groupEditorName)
         tap(AccessibilityID.groupEditorSave)
-        XCTAssertTrue(element(AccessibilityID.sidebarGroup(name)).waitForExistence(timeout: 10),
-                      "\(name) is not on Home")
+        // A signed-in account may hold other groups, so the new one can be
+        // below the bottom of the screen.
+        XCTAssertTrue(scrollTo(AccessibilityID.sidebarGroup(name), timeout: 15).exists,
+                      "\(name) is not on Home. On screen: \(visibleTexts())")
     }
 
     /// New Budget in <group> from the group's menu. Saving opens the new budget.
     func addBudget(named name: String, amount: String, inGroup group: String) {
+        scrollTo(AccessibilityID.sidebarGroup(group))
         longPress(AccessibilityID.sidebarGroup(group))
         tapMenuItem(MainScreen.Words.newBudget(in: group))
         type(name, into: AccessibilityID.budgetEditorName)
@@ -321,7 +341,8 @@ extension SecondAccount {
         let anHourAgo = Date().addingTimeInterval(-3600)
         let model = AppModel(store: sync.store)
         for group in model.groups where group.name.hasPrefix(Self.phoneRunPrefix) {
-            let stamp = String(group.name.dropFirst(Self.phoneRunPrefix.count))
+            // The time, and anything after it, such as " mine".
+            let stamp = String(group.name.dropFirst(Self.phoneRunPrefix.count).prefix(15))
             guard let made = formatter.date(from: stamp), made < anHourAgo else { continue }
             model.deleteGroup(group.id, reach: sync.deleteReach(of: group.id))
         }
@@ -337,4 +358,24 @@ func runStampFormatter() -> DateFormatter {
     formatter.timeZone = TimeZone(identifier: "UTC")
     formatter.dateFormat = "yyyyMMdd-HHmmss"
     return formatter
+}
+
+extension SecondAccount {
+    /// Syncs until a group of this name holds a budget of that name with an
+    /// entry for this merchant, or the time runs out. The phone sends a change
+    /// a moment after it is made, so a first sync can come too soon.
+    func waitFor(group: String, budget: String, merchant: String, timeout: TimeInterval = 60) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            try await syncAll()
+            let model = AppModel(store: sync.store)
+            if let found = model.groups.first(where: { $0.name == group }),
+               let summary = model.summaries[found.id]?.first(where: { $0.budget.name == budget }),
+               try model.store.transactions(in: summary.budget.id).contains(where: { $0.merchant == merchant }) {
+                return true
+            }
+            try await Task.sleep(for: .seconds(3))
+        } while Date() < deadline
+        return false
+    }
 }
