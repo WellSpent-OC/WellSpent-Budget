@@ -80,7 +80,8 @@ struct AppLocaleTests {
     // MARK: - Nothing reads the system's locale around it
 
     /// Shared code formats and reads with `AppLocale`, never with the system's
-    /// locale or calendar, or a formatter made without a locale: on Linux
+    /// locale or calendar, a format style that doesn't name a locale, or a
+    /// formatter made without one: on Linux
     /// those are en_001 whatever the computer's region, which reads a German
     /// "1,250" as twelve hundred and fifty.
     @Test func sharedCodeReadsTheLocaleOnlyFromAppLocale() throws {
@@ -95,6 +96,10 @@ struct AppLocaleTests {
             (#"Calendar\s*=\s*\.(current|autoupdatingCurrent)"#, "the system's calendar as a default"),
             (#"\.formatted\(date:"#, "a date written in the system's locale"),
             (#"\.formatted\(\.dateTime(?!.*\.locale\()"#, "a date written in the system's locale"),
+            (#"\.formatted\(\)"#, "a value written in the system's locale"),
+            (#"Date\.FormatStyle\((?!.*locale:)"#, "a date style in the system's locale"),
+            (#"\.(number|percent)\b(?!.*\.locale\()"#, "a number written in the system's locale"),
+            (#"\.currency\((?!.*\.locale\()"#, "money written in the system's locale"),
         ]
         var found: [String] = []
         let files = try #require(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
