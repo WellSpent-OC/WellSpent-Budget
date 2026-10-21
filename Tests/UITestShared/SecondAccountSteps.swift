@@ -123,6 +123,18 @@ extension SecondAccount {
         try await sync.setLevel(level, of: other, in: id)
     }
 
+    /// The names of the devices signed in to an account, as the server lists
+    /// them. The reading takes a sign-in of its own, listed as
+    /// "UI test reader", and ends it after, so look for a name among them.
+    static func deviceLabels(server: String, email: String, password: String) async throws -> [String] {
+        guard let url = URL(string: server) else { throw UITestError("\(server) is not a server address") }
+        let transport = ReadableHTTPTransport(baseURL: url)
+        _ = try await transport.signIn(email: email, password: password, deviceLabel: "UI test reader")
+        let labels = try await transport.sessions().compactMap(\.deviceLabel)
+        try? await transport.signOut()
+        return labels
+    }
+
     /// Waits until the server lists this many people in the group, such as
     /// after the other person leaves. True when it does in time.
     func waitForMembers(_ count: Int, in group: String, timeout: TimeInterval = 30) async throws -> Bool {

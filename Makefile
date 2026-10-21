@@ -223,7 +223,9 @@ iphone-ui-test: iphone-ui-test-build
 			-enableCodeCoverage YES \
 			$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY)) \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
-				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharedEntriesTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneLevelsAndLinksTests; fi) \
 			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \

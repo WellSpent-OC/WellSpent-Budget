@@ -439,9 +439,11 @@ final class PhoneImportTests: XCTestCase {
 
 // MARK: - The steps these tests take
 
-/// Here, not in PhoneTestSupport.swift, so this file stands on its own.
+/// Here, not in PhoneTestSupport.swift, so this file stands on its own. Not
+/// private: the two-person tests import statements too
+/// (PhoneSharedEntriesTests.swift).
 @MainActor
-private extension PhoneTestApp {
+extension PhoneTestApp {
     /// Launches on Groceries, with Import statement reading this file in
     /// place of showing the Files picker. A different file needs a new launch.
     func launch(importing statement: URL) {

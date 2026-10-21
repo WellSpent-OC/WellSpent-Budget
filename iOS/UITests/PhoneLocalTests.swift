@@ -268,6 +268,135 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
     }
 
+    @MainActor
+    func testPeopleInTheMenuOpensThePageAndANewBudgetTakesItsPlace() throws {
+        let run = launched()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Household")).waitForExistence(timeout: 10), "no Household")
+
+        // Scenario PAGE-02
+        // 1. People in Household's menu opens its page, as a tap on its name
+        // does.
+        run.longPress(AccessibilityID.sidebarGroup("Household"))
+        run.tapMenuItem(MembersScreen.Words.menuItem)
+        let summary = run.element(AccessibilityID.groupSummary)
+        XCTAssertTrue(summary.waitForExistence(timeout: 10), "People did not open the page. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.app.navigationBars["Household"].exists, "the page is not Household's")
+
+        // Scenario PAGE-03
+        // 2. A budget picked after takes the page's place: Back, then
+        // Groceries, shows Groceries, and Back from it goes Home, not to the
+        // page.
+        run.goBack()
+        run.openBudget(named: "Groceries")
+        run.goBack()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+        XCTAssertFalse(summary.exists, "the group's page came back")
+
+        // Scenario PAGE-03
+        // 3. A new budget, saved from the page's menu, opens in the page's
+        // place, and Back from it goes Home.
+        run.openGroupPage(named: "Household")
+        XCTAssertTrue(summary.waitForExistence(timeout: 10), "no page")
+        run.tap(AccessibilityID.groupMenu)
+        run.tapMenuItem(MainScreen.Words.newBudget(in: "Household"))
+        run.type("Gifts", into: AccessibilityID.budgetEditorName)
+        run.type("80", into: AccessibilityID.budgetEditorAmount)
+        run.tap(AccessibilityID.budgetEditorSave)
+        XCTAssertTrue(run.app.navigationBars["Gifts"].waitForExistence(timeout: 10), "Gifts did not open in the page's place")
+        run.goBack()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+        XCTAssertFalse(summary.exists, "the group's page came back")
+    }
+
+    @MainActor
+    func testWithNoBudgetsHomeSaysHowToStartAndANewBudgetMakesAGroup() throws {
+        let run = launched()
+        for group in ["Household", "Side Business"] {
+            run.longPress(AccessibilityID.sidebarGroup(group))
+            run.tapMenuItem(MainScreen.Words.delete)
+            try XCTUnwrap(run.questionButton("Delete"), "no Delete on the question").tap()
+            XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(group)), until: "exists == false",
+                                   timeout: 10), "\(group) is still on Home")
+        }
+
+        // Scenario BUDGET-10
+        // 1. With no budgets, Home says so, says what a budget is, and offers
+        // Add Budget, which opens New Budget.
+        XCTAssertTrue(run.text(MainScreen.Words.noBudgetsTitle).waitForExistence(timeout: 10),
+                      "Home does not say there are no budgets. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.text(MainScreen.Words.noBudgetsText).exists, "no line saying what a budget is")
+        run.app.buttons[MainScreen.Words.addBudget].firstMatch.tap()
+
+        // Scenario BUDGET-05
+        // 2. With no group to put it in, New Budget asks for a group's name,
+        // with Personal filled in, and Add stays dimmed while it is empty or
+        // only spaces. Added, PERSONAL holds Groceries, and Groceries opens.
+        let groupField = run.element(AccessibilityID.budgetEditorGroup)
+        XCTAssertTrue(groupField.waitForExistence(timeout: 10), "no group name. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(run.fieldText(AccessibilityID.budgetEditorGroup), BudgetEditor.Words.defaultGroupName)
+        run.type("Groceries", into: AccessibilityID.budgetEditorName)
+        run.type("500", into: AccessibilityID.budgetEditorAmount)
+        let save = run.button(AccessibilityID.budgetEditorSave)
+        XCTAssertTrue(save.isEnabled, "Add is dimmed with a group name")
+        run.type("   ", into: AccessibilityID.budgetEditorGroup)
+        XCTAssertTrue(run.wait(for: save, until: "isEnabled == false", timeout: 5), "Add lit with only spaces")
+        run.type(BudgetEditor.Words.defaultGroupName, into: AccessibilityID.budgetEditorGroup)
+        run.tap(AccessibilityID.budgetEditorSave)
+        XCTAssertTrue(run.app.navigationBars["Groceries"].waitForExistence(timeout: 10), "Groceries did not open")
+        run.goBack()
+        let personal = run.element(AccessibilityID.sidebarGroup(BudgetEditor.Words.defaultGroupName))
+        XCTAssertTrue(personal.waitForExistence(timeout: 10), "no PERSONAL on Home")
+        XCTAssertTrue(personal.label.contains("PERSONAL"), "the group's name: \(personal.label)")
+        XCTAssertTrue(run.element(AccessibilityID.sidebarBudget("Groceries")).exists, "Groceries is not under PERSONAL")
+    }
+
+    @MainActor
+    func testAnOpenBudgetSaysWhatIsSpentAndLeftThisPeriod() throws {
+        let run = launched()
+        let budget = "Food Probe"
+        run.addBudget(named: budget, amount: "500", inGroup: "Household")
+        run.addEntry(merchant: "Hilltop Grocery", amount: "142.08")
+        run.addEntry(merchant: "Corner Bakery", amount: "12.00")
+        let calendar = Calendar.current
+        let today = Date()
+        var parts = calendar.dateComponents([.year, .month], from: calendar.date(byAdding: .month, value: -1, to: today) ?? today)
+        parts.day = 20
+        let lastMonth = try XCTUnwrap(calendar.date(from: parts))
+        run.tap(AccessibilityID.budgetAdd)
+        run.type("Market", into: AccessibilityID.entryMerchant)
+        run.type("9.50", into: AccessibilityID.entryAmount)
+        run.pickDate(lastMonth, showing: today)
+        run.tap(AccessibilityID.entryAdd)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryAmount), until: "exists == false", timeout: 10),
+                      "the sheet did not close")
+
+        // Scenario BUDGET-14
+        // 1. The budget says $154.08 spent and $345.92 left this period, its
+        // wheel shows what is left of $500, the line under the figures counts
+        // 2 transactions since the 1st, and it lists this month's two and not
+        // last month's Market. Home shows $345.92 beside it.
+        XCTAssertTrue(run.figure(MoneyWheel.Words.spent, is: "$154.08"), "Spent is not $154.08. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.figure(MoneyWheel.Words.left, is: "$345.92"), "Left is not $345.92. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $346 of $500"),
+                      "the wheel does not show what is left of $500. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "no count of 2. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop Grocery")).exists, "Hilltop Grocery is not listed")
+        XCTAssertTrue(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery is not listed")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "last month's Market is listed")
+        run.goBack()
+        let row = run.scrollTo(AccessibilityID.sidebarBudget(budget))
+        XCTAssertTrue(row.label.contains("$345.92"), "Home does not show $345.92 beside it: \(row.label)")
+
+        // Scenario BUDGET-14
+        // 2. With one transaction, the line says 1 transaction.
+        run.openBudget(named: budget)
+        run.openEntry("Corner Bakery")
+        run.tap(AccessibilityID.entryDelete)
+        run.answer("Delete")
+        run.expectNoSheet()
+        XCTAssertTrue(run.shows("1 transaction since \(Self.startOfMonth())"), "no count of 1. On screen: \(run.visibleTexts())")
+    }
+
     /// "Oct 1", the way a budget's count line names the start of the month.
     private static func startOfMonth() -> String {
         let calendar = Calendar.current
