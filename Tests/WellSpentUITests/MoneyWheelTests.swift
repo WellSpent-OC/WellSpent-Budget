@@ -8,10 +8,11 @@ import WellSpentModel
 /// tick and figures, the group's MONEY, a budget over its limit and its row
 /// in the sidebar, and the pace words.
 ///
-/// The app is launched with its wheels on the 18th of this month, and then
-/// again on the 26th (`Workspace.pinnedDayVariable`), whatever day the test
-/// runs. So the pace words show where the steps check them: spending too
-/// fast on the 18th, and more left than expected in the month's last week.
+/// The first test launches the app with its wheels on the 18th of this month,
+/// and the second on the 26th (`Workspace.pinnedDayVariable`), whatever day
+/// the tests run. So the pace words show where the steps check them: spending
+/// too fast on the 18th, and more left than expected in the month's last week.
+/// Each test launches the app once, as every other UI test does.
 /// The words and amounts it expects come from the shared code, read for the
 /// same day as the app reads them.
 ///
@@ -135,14 +136,30 @@ final class MoneyWheelTests: XCTestCase {
                    "Books, $1.00 spent on the 18th")
         run.expect(pace: nil, "Books, $1.00 spent on the 18th")
 
-        // Scenario WHEEL-09
-        // 9. The app again, with its wheels on the 26th, in the month's last
-        // week: more is left of Books than expected, so the words offer to
-        // lower it, and Edit Budget… beside them opens its sheet.
-        run.app.terminate()
+        // 9. Tidy: the group goes, with its budgets.
+        run.deleteGroup(named: groupName)
+    }
+
+    /// The month's last week, in a launch of its own on the 26th.
+    @MainActor
+    func testTheLastWeekOffersToLowerABudget() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = Self.stamp()
+        let groupName = "Wheel \(stamp)"
+        let books = "Books \(stamp)"
+
+        // 1. The wheels on the 26th, in the month's last week. A group with
+        // Books, $1,000.00 a month. Saving opens it. Then $1.00 spent.
         run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(Self.lastWeek)
         run.launch()
-        run.openBudget(named: books)
+        run.addGroup(named: groupName)
+        run.addBudget(named: books, amount: "1000", inGroup: groupName)
+        run.addEntry(merchant: "Bookshop", amount: "1.00")
+
+        // Scenario WHEEL-09
+        // 2. More is left of Books than expected by the 26th, so the words
+        // offer to lower it, and Edit Budget… beside them opens its sheet.
         let booksLastWeek = TodaysBudget(books, limit: 100_000, spent: 100, pinnedDay: Self.lastWeek)
         let moreLeft = try XCTUnwrap(booksLastWeek.pace, "the 26th is in the month's last week")
         XCTAssertEqual(moreLeft.kind, .underPace)
@@ -151,7 +168,7 @@ final class MoneyWheelTests: XCTestCase {
         run.expect(pace: moreLeft, "Books, $1.00 spent on the 26th")
         expectEditBudgetOpens(books, in: run)
 
-        // 10. Tidy: the group goes, with its budgets.
+        // 3. Tidy: the group goes, with its budget.
         run.deleteGroup(named: groupName)
     }
 
