@@ -12,7 +12,7 @@ A new install starts with two made-up groups, **HOUSEHOLD** and **SIDE BUSINESS*
 
 2. Pick **Delete…**
 
-3. Press **Delete**.
+3. Press **Delete** in the question.
 
    > You see HOUSEHOLD gone from the sidebar.
 
@@ -26,7 +26,7 @@ If you sign in to an account you made on another computer, the samples hide. The
 
 2. Tap **Delete**.
 
-3. Tap **Delete**.
+3. Tap **Delete** in the question.
 
 ## If it doesn't work
 

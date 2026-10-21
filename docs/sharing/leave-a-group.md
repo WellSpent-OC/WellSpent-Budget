@@ -12,7 +12,7 @@ Leaving takes the group off all your devices. The others keep it, along with eve
 
 2. Pick **Leave…**
 
-3. Press **Leave**.
+3. Press **Leave** in the question.
 
    > You see the group gone from your sidebar.
 
@@ -24,7 +24,7 @@ To come back, ask someone in the group for a new invite link.
 
 2. Tap **Leave**.
 
-3. Tap **Leave**.
+3. Tap **Leave** in the question.
 
 ## If it doesn't work
 

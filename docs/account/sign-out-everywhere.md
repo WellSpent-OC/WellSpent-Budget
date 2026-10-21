@@ -12,7 +12,7 @@ This signs out every device signed in to your account, this one too. Each device
 
 2. Press **Sign out everywhere…**
 
-3. Press **Sign Out Everywhere**.
+3. Press **Sign Out Everywhere** in the question.
 
    > You see **Kept on this computer only** at the bottom of the sidebar. Every other device asks you to sign in again at its next sync.
 
@@ -22,7 +22,7 @@ This signs out every device signed in to your account, this one too. Each device
 
 2. Tap **Sign out everywhere**.
 
-3. Tap **Sign Out Everywhere**.
+3. Tap **Sign Out Everywhere** in the question.
 
 ## If it doesn't work
 

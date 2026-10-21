@@ -14,7 +14,7 @@ title: "Side quest: Delete a budget"
 
    > You see a question that names the budget, and how many transactions go with it.
 
-3. Press **Delete**.
+3. Press **Delete** in the question.
 
 ## On an iPhone
 
@@ -22,6 +22,6 @@ title: "Side quest: Delete a budget"
 
 2. Tap **Delete**.
 
-3. Tap **Delete**.
+3. Tap **Delete** in the question.
 
 <!-- Scenarios: BUDGET-07, BUDGET-08 -->

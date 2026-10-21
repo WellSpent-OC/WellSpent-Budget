@@ -13,7 +13,7 @@ A budget's wheel is full on the 1st, and empties as money goes out. When you spe
 1. ![A hand clicks Gas in the sidebar](../assets/shots/change-a-budget-from-its-wheel-1.svg)
    Click a budget in the sidebar.
 
-   > You see its wheel, and the words under the figures.
+   > You see the budget's wheel.
 
 2. ![A hand presses Edit Budget beside the pace words](../assets/shots/change-a-budget-from-its-wheel-2.svg)
    Press **Edit Budget…**
@@ -30,7 +30,7 @@ A budget's wheel is full on the 1st, and empties as money goes out. When you spe
 
 1. Tap a budget on Home.
 
-   > You see its wheel, and the words under the figures.
+   > You see the budget's wheel.
 
 2. Tap **Edit Budget**.
 

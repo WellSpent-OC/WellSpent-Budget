@@ -18,7 +18,7 @@ title: "Side quest: Change someone's level, or remove them"
 
 3. To take someone out of the group, press **Remove…** in their row.
 
-4. Press **Remove**.
+4. Press **Remove** in the question.
 
    > You see their row gone. What they added stays in the group.
 

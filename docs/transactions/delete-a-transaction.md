@@ -12,7 +12,7 @@ title: "Side quest: Delete a transaction, and undo it"
 
 2. Press **Delete…**
 
-3. Press **Delete**.
+3. Press **Delete** in the question.
 
    > You see a bar at the top of the budget, with **Undo**.
 
@@ -28,7 +28,7 @@ In a shared group, a delete takes the transaction out for everyone in the group.
 
 2. Tap **Delete**.
 
-3. Tap **Delete**.
+3. Tap **Delete** in the question.
 
    > You see a bar with **Undo**.
 

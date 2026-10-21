@@ -14,7 +14,7 @@ title: "Side quest: Delete a group"
 
    > You see a question that names the group, and how many budgets and transactions go with it.
 
-3. Press **Delete**.
+3. Press **Delete** in the question.
 
    > You see the group gone from your sidebar.
 
@@ -24,7 +24,7 @@ title: "Side quest: Delete a group"
 
 2. Tap **Delete**.
 
-3. Tap **Delete**.
+3. Tap **Delete** in the question.
 
 ## If it doesn't work
 
