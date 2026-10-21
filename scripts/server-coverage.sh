@@ -42,7 +42,7 @@ REPORT="$(mktemp)"
 trap 'rm -f "${REPORT}"' EXIT
 ${LLVM_COV} export "${TEST_BIN}" -instr-profile "${PROFDATA}" --summary-only > "${REPORT}"
 
-python3 - "${REPORT}" "${MINIMUM}" <<'PY'
+python3 -I - "${REPORT}" "${MINIMUM}" <<'PY'
 import json, sys
 report, minimum = sys.argv[1], float(sys.argv[2])
 marker = "/Server/Sources/WellSpentServerCore/"
