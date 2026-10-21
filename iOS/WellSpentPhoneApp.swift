@@ -31,13 +31,6 @@ struct WellSpentPhoneApp: App {
             switch launch {
             case .success(let workspace):
                 wellSpentPhoneRootView(workspace: workspace, startingOn: start)
-                    // Midnight, the clocks moving or a new time zone: a new
-                    // day may begin a new month, so the budgets are read
-                    // again for it.
-                    .onReceive(NotificationCenter.default.publisher(
-                        for: UIApplication.significantTimeChangeNotification)) { _ in
-                        workspace.dayChanged()
-                    }
             case .failure(let error):
                 ContentUnavailableView {
                     Label(MainScreen.Words.couldNotOpen(AppEnvironment.current.appName),

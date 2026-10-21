@@ -157,19 +157,6 @@ struct AutoSyncTests {
 
         #expect(s.autoSync.runs == 1)
     }
-
-    /// A new day reads the budgets again, signed in or not, so a new month
-    /// shows its own money from its first minute.
-    @Test func aNewDayReadsTheBudgetsAgain() throws {
-        let s = try Setup()
-        let group = try #require(s.model.groups.first)
-        AppModel(store: s.model.store).addBudget(named: "Eating out", limit: Money(minorUnits: 30_000),
-                                                 in: group.id)
-
-        s.workspace.dayChanged()
-
-        #expect(s.model.summaries[group.id]?.map(\.budget.name).sorted() == ["Eating out", "Groceries"])
-    }
 }
 
 @Suite("Edits announce themselves")

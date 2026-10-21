@@ -97,23 +97,16 @@ public final class Workspace {
         return calendar.date(from: parts) ?? now
     }
 
-    // MARK: - A new day
+    // MARK: - Coming to the front
 
     /// The app came to the front, which happens at launch too. Signed in, it
     /// syncs, and the sync reads the budgets again when it is done. Signed
     /// out, nothing syncs, so the budgets are read again here: a day or a
-    /// month may have begun while the app was away.
+    /// month may have begun while the app was away, and this does not wait
+    /// for the system to say the day changed.
     public func cameToFront() async {
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
-    }
-
-    /// The day changed while the app was open, or while it was away and is
-    /// now back: midnight, the clocks moving, or a new time zone. The budgets
-    /// are read again, signed in or not, so a new month shows its own money
-    /// under its own name at once.
-    public func dayChanged() {
-        model.reload()
     }
 
     // MARK: - Opened links
