@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 49 |
+| Linux | 142 | 56 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -80,13 +80,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | iPhone |
-| SAMP-02 | Samples nobody changed stay out of a new account | Mac, Linux, iPhone | None yet |
-| SAMP-03 | A group made before signing up comes along, and the samples do not | Mac, Linux, iPhone | None yet |
-| SAMP-04 | A sample given an entry comes along, all of it | Mac, Linux, iPhone | None yet |
-| SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | None yet |
-| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | iPhone |
-| SAMP-07 | The samples come only once | Mac, Linux, iPhone | None yet |
+| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | Linux, iPhone |
+| SAMP-02 | Samples nobody changed stay out of a new account | Mac, Linux, iPhone | Linux |
+| SAMP-03 | A group made before signing up comes along, and the samples do not | Mac, Linux, iPhone | Linux |
+| SAMP-04 | A sample given an entry comes along, all of it | Mac, Linux, iPhone | Linux |
+| SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Linux |
+| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Linux, iPhone |
+| SAMP-07 | The samples come only once | Mac, Linux, iPhone | Linux |
 
 ### [Budgets.md](Budgets.md)
 
