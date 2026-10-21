@@ -36,10 +36,14 @@ struct PhoneBudgetView: View {
                 }
                 ForEach(screen.rows) { row in
                     PhoneEntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                        // A tap, a swipe and a long press: PhoneEntryEditing.swift.
+                        .phoneEntryActions(row, main: main)
                 }
             }
             .listRowBackground(Palette.surface)
         }
+        // The opened entry's sheet and the Undo bar: PhoneEntryEditing.swift.
+        .phoneEntryEditing(model: model, undo: screen.undo)
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Palette.ground)
