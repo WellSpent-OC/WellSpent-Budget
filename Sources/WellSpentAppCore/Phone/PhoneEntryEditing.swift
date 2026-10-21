@@ -87,7 +87,8 @@ struct PhoneEntryActions: ViewModifier {
 }
 
 /// The bar at the top of a budget after a delete: what went, and Undo. A
-/// card in the words' colour, with its own words in the page's colour.
+/// card in the design's dark band with white words, the same in light and
+/// dark, and Undo a gold button on it.
 struct PhoneUndoBar: View {
     let offer: UndoOffer
     let undo: () -> Void
@@ -100,14 +101,24 @@ struct PhoneUndoBar: View {
             Button(action: undo) {
                 Text(offer.button)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(PaletteValues.undoButtonWords))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color(PaletteValues.undoButton),
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    // It takes a tap at least 44 by 44 points around the
+                    // gold, as the iPhone asks of every button.
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.undoButton)
         }
-        .foregroundStyle(Palette.ground)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Palette.ink, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .foregroundStyle(Color(PaletteValues.undoBarWords))
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 2)
+        .background(Color(PaletteValues.undoBar), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .accessibilityElement(children: .contain)
