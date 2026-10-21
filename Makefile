@@ -189,10 +189,11 @@ iphone-ui-test-build: iphone-project
 # is left in the app. It runs headless: no Simulator window opens, and the
 # Mac's screen is never taken. The tests that sign in read the same four
 # WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and the tests
-# that make an account its mailbox token. Each skips without them, and runs in light only: staging allows 10 sign-ins in 15 minutes
-# from one place, a signed-in run takes 7, and the local tests already draw
-# every screen in dark. The rest need no account and no server. If anything stops the
-# run, Control-C included, the simulator is still deleted. The simulator is the
+# that make an account its mailbox token. Each skips without them, and runs in
+# light only: the local tests already draw every screen in dark, and every
+# sign-in counts against staging's limits. The rest need no account and no
+# server. If anything stops the run, Control-C included, the simulator is still
+# deleted. The simulator is the
 # newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
 # one, such as "iPhone 17". IPHONE_UI_TEST_ONLY runs one test class or test,
 # such as WellSpentPhoneUITests/PhoneSignInSyncTests.
