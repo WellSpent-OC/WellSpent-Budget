@@ -350,6 +350,13 @@ jobs:
           set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
           make ui-test UI_TEST_SHARD=${{ matrix.part }}/2
 
+      # Nothing skipped (the Definition of Done, item 1). It warns for now,
+      # until a first run shows what CI's machines skip, and then it fails.
+      - name: Nothing skipped
+        if: ${{ !cancelled() && env.HAS_MAILBOX == 'true' }}
+        continue-on-error: true
+        run: scripts/skipped-tests.sh .build/xcode/ui-test.xcresult
+
       - name: Say why the run was skipped
         if: env.HAS_MAILBOX != 'true'
         run: echo "::notice::The UI test ran its build only. The test mailbox token is not available to this pull request, which is expected for a fork."
@@ -470,6 +477,12 @@ jobs:
         run: |
           if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a; fi
           make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2
+
+      # Nothing skipped, as for the Mac. It warns for now.
+      - name: Nothing skipped
+        if: ${{ !cancelled() && env.HAS_MAILBOX == 'true' }}
+        continue-on-error: true
+        run: scripts/skipped-tests.sh .build/xcode-iphone/ui-test-light.xcresult .build/xcode-iphone/ui-test-dark.xcresult
 
       - name: Say why the signed-in tests were skipped
         if: env.HAS_MAILBOX != 'true'
