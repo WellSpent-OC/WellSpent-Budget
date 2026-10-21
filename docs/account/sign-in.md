@@ -8,13 +8,17 @@ title: "Side quest: Sign in"
 
 **Before you start:** your account's email and password.
 
-1. Press **Sign in** at the bottom of the sidebar.
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/sign-in-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
 
-2. Type your email in **Email**.
+2. ![A hand types in Email](../assets/shots/sign-in-2.svg)
+   Type your email in **Email**.
 
-3. Type your password in **Password**.
+3. ![A hand types in Password](../assets/shots/sign-in-3.svg)
+   Type your password in **Password**.
 
-4. Press **Sign in**.
+4. ![A hand presses Sign in](../assets/shots/sign-in-4.svg)
+   Press **Sign in**.
 
    > You see your account's budgets, and **Syncs through WellSpent's server** at the bottom of the sidebar.
 

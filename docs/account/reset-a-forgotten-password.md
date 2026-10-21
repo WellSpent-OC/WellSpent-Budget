@@ -8,25 +8,34 @@ title: "Side quest: Reset a forgotten password"
 
 **Before you start:** your email must be confirmed. A reset code lasts 30 minutes.
 
-1. Press **Sign in** at the bottom of the sidebar.
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/reset-a-forgotten-password-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
 
-2. Type your email in **Email**.
+2. ![A hand types in Email](../assets/shots/reset-a-forgotten-password-2.svg)
+   Type your email in **Email**.
 
-3. Press **Forgot your password?**
+3. ![A hand presses Forgot your password](../assets/shots/reset-a-forgotten-password-3.svg)
+   Press **Forgot your password?**
 
-4. Press **Send code**.
+4. ![A hand presses Send code](../assets/shots/reset-a-forgotten-password-4.svg)
+   Press **Send code**.
 
    > You see that a code is on its way, and that it lasts 30 minutes.
 
-5. Open the email from WellSpent whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
+5. ![An email with the subject Reset your WellSpent password](../assets/shots/reset-a-forgotten-password-5.svg)
+   Open the email from WellSpent whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
 
-6. Type the code in **Code**.
+6. ![A hand types the code in Code](../assets/shots/reset-a-forgotten-password-6.svg)
+   Type or paste the code in **Code**.
 
-7. Type a new password of at least 10 characters in **New password**.
+7. ![A hand types in New password](../assets/shots/reset-a-forgotten-password-7.svg)
+   Type a new password of at least 10 characters in **New password**.
 
-8. Type the same password in **Confirm password**.
+8. ![A hand types in Confirm password](../assets/shots/reset-a-forgotten-password-8.svg)
+   Type the same password in **Confirm password**.
 
-9. Press **Set password**.
+9. ![A hand presses Set password](../assets/shots/reset-a-forgotten-password-9.svg)
+   Press **Set password**.
 
    > You see "Your password is changed, and you are signed in. Every other device was signed out."
 
