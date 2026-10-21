@@ -137,6 +137,11 @@ class Element:
     def showing(self):
         return self._has(Atspi.StateType.SHOWING)
 
+    @property
+    def focused(self):
+        """Whether the keyboard is on it."""
+        return self._has(Atspi.StateType.FOCUSED)
+
     def all(self, role=None, words=None, starts=None):
         """Everything inside this element with that role and those words, or
         whose words start with `starts`."""

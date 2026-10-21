@@ -59,23 +59,28 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingAccount) {
             AccountView(sync: sync, isPresented: $showingAccount)
+                .tabMovesFocus()
         }
         .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
             if let sheet {
                 sheetView(sheet)
+                    .tabMovesFocus()
             }
         }
         .sheet(isPresented: $showingEntry) {
             EntryEditorView(model: model, close: { showingEntry = false })
+                .tabMovesFocus()
         }
         .sheet(isPresented: Binding(get: { openedEntry != nil }, set: { if !$0 { openedEntry = nil } })) {
             if let openedEntry {
                 EntryEditorView(editor: openedEntry, close: { self.openedEntry = nil })
+                    .tabMovesFocus()
             }
         }
         .sheet(isPresented: Binding(get: { importing },
                                     set: { if !$0 { model.cancelImport() } })) {
             ImportReviewView(model: model)
+                .tabMovesFocus()
         }
         // Signed out without asking, by the server: the sign-in opens with the
         // reason.

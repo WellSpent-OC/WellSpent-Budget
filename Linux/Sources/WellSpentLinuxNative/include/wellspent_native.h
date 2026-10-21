@@ -57,3 +57,9 @@ void wellspent_calendar_arrows(void *widget, const char *previous_month, const c
 /// stop (SIGTERM), as a desktop does at log out, instead of the process just
 /// ending. Call once, after the app's GtkApplication is made.
 void wellspent_quit_on_terminate(void);
+
+/// Tab and Shift+Tab move the keyboard between the controls of the window that
+/// holds `widget` (a GtkWidget), once it is in one. For a sheet, whose window
+/// lets no Tab through in SwiftCrossUI 0.10.0. Once per window is enough; more
+/// calls change nothing.
+void wellspent_tab_moves_focus(void *widget);
