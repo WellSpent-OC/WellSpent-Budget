@@ -8,11 +8,14 @@ title: "Side quest: Sign out on every device"
 
 This signs out every device signed in to your account, this one too. Each device keeps its budgets.
 
-1. Press **Account**, the person at the top of a budget's page.
+1. ![A hand presses Account at the top of a budget's page](../assets/shots/sign-out-everywhere-1.svg)
+   Press **Account**, the person at the top of a budget's page.
 
-2. Press **Sign out everywhere…**
+2. ![A hand presses Sign out everywhere](../assets/shots/sign-out-everywhere-2.svg)
+   Press **Sign out everywhere…**
 
-3. Press **Sign Out Everywhere** in the question.
+3. ![A hand presses Sign Out Everywhere in the question](../assets/shots/sign-out-everywhere-3.svg)
+   Press **Sign Out Everywhere** in the question.
 
    > You see **Kept on this computer only** at the bottom of the sidebar. Every other device asks you to sign in again at its next sync.
 
