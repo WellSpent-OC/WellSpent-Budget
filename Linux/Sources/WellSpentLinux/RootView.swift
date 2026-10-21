@@ -6,9 +6,9 @@ import WellSpentCrypto
 import WellSpentModel
 
 /// The window, drawn from MainScreen: groups and budgets on the left, the
-/// chosen budget or a group's page on the right, and the sheets over them.
-/// The rules and words are the Mac's, from the shared code; this is layout
-/// only.
+/// chosen budget, a group's page or an invite link's page on the right, and
+/// the sheets over them. The rules and words are the Mac's, from the shared
+/// code. This is layout only.
 struct RootView: View {
     var workspace: Workspace
     @State var screen: MainScreen
@@ -37,6 +37,7 @@ struct RootView: View {
         let pendingDelete = screen.pendingDelete
         let importing = model.pendingImport != nil
         let problem = model.errorMessage
+        let invitation = screen.invitation
         let openGroup = screen.openGroup
         let people = openPage.screen(for: openGroup, sync: sync)
         VStack(spacing: 0) {
@@ -46,7 +47,9 @@ struct RootView: View {
             NavigationSplitView {
                 SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
             } detail: {
-                if let openGroup, let people {
+                if let invitation {
+                    InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
+                } else if let openGroup, let people {
                     GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
                                   invite: { sheet = .share(openGroup) })
                 } else {
