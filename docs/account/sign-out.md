@@ -16,6 +16,14 @@ Signing out doesn't delete your budgets. They come back when you sign in again.
 
 Signing out works even with no internet.
 
+## On an iPhone
+
+1. Tap **Account** at the bottom left of Home.
+
+2. Tap **Sign out**.
+
+   > You see **Kept on this iPhone only** at the bottom of Home.
+
 ## Related
 
 - [Side quest: Sign out on every device](sign-out-everywhere.md)

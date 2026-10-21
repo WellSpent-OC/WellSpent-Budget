@@ -22,6 +22,14 @@ title: "Side quest: Change someone's level, or remove them"
 
    > You see their row gone. What they added stays in the group.
 
+## On an iPhone
+
+1. Tap the group's name on Home.
+
+2. Tap the person.
+
+3. Under **Level**, pick the new one. Or tap **Remove**, then **Remove** again, to take them out of the group.
+
 ## Related
 
 - [What each level can do](what-each-level-can-do.md)

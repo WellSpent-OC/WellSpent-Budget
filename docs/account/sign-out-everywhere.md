@@ -16,6 +16,14 @@ This signs out every device signed in to your account, this one too. Each device
 
    > You see **Kept on this computer only** at the bottom of the sidebar. Every other device asks you to sign in again at its next sync.
 
+## On an iPhone
+
+1. Tap **Account** at the bottom left of Home.
+
+2. Tap **Sign out everywhere**.
+
+3. Tap **Sign Out Everywhere**.
+
 ## If it doesn't work
 
 - **"This computer is not connected to the internet.":** signing out everywhere needs the internet. You stay signed in until it works. Connect, and try again.

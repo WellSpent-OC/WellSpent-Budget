@@ -32,6 +32,22 @@ title: "Side quest: Reset a forgotten password"
 
 Then sign in again on your other devices. Your budgets stay.
 
+## On an iPhone
+
+1. Tap **Sign in** at the bottom left of Home.
+
+2. Type your email in **Email**.
+
+3. Tap **Forgot your password?**
+
+4. Tap **Send code**.
+
+5. Open the email whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
+
+6. Type the code in **Code**, and a new password of at least 10 characters in **New password** and **Confirm password**.
+
+7. Tap **Set password**.
+
 ## If it doesn't work
 
 - **No code email:** check your spam or junk folder. A code goes only to an email that has an account and was confirmed. If yours was never confirmed, write to **dev@wellspent.space**.

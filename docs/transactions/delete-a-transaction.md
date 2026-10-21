@@ -22,6 +22,18 @@ title: "Side quest: Delete a transaction, and undo it"
 
 In a shared group, a delete takes the transaction out for everyone in the group.
 
+## On an iPhone
+
+1. In the budget, swipe the transaction to the left.
+
+2. Tap **Delete**.
+
+3. Tap **Delete**.
+
+   > You see a bar with **Undo**.
+
+4. Changed your mind? Tap **Undo** within about 10 seconds.
+
 ## If it doesn't work
 
 - **The Undo bar is gone:** it goes after about 10 seconds, or at your next change. Add the transaction again.

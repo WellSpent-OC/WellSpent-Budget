@@ -18,6 +18,14 @@ title: "Side quest: Delete a group"
 
    > You see the group gone from your sidebar.
 
+## On an iPhone
+
+1. Touch and hold the group's name on Home.
+
+2. Tap **Delete**.
+
+3. Tap **Delete**.
+
 ## If it doesn't work
 
 - **The menu says Leave…, not Delete…:** someone else made the group. You can leave it. [Side quest: Leave a group](../sharing/leave-a-group.md)

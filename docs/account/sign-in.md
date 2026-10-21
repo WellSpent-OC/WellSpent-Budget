@@ -20,6 +20,18 @@ title: "Side quest: Sign in"
 
 Budgets made on this computer while signed out stay hidden while you're signed in.
 
+## On an iPhone
+
+1. Tap **Sign in** at the bottom left of Home.
+
+2. Type your email in **Email**.
+
+3. Type your password in **Password**.
+
+4. Tap **Sign in**.
+
+   > You see your account's budgets on Home.
+
 ## If it doesn't work
 
 - **"That email or password is wrong.":** check both, and try again. Forgot your password? [Side quest: Reset a forgotten password](reset-a-forgotten-password.md)

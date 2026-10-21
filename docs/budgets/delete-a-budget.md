@@ -16,4 +16,12 @@ title: "Side quest: Delete a budget"
 
 3. Press **Delete**.
 
+## On an iPhone
+
+1. Touch and hold the budget on Home.
+
+2. Tap **Delete**.
+
+3. Tap **Delete**.
+
 <!-- Scenarios: BUDGET-07, BUDGET-08 -->

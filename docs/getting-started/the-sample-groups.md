@@ -20,6 +20,14 @@ Do the same for **SIDE BUSINESS**.
 
 If you sign in to an account you made on another computer, the samples hide. They show again when you sign out.
 
+## On an iPhone
+
+1. Touch and hold **HOUSEHOLD** on Home.
+
+2. Tap **Delete**.
+
+3. Tap **Delete**.
+
 ## If it doesn't work
 
 - **The menu has only Edit… and Delete…, and the question names a budget:** that's a budget's menu. Press **Cancel**, and right-click the group's name instead. It's in capital letters.

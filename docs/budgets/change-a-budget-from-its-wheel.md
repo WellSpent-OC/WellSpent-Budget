@@ -26,6 +26,18 @@ A budget's wheel is full on the 1st, and empties as money goes out. When you spe
 
    > You see the wheel drawn again for the new amount.
 
+## On an iPhone
+
+1. Tap a budget on Home.
+
+   > You see its wheel, and the words under the figures.
+
+2. Tap **Edit Budget**.
+
+3. Type a new amount in **Each month**.
+
+4. Tap **Save**.
+
 ## If it doesn't work
 
 - **There's no Edit Budget…:** it shows only when the wheel has something to say, and only at the Manage level or higher. Any day, **Edit…** on the budget's menu changes it too.

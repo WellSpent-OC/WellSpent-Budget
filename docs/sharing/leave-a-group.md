@@ -18,6 +18,14 @@ Leaving takes the group off all your devices. The others keep it, along with eve
 
 To come back, ask someone in the group for a new invite link.
 
+## On an iPhone
+
+1. Touch and hold the group's name on Home.
+
+2. Tap **Leave**.
+
+3. Tap **Leave**.
+
 ## If it doesn't work
 
 - **The menu says Delete…, not Leave…:** you're an Admin. To leave without deleting it, click the group's name, and press **Leave Group…** on its page.

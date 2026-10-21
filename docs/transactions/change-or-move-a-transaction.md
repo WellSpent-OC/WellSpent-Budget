@@ -16,6 +16,16 @@ title: "Side quest: Change or move a transaction"
 
    > You see the change in the list, and the budget's totals follow at once.
 
+## On an iPhone
+
+You can also swipe a transaction to the left, or touch and hold it, and tap **Edit**.
+
+1. In the budget, tap the transaction.
+
+2. Change what's wrong. To move it, pick another budget in **Budget**.
+
+3. Tap **Save**.
+
 ## If it doesn't work
 
 - **Save stays dimmed:** nothing has changed yet, or **Merchant** is empty, or **Amount** isn't a number.

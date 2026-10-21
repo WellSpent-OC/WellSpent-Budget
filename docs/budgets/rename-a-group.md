@@ -18,4 +18,14 @@ title: "Side quest: Rename a group"
 
    > You see the new name in the sidebar, in capital letters.
 
+## On an iPhone
+
+1. Touch and hold the group's name on Home.
+
+2. Tap **Rename**.
+
+3. Type a new name in **Name**.
+
+4. Tap **Save**.
+
 <!-- Scenarios: BUDGET-02, BUDGET-07 -->
