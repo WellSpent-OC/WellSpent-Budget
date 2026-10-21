@@ -53,8 +53,21 @@ public enum TypedAmount: Equatable, Sendable {
             formatter.numberStyle = .decimal
             decimal = formatter.decimalSeparator.flatMap { $0.isEmpty ? nil : $0 } ?? "."
             grouping = formatter.groupingSeparator.flatMap { $0.isEmpty ? nil : $0 } ?? ","
-            groupSize = formatter.groupingSize > 0 ? formatter.groupingSize : 3
-            otherGroupSize = formatter.secondaryGroupingSize > 0 ? formatter.secondaryGroupingSize : groupSize
+            // The group sizes come from how the system writes a long number,
+            // so they always match what it writes. Linux's formatter leaves
+            // its second size at zero even where the region uses one.
+            var written: [Int] = []
+            if grouping.count == 1, let mark = grouping.first,
+               let long = formatter.string(from: NSNumber(value: 1_234_567_890)) {
+                written = long.split(separator: mark).map(\.count)
+            }
+            if written.count >= 3 {
+                groupSize = written[written.count - 1]
+                otherGroupSize = written[written.count - 2]
+            } else {
+                groupSize = formatter.groupingSize > 0 ? formatter.groupingSize : 3
+                otherGroupSize = formatter.secondaryGroupingSize > 0 ? formatter.secondaryGroupingSize : groupSize
+            }
         }
     }
 
