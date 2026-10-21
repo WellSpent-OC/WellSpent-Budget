@@ -25,7 +25,10 @@ public final class Workspace {
     /// (`pinnedDayVariable`), or nil, so the wheel reads the clock.
     public let pinnedDay: Int?
 
-    public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil) {
+    /// `notifications` is where the system says the day changed: the
+    /// process's own, unless a test hands in one of its own.
+    public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
+                notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
         self.autoSync = autoSync ?? AutoSync(sync: sync)
@@ -41,6 +44,16 @@ public final class Workspace {
                                   opensFirstBudget: self.model.opensFirstBudget)
         }
         watchForEdits()
+        // A new day moves every wheel's day and tick, and on the 1st starts a
+        // new period. A sync reads the budgets again, but signed out nothing
+        // syncs, so a window left open overnight would show the new day over
+        // yesterday's money. So the budgets are read again when the system
+        // says the day changed: at midnight, or on waking after it. The Mac
+        // and the iPhone say so. Linux does not, and a sync or an edit still
+        // reads them there.
+        _ = notifications.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.model.reload() }
+        }
     }
 
     /// Every edit syncs a moment later, what this person may add or change

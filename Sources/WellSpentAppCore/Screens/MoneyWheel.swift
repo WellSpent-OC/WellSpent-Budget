@@ -15,25 +15,28 @@ public struct PeriodDay: Equatable, Sendable {
     public let days: Int
     /// The start of the period's first day.
     public let start: Date
-    /// Today's month, "October".
+    /// The month of the day counted, "October".
     public let month: String
 
     /// Nil when the period has no end, as for a budget that never resets.
     ///
     /// Today counts as spent through, so day 18 of 31 leaves 13 days to come.
-    /// A day read before midnight on the period's last day stays on that day
-    /// until the app reads its budgets again.
+    /// A day read before midnight on the period's last day stays on that day,
+    /// and in that day's month, until the app reads its budgets again. So the
+    /// words never name the new month over the last one's money.
     public init?(period: BudgetPeriod, now: Date, calendar: Calendar) {
         guard period.start != .distantPast, period.end != .distantFuture else { return nil }
         let start = calendar.startOfDay(for: period.start)
         guard let days = calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: period.end)).day,
               days > 0 else { return nil }
         let today = calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: now)).day ?? 0
-        self.day = min(max(today + 1, 1), days)
+        let day = min(max(today + 1, 1), days)
+        self.day = day
         self.days = days
         self.start = start
-        month = now.formatted(Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
-                                               timeZone: calendar.timeZone).month(.wide))
+        let counted = calendar.date(byAdding: .day, value: day - 1, to: start) ?? now
+        month = counted.formatted(Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
+                                                   timeZone: calendar.timeZone).month(.wide))
     }
 
     /// The days still to come after today.

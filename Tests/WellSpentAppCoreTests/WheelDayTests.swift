@@ -7,21 +7,37 @@ import WellSpentModel
 import WellSpentStore
 import WellSpentSync
 
-/// The day the money wheel reads: the clock's, or a day a staging UI test
-/// pins.
+/// The day the money wheel reads: the clock's, with the budgets read again
+/// when a new day starts, or a day a staging UI test pins.
 @Suite("The wheel's day")
 @MainActor
 struct WheelDayTests {
     /// A workspace over an empty database, signed out, with Groceries,
     /// $500.00 a month, in Household.
-    private func household(pinnedDay: Int? = nil) throws
+    private func household(pinnedDay: Int? = nil, notifications: NotificationCenter = NotificationCenter()) throws
         -> (workspace: Workspace, group: GroupID, groceries: BudgetID) {
         let store = Store(database: try WellSpentDatabase.inMemory())
         let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())
-        let workspace = Workspace(model: AppModel(store: store), sync: sync, pinnedDay: pinnedDay)
+        let workspace = Workspace(model: AppModel(store: store), sync: sync, pinnedDay: pinnedDay,
+                                  notifications: notifications)
         let group = try #require(workspace.model.addGroup(named: "Household"))
         let groceries = try #require(workspace.model.addBudget(named: "Groceries", limit: .dollars(500), in: group))
         return (workspace, group, groceries)
+    }
+
+    /// A window left open past midnight, signed out, has no sync to read its
+    /// budgets again. When the system says the day changed, the workspace
+    /// reads them itself, so each wheel shows the new day's period and money.
+    @Test func aNewDayReadsTheBudgetsAgain() throws {
+        let days = NotificationCenter()
+        let (workspace, group, groceries) = try household(notifications: days)
+        // Saved past the model, so only a new read shows it.
+        try workspace.model.store.save(Transaction(budgetID: groceries, groupID: group, date: Date(),
+                                                   merchant: "Hilltop Grocery", amount: Money(minorUnits: -14_208)))
+        #expect(workspace.model.summary(for: groceries)?.spent == Money(minorUnits: 0), "nothing has read it yet")
+
+        days.post(name: .NSCalendarDayChanged, object: nil)
+        #expect(workspace.model.summary(for: groceries)?.spent == Money(minorUnits: 14_208))
     }
 
     /// A pinned day is that day of this month, at noon. A day past the

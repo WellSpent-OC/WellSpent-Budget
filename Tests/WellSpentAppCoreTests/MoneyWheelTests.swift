@@ -68,14 +68,18 @@ struct PeriodDayTests {
     }
 
     /// A day read outside its period stays within it: the summary read
-    /// before midnight on the last day stays on that day until the app reads
-    /// its budgets again.
+    /// before midnight on the last day stays on that day, and in that day's
+    /// month, until the app reads its budgets again. So it never names
+    /// November over October's money.
     @Test func aDayOutsideItsPeriodStaysWithinIt() throws {
         let october = WheelCalendar.month(of: WheelCalendar.date(2026, 10, 18))
         let after = try #require(PeriodDay(period: october, now: WheelCalendar.date(2026, 11, 2), calendar: calendar))
         #expect(after.day == 31 && after.days == 31)
+        #expect(after.month == "October")
+        #expect(after.line == "October · day 31 of 31")
         let before = try #require(PeriodDay(period: october, now: WheelCalendar.date(2026, 9, 28), calendar: calendar))
         #expect(before.day == 1)
+        #expect(before.line == "October · day 1 of 31")
     }
 
     /// A period of a week, from Sunday October 18 to the next Sunday.
