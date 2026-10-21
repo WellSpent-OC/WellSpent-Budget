@@ -135,7 +135,11 @@ final class PhoneImportTests: XCTestCase {
         run.waitForTheReviewToClose()
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Trader Joes")).waitForExistence(timeout: 10),
                       "Trader Joes is not in Groceries. On screen: \(run.visibleTexts())")
-        run.expect(["Trader Joes", "\(today) · Statement", joes, "$54.20"], on: AccessibilityID.entryRow("Trader Joes"))
+        // A row is one element, so its words are read from its label.
+        for words in ["Trader Joes", "\(today) · Statement", joes, "$54.20"] {
+            XCTAssertTrue(run.row("Trader Joes", says: words),
+                          "\(words) is not on Trader Joes' row. It says: \(run.rowLabel("Trader Joes"))")
+        }
 
         // Scenario IMPORT-07
         // 6. Imported a third time, every line is in already, with no list,
@@ -436,7 +440,7 @@ private extension PhoneTestApp {
     }
 
     /// Checks that each of these words shows inside one element, such as a
-    /// line of the review or an entry's row.
+    /// line of the review. An entry's row is one element, read with `row`.
     func expect(_ words: [String], on identifier: String) {
         let container = element(identifier)
         XCTAssertTrue(container.waitForExistence(timeout: 5), "nothing called \(identifier). On screen: \(visibleTexts())")
