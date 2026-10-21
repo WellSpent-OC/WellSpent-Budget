@@ -24,6 +24,9 @@ struct PhoneBudgetWheelSections: View {
                 MoneyWheelView(wheel: screen.wheel, geometry: .budgetPhone, middle: .full(amountSize: 26))
                     .accessibilityIdentifier(AccessibilityID.budgetWheel)
             }
+            // The row's full width, so the wheel sits in the middle with or
+            // without a day line: a budget that never resets has none.
+            .frame(maxWidth: .infinity)
             .listRowBackground(Color.clear)
             // Ten down from the top: the section's rounded corner clips
             // whatever sits in it, even on a clear row.
