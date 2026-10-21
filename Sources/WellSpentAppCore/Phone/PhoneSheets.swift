@@ -8,8 +8,8 @@ import WellSpentModel
 // on the right, and ends after its fields. A delete is a row of its own at
 // the end.
 
-/// A new entry. Draws `EntryEditor`. Opening an entry to change it comes with
-/// the iPhone's fourth milestone.
+/// A new entry. Draws `EntryEditor`. An entry opened from the list has its
+/// own sheet, PhoneOpenedEntrySheet, with the same fields.
 struct PhoneEntrySheet: View {
     @State private var editor: EntryEditor
     @Environment(\.dismiss) private var dismiss
@@ -23,28 +23,7 @@ struct PhoneEntrySheet: View {
         NavigationStack {
             Form {
                 Section {
-                    PhoneField(Words.merchant) {
-                        TextField(Words.merchant, text: Bindable(editor).merchant)
-                            .textInputAutocapitalization(.words)
-                            .accessibilityIdentifier(AccessibilityID.entryMerchant)
-                    }
-                    PhoneField(Words.amount) {
-                        TextField(Words.amount, text: Bindable(editor).amountText)
-                            .keyboardType(.decimalPad)
-                            .accessibilityIdentifier(AccessibilityID.entryAmount)
-                    }
-                    if let problem = editor.amountProblem {
-                        Text(problem)
-                            .font(.footnote)
-                            .foregroundStyle(Palette.warning)
-                            .accessibilityIdentifier(AccessibilityID.entryAmountProblem)
-                    }
-                    DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
-                        .accessibilityIdentifier(AccessibilityID.entryDate)
-                    PhoneField(Words.note) {
-                        TextField(Words.note, text: Bindable(editor).note)
-                            .accessibilityIdentifier(AccessibilityID.entryNote)
-                    }
+                    PhoneEntryFields(editor: editor)
                 }
                 .listRowBackground(Palette.surface)
             }
