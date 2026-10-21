@@ -322,7 +322,7 @@ struct EntryEditorTests {
 
         editor.amountText = "124.08"
         #expect(editor.canSave)
-        editor.amountText = "142.080"
+        editor.amountText = "$142.08"
         #expect(!editor.canSave, "amounts compare as money")
         editor.merchant = "Hilltop"
         #expect(editor.canSave)
@@ -570,5 +570,71 @@ struct EntryEditorTests {
         #expect(editor.canSave)
         #expect(editor.save())
         #expect(s.model.transactions.contains { $0.merchant == "Costco" && $0.amount == Money(minorUnits: -2863) })
+    }
+}
+
+@Suite("Editor screens, amounts the region's way", .serialized)
+@MainActor
+struct EditorAmountTests {
+    static let us = Locale(identifier: "en_US")
+    static let germany = Locale(identifier: "de_DE")
+
+    // Scenario ENTRY-12
+    @Test func whereACommaMarksDecimals12_50SavesAs12_50() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Household"))
+        let budget = try #require(model.addBudget(named: "Groceries", limit: .dollars(500), in: group))
+        model.selectedBudget = budget
+
+        let editor = EntryEditor(model: model, locale: Self.germany)
+        editor.merchant = "Hilltop Grocery"
+        editor.amountText = "12,50"
+        #expect(editor.canAdd && editor.amountProblem == nil)
+        #expect(editor.add())
+        #expect(model.transactions.first?.amount == Money(minorUnits: -1_250))
+    }
+
+    // Scenario ENTRY-13
+    @Test func anUnclearAmountDimsAddAndSaysHowToTypeIt() throws {
+        let editor = EntryEditor(model: try emptyModel(), locale: Self.us)
+        editor.merchant = "Hilltop Grocery"
+        editor.amountText = "12,50"
+        #expect(!editor.canAdd)
+        #expect(editor.amountProblem == "That amount can't be read clearly. Type it like 12.50.")
+        editor.amountText = ""
+        #expect(editor.amountProblem == nil, "an empty field says nothing")
+        editor.amountText = "12.50"
+        #expect(editor.canAdd && editor.amountProblem == nil)
+    }
+
+    @Test func anOpenedEntryShowsItsAmountTheRegionsWayWithSaveDimmed() throws {
+        let s = try Hilltop()
+        let editor = EntryEditor(model: s.model, editing: try s.stored(), locale: Self.germany)
+        #expect(editor.amountText == "142,08")
+        #expect(editor.amountProblem == nil && !editor.canSave, "nothing changed yet")
+        editor.amountText = "142,10"
+        #expect(editor.canSave)
+        editor.amountText = "142.10"
+        #expect(!editor.canSave && editor.amountProblem != nil, "a dot is a thousands mark here")
+    }
+
+    // Scenario BUDGET-16
+    @Test func aBudgetReadsItsAmountTheRegionsWayToo() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Household"))
+        let editor = BudgetEditor(model: model, group: group, locale: Self.germany)
+        #expect(editor.amountPrompt == "500,00")
+        editor.name = "Groceries"
+        editor.amountText = "500.00"
+        #expect(!editor.canSave)
+        #expect(editor.amountProblem == "That amount can't be read clearly. Type it like 12,50.")
+        editor.amountText = "1.500,00"
+        #expect(editor.canSave && editor.amountProblem == nil)
+        #expect(editor.save())
+        let saved = try #require(model.summaries[group]?.first?.budget)
+        #expect(saved.limit == .dollars(1_500))
+
+        let reopened = BudgetEditor(model: model, editing: saved, locale: Self.germany)
+        #expect(reopened.amountText == "1500,00")
     }
 }

@@ -76,8 +76,11 @@ struct BudgetEditorView: View {
                 .font(.title3)
             Field(label: Words.name, prompt: Words.namePrompt,
                   text: Binding(get: { editor.name }, set: { editor.name = $0 }))
-            Field(label: Words.amount, prompt: Words.amountPrompt,
+            Field(label: Words.amount, prompt: editor.amountPrompt,
                   text: Binding(get: { editor.amountText }, set: { editor.amountText = $0 }))
+            if let problem = editor.amountProblem {
+                Note(problem, warning: true)
+            }
             if editor.needsNewGroup {
                 Field(label: Words.group, prompt: Words.defaultGroupName,
                       text: Binding(get: { editor.newGroupName }, set: { editor.newGroupName = $0 }))
@@ -218,8 +221,11 @@ struct EntryEditorView: View {
     private var fields: some View {
         Field(label: Words.merchant, prompt: Words.merchant,
               text: Binding(get: { editor.merchant }, set: { editor.merchant = $0 }))
-        Field(label: Words.amount, prompt: "0.00",
+        Field(label: Words.amount, prompt: editor.amountPrompt,
               text: Binding(get: { editor.amountText }, set: { editor.amountText = $0 }))
+        if let problem = editor.amountProblem {
+            Note(problem, warning: true)
+        }
         DatePicker(selection: Binding(get: { editor.date }, set: { editor.date = $0 }),
                    displayedComponents: .date) {
             Text(Words.date)

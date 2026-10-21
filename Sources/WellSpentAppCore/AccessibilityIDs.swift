@@ -65,6 +65,7 @@ public enum AccessibilityID {
 
     public static let budgetEditorName = "budgetEditor.name"
     public static let budgetEditorAmount = "budgetEditor.amount"
+    public static let budgetEditorAmountProblem = "budgetEditor.amountProblem"
     /// The group picker, or the new group's name when there is none yet.
     public static let budgetEditorGroup = "budgetEditor.group"
     public static let budgetEditorSave = "budgetEditor.save"
@@ -106,6 +107,7 @@ public enum AccessibilityID {
     public static let entryNoticeLine = "entry.noticeLine"
     /// Under the date, when it moves the entry out of this period.
     public static let entryPeriodLine = "entry.periodLine"
+    public static let entryAmountProblem = "entry.amountProblem"
     /// Why an entry can't be changed.
     public static let entryReadOnlyLine = "entry.readOnlyLine"
     /// One detail of an entry that can't be changed, as plain text, by its
