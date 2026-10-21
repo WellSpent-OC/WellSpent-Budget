@@ -121,7 +121,12 @@ struct PhoneGroupView: View {
         // after each sync while it stays open.
         .task { await screen.refresh() }
         .onChange(of: sync.lastSyncedAt) { screen.reload() }
-        .refreshable { await screen.refresh() }
+        // Pulling down syncs, as on Home, so the group's menu knows this
+        // person's level as the server says it now, then reads who is in it.
+        .refreshable {
+            await main.syncNow()
+            await screen.refresh()
+        }
     }
 
     /// The group's menu, without People…, which is this page.
