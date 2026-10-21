@@ -211,7 +211,7 @@ iphone-ui-test: iphone-ui-test-build
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
 	only="$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY))"; \
 	if [ -n "$(IPHONE_UI_TEST_SHARD)" ]; then \
-		only=$$(scripts/ui-test-shard.sh iOS/UITests WellSpentPhoneUITests "$(IPHONE_UI_TEST_SHARD)"); \
+		only=$$(scripts/ui-test-shard.sh iOS/UITests WellSpentPhoneUITests "$(IPHONE_UI_TEST_SHARD)") || exit 1; \
 		echo "This part's classes:" $$only; \
 	fi; \
 	runtime=$$($(IPHONE_SIMCTL) list runtimes available | grep '^iOS ' | tail -1 | awk '{print $$NF}'); \
