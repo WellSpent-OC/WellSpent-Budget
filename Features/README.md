@@ -45,14 +45,14 @@ A UI test names a scenario with one comment line, directly above the step that c
 - To find every test that names a scenario, search for its ID: `git grep -n "PAGE-05"`.
 - When a tag is added or taken out, change the tables below to match.
 
-The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UITests`. Linux has no UI tests that name a scenario yet.
+The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests`, and Linux's in `Linux/UITests`, where Python names a scenario with `# Scenario` in place of `// Scenario`.
 
 ## Every scenario, and which platforms have a test for it
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 0 |
+| Linux | 142 | 49 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -92,58 +92,58 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-02 | Rename a group | Mac, Linux, iPhone | iPhone |
-| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | iPhone |
-| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | None yet |
-| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | iPhone |
-| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | None yet |
-| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | iPhone |
-| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | None yet |
-| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | None yet |
-| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | None yet |
-| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | None yet |
-| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | None yet |
-| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | iPhone |
-| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | None yet |
+| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-02 | Rename a group | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | Linux |
+| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | Linux |
+| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | Linux |
+| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | Linux |
+| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | Linux |
+| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | Linux |
+| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | Linux |
+| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | Linux |
 
 ### [Entries.md](Entries.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | iPhone |
-| ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | None yet |
-| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | iPhone |
+| ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | Linux, iPhone |
+| ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Linux |
+| ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
 | ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | None yet |
-| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | iPhone |
-| ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | None yet |
+| ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | Linux, iPhone |
+| ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | Linux |
 | ENTRY-11 | The keyboard adds and cancels | Mac | None yet |
-| ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | None yet |
-| ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | None yet |
+| ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Linux |
+| ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Linux |
 
 ### [EditEntry.md](EditEntry.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | iPhone |
-| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | iPhone |
-| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | None yet |
-| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | None yet |
-| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | None yet |
-| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | None yet |
+| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Linux, iPhone |
+| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | Linux |
+| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | Linux |
+| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | Linux |
+| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | Linux |
 | EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | None yet |
 | EDIT-15 | Right-click offers Edit… and Delete… where they are allowed | Mac | Mac |
 | EDIT-16 | The keyboard in the list and in the sheet | Mac | Mac |
@@ -248,16 +248,16 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| WHEEL-01 | A budget's row fills as far as its money is used | Mac, Linux, iPhone | iPhone |
-| WHEEL-02 | Over its limit, the row fills all the way and says how far over | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-03 | The open budget's row keeps its fill, with an outline | Mac, Linux | None yet |
+| WHEEL-01 | A budget's row fills as far as its money is used | Mac, Linux, iPhone | Linux, iPhone |
+| WHEEL-02 | Over its limit, the row fills all the way and says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-03 | The open budget's row keeps its fill, with an outline | Mac, Linux | Linux |
 | WHEEL-04 | In dark mode, the rows use the dark colours | iPhone | iPhone |
-| WHEEL-05 | A budget's page shows its wheel in place of the bar | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-06 | The wheel is full before anything is spent, and empties as money goes out | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-07 | The tick marks where an even pace would be today | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac |
-| WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-05 | A budget's page shows its wheel in place of the bar | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-06 | The wheel is full before anything is spent, and empties as money goes out | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-07 | The tick marks where an even pace would be today | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac, Linux |
+| WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-13 | Home starts with a group's wheel | iPhone | iPhone |
