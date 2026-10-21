@@ -459,6 +459,11 @@ class App:
     def has_budget(self, name):
         return any(e.showing for e in self.main.all("push button", starts=name + " "))
 
+    def budget_open(self):
+        """Whether a budget is what shows on the right, not a group's page:
+        a budget's row in the sidebar is picked."""
+        return any(e.showing and e.selected and "$" in e.words for e in self.main.all("push button"))
+
     # A budget's transactions
 
     def entries(self):
@@ -827,6 +832,55 @@ class App:
         self.pick("Delete…", menu)
         self.answer("Delete")
         self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
+
+    # A group's page
+
+    LEVELS = ("Owner", "Admin", "Manage", "Add", "View")
+
+    def person(self, name):
+        """A person's row on the open group's page, such as "Robin (you)": the
+        smallest part of the window holding their name and their level, a list
+        where this person may change it, else a label."""
+        def row():
+            label = next((e for e in self.main.all("label", name) if e.showing), None)
+            node = label.node.get_parent() if label else None
+            while node is not None:
+                part = Element(self, node)
+                if part.all("combo box") or any(e.words in self.LEVELS for e in part.all("label")):
+                    return part
+                node = node.get_parent()
+            return None
+        return self.until(row, f"{name}'s row on the page")
+
+    def level(self, name):
+        """A person's level on the open group's page, and whether it's a
+        list: ("Add", True) for a list set to Add, ("Owner", False) for a
+        label."""
+        row = self.person(name)
+        lists = [e for e in row.all("combo box") if e.showing]
+        if lists:
+            return lists[0].words, True
+        return next(e.words for e in row.all("label") if e.words in self.LEVELS), False
+
+    def level_list(self, name):
+        return next(e for e in self.person(name).all("combo box") if e.showing)
+
+    def offered(self, list_box):
+        """What a drop-down list offers, top to bottom, read with it open and
+        then closed again without a choice."""
+        def showing():
+            return [e for e in Element(self, self._root()).all("list") if e.showing]
+
+        before = len(showing())
+        self._focus_front()
+        list_box.all("toggle button")[0].press()
+        self.until(lambda: len(showing()) > before, "the list to open")
+        items = showing()[-1]
+        names = [" ".join(label.words for label in Element(self, items.node.get_child_at_index(i)).all("label"))
+                 for i in range(items.node.get_child_count())]
+        subprocess.run(["xdotool", "key", "Escape"], check=True)
+        self.until(lambda: len(showing()) == before, "the list to close")
+        return names
 
 
 def _read(path):
