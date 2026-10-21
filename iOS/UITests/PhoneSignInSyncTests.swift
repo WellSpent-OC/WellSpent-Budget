@@ -7,7 +7,8 @@ import WellSpentSync
 
 /// Signed in, on a phone: sign in by pasting, see an entry someone else adds
 /// to a shared group arrive when Home is pulled down, with her name beside
-/// it, and sign out. Leslie, and Robin's other device, have no window: each
+/// it, find it opens read-only at Add while his own stays his to change, and
+/// sign out. Leslie, and Robin's other device, have no window: each
 /// is a coordinator inside this process, against the same staging server.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestAccounts.swift)
@@ -107,17 +108,52 @@ final class PhoneSignInSyncTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("Leslie"), "her entry does not say she added it. On screen: \(run.visibleTexts())")
+
+        // Scenario EDIT-01, EDIT-11
+        // 5. Robin is at Add, so a tap opens her Costco read-only: who added
+        // it and where it came from above, its details as plain text, the
+        // line saying why, and Done alone.
+        run.openEntry("Costco")
+        XCTAssertEqual(run.element(AccessibilityID.entryTopLine).label,
+                       "\(EntryEditor.Words.addedBy("Leslie")) \u{00B7} Manual")
+        XCTAssertEqual(run.element(AccessibilityID.entryDetail(EntryEditor.Words.merchant)).value as? String, "Costco")
+        XCTAssertFalse(run.element(AccessibilityID.entryMerchant).exists, "a field, not plain text")
+        let line = EntryAccess.someoneElses(name: "Leslie").line ?? ""
+        XCTAssertTrue(run.shows(line), "no line saying why. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.button(AccessibilityID.entryDone).exists, "no Done")
+        for other in [AccessibilityID.entrySave, AccessibilityID.entryDelete, AccessibilityID.entryCancel] {
+            XCTAssertFalse(run.element(other).exists, "\(other) on a sheet that can't be changed")
+        }
+        run.tap(AccessibilityID.entryDone)
+        run.expectNoSheet()
+
+        // Scenario EDIT-17
+        // 6. A swipe to the left on her row offers nothing.
+        run.swipeLeft(onEntry: "Costco")
+        XCTAssertFalse(run.app.buttons[PhoneWording.button(MainScreen.Words.edit)].waitForExistence(timeout: 3),
+                       "the swipe offers Edit on her row")
+        XCTAssertFalse(run.app.buttons[PhoneWording.button(MainScreen.Words.delete)].exists,
+                       "the swipe offers Delete on her row")
+
+        // Scenario EDIT-11
+        // 7. What Robin adds himself, he may change and delete.
+        run.addEntry(merchant: "Bakery", amount: "5.00")
+        run.openEntry("Bakery")
+        XCTAssertTrue(run.button(AccessibilityID.entrySave).exists, "no Save on his own")
+        XCTAssertTrue(run.button(AccessibilityID.entryDelete).exists, "no Delete on his own")
+        run.tap(AccessibilityID.entryCancel)
+        run.expectNoSheet()
         run.goBack()
 
         // Scenario ACCT-11
-        // 5. Sign out: the foot says the budgets are kept on this iPhone,
+        // 8. Sign out: the foot says the budgets are kept on this iPhone,
         // and the account's group goes from Home.
         run.signOut()
         XCTAssertTrue(run.shows(SyncWording.footer(signedIn: false, device: PhoneTestApp.device)),
                       "still signed in. On screen: \(run.visibleTexts())")
         XCTAssertFalse(header.exists, "the account's group is still on Home")
 
-        // 6. Tidy: both groups go for everyone, every session ends.
+        // 9. Tidy: both groups go for everyone, every session ends.
         await leslie.deleteGroup(named: groupName)
         await robinsOtherDevice.deleteGroup(named: phoneGroup)
         await robinsOtherDevice.cleanUp()
