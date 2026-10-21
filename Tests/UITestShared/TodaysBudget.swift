@@ -19,15 +19,10 @@ struct TodaysBudget {
     let today: Date
 
     init(_ name: String = "", limit: Int, spent: Int, pinnedDay: Int? = nil) {
-        self.init(name, limit: limit, spent: spent, on: Workspace.today(pinnedTo: pinnedDay))
-    }
-
-    /// Today as given.
-    init(_ name: String = "", limit: Int, spent: Int, on today: Date) {
         let budget = Budget(groupID: GroupID(), name: name, limit: Money(minorUnits: limit))
         summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: Date()),
                                 spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1)
-        self.today = today
+        today = Workspace.today(pinnedTo: pinnedDay)
     }
 
     var wheel: MoneyWheel { MoneyWheel(budget: summary, now: today) }

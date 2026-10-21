@@ -1,7 +1,7 @@
 // What the money wheel's UI tests need on top of PhoneTestSupport.swift and
-// TodaysBudget: the day the app counts as today, waiting for a label, and
-// reading the colour on screen at a point, so a test can see a row's fill
-// and a wheel's ring the way a person does.
+// TodaysBudget: waiting for a label, and reading the colour on screen at a
+// point, so a test can see a row's fill and a wheel's ring the way a person
+// does.
 import Foundation
 import UIKit
 import XCTest
@@ -9,13 +9,6 @@ import WellSpentAppCore
 import WellSpentModel
 
 extension PhoneTestApp {
-    /// The day the app counts as today when launched with `countingAsToday:
-    /// day`, worked out by the same shared code: noon on that day of this
-    /// month. Nil for a day this month does not have.
-    static func pinnedToday(_ day: Int) -> Date? {
-        PinnedDay.requested(in: [PinnedDay.variable: String(day)], environment: .staging)
-    }
-
     /// Waits until the element's label is exactly these words.
     @discardableResult
     func waitForLabel(_ identifier: String, toBe label: String, timeout: TimeInterval = 10) -> Bool {

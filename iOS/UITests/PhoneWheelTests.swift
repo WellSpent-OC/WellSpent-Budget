@@ -8,14 +8,14 @@ import WellSpentModel
 /// wheel with its figures and pace words. Every word and number a test
 /// expects comes from the shared code, as `TodaysBudget` builds it, never
 /// typed in, and every colour from the palette for the phone's light or dark
-/// setting. Each test starts the app on a fresh data folder, counting a set
-/// day of this month as today, so it checks the same things on any day it
-/// runs.
+/// setting. Each test starts the app on a fresh data folder, with its wheels
+/// on a set day of this month (`Workspace.pinnedDayVariable`), so it checks
+/// the same things on any day it runs.
 final class PhoneWheelTests: XCTestCase {
-    /// The days of the month the tests count as today: one in the middle of
-    /// a month, and one in its last week. Every month has both.
-    private static let midMonth = 15
-    private static let lastWeek = 28
+    /// Mid-month, before the last week of any month.
+    private static let midMonth = 18
+    /// In the last week of every month, February's too.
+    private static let lastWeek = 26
 
     /// The run's data folder, for tearDown.
     nonisolated(unsafe) private static var dataRootPath: String?
@@ -32,20 +32,20 @@ final class PhoneWheelTests: XCTestCase {
         super.tearDown()
     }
 
-    /// The app on a fresh data folder, counting `day` of this month as
-    /// today, and that day as the shared code counts it.
+    /// The app on a fresh data folder, with its wheels on `day` of this
+    /// month.
     @MainActor
-    private func launched(countingAsToday day: Int) throws -> (run: PhoneTestApp, today: Date) {
+    private func launched(pinnedDay day: Int) -> PhoneTestApp {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
-        let today = try XCTUnwrap(PhoneTestApp.pinnedToday(day), "this month has no day \(day)")
-        run.launch(countingAsToday: day)
-        return (run, today)
+        run.launch(pinnedDay: day)
+        return run
     }
 
     @MainActor
     func testHomeStartsWithTheFirstGroupsWheel() throws {
-        let (run, today) = try launched(countingAsToday: Self.midMonth)
+        let day = Self.midMonth
+        let run = launched(pinnedDay: day)
         let card = run.element(AccessibilityID.homeMoney)
 
         // Scenario WHEEL-13
@@ -53,11 +53,11 @@ final class PhoneWheelTests: XCTestCase {
         // groups, with its month and the day of it. What its samples hold
         // changes neither.
         XCTAssertTrue(card.waitForExistence(timeout: 10), "no card on Home. On screen: \(run.visibleTexts())")
-        let household = try money("Household", TodaysBudget(limit: 10_000, spent: 0, on: today))
+        let household = try money("Household", TodaysBudget(limit: 10_000, spent: 0, pinnedDay: day))
         XCTAssertTrue(card.label.contains(household.title),
                       "the card does not say \(household.title): \(card.label)")
-        let day = try XCTUnwrap(household.wheel.day, "a group's money has a day")
-        XCTAssertTrue(card.label.contains(day.shortLine), "the card does not say \(day.shortLine): \(card.label)")
+        let dayLine = try XCTUnwrap(household.wheel.day?.shortLine, "a group's money has a day")
+        XCTAssertTrue(card.label.contains(dayLine), "the card does not say \(dayLine): \(card.label)")
         let householdHeader = run.element(AccessibilityID.sidebarGroup("Household"))
         XCTAssertTrue(householdHeader.waitForExistence(timeout: 10), "no Household")
         XCTAssertLessThan(card.frame.minY, householdHeader.frame.minY, "the card is not at the top of Home")
@@ -66,7 +66,7 @@ final class PhoneWheelTests: XCTestCase {
         // 2. The card shows the first group that still holds a budget, and
         // with no budgets in any group, there is no card.
         deleteGroup("Household", run: run)
-        let next = try money("Side Business", TodaysBudget(limit: 10_000, spent: 0, on: today))
+        let next = try money("Side Business", TodaysBudget(limit: 10_000, spent: 0, pinnedDay: day))
         XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: next.title),
                       "the card does not move on to Side Business: \(card.label)")
         deleteGroup("Side Business", run: run)
@@ -79,7 +79,7 @@ final class PhoneWheelTests: XCTestCase {
         run.addGroup(named: "Wheel")
         run.addBudget(named: "Treats", amount: "100", inGroup: "Wheel")
         run.goBack()
-        let fresh = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 0, on: today))
+        let fresh = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 0, pinnedDay: day))
         XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: fresh.wheel.spokenSummary),
                       "the card does not say \(fresh.wheel.spokenSummary): \(card.label)")
         XCTAssertTrue(card.label.contains(fresh.title), "the card does not say \(fresh.title): \(card.label)")
@@ -90,7 +90,7 @@ final class PhoneWheelTests: XCTestCase {
         run.openBudget(named: "Treats")
         run.addEntry(merchant: "Market", amount: "220.00")
         run.goBack()
-        let over = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 22_000, on: today))
+        let over = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 22_000, pinnedDay: day))
         XCTAssertEqual(over.wheel.spokenSummary, "Over this month $120 of $100")
         XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: over.wheel.spokenSummary),
                       "the card does not say \(over.wheel.spokenSummary): \(card.label)")
@@ -99,19 +99,20 @@ final class PhoneWheelTests: XCTestCase {
 
     @MainActor
     func testRowsFillAndABudgetShowsItsWheel() throws {
-        let (run, today) = try launched(countingAsToday: Self.midMonth)
+        let day = Self.midMonth
+        let run = launched(pinnedDay: day)
         run.addBudget(named: "Treats", amount: "100", inGroup: "Household")
         let wheel = run.element(AccessibilityID.budgetWheel)
 
         // Scenario WHEEL-05, WHEEL-06
         // 1. A budget's screen says the day of the month, and shows its wheel
         // in place of the bar: full with nothing spent, with its figures.
-        let full = TodaysBudget("Treats", limit: 10_000, spent: 0, on: today).wheel
+        let full = TodaysBudget("Treats", limit: 10_000, spent: 0, pinnedDay: day).wheel
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: full.spokenSummary),
                       "the wheel does not say \(full.spokenSummary): \(wheel.label)")
         XCTAssertEqual(full.spokenSummary, "Left $100 of $100")
-        let day = try XCTUnwrap(full.day, "a budget made here resets every month")
-        XCTAssertEqual(run.element(AccessibilityID.budgetDayLine).label, day.line)
+        let dayLine = try XCTUnwrap(full.day?.line, "a budget made here resets every month")
+        XCTAssertEqual(run.element(AccessibilityID.budgetDayLine).label, dayLine)
         expectFigures(full, run: run)
         expectRing(of: full, run: run)
 
@@ -121,7 +122,7 @@ final class PhoneWheelTests: XCTestCase {
         // reaches past the tick, and Expected left by today says where an
         // even pace would be.
         run.addEntry(merchant: "Corner Bakery", amount: "25.00")
-        let quarterSpent = TodaysBudget("Treats", limit: 10_000, spent: 2_500, on: today)
+        let quarterSpent = TodaysBudget("Treats", limit: 10_000, spent: 2_500, pinnedDay: day)
         let quarter = quarterSpent.wheel
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: quarter.spokenSummary),
                       "the wheel does not say \(quarter.spokenSummary): \(wheel.label)")
@@ -150,7 +151,7 @@ final class PhoneWheelTests: XCTestCase {
         // tick, says how far over, and says nothing about the pace.
         run.openBudget(named: "Treats")
         run.addEntry(merchant: "Market", amount: "90.00")
-        let overSpent = TodaysBudget("Treats", limit: 10_000, spent: 11_500, on: today)
+        let overSpent = TodaysBudget("Treats", limit: 10_000, spent: 11_500, pinnedDay: day)
         let over = overSpent.wheel
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: over.spokenSummary),
                       "the wheel does not say \(over.spokenSummary): \(wheel.label)")
@@ -175,7 +176,8 @@ final class PhoneWheelTests: XCTestCase {
 
     @MainActor
     func testThePaceWordsInTheMiddleOfAMonth() throws {
-        let (run, today) = try launched(countingAsToday: Self.midMonth)
+        let day = Self.midMonth
+        let run = launched(pinnedDay: day)
 
         // Scenario WHEEL-08
         // 1. Fuel, $100.00, with $99.00 spent by the middle of the month:
@@ -183,7 +185,7 @@ final class PhoneWheelTests: XCTestCase {
         // words say when the money runs out, with Edit Budget beside them.
         run.addBudget(named: "Fuel", amount: "100", inGroup: "Household")
         run.addEntry(merchant: "Gas Station", amount: "99.00")
-        let fuel = TodaysBudget("Fuel", limit: 10_000, spent: 9_900, on: today)
+        let fuel = TodaysBudget("Fuel", limit: 10_000, spent: 9_900, pinnedDay: day)
         XCTAssertEqual(fuel.pace?.kind, .overPace, "on day \(Self.midMonth) Fuel is not over pace")
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: fuel.wheel.spokenSummary),
                       "the wheel does not say \(fuel.wheel.spokenSummary)")
@@ -196,7 +198,7 @@ final class PhoneWheelTests: XCTestCase {
         run.goBack()
         run.addBudget(named: "Books", amount: "1000", inGroup: "Household")
         run.addEntry(merchant: "Bookshop", amount: "1.00")
-        let books = TodaysBudget("Books", limit: 100_000, spent: 100, on: today)
+        let books = TodaysBudget("Books", limit: 100_000, spent: 100, pinnedDay: day)
         XCTAssertNil(books.pace, "on day \(Self.midMonth) Books has pace words")
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: books.wheel.spokenSummary),
                       "the wheel does not say \(books.wheel.spokenSummary)")
@@ -205,7 +207,8 @@ final class PhoneWheelTests: XCTestCase {
 
     @MainActor
     func testThePaceWordsInTheMonthsLastWeek() throws {
-        let (run, today) = try launched(countingAsToday: Self.lastWeek)
+        let day = Self.lastWeek
+        let run = launched(pinnedDay: day)
 
         // Scenario WHEEL-09
         // 1. Books, $1,000.00, with $1.00 spent in the month's last week:
@@ -213,7 +216,7 @@ final class PhoneWheelTests: XCTestCase {
         // whether to lower it, with Edit Budget beside them.
         run.addBudget(named: "Books", amount: "1000", inGroup: "Household")
         run.addEntry(merchant: "Bookshop", amount: "1.00")
-        let books = TodaysBudget("Books", limit: 100_000, spent: 100, on: today)
+        let books = TodaysBudget("Books", limit: 100_000, spent: 100, pinnedDay: day)
         XCTAssertEqual(books.pace?.kind, .underPace, "on day \(Self.lastWeek) Books is not under pace")
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: books.wheel.spokenSummary),
                       "the wheel does not say \(books.wheel.spokenSummary)")
