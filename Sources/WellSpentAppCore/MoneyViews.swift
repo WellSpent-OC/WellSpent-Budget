@@ -22,6 +22,9 @@ struct PickedRowOutline: View {
 /// are any. Then the line counting its transactions. What it says is
 /// BudgetScreen's. Layout only.
 struct BudgetWheelPanel: View {
+    /// The least width of the figures and the pace words beside the wheel.
+    static let columnMinWidth: CGFloat = 260
+
     let screen: BudgetScreen
     /// Opens the Edit Budget sheet, from Edit Budget… beside the pace words.
     let editBudget: () -> Void
@@ -43,7 +46,11 @@ struct BudgetWheelPanel: View {
                         PaceLine(pace: pace, editBudget: editBudget)
                     }
                 }
-                .frame(maxWidth: 360)
+                // A floor as well as a ceiling. The pace words take their full
+                // height, so squeezed to a sliver they would stand very tall,
+                // and the window's least height with them. Then the window
+                // grew taller than the screen, and its sheets went off it.
+                .frame(minWidth: Self.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
             Text(screen.countLine)
                 .font(.system(size: 11))
@@ -98,6 +105,8 @@ struct PaceLine: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                // The words take the room, and the button its own width.
+                .layoutPriority(1)
                 .accessibilityIdentifier(AccessibilityID.budgetPace)
             if pace.offersEdit {
                 Button(BudgetPace.Words.editBudget(onPhone: false), action: editBudget)
@@ -136,7 +145,8 @@ struct GroupMoneySection: View {
                 }
                 // In ink, as the figures are: the well stays light in dark mode.
                 .foregroundStyle(Palette.ink)
-                .frame(maxWidth: 360)
+                // A floor too, for the same reason as a budget's figures.
+                .frame(minWidth: BudgetWheelPanel.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -237,8 +237,10 @@ final class TestApp {
     /// in, and a click then fails as "not hittable" (seen on the first real
     /// runs). So every click waits for the control to be hittable first.
     func waitUntilHittable(_ target: XCUIElement, _ identifier: String) {
+        // The frames say whether a window, or the control, is off the screen.
         XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 10),
-                      "\(identifier) is on screen but cannot be clicked. On screen: \(visibleTexts())")
+                      "\(identifier) is on screen but cannot be clicked. Its frame: \(target.frame). "
+                      + "Windows: \(app.windows.allElementsBoundByIndex.map(\.frame)). On screen: \(visibleTexts())")
     }
 
     /// Waits for a condition on an element, such as "isEnabled == true" or
