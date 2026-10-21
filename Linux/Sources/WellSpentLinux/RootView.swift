@@ -208,6 +208,10 @@ enum SidebarRow: Identifiable {
     }
 }
 
+/// The groups and their budgets, drawn by hand rather than as a GTK list,
+/// whose highlight would cover each budget's fill. A click on a budget's row
+/// opens it, and the open budget's row is outlined. A click on a group's name
+/// opens its page, and the name is marked while it shows.
 struct SidebarView: View {
     var screen: MainScreen
     var perform: (MainScreen.Action) -> Void
@@ -224,34 +228,21 @@ struct SidebarView: View {
         return rows
     }
 
-    /// Picking a budget shows it, and picking a group's name opens its page.
-    /// The list marks whichever shows on the right.
-    private var selection: Binding<String?> {
-        Binding(get: {
-                    if let group = screen.openGroup { return "group:\(group.id.uuid)" }
-                    return screen.selectedBudget.map { "budget:\($0.uuid)" }
-                },
-                set: { picked in
-                    guard let picked, let row = rows.first(where: { $0.id == picked }) else { return }
-                    switch row {
-                    case .budget(let summary): screen.selectedBudget = summary.budget.id
-                    case .group(let section): screen.openPage(of: section.id)
-                    case .note: break
-                    }
-                })
-    }
-
     var body: some View {
         // Read here, so opening a budget or a page elsewhere redraws the
-        // highlight.
+        // outline and the group's mark.
         _ = screen.selectedBudget
         _ = screen.openGroup
         return VStack(spacing: 0) {
-            List(rows, selection: selection) { row in
-                rowView(row)
+            // The rows at the top and the footer at the bottom, as on the Mac.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(rows) { row in
+                        rowView(row)
+                    }
+                }
+                .padding(8)
             }
-            // The list at the top and the footer at the bottom, as on the Mac.
-            Spacer()
             Divider()
             addMenu
             Divider()
@@ -265,32 +256,44 @@ struct SidebarView: View {
     private func rowView(_ row: SidebarRow) -> some View {
         switch row {
         case .group(let section):
-            HStack {
-                Text(section.title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                Spacer()
-                // GTK has no right-click menu here, so each group has a button
-                // that opens the menu the Mac shows on a right-click.
-                Menu("⋯") {
-                    menuItems(screen.groupMenu(section.group))
-                }
-                // The arrow at the end of the line hides or shows the budgets,
-                // as on the Mac. The rest of the line opens the page.
-                Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
-                    .help(section.toggleHelp)
-            }
+            groupRow(section)
         case .budget(let summary):
-            HStack {
-                Text(summary.budget.name)
-                Spacer()
-                Text(summary.remaining.display)
-                    .foregroundColor(summary.isOverspent ? .red : .gray)
-            }
-            .padding(.leading, 8)
+            // No row is outlined while a group's page or an invitation shows,
+            // since no budget is picked then.
+            BudgetRow(summary: summary, isPicked: screen.selectedBudget == summary.budget.id)
+                .onTapGesture { screen.selectedBudget = summary.budget.id }
         case .note(let text):
             Text(text)
                 .font(.system(size: 12))
                 .foregroundColor(.gray)
+        }
+    }
+
+    /// A group's name, marked while its page is open, then its menu and the
+    /// arrow. A click on the name, or on the line up to the menu, opens the
+    /// page. The menu and the arrow sit outside that part, since the click
+    /// that opens the page would take theirs away.
+    private func groupRow(_ section: MainScreen.Section) -> some View {
+        HStack {
+            HStack {
+                Text(section.title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4)
+                        .fill(section.isPageOpen ? Color(PaletteValues.accent).opacity(0.15) : Color.clear))
+                Spacer()
+            }
+            .onTapGesture { screen.openPage(of: section.id) }
+            // GTK has no right-click menu here, so each group has a button
+            // that opens the menu the Mac shows on a right-click.
+            Menu("⋯") {
+                menuItems(screen.groupMenu(section.group))
+            }
+            // The arrow at the end of the line hides or shows the budgets,
+            // as on the Mac.
+            Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
+                .help(section.toggleHelp)
         }
     }
 
@@ -349,7 +352,8 @@ struct SidebarView: View {
 
 // MARK: - Budget
 
-/// Draws BudgetScreen: the chosen budget's header, its entries, and its actions.
+/// Draws BudgetScreen: the chosen budget's name and actions, its wheel, and
+/// its entries.
 struct BudgetDetailView: View {
     let screen: BudgetScreen
     var model: AppModel
@@ -394,19 +398,9 @@ struct BudgetDetailView: View {
                     Button(item.title) { perform(item.action) }
                 }
             }
-            HStack(spacing: 10) {
-                Text(screen.spent)
-                    .font(.system(size: 28, weight: .medium))
-                Text(screen.ofLimit)
-                    .foregroundColor(.gray)
-                Spacer()
-                Text(screen.standing)
-                    .foregroundColor(screen.isOverspent ? .red : .gray)
-            }
-            ProgressView(value: screen.fraction)
-            Text(screen.countLine)
-                .font(.system(size: 11))
-                .foregroundColor(.gray)
+            // The day of the period, the wheel and its figures, in place of
+            // the bar.
+            BudgetWheelPanel(screen: screen, editBudget: { perform(.editBudget(screen.summary.budget)) })
             Divider()
             if screen.rows.isEmpty {
                 Text(Words.empty)
