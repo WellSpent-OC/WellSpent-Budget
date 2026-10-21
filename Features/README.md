@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 56 |
+| Linux | 142 | 68 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -153,19 +153,19 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| IMPORT-01 | Import statement opens a review, and nothing is added yet | Mac, Linux, iPhone | iPhone |
-| IMPORT-02 | Each line shows a cleaned-up name over the bank's own words | Mac, Linux, iPhone | iPhone |
-| IMPORT-03 | A line that matches an entry typed by hand is not added again | Mac, Linux, iPhone | iPhone |
-| IMPORT-04 | A merchant filed before goes to the same budget | Mac, Linux, iPhone | iPhone |
-| IMPORT-05 | A new merchant needs a budget from the group's own budgets | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-06 | A line left at Choose is not added | Mac, Linux, iPhone | iPhone |
-| IMPORT-07 | Importing the same statement again adds nothing twice | Mac, Linux, iPhone | iPhone |
-| IMPORT-08 | A deleted line stays deleted when its statement is imported again | Mac, Linux, iPhone | Mac |
-| IMPORT-09 | A line whose budget was deleted is offered again | Mac, Linux, iPhone | Mac, iPhone |
+| IMPORT-01 | Import statement opens a review, and nothing is added yet | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-02 | Each line shows a cleaned-up name over the bank's own words | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-03 | A line that matches an entry typed by hand is not added again | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-04 | A merchant filed before goes to the same budget | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-05 | A new merchant needs a budget from the group's own budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-06 | A line left at Choose is not added | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-07 | Importing the same statement again adds nothing twice | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-08 | A deleted line stays deleted when its statement is imported again | Mac, Linux, iPhone | Mac, Linux |
+| IMPORT-09 | A line whose budget was deleted is offered again | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-10 | A statement one person imported counts as imported for the others | Mac, Linux, iPhone | None yet |
-| IMPORT-11 | Lines dated before this period go in, but the list shows this period only | Mac, Linux, iPhone | iPhone |
-| IMPORT-12 | Cancel adds nothing | Mac, Linux, iPhone | iPhone |
-| IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | iPhone |
+| IMPORT-11 | Lines dated before this period go in, but the list shows this period only | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-12 | Cancel adds nothing | Mac, Linux, iPhone | Linux, iPhone |
+| IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Linux, iPhone |
 | IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | None yet |
 
 ### [Sharing.md](Sharing.md)

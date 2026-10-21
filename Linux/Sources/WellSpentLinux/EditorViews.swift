@@ -305,6 +305,14 @@ struct ImportReviewView: View {
             + screen.budgetChoices.map { Choice(value: $0.id, description: $0.name) }
     }
 
+    /// A line's budget as chosen now, read fresh, not from the row the line
+    /// was drawn with. The toolkit can lay a line out again before it draws
+    /// it again, and an old row would set its list back to Choose, which
+    /// undoes the choice.
+    private func chosenBudget(_ row: Int) -> BudgetID? {
+        screen.rows.first { $0.id == row }?.chosenBudget
+    }
+
     static func color(_ tone: ImportReviewScreen.Tone) -> Color {
         switch tone {
         case .matched: .green
@@ -375,7 +383,7 @@ struct ImportReviewView: View {
                 .frame(width: 130)
             if row.needsBudget {
                 Picker(of: budgetChoices, selection: Binding(
-                    get: { budgetChoices.first { $0.value == row.chosenBudget } },
+                    get: { budgetChoices.first { $0.value == chosenBudget(row.id) } },
                     set: { screen.choose($0?.value ?? nil, for: row.id) }))
                     .frame(width: 150)
             } else {

@@ -640,6 +640,61 @@ class App:
         self.until(lambda: len(self.windows()) == 1, "the transaction to close")
         self.until(lambda: all(row[1] != merchant for row in self.entries()), f"{merchant} to go")
 
+    # Statements
+
+    def write_file(self, name, text):
+        """A file in this copy's home, where the app may open it."""
+        path = os.path.join(self.home, name)
+        with open(path, "w") as f:
+            f.write(text)
+        return path
+
+    def pick_file(self, path):
+        """In the open file dialog: Ctrl+L for a path, the path, Open."""
+        dialog = self.until(lambda: next((w for w in self.windows() if w.role == "dialog"), None),
+                            "the file dialog")
+        self._focus_front()
+        subprocess.run(["xdotool", "key", "ctrl+l"], check=True)
+        box = self.until(lambda: next((e for e in dialog.all("text") if e.showing), None), "the path box")
+        box.type(path)
+        self.button("Open", within=dialog).press()
+        # What comes next, a review or a problem, is a window too, so the
+        # dialog is known by its Open.
+        self.until(lambda: not any(w.all("push button", "Open") for w in self.windows()), "the file dialog to close")
+
+    def open_statement(self, path):
+        """Import statement on the open budget, then the file. Gives back the
+        review's window."""
+        self.button("Import statement", within=self.main).press()
+        self.pick_file(path)
+        return self.until(lambda: next((w for w in self.windows()[1:]
+                                        if any(t.startswith("Import a statement into") for t in self.texts(w))),
+                                       None), "the review to open")
+
+    STATUSES = ("Matched to entry", "Will be added", "Already imported", "Needs a budget")
+
+    def review_rows(self, review):
+        """The review's lines: date, name, the bank's words, amount, status.
+        The counts across the top use the same words, but no date."""
+        texts = self.texts(review)
+        return [texts[i - 4:i + 1] for i, t in enumerate(texts)
+                if t in self.STATUSES and i >= 4 and _looks_like_a_date(texts[i - 4])]
+
+    def review_counts(self, review):
+        """The counts across the top: {"Matched": 1, "To add": 2, ...}."""
+        texts = self.texts(review)
+        counts = {}
+        for label in ("Matched", "To add", "Already imported", "Needs a budget"):
+            for i, t in enumerate(texts[:-1]):
+                if t == label and texts[i + 1].isdigit():
+                    counts[label] = int(texts[i + 1])
+                    break
+        return counts
+
+    def file_line(self, review, bank_words, budget):
+        """Chooses a budget for the line with the bank's words, in its list."""
+        self.choose(budget, self.near("combo box", None, to=self.find("label", bank_words, within=review)))
+
     def answer(self, button):
         """Presses `button` in the question in front, such as "Delete"."""
         count = self.until(lambda: len(self.windows()) if len(self.windows()) > 1 else None, "a question")
