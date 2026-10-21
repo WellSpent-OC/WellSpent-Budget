@@ -88,4 +88,31 @@ public enum PaletteValues {
 
     /// A budget's dot, by its colour index: these four, then round again.
     public static let budgetColors = [accent, blue, purple, warning]
+
+    // MARK: - The money wheel
+
+    // A budget's row in the list is drawn as its own bar, in the row fill
+    // design's colours. Its words are near-black in light mode. In dark mode
+    // the names take the band's colour the design measured as white, and the
+    // amounts a softer grey. The wheel's colours are design 2's ring.
+
+    /// A row's empty track.
+    public static let rowTrack = ColorPair(light: RGB(hex: 0xE5DFD5), dark: RGB(hex: 0x242424))
+    /// A row's fill, as far as its budget is used.
+    public static let rowUsed = ColorPair(light: RGB(hex: 0xD5E6C2), dark: RGB(hex: 0x3D5E2E))
+    /// A row's fill when its budget is over.
+    public static let rowOver = ColorPair(light: RGB(hex: 0xF0C8B5), dark: RGB(hex: 0x8A3A1C))
+    /// The budget's name on a row.
+    public static let rowWords = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xF2F2F2))
+    /// The amount on a row.
+    public static let rowAmount = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xD9D9D9))
+    /// The 2 point outline round the open budget's row. The dark value is the
+    /// dark mode design's sticker outline.
+    public static let rowOutline = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xF2EEE4))
+    /// The wheel's empty band. In dark mode it is the bar's dark track.
+    public static let wheelTrack = ColorPair(light: RGB(hex: 0xE5DFD5), dark: RGB(hex: 0x1F1D19))
+    /// What is left, on the wheel. The same green in both modes.
+    public static let wheelLeft = ColorPair(light: RGB(hex: 0x76A24D), dark: RGB(hex: 0x76A24D))
+    /// The wheel's two edges and its tick.
+    public static let wheelEdge = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xF2EEE4))
 }
