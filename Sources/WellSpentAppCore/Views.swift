@@ -237,6 +237,10 @@ extension View {
 /// question a delete or a leave asks, and the footer. A click on a group's
 /// name opens its page, and the arrow beside it hides or shows its budgets.
 /// Layout only.
+///
+/// Each budget's row draws its own fill, so the list has no selection of
+/// its own: its highlight would cover the fill. A click on a row opens the
+/// budget, and the open budget's row is outlined instead.
 struct SidebarView: View {
     let screen: MainScreen
     @Binding var editor: EditorSheet?
@@ -258,20 +262,16 @@ struct SidebarView: View {
     }
 
     var body: some View {
-        List(selection: Bindable(screen).selectedBudget) {
+        List {
             ForEach(screen.sections) { section in
                 Section {
                     if let note = section.note {
                         Text(note)
                             .font(.system(size: 12))
                             .foregroundStyle(Palette.muted)
-                            .selectionDisabled()
                     }
                     ForEach(section.budgets, id: \.budget.id) { summary in
-                        BudgetRow(summary: summary)
-                            .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
-                            .tag(summary.budget.id)
-                            .contextMenu { menu(screen.budgetMenu(summary.budget)) }
+                        budgetRow(summary)
                     }
                 } header: {
                     header(section)
@@ -281,7 +281,6 @@ struct SidebarView: View {
                 Text(note)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.muted)
-                    .selectionDisabled()
             }
         }
         .listStyle(.sidebar)
@@ -346,6 +345,24 @@ struct SidebarView: View {
             .accessibilityLabel(section.toggleHelp)
         }
         .contextMenu { menu(screen.groupMenu(section.group)) }
+    }
+
+    /// A budget's row: a click opens the budget, and a right-click shows its
+    /// menu. No row is outlined while a group's page or an invitation shows,
+    /// since no budget is picked then.
+    private func budgetRow(_ summary: BudgetSummary) -> some View {
+        let isPicked = screen.selectedBudget == summary.budget.id
+        return Button {
+            screen.selectedBudget = summary.budget.id
+        } label: {
+            BudgetRow(summary: summary, isPicked: isPicked)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
+        .accessibilityValue(RowFill(summary).spokenValue)
+        .accessibilityAddTraits(isPicked ? .isSelected : [])
+        .contextMenu { menu(screen.budgetMenu(summary.budget)) }
     }
 
     /// A menu's parts, with a divider between each.
@@ -424,23 +441,36 @@ struct SidebarView: View {
     }
 }
 
+/// A budget's row in the sidebar, drawn as its own bar: filled from the left
+/// as far as the budget is used this period, with its name and what is left,
+/// or how far over, on top. The open budget's row is outlined. What it says
+/// is RowFill's. Layout only.
 struct BudgetRow: View {
     let summary: BudgetSummary
+    /// Whether this is the open budget.
+    var isPicked = false
 
     var body: some View {
+        let fill = RowFill(summary)
         HStack(spacing: 8) {
             Circle()
                 .fill(summary.isOverspent ? Palette.warning : Palette.budgetColor(summary.budget.colorIndex))
                 .frame(width: 7, height: 7)
             Text(summary.budget.name)
                 .font(.system(size: 13))
+                .foregroundStyle(Color(PaletteValues.rowWords))
                 .lineLimit(1)
             Spacer(minLength: 6)
-            Text(summary.remaining.display)
-                .font(.money(11, weight: .regular))
-                .foregroundStyle(summary.isOverspent ? Palette.warning : Palette.muted)
+            Text(fill.amount)
+                .font(.money(11, weight: fill.isOver ? .semibold : .medium))
+                .foregroundStyle(Color(PaletteValues.rowAmount))
         }
-        .padding(.vertical, 1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(RowFillBackground(fill: fill, cornerRadius: 4))
+        .overlay {
+            if isPicked { PickedRowOutline() }
+        }
     }
 }
 
@@ -467,7 +497,7 @@ struct BudgetDetailView: View {
                 UndoBar(offer: undo, undo: { model.undoDelete() })
                 Divider()
             }
-            header
+            BudgetWheelPanel(screen: screen, editBudget: { editor = .editBudget(summary.budget) })
             Divider()
             transactionTable
         }
@@ -501,38 +531,6 @@ struct BudgetDetailView: View {
 
     /// The budget's words and rows, shared with every desktop.
     private var screen: BudgetScreen { BudgetScreen(summary: summary, model: model, me: sync.userID) }
-
-    private var header: some View {
-        let screen = self.screen
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .lastTextBaseline, spacing: 10) {
-                Text(screen.spent)
-                    .font(.money(30, weight: .medium))
-                Text(screen.ofLimit)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Palette.muted)
-                Spacer()
-                Text(screen.standing)
-                    .font(.system(size: 13, weight: screen.isOverspent ? .medium : .regular))
-                    .foregroundStyle(screen.isOverspent ? Palette.warning : Palette.muted)
-            }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.track)
-                    Capsule()
-                        .fill(screen.isOverspent ? Palette.warning : Palette.accent)
-                        .frame(width: max(2, geometry.size.width * screen.fraction))
-                }
-            }
-            .frame(height: 7)
-
-            Text(screen.countLine)
-                .font(.system(size: 11))
-                .foregroundStyle(Palette.muted)
-        }
-        .padding(20)
-    }
 
     private var transactionTable: some View {
         let screen = self.screen

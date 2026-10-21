@@ -666,6 +666,66 @@ final class TestApp {
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
+    // MARK: - The money wheel
+
+    /// Waits for a wheel, a budget's or a group's, to read `expected`, as a
+    /// screen reader reads it: "Left $75 of $100". Each wheel is one element,
+    /// labelled with what its middle says.
+    func expect(wheel identifier: String, reads expected: String, _ what: String,
+                file: StaticString = #filePath, line: UInt = #line) {
+        let wheel = element(identifier)
+        XCTAssertTrue(wheel.waitForExistence(timeout: 10), "\(what): no \(identifier). On screen: \(visibleTexts())",
+                      file: file, line: line)
+        XCTAssertTrue(wait(for: wheel, holds: expected, timeout: 10),
+                      "\(what): the wheel reads \(text(of: wheel)), not \(expected)", file: file, line: line)
+    }
+
+    /// Waits for each of a wheel's figures to show, its label and its amount.
+    func expect(figures: [MoneyWheel.Figure], _ what: String, file: StaticString = #filePath, line: UInt = #line) {
+        for figure in figures {
+            for words in [figure.label, figure.amount] {
+                XCTAssertTrue(listText(words).waitForExistence(timeout: 10),
+                              "\(what): no \(words). On screen: \(visibleTexts())", file: file, line: line)
+            }
+        }
+    }
+
+    /// Checks the pace words under a budget's figures are exactly `pace`'s,
+    /// with Edit Budget… beside them when it offers it, or that there are
+    /// none when it is nil.
+    func expect(pace: BudgetPace?, _ what: String, file: StaticString = #filePath, line: UInt = #line) {
+        let words = element(AccessibilityID.budgetPace)
+        let edit = element(AccessibilityID.budgetPaceEdit)
+        guard let pace else {
+            XCTAssertFalse(words.waitForExistence(timeout: 3),
+                           "\(what): pace words where there should be none: \(text(of: words))", file: file, line: line)
+            return
+        }
+        XCTAssertTrue(words.waitForExistence(timeout: 10), "\(what): no pace words. On screen: \(visibleTexts())",
+                      file: file, line: line)
+        XCTAssertTrue(wait(for: words, holds: pace.text, timeout: 10),
+                      "\(what): the pace words are \(text(of: words)), not \(pace.text)", file: file, line: line)
+        if pace.offersEdit {
+            XCTAssertTrue(edit.waitForExistence(timeout: 5), "\(what): no Edit Budget\u{2026} beside the pace words",
+                          file: file, line: line)
+        } else {
+            XCTAssertFalse(edit.exists, "\(what): Edit Budget\u{2026} for someone who may not change it",
+                           file: file, line: line)
+        }
+    }
+
+    /// Waits for a budget's row in the sidebar to show `words`. The row is a
+    /// button, which may read its texts into its own label rather than show
+    /// each one, so either counts.
+    func expect(row name: String, shows words: String, file: StaticString = #filePath, line: UInt = #line) {
+        let row = sidebarBudget(name)
+        let text = listText(words)
+        let shown = NSPredicate { _, _ in text.exists || (row.exists && row.label.contains(words)) }
+        let found = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 10)
+        XCTAssertEqual(found, .completed, "\(name)'s row does not show \(words). Its label: \(row.label). "
+                       + "On screen: \(visibleTexts())", file: file, line: line)
+    }
+
     /// People… in the group's menu, which opens the same page.
     func openGroupPageFromMenu(named name: String) {
         openMenu(on: element(AccessibilityID.sidebarGroup(name)), AccessibilityID.sidebarGroup(name),
@@ -767,5 +827,30 @@ final class TestApp {
     nonisolated static func wipeSettings() {
         UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName)?
             .removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+    }
+}
+
+/// What the shared code says a budget shows today, `limit` a month with
+/// `spent` spent from it, in cents. The app reads its budgets for today in
+/// this Mac's calendar, and so does this, so a test expects exactly what the
+/// app draws without typing a word or an amount in.
+struct TodaysBudget {
+    let summary: BudgetSummary
+
+    init(_ name: String = "", limit: Int, spent: Int) {
+        let budget = Budget(groupID: GroupID(), name: name, limit: Money(minorUnits: limit))
+        summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: Date()),
+                                spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1)
+    }
+
+    var wheel: MoneyWheel { MoneyWheel(budget: summary) }
+    var row: RowFill { RowFill(summary) }
+
+    /// The pace words under the figures, for someone who may change budgets.
+    var pace: BudgetPace? { BudgetPace(wheel: wheel, budgetName: summary.budget.name, mayEdit: true) }
+
+    /// The money of a group holding these budgets, as its page shows it.
+    static func group(_ name: String, _ budgets: [TodaysBudget]) -> GroupMoney? {
+        GroupMoney(group: BudgetGroup(name: name), summaries: budgets.map(\.summary))
     }
 }
