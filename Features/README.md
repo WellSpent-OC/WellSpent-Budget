@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 44 |
+| Linux | 142 | 49 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -139,11 +139,11 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Linux, iPhone |
-| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | None yet |
-| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | None yet |
-| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | None yet |
-| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | None yet |
+| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | Linux |
+| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | Linux |
+| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | Linux |
+| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | Linux |
 | EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | None yet |
 | EDIT-15 | Right-click offers Edit… and Delete… where they are allowed | Mac | Mac |
 | EDIT-16 | The keyboard in the list and in the sheet | Mac | Mac |
