@@ -10,12 +10,18 @@ by its role and words, the fix goes here or in the app's accessibility labels.
 """
 
 import datetime
+import itertools
+import json
 import os
+import secrets
 import shutil
 import signal
 import subprocess
 import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import gi
 
@@ -188,24 +194,51 @@ class App:
         if undo_seconds is not None:
             env["WELLSPENT_UNDO_SECONDS"] = str(undo_seconds)
         self.launched_with = dict(day=day, undo_seconds=undo_seconds, region=region)
+        self.env = env
         self.log = open(os.path.join(self.home, "app.log"), "ab")
-        self.process = subprocess.Popen([self.path, *arguments], env=env, stdout=self.log, stderr=self.log)
+        # Each copy runs on a session bus and keyring of its own, as each
+        # person's computer has, so several people can be on the screen at
+        # once: GTK keeps one copy of an app per bus. All of them show on the
+        # one accessibility tree the tests read.
+        env["AT_SPI_BUS_ADDRESS"] = _accessibility_bus()
+        bus_file = os.path.join(self.home, "session-bus")
+        self.process = subprocess.Popen(
+            ["dbus-run-session", "--", "sh", "-c",
+             'printf "%s" "$DBUS_SESSION_BUS_ADDRESS" > "$WELLSPENT_UI_BUS_FILE"; '
+             'eval "$(printf test-keyring | gnome-keyring-daemon --unlock --components=secrets --daemonize)"; '
+             'export GNOME_KEYRING_CONTROL; exec "$0" "$@"',
+             self.path, *arguments],
+            env=dict(env, WELLSPENT_UI_BUS_FILE=bus_file), stdout=self.log, stderr=self.log)
+        self.pid = self.until(lambda: _child_named(self.process.pid, "WellSpentLinux"), "the app to start")
+        self.session_bus = self.until(lambda: _read(bus_file), "the app's session bus")
         self.until(lambda: self._root() is not None and self.windows(), "the window to open")
         self.settle()
         return self
+
+    def launch_again(self, *arguments):
+        """A second launch on this copy's computer, given `arguments`, as a
+        click on an invite link while the app is open: GTK hands them to the
+        copy that's open, and the second launch stops. Gives its exit status."""
+        env = dict(self.env, DBUS_SESSION_BUS_ADDRESS=self.session_bus)
+        done = subprocess.run([self.path, *arguments], env=env, stdout=self.log, stderr=self.log, timeout=WAIT)
+        self.settle()
+        return done.returncode
 
     def quit(self):
         """Quits as the desktop does when it closes a window: the app saves as
         it goes, so nothing is lost."""
         if self.process is None:
             return
-        self.process.send_signal(signal.SIGTERM)
+        pid = self.pid
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             self.process.wait(timeout=WAIT)
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        pid = self.process.pid
         self.process = None
         self.log.close()
         self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
@@ -265,7 +298,7 @@ class App:
         return roots
 
     def _root(self):
-        roots = self._roots_with(self.process.pid) if self.process else []
+        roots = self._roots_with(self.pid) if self.process else []
         if not roots:
             return None
         roots[0].clear_cache()
@@ -438,17 +471,24 @@ class App:
     def _focus_front(self):
         # The test display has no window manager to give the window in front
         # the keyboard, so it's given here: the app's newest window showing.
-        ids = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(self.process.pid)],
+        ids = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(self.pid)],
                              capture_output=True, text=True).stdout.split()
-        if ids:
-            newest = max(ids, key=int)
-            subprocess.run(["xdotool", "windowfocus", "--sync", newest], check=False)
+        # Windows, not a menu's or a list's popup, which has no name.
+        named = [i for i in ids if subprocess.run(["xdotool", "getwindowname", i], capture_output=True,
+                                                  text=True).stdout.strip()]
+        if named:
+            subprocess.run(["xdotool", "windowfocus", "--sync", max(named, key=int)], check=False)
 
     def choose(self, words, list_box):
-        """Opens a drop-down list such as a level list, and chooses `words`, by
-        the keyboard: down or up to it, then Return. Each step is checked in
-        the tree, so no key goes blind."""
+        """Opens a drop-down list such as a level list, and chooses `words` by
+        the keyboard: Home to the top, Down to it, Return. The list's words
+        are read from the tree first, and the choice is checked in it after.
+        (Where the keyboard starts in an opened list isn't what the tree
+        reports, so no step leans on it.)"""
         toggle = list_box.all("toggle button")[0] if list_box.role == "combo box" else list_box
+        # The keyboard goes to this copy's window first. Once the list is open
+        # its keys go on there, never to the list's own popup window.
+        self._focus_front()
         toggle.press()
 
         def open_items():
@@ -458,25 +498,16 @@ class App:
             return [Element(self, lists[-1].node.get_child_at_index(i))
                     for i in range(lists[-1].node.get_child_count())]
 
-        def item_words(item):
-            return " ".join(label.words for label in item.all("label"))
-
         items = self.until(open_items, "the list to open")
-        names = [item_words(i) for i in items]
+        names = [" ".join(label.words for label in item.all("label")) for item in items]
         if words not in names:
-            self.key("Escape")
+            subprocess.run(["xdotool", "key", "Escape"], check=True)
             raise ScreenError(f"{words!r} isn't offered. The list says {names}")
-        target = names.index(words)
-        for _ in range(len(names) + 1):
-            focused = [n for n, i in zip(names, open_items()) if i._has(Atspi.StateType.FOCUSED)]
-            here = names.index(focused[0]) if focused else 0
-            if here == target:
-                break
-            subprocess.run(["xdotool", "key", "Down" if here < target else "Up"], check=True)
+        for key in ["Home"] + ["Down"] * names.index(words) + ["Return"]:
+            subprocess.run(["xdotool", "key", key], check=True)
             time.sleep(0.3)
-        self.key("Return")
+        self.settle()
         self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
-
 
     # Steps many tests take, done as a person does them
 
@@ -493,7 +524,8 @@ class App:
     def new_budget(self, name, amount, group=None):
         """Add Budget, its name and monthly amount, its group when one is
         given, Add. Saving opens it."""
-        self.button("Add Budget", within=self.main).press()
+        # The sidebar's, beside More: with no budgets yet, the page has one too.
+        self.near("push button", "Add Budget", to=self.button("More", within=self.main)).press()
         sheet = self.wait_for_window(2, "the New Budget sheet")
         self.field("Name", sheet).type(name)
         self.field("Each month", sheet).type(amount)
@@ -523,12 +555,168 @@ class App:
         self.button(button, within=self.front).press()
         self.until(lambda: len(self.windows()) < count, "the question to close")
 
+    def sign_up(self, name):
+        """Makes a fresh account on staging for this copy, as a person does:
+        Sign in, Create an account, an email and a password, then the emailed
+        code. Signed in afterwards. Gives back the email."""
+        self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{name.lower()}@example.com"
+        self.password = secrets.token_urlsafe(18)
+        self.button("Sign in", within=self.main).press()
+        sheet = self.wait_for_window(2, "the account sheet")
+        self.button("Create an account", within=sheet).press()
+        self.wait_shows("Confirm password")
+        sheet = self.front
+        asked = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+        self.field("Email", sheet).type(self.email)
+        self.field("Password", sheet).type(self.password)
+        self.field("Confirm password", sheet).type(self.password)
+        self.button("Create account", within=sheet).press()
+        self.wait_shows("Confirm your email")
+        self.field("Code", self.front).type(emailed_code(self.email, asked))
+        self.button("Confirm", within=self.front).press()
+        self.wait_shows("Your email is confirmed.")
+        self.button("Done", within=self.front).press()
+        self.wait_for_window(1, "the account sheet to close")
+        self.button("Sync", within=self.main)
+        return self.email
+
+    def sync(self):
+        """The Sync button, then waits until it's done."""
+        self.button("Sync", within=self.main).press()
+        time.sleep(1)
+        self.until(lambda: self.button("Sync", within=self.main).enabled, "the sync to finish")
+        self.settle()
+
+    def share(self, group, my_name, level=None):
+        """Share… in the group's menu: this person's name, what they can do
+        when it isn't the sheet's own choice, Create Link. Gives back the
+        link, read off the sheet, and closes it."""
+        menu = self.group_menu(group)
+        self.pick("Share…", menu)
+        sheet = self.wait_for_window(2, "the Share sheet")
+        self.field("Your name", sheet).type(my_name)
+        if level is not None:
+            levels = [e for e in sheet.all("combo box") if e.showing][0]
+            if levels.words != level:
+                self.choose(level, levels)
+        self.button("Create Link", within=sheet).press()
+        link = self.until(lambda: next((t for t in self.texts(self.front) if "://join" in t), None),
+                          "the link to show")
+        self.button("Done", within=self.front).press()
+        self.wait_for_window(1, "the Share sheet to close")
+        return link.replace("\n", "").replace(" ", "")
+
+    def join(self, link, my_name):
+        """More, Join a Group…, the link and this person's name, Join."""
+        more = self.open_menu(self.button("More", within=self.main))
+        self.pick("Join a Group…", more)
+        sheet = self.wait_for_window(2, "the Join a Group sheet")
+        self.field("Invite link", sheet).type(link)
+        self.field("Your name", sheet).type(my_name)
+        self.until(lambda: self.button("Join", within=sheet).enabled, "Join to light")
+        self.button("Join", within=sheet).press()
+        self.wait_for_window(1, "the Join a Group sheet to close")
+
     def delete_group(self, name):
         """The group's ⋯, Delete…, then Delete in the question."""
         menu = self.group_menu(name)
         self.pick("Delete…", menu)
         self.answer("Delete")
         self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
+
+
+def _read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def _child_named(parent, name):
+    """The process called `name` started under `parent`, at any depth."""
+    children = {}
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat") as f:
+                fields = f.read().rsplit(")", 1)[1].split()
+            with open(f"/proc/{entry}/comm") as f:
+                comm = f.read().strip()
+        except OSError:
+            continue
+        children.setdefault(int(fields[1]), []).append((int(entry), comm))
+    stack = [parent]
+    while stack:
+        for pid, comm in children.get(stack.pop(), []):
+            if comm == name[:15]:
+                return pid
+            stack.append(pid)
+    return None
+
+
+_bus = None
+
+
+def _accessibility_bus():
+    """The accessibility bus of the tests' own session, which every copy of
+    the app is shown on."""
+    global _bus
+    if _bus is None:
+        _bus = subprocess.run(["dbus-send", "--session", "--dest=org.a11y.Bus", "--print-reply=literal",
+                               "/org/a11y/bus", "org.a11y.Bus.GetAddress"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    return _bus
+
+
+# MARK: - Accounts on staging
+#
+# Each run makes fresh accounts, linux-<run>-<name>@example.com, and reads the
+# code staging emails them from its test mailbox. The mailbox's token comes
+# from the environment only, never a file in the repository or a command line.
+
+STAGING = "https://staging.wellspent.space"
+MAILBOX_TOKEN = os.environ.get("WELLSPENT_UI_TEST_MAILBOX_TOKEN") or None
+RUN = f"{datetime.datetime.now():%m%d%H%M%S}{secrets.token_hex(2)}"
+# Every account in a run has an address of its own, even two Robins in two tests.
+_ACCOUNT_NUMBERS = itertools.count(1)
+
+
+def needs_accounts(test):
+    """Skips a test that makes accounts when there's no mailbox to read their
+    codes from, as for a pull request from a fork."""
+    if MAILBOX_TOKEN is None:
+        test.skipTest("no WELLSPENT_UI_TEST_MAILBOX_TOKEN, so no account can be made")
+
+
+def emailed_code(address, after):
+    """The code staging emailed `address` after `after` (a UTC time), read from
+    the test mailbox. Waits for it, since the email goes out just after the
+    answer."""
+    url = f"{STAGING}/test/mailbox?address={urllib.parse.quote(address, safe='')}"
+    # Named, since the site's front door turns away Python's own unnamed requests.
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {MAILBOX_TOKEN}",
+                                                   "User-Agent": "WellSpent-Linux-UI-tests"})
+
+    def code():
+        try:
+            with urllib.request.urlopen(request, timeout=10) as answer:
+                mail = json.load(answer)
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return None
+            raise
+        sent = datetime.datetime.fromisoformat(mail["sentAt"].replace("Z", "+00:00"))
+        return mail.get("code") if sent >= after else None
+
+    deadline = time.monotonic() + WAIT
+    while time.monotonic() < deadline:
+        found = code()
+        if found:
+            return found
+        time.sleep(0.5)
+    raise ScreenError(f"no code reached {address}'s mailbox")
 
 
 def launch_fresh(test, *arguments, **settings):
