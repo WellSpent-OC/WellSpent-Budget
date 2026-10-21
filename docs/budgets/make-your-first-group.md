@@ -22,6 +22,18 @@ A group holds budgets you track together. It's also what you share with someone 
 
    > You see **HOME** in the sidebar.
 
+## On an iPhone
+
+1. Tap **+** at the bottom right of Home.
+
+2. Tap **New Group**.
+
+3. Type a name in **Name**, like Home.
+
+4. Tap **Add**.
+
+   > You see **HOME** on Home.
+
 ## If it doesn't work
 
 - **A New Budget window opens:** press **Cancel**. Then click the small arrow, not the words **Add Budget**.

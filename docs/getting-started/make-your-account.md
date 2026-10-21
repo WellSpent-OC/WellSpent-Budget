@@ -31,7 +31,7 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
    > You see **Confirm your email**, and "Enter the code sent to" your email.
 
 7. ![An email with the subject Your WellSpent code](../assets/shots/make-your-account-7.svg)
-   Open the email from WellSpent with the subject **Your WellSpent code**. The code is in the subject.
+   Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
 
 8. ![A hand types the code in Code](../assets/shots/make-your-account-8.svg)
    Type the code in **Code**.
@@ -45,6 +45,34 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
     Press **Done**.
 
     > You see **Syncs through WellSpent's server** at the bottom of the sidebar.
+
+## On an iPhone
+
+1. Tap **Sign in** at the bottom left of Home.
+
+2. Tap **Create an account**.
+
+3. Type your email in **Email**.
+
+4. Type a password of at least 10 characters in **Password**.
+
+5. Type the same password in **Confirm password**.
+
+6. Tap **Create account**.
+
+   > You see **Confirm your email**, and "Enter the code sent to" your email.
+
+7. Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
+
+8. Type the code in **Code**.
+
+9. Tap **Confirm**.
+
+   > You see "Your email is confirmed."
+
+10. Tap **Done**.
+
+    > You see **Syncs through WellSpent's server** at the bottom of Home.
 
 ## If it doesn't work
 

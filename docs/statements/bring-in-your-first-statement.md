@@ -6,7 +6,7 @@ title: "Quest 6: Bring in your first statement"
 
 > *Carry your gold home from the bank, and give each coin a budget.*
 
-**Before you start:** a statement file from your bank, for this month. In your bank's download menu, pick "CSV" (comma-separated values), "OFX" (Open Financial Exchange) or "QFX" (Quicken Financial Exchange). Not QuickBooks (QBO). WellSpent can't read a PDF. In a shared group, you need the Add level or higher.
+**Before you start:** a statement file from your bank, for this month. [How to download one](download-a-statement.md). In your bank's download menu, pick "CSV" (comma-separated values), "OFX" (Open Financial Exchange) or "QFX" (Quicken Financial Exchange). Not QuickBooks (QBO). WellSpent can't read a PDF. In a shared group, you need the Add level or higher.
 
 There's no bank connection. You download a statement from your bank and bring it in, so your bank login stays with you.
 
@@ -31,6 +31,22 @@ There's no bank connection. You download a statement from your bank and bring it
    > You see the new lines in your budgets, marked **Statement**.
 
 Skip deposits, transfers and payments to your card: leave them on **Choose**.
+
+## On an iPhone
+
+1. Tap a budget in the group the statement is for.
+
+2. Tap **⋯** at the top right.
+
+3. Tap **Import statement**.
+
+4. Pick your statement file. It's in the **Downloads** folder, unless you saved it somewhere else.
+
+5. For each line marked **Needs a budget**, pick a budget. To skip a line, leave it on **Choose**.
+
+6. Tap **Import**.
+
+   > You see the new lines in your budgets.
 
 ## If it doesn't work
 

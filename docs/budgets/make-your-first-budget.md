@@ -25,6 +25,18 @@ A budget is an amount to spend each month. It starts again on the 1st.
 
    > You see **Groceries** under **HOME**, with what's left beside it.
 
+## On an iPhone
+
+1. Under **HOME**, tap **New Budget**.
+
+2. Type a name in **Name**, like Groceries.
+
+3. Type how much a month in **Each month**, like 500.
+
+4. Tap **Add**.
+
+   > You see **Groceries** under **HOME**, with what's left beside it.
+
 ## If it doesn't work
 
 - **The menu has only Edit… and Delete…:** that's a budget's menu. Right-click the group's name instead. It's in capital letters.

@@ -37,6 +37,22 @@ title: "Quest 7: Share a group"
 
 The link works once, and runs out after 7 days. You can't see or cancel it once it's made, so send it only to the person you mean.
 
+## On an iPhone
+
+1. Touch and hold **HOME** on Home.
+
+2. Tap **Share**.
+
+3. Type your name in **Your name**.
+
+4. Under **They can**, pick **View**, **Add** or **Manage**.
+
+5. Under **They see**, pick **Everything so far** or **Only from now on**.
+
+6. Tap **Create Link**.
+
+7. Tap **Send**, and pick how to send it, such as a message or an email.
+
 ## If it doesn't work
 
 - **"Sign in first. Sharing goes through your account.":** sign in, and try again.

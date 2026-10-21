@@ -25,6 +25,20 @@ title: "Quest 5: Add your first transaction"
 
 Spot a mistake later? Click the transaction to change or delete it.
 
+## On an iPhone
+
+1. Tap **Groceries** on Home.
+
+2. Tap **Add** at the bottom of the budget.
+
+3. Type where you spent the money in **Merchant**.
+
+4. Type how much in **Amount**, like 12.50.
+
+5. Tap **Add**.
+
+   > You see your transaction in the list, and what's spent goes up.
+
 ## If it doesn't work
 
 - **Add stays dimmed:** **Merchant** and **Amount** both need something. Type the amount as a number.

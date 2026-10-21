@@ -34,6 +34,20 @@ title: "Quest 8: Join a group"
 
 Click the link in the message. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
 
+## On an iPhone
+
+Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**.
+
+1. Tap the invite link in the message.
+
+   > You see WellSpent open to the invite.
+
+2. Type your name in **Your name**.
+
+3. Tap **Join**.
+
+   > You see the group on Home.
+
 ## If it doesn't work
 
 - **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, press **Send a code**, and type the code WellSpent emails you. Then try again.
