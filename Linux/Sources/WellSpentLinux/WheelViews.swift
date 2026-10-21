@@ -11,14 +11,7 @@ import WellSpentModel
 // GTK draws each shape in its own drawing area, clipped to its frame, and
 // joins two shapes in one path with a straight line. So the ring's track, its
 // two edges, the arc and the tick are each a shape of their own, stacked.
-
-extension Color {
-    /// The light value. Linux keeps today's light look until it reads the
-    /// desktop's setting.
-    init(_ pair: ColorPair) {
-        self.init(red: pair.light.red, green: pair.light.green, blue: pair.light.blue)
-    }
-}
+// Colours come from Color(_ pair:) in Palette.swift.
 
 // MARK: - The wheel's shapes
 
