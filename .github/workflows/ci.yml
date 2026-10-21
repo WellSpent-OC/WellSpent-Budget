@@ -323,6 +323,7 @@ jobs:
           path: |
             .build/linux-ui-test/*.png
             .build/linux-ui-test/*-process.txt
+            .build/linux-ui-test/*-words.txt
           if-no-files-found: ignore
 
   # Gate enforcement, without branch protection.

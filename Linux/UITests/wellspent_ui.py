@@ -285,6 +285,7 @@ class App:
                 shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
                     if os.path.exists(os.path.join(self.home, "app.log")) else None
                 self._note_process(picture.replace(".png", "-process.txt"))
+                self._note_words(picture.replace(".png", "-words.txt"))
                 cause = f" ({last_error})" if last_error else ""
                 raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
             time.sleep(0.2)
@@ -320,6 +321,21 @@ class App:
             except (OSError, subprocess.TimeoutExpired) as error:
                 with open(path, "a") as note:
                     note.write(f"no stacks: {error}\n")
+
+    def _note_words(self, path):
+        """The words in each of this copy's windows, front last. With several
+        people on the screen at once, the picture shows whichever window is
+        on top, which may not be this one. After the process note, so a hung
+        app's stacks are kept first."""
+        try:
+            lines = []
+            for window in self.windows():
+                lines.append(f"{window.role} {window.words!r}:")
+                lines += [f"  {words}" for words in self.texts(window)]
+        except Exception as error:  # a hung or ended app answers nothing
+            lines.append(f"no words: {error}")
+        with open(path, "w") as note:
+            note.write("\n".join(lines) + "\n")
 
     def picture(self, name):
         os.makedirs(OUT, exist_ok=True)
