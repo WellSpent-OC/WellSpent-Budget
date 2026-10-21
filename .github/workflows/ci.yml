@@ -92,11 +92,10 @@ jobs:
 
       # Covers the library targets. WellSpentApp is an executable with no test
       # target depending on it, so it is not linked into the test binary and
-      # cannot be measured here. See scripts/coverage.sh and STATUS.md.
+      # cannot be measured here. See scripts/coverage.sh and STATUS.md. The
+      # floor is coverage.sh's own, 90 percent, the sign-off rule's number.
       - name: Line coverage
         run: ./scripts/coverage.sh
-        env:
-          COVERAGE_MINIMUM: 85
 
   # The server ships as a Linux container, and nothing else in this workflow
   # compiles it for Linux. A macOS build passing says nothing about whether
@@ -327,6 +326,10 @@ jobs:
       - name: Build the app and the UI test
         run: make ui-test-build
 
+      # The export answer counts on the Mac app using Apple's encryption alone.
+      - name: Apple's encryption only, in the built Mac app
+        run: scripts/crypto-check.sh .build/xcode/Build/Products/Debug/WellSpentUITestHost.app
+
       - name: Run the UI test against staging
         if: env.HAS_UI_TEST_ACCOUNTS == 'true'
         env:
@@ -415,6 +418,10 @@ jobs:
 
       - name: Build the iPhone app and its UI tests
         run: make iphone-ui-test-build
+
+      # The export answer counts on the iPhone app using Apple's encryption alone.
+      - name: Apple's encryption only, in the built iPhone app
+        run: scripts/crypto-check.sh .build/xcode-iphone/Build/Products/Debug-iphonesimulator/WellSpentPhone.app
 
       - name: Run the iPhone UI tests
         env:
