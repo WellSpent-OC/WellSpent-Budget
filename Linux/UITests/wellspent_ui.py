@@ -280,6 +280,10 @@ class App:
                 last_error = error
             if time.monotonic() > deadline:
                 picture = self.picture("failed")
+                # The app's own log goes beside the picture, since its home
+                # goes when the test ends.
+                shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
+                    if os.path.exists(os.path.join(self.home, "app.log")) else None
                 cause = f" ({last_error})" if last_error else ""
                 raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
             time.sleep(0.2)
@@ -694,6 +698,15 @@ class App:
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the Share sheet to close")
         return link.replace("\n", "").replace(" ", "")
+
+    def set_level(self, group, person, level):
+        """On the group's page, the level list on the person's row, then
+        `level`, then a sync so it reaches the server."""
+        self.group(group).press()
+        self.sync()
+        row_label = self.find("label", person, within=self.main)
+        self.choose(level, self.near("combo box", None, to=row_label))
+        self.sync()
 
     def join(self, link, my_name):
         """More, Join a Group…, the link and this person's name, Join."""
