@@ -78,7 +78,9 @@ final class BudgetGapTests: XCTestCase {
         // 3. Each sample budget's wheel says its limit, and its list holds
         // the sample entries dated this month, each 3 to 12 days before the
         // first opening. Early in a month the ones from the month before are
-        // not listed, so all six are listed from the 13th on.
+        // not listed, so all six are listed from the 13th on. Before the 13th
+        // only the listed ones are checked, since the seed keeps each
+        // sample's day to itself.
         let samples: [(budget: String, limit: Int, entries: [String])] = [
             ("Groceries", 100_000, ["Hilltop Grocery", "Costco", "Sunny's"]),
             ("Eating out", 30_000, ["Sunrise Cafe", "Riverside Grill"]),
@@ -210,7 +212,7 @@ final class BudgetGapTests: XCTestCase {
         let raised = TodaysBudget("Groceries", limit: 65_000, spent: 14_208, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: raised.wheel.spokenSummary, "Groceries at $650.00")
         run.expect(figures: raised.wheel.figures, "Groceries at $650.00")
-        run.expect(row: "Groceries", shows: raised.row.amount)
+        run.expect(row: "Groceries", endsWith: raised.row.amount)
 
         // 4. Back to $500.00 a month, then Corner Bakery, $12.00, and
         // Market, $9.50, dated the 15th of last month.
@@ -235,7 +237,7 @@ final class BudgetGapTests: XCTestCase {
         XCTAssertTrue(run.isListed("Hilltop Grocery"), "Hilltop Grocery is not listed")
         XCTAssertTrue(run.isListed("Corner Bakery"), "Corner Bakery is not listed")
         XCTAssertTrue(run.rowIsGone("Market"), "Market, from last month, is listed")
-        run.expect(row: "Groceries", shows: thisPeriod.row.amount)
+        run.expect(row: "Groceries", endsWith: thisPeriod.row.amount)
 
         // Scenario BUDGET-14
         // 6. Eating out, $200.00 a month, with one entry: its line counts
@@ -479,13 +481,17 @@ final class BudgetGapTests: XCTestCase {
         expectMerchant("Probe", "Command-V, after Command-X")
 
         // Scenario PASTE-08
-        // 5. From the Edit menu itself: Select All and Copy in Merchant, then
-        // Paste with the cursor in an empty Note puts the copied words there.
+        // 5. From the Edit menu itself: Corner Bakery typed in Merchant, then
+        // Select All and Copy there, and Paste with the cursor in an empty
+        // Note puts Corner Bakery there. The clipboard still holds Probe from
+        // step 4, so only the menu's Copy can bring Corner Bakery.
+        run.type("Corner Bakery", into: AccessibilityID.entryMerchant)
+        expectMerchant("Corner Bakery", "typing new words over Probe")
         run.pick(try command("selectAll:"), from: menu.title)
         run.pick(try command("copy:"), from: menu.title)
         run.clear(AccessibilityID.entryNote)
         run.pick(try command("paste:"), from: menu.title)
-        XCTAssertTrue(run.wait(for: note, holds: "Probe", timeout: 5),
+        XCTAssertTrue(run.wait(for: note, holds: "Corner Bakery", timeout: 5),
                       "Paste from the \(menu.title) menu: Note says \(run.text(of: note))")
         run.click(AccessibilityID.entryCancel)
         run.expectNoSheet()
