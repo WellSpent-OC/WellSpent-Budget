@@ -59,8 +59,12 @@ final class ImportGapTests: XCTestCase {
         let groceries = "Groceries \(stamp)", eatingOut = "Eating out \(stamp)"
         let joes = "TRADER JOES #123", bakery = "CORNER BAKERY"
         let statement = try run.writeStatement([(joes, "-54.20"), (bakery, "-12.00")])
+        // The day the statement's lines are dated. It is fixed when the file
+        // is written, so it is built then too.
         let today = BudgetScreen.shortDate(Date())
-        let untouched = TodaysBudget(limit: 50_000, spent: 0)
+        // What Groceries shows with nothing spent, built anew for each check,
+        // so a run that crosses midnight expects the day the app shows by then.
+        func untouched() -> TodaysBudget { TodaysBudget(limit: 50_000, spent: 0) }
 
         // 1. A group with two budgets. Saving a budget opens it, so Groceries
         // is made last, and stays open.
@@ -78,7 +82,8 @@ final class ImportGapTests: XCTestCase {
         run.importStatement(at: statement)
         run.expectTitle(Words.title(into: household), beside: statement.lastPathComponent)
         for bank in [joes, bakery] {
-            XCTAssertTrue(run.element(AccessibilityID.importLineStatus(bank)).exists, "no row for \(bank)")
+            XCTAssertTrue(run.element(AccessibilityID.importLineStatus(bank)).waitForExistence(timeout: 10),
+                          "no row for \(bank). On screen: \(run.visibleTexts())")
         }
         run.expectCountsAcrossTheTop(above: [joes, bakery])
         run.expect(counts: [0, 0, 0, 2], "two lines from merchants not filed before")
@@ -87,7 +92,7 @@ final class ImportGapTests: XCTestCase {
             XCTAssertFalse(run.element(AccessibilityID.entryRow(merchant)).exists,
                            "\(merchant) is in Groceries before Import")
         }
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: untouched.wheel.spokenSummary,
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: untouched().wheel.spokenSummary,
                    "Groceries, with the review open")
 
         // Scenario IMPORT-02
@@ -111,7 +116,8 @@ final class ImportGapTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 3),
                        "Cancel added Corner Bakery")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Trader Joes")).exists, "Cancel added Trader Joes")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: untouched.wheel.spokenSummary, "Groceries, after Cancel")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: untouched().wheel.spokenSummary,
+                   "Groceries, after Cancel")
         run.importStatement(at: statement)
         XCTAssertEqual([run.status(of: joes), run.status(of: bakery)], [Words.needsBudget, Words.needsBudget])
         run.expect(list: bakery, shows: Words.choose)
@@ -196,7 +202,10 @@ final class ImportGapTests: XCTestCase {
         // tidying of the bank's words, which drops the store number.
         let costcoName = StatementLine(date: Date(), rawDescription: costco, amount: Money(minorUnits: -28_631))
             .cleanedDescription
-        let eatingOutUntouched = TodaysBudget(limit: 20_000, spent: 0)
+        // What Eating out and Groceries show, built anew for each check, so a
+        // run that crosses midnight expects the day the app shows by then.
+        func eatingOutUntouched() -> TodaysBudget { TodaysBudget(limit: 20_000, spent: 0) }
+        func filed() -> TodaysBudget { TodaysBudget(limit: 50_000, spent: 38_641) }
 
         // 1. A group with two budgets, and in Groceries, Hilltop Grocery,
         // $42.00, and Costco, $286.31, typed by hand. Then Eating out is
@@ -209,7 +218,7 @@ final class ImportGapTests: XCTestCase {
         run.addEntry(merchant: "Costco", amount: "286.31")
         let typed = (costco: run.entryRows("Costco"), hilltop: run.entryRows("Hilltop Grocery"))
         run.click(AccessibilityID.sidebarBudget(eatingOut))
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched.wheel.spokenSummary,
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched().wheel.spokenSummary,
                    "Eating out, opened")
 
         // Scenario IMPORT-03, IMPORT-04
@@ -235,7 +244,7 @@ final class ImportGapTests: XCTestCase {
         run.waitForTheReviewToClose()
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).waitForExistence(timeout: 3),
                        "the Hilltop line went into Eating out, the open budget")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched.wheel.spokenSummary,
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: eatingOutUntouched().wheel.spokenSummary,
                    "Eating out, after Import")
         run.click(AccessibilityID.sidebarBudget(groceries))
         XCTAssertTrue(run.wait(forEntryRows: "Hilltop Grocery", timeout: 10) { $0 == typed.hilltop * 2 },
@@ -245,10 +254,9 @@ final class ImportGapTests: XCTestCase {
                        "the Costco line was added, as \(costcoName)")
         XCTAssertEqual(run.entryRows("Costco"), typed.costco, "a second Costco shows")
         run.expect(entry: "Costco", shows: [Self.manualSource, "$286.31"])
-        let filed = TodaysBudget(limit: 50_000, spent: 38_641)
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: filed.wheel.spokenSummary,
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: filed().wheel.spokenSummary,
                    "Groceries, with the Hilltop line")
-        run.expect(figures: filed.wheel.figures, "Groceries, with the Hilltop line")
+        run.expect(figures: filed().wheel.figures, "Groceries, with the Hilltop line")
 
         // Scenario IMPORT-03
         // 4. A line matches only an entry typed by hand, with the same
@@ -281,9 +289,9 @@ final class ImportGapTests: XCTestCase {
             XCTAssertFalse(run.element(AccessibilityID.entryRow(merchant)).waitForExistence(timeout: 3),
                            "\(merchant), from before this period, is in Groceries' list")
         }
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: filed.wheel.spokenSummary,
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: filed().wheel.spokenSummary,
                    "Groceries, after lines from before this period")
-        run.expect(figures: filed.wheel.figures, "Groceries, after lines from before this period")
+        run.expect(figures: filed().wheel.figures, "Groceries, after lines from before this period")
         run.importStatement(at: earlier)
         XCTAssertEqual([run.status(of: farm), run.status(of: orchard)], [Words.alreadyImported, Words.alreadyImported],
                        "the lines from before this period did not go in")
@@ -481,9 +489,10 @@ private extension TestApp {
     /// name.
     func count(_ name: String, in texts: [ShownText]) -> String {
         guard let label = countName(name, in: texts) else { return "no count called \(name)" }
-        let under = texts.filter { text in
-            text.words.allSatisfy(\.isNumber) && abs(text.frame.minX - label.frame.minX) < 4
-                && text.frame.minY >= label.frame.midY && text.frame.minY - label.frame.maxY < 24
+        let under: [ShownText] = texts.filter { (text: ShownText) -> Bool in
+            let sameColumn: Bool = abs(text.frame.minX - label.frame.minX) < 4
+            let justBelow: Bool = text.frame.minY >= label.frame.midY && text.frame.minY - label.frame.maxY < 24
+            return text.words.allSatisfy(\.isNumber) && sameColumn && justBelow
         }
         return under.min { $0.frame.minY < $1.frame.minY }?.words ?? "no number under \(name)"
     }
@@ -642,13 +651,20 @@ private extension TestApp {
             XCTFail("the picture of \(bank)'s date could not be read", file: file, line: line)
             return 0
         }
-        let brightness = stride(from: 0, to: pixels.count, by: 4).map { at in
-            (0.2126 * Double(pixels[at]) + 0.7152 * Double(pixels[at + 1]) + 0.0722 * Double(pixels[at + 2])) / 255
+        let brightness: [Double] = stride(from: 0, to: pixels.count, by: 4).map { (at: Int) -> Double in
+            let red = 0.2126 * Double(pixels[at])
+            let green = 0.7152 * Double(pixels[at + 1])
+            let blue = 0.0722 * Double(pixels[at + 2])
+            return (red + green + blue) / 255
         }
         // The background: the brightness most points have, in steps of 1/64.
-        let steps = Dictionary(grouping: brightness) { Int(($0 * 64).rounded()) }
-        let background = Double(steps.max { $0.value.count < $1.value.count }?.key ?? 0) / 64
-        return brightness.map { abs($0 - background) }.max() ?? 0
+        let steps: [Int: [Double]] = Dictionary(grouping: brightness) { (value: Double) -> Int in
+            Int((value * 64).rounded())
+        }
+        let commonest: Int = steps.max { $0.value.count < $1.value.count }?.key ?? 0
+        let background: Double = Double(commonest) / 64
+        let distances: [Double] = brightness.map { (value: Double) -> Double in abs(value - background) }
+        return distances.max() ?? 0
     }
 
     /// A picture of an element as it shows, cut from a picture of the screen
@@ -703,10 +719,12 @@ private extension TestApp {
     /// right.
     func entryLines(_ merchant: String) -> [(cell: CGRect, texts: [ShownText])] {
         let seen = look(in: app.windows.firstMatch, for: AccessibilityID.entryRow(merchant))
-        return seen.frames.map { cell in
-            (cell, seen.texts.filter { text in
-                text.frame.midY >= cell.minY - 6 && text.frame.midY <= cell.maxY + 6 && text.frame.minX >= cell.minX - 2
-            })
+        return seen.frames.map { (cell: CGRect) -> (cell: CGRect, texts: [ShownText]) in
+            let top: CGFloat = cell.minY - 6, bottom: CGFloat = cell.maxY + 6, left: CGFloat = cell.minX - 2
+            let inLine: [ShownText] = seen.texts.filter { (text: ShownText) -> Bool in
+                text.frame.midY >= top && text.frame.midY <= bottom && text.frame.minX >= left
+            }
+            return (cell, inLine)
         }
     }
 
