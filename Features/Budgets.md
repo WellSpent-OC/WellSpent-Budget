@@ -28,7 +28,7 @@ A budget is an amount to spend each month, and it starts again on the 1st. Budge
 - And it says "Starts again on the 1st of each month."
 - When he types Groceries and 500 and presses "Add"
 - Then Groceries shows last under "HOUSEHOLD" in the list, with $500.00 beside it
-- And Groceries opens on the right, saying "$0.00", "of $500.00 this period" and "$500.00 left"
+- And Groceries opens on the right, saying "Spent" $0.00 and "Left" $500.00, with its wheel full
 - And "Add Budget" opens the same sheet, with the first group he manages chosen
 
 ## BUDGET-04 A budget needs a name and an amount above zero
@@ -56,7 +56,7 @@ A budget is an amount to spend each month, and it starts again on the 1st. Budge
 - When Robin picks "Edit…" for Groceries
 - Then a sheet titled "Edit Budget" shows Groceries in "Name" and 500.00 in "Each month", with no choice of group
 - When he changes Each month to 650 and presses "Save"
-- Then Groceries says "of $650.00 this period" and "$507.92 left"
+- Then Groceries says "Left" $507.92, and its wheel says "of $650"
 - And the list shows $507.92 beside Groceries
 
 ## BUDGET-07 Changing budgets and groups takes Manage
