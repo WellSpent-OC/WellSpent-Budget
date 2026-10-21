@@ -49,6 +49,16 @@ struct PaletteValuesTests {
         }
     }
 
+    /// A phone's swipe buttons hold words the system writes in white, in
+    /// light and dark alike: about 17 to 1 on Edit's fill and 5.0 on Delete's.
+    @Test func whiteWordsReadOnTheSwipeFillsInLightAndDark() {
+        let white = RGB(hex: 0xFFFFFF)
+        for fill in [PaletteValues.swipeEdit, PaletteValues.swipeDelete] {
+            #expect(white.contrast(with: fill.light) >= 4.5)
+            #expect(white.contrast(with: fill.dark) >= 4.5)
+        }
+    }
+
     /// The measure agrees with the design's own published figures, so the
     /// checks above mean what they say.
     @Test func contrastIsMeasuredAsTheDesignMeasuresIt() {

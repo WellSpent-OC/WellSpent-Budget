@@ -88,4 +88,10 @@ public enum PaletteValues {
 
     /// A budget's dot, by its colour index: these four, then round again.
     public static let budgetColors = [accent, blue, purple, warning]
+
+    /// The fills behind Edit and Delete when an entry's row is swiped on a
+    /// phone. The system writes their words in white, so they are the same
+    /// in light and dark.
+    public static let swipeEdit = ColorPair(light: RGB(hex: 0x1A1A1A), dark: RGB(hex: 0x1A1A1A))
+    public static let swipeDelete = ColorPair(light: RGB(hex: 0xB4532A), dark: RGB(hex: 0xB4532A))
 }
