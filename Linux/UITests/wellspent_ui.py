@@ -168,24 +168,26 @@ class App:
 
     # Starting and stopping
 
-    def launch(self, *arguments, day=None, undo_seconds=None):
+    def launch(self, *arguments, day=None, undo_seconds=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
         invite link. A staging build takes two test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
-        `undo_seconds` sets how long Undo stays. Its words come in the plain
-        C locale, whatever the computer's, so dates read "23 Oct"."""
+        `undo_seconds` sets how long Undo stays. `region` is the computer's,
+        as a desktop names it: the scenarios' United States unless a test
+        says otherwise, such as "de_DE.UTF-8"."""
         if self.process is not None:
             raise RuntimeError("already running")
         env = dict(os.environ)
         env.update(HOME=self.home, XDG_DATA_HOME=os.path.join(self.home, ".local/share"),
-                   XDG_CONFIG_HOME=os.path.join(self.home, ".config"), LC_ALL="C.UTF-8", LANG="C.UTF-8")
+                   XDG_CONFIG_HOME=os.path.join(self.home, ".config"), LC_ALL=region, LANG=region)
+        env.pop("LC_NUMERIC", None)
         env.pop("WELLSPENT_DAY_OF_MONTH", None)
         env.pop("WELLSPENT_UNDO_SECONDS", None)
         if day is not None:
             env["WELLSPENT_DAY_OF_MONTH"] = str(day)
         if undo_seconds is not None:
             env["WELLSPENT_UNDO_SECONDS"] = str(undo_seconds)
-        self.launched_with = dict(day=day, undo_seconds=undo_seconds)
+        self.launched_with = dict(day=day, undo_seconds=undo_seconds, region=region)
         self.log = open(os.path.join(self.home, "app.log"), "ab")
         self.process = subprocess.Popen([self.path, *arguments], env=env, stdout=self.log, stderr=self.log)
         self.until(lambda: self._root() is not None and self.windows(), "the window to open")
@@ -379,6 +381,30 @@ class App:
     def has_budget(self, name):
         return any(e.showing for e in self.main.all("push button", starts=name + " "))
 
+    # A budget's transactions
+
+    def entries(self):
+        """The open budget's transactions, top to bottom, each as the texts
+        its row shows: its date, merchant, any note, who added it, its
+        source and its amount."""
+        rows = []
+        for button in self.main.all("push button"):
+            parts = [label.words for label in button.all("label") if label.words]
+            if button.showing and len(parts) >= 4 and _looks_like_a_date(parts[0]):
+                rows.append(parts)
+        return rows
+
+    def entry(self, merchant):
+        """A transaction's row, the button that opens it."""
+        def row():
+            hits = [b for b in self.main.all("push button")
+                    if b.showing and any(label.words == merchant for label in b.all("label"))
+                    and _looks_like_a_date(next((label.words for label in b.all("label")), ""))]
+            if len(hits) > 1:
+                raise ScreenError(f"{len(hits)} transactions are from {merchant!r}")
+            return hits[0] if hits else None
+        return self.until(row, f"the transaction from {merchant!r}")
+
     def open_menu(self, button):
         """Presses a button that opens a menu, such as More or a group's ⋯,
         until its items show, and gives it back for `pick`. A press as a
@@ -535,6 +561,16 @@ def today(day=None):
     return now.replace(day=min(day, days_in_month(now)))
 
 
+def short_date(day):
+    """A transaction's date as the app writes it in the United States: "Oct 21"."""
+    return f"{day:%b} {day.day}"
+
+
+def _looks_like_a_date(words):
+    # "Oct 21" in the United States, "21. Okt." in Germany, "21 Oct" elsewhere.
+    return any(ch.isdigit() for ch in words) and any(ch.isalpha() for ch in words) and len(words) <= 9
+
+
 def dollars(cents):
     """$1060.21, as the app writes amounts."""
     sign = "-" if cents < 0 else ""
@@ -619,7 +655,7 @@ class Wheel:
             runs_out = self.limit * self.today.day // self.spent
             date = self.today.replace(day=1) + datetime.timedelta(days=runs_out - 1)
             early = max(self.days - runs_out, 1)
-            return (f"At this pace, {self.name} runs out around {date.day} {date:%b}, "
+            return (f"At this pace, {self.name} runs out around {date:%b} {date.day}, "
                     f"{days_in_words(early)} early.")
         more = self.left - expected
         if more > 0 and self.to_come < 7 and self.may_edit and (more + 50) // 100 >= 1:
