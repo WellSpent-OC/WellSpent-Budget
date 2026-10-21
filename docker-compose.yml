@@ -46,10 +46,6 @@ services:
       EMAIL_CODE_KEY: ${EMAIL_CODE_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
-      # The old sealed API. Closed unless .env says "on", so a server built
-      # from this branch never leaves it open by accident: old apps are asked
-      # to update. See DEPLOY.md.
-      LEGACY_API: ${LEGACY_API:-off}
       # Do not set SKIP_AUTO_MIGRATE. purgeExpiredTokens runs before migrate
       # would, and dies on the missing tokens table.
 

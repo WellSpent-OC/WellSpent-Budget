@@ -125,9 +125,10 @@ public func configure(_ app: Application) async throws {
         app.logger.warning("TEST_MAILBOX_TOKEN is set on live and ignored: live never has a test mailbox")
     }
     try app.configureEmailCodeKey()
-    app.legacyAPIOpen = try LegacyAPIGate.parse(Environment.get("LEGACY_API"))
-    // Said either way, so a deploy shows at a glance whether the switch took.
-    app.logger.notice(app.legacyAPIOpen ? "api/v1 is open" : "api/v1 is closed: old apps are asked to update")
+    // /api/v1 is gone, so LEGACY_API no longer opens or closes anything.
+    if Environment.get("LEGACY_API") != nil {
+        app.logger.notice("LEGACY_API is no longer read: /api/v1 is gone and asks old apps to update")
+    }
 
     try registerRoutes(app)
 }
