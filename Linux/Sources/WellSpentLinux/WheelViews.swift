@@ -171,6 +171,9 @@ struct RowFillBackground: View {
 /// are any. Then the line counting its transactions. What it says is
 /// BudgetScreen's. Layout only.
 struct BudgetWheelPanel: View {
+    /// The least width of the figures and the pace words beside the wheel.
+    static let columnMinWidth: Double = 260
+
     let screen: BudgetScreen
     /// Opens the Edit Budget sheet, from Edit Budget… beside the pace words.
     var editBudget: () -> Void
@@ -190,7 +193,11 @@ struct BudgetWheelPanel: View {
                         PaceLine(pace: pace, editBudget: editBudget)
                     }
                 }
-                .frame(maxWidth: 360)
+                // A floor as well as a ceiling, as on the Mac. The pace words
+                // take their full height, so squeezed to a sliver they would
+                // stand very tall, and the window's least height with them.
+                // Then a narrow window grew taller than the screen.
+                .frame(minWidth: Self.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
             Text(screen.countLine)
                 .font(.system(size: 11))
@@ -271,7 +278,8 @@ struct GroupMoneySection: View {
                         .foregroundColor(Color(PaletteValues.muted))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: 360)
+                // A floor too, for the same reason as a budget's figures.
+                .frame(minWidth: BudgetWheelPanel.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
             // In a well, as on the Mac.
             .padding(12)
