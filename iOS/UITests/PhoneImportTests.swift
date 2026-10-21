@@ -201,8 +201,8 @@ final class PhoneImportTests: XCTestCase {
 
         // 1. Costco, typed into Groceries by hand.
         run.addEntry(merchant: "Costco", amount: "286.31")
-        let costcoRows = run.entryRows("Costco")
         let hilltopRows = run.entryRows("Hilltop Grocery")
+        let counted = run.transactionCount()
 
         // Scenario IMPORT-03, IMPORT-04
         // 2. The Costco line matches the entry typed by hand. The Hilltop line
@@ -223,7 +223,10 @@ final class PhoneImportTests: XCTestCase {
         XCTAssertTrue(run.wait(forEntryRows: "Hilltop Grocery", timeout: 10) { $0 > hilltopRows },
                       "Hilltop Grocery was not added. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("$58.10"), "no $58.10. On screen: \(run.visibleTexts())")
-        XCTAssertEqual(run.entryRows("Costco"), costcoRows, "the Costco line was added as well")
+        // By the count line: the wheel above the list can push a row below the
+        // bottom of the screen, where a list draws nothing to count.
+        XCTAssertEqual(run.transactionCount(), counted + 1, "the Costco line was added as well. The page says: "
+                       + run.countLine())
 
         // Scenario IMPORT-11
         // 4. A line from before this period goes in, but the budget's page
@@ -501,6 +504,15 @@ private extension PhoneTestApp {
         let line = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", " since ")).firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 5), "no count line. On screen: \(visibleTexts())")
         return line.label
+    }
+
+    /// How many transactions the count line says the period holds: 3 in "3
+    /// transactions since Oct 1". It counts every one, drawn or not.
+    func transactionCount() -> Int {
+        let line = countLine()
+        let number = Int(line.prefix { $0.isNumber })
+        XCTAssertNotNil(number, "the count line starts with no number: \(line)")
+        return number ?? -1
     }
 }
 
