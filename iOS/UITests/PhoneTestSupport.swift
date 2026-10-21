@@ -344,13 +344,18 @@ final class PhoneTestApp {
     /// Sign out, from Account at the foot of Home. Best effort.
     func signOut() {
         guard app.state == .runningForeground else { return }
-        let account = element(AccessibilityID.toolbarAccount)
+        let account = button(AccessibilityID.toolbarAccount)
         guard account.waitForExistence(timeout: 5), wait(for: account, until: "isEnabled == true", timeout: 30) else {
+            XCTFail("Account never lit, so no sign out. On screen: \(visibleTexts())")
             return
         }
         account.tap()
         let signOut = element(AccessibilityID.accountSignOut)
-        guard signOut.waitForExistence(timeout: 5) else { return }
+        guard signOut.waitForExistence(timeout: 10) else {
+            XCTFail("the account sheet shows no Sign out. On screen: \(visibleTexts()) \(visibleButtons())")
+            return
+        }
+        waitUntilHittable(signOut, AccessibilityID.accountSignOut)
         signOut.tap()
         wait(for: text(SyncWording.footer(signedIn: false, device: Self.device)), until: "exists == true",
              timeout: 15)

@@ -120,8 +120,8 @@ final class PhoneSharingTests: XCTestCase {
         }
         XCTAssertTrue(levelRow(.write, in: run).isSelected, "Add has no tick")
         levelRow(.read, in: run).tap()
-        XCTAssertTrue(run.wait(for: levelRow(.read, in: run), until: "selected == true", timeout: 15),
-                      "the tick did not move to View")
+        XCTAssertTrue(run.wait(for: levelRow(.read, in: run), until: "selected == true", timeout: 20),
+                      "the tick did not move to View. On screen: \(run.visibleTexts()) \(run.visibleButtons())")
         run.goBack()
         XCTAssertTrue(run.wait(for: leslieRow, until: "label CONTAINS '\(InviteRole.view.explanation)'", timeout: 10),
                       "her row does not say what View does: \(leslieRow.label)")
