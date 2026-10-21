@@ -58,6 +58,11 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         WellSpentEnvironment: $(WELLSPENT_ENVIRONMENT)
+        # The export question, answered no, as in the Mac app: the app's code
+        # holds Apple's encryption only. The release check confirms both
+        # before every upload (scripts/crypto-check.sh), so an upload never
+        # waits on the question.
+        ITSAppUsesNonExemptEncryption: false
     # On the target, because xcodegen's own target defaults would otherwise
     # win over the project's.
     #

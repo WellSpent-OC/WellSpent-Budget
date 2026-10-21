@@ -231,6 +231,15 @@ struct AppEnvironmentTests {
         }
     }
 
+    /// The iPhone app answers the same, in its one Info.plist for both builds.
+    @Test func theIPhoneAppAnswersTheExportQuestion() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let project = try String(contentsOf: root.appendingPathComponent("iOS/project.yml"), encoding: .utf8)
+        let lines = project.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        #expect(lines.contains("ITSAppUsesNonExemptEncryption: false"))
+    }
+
     /// Where the build script writes the Info.plist: the text of its heredoc.
     private static func infoPlistText(in script: String) throws -> Range<String.Index> {
         let start = try #require(script.range(of: "cat > \"$APP/Contents/Info.plist\" <<EOF\n"))
