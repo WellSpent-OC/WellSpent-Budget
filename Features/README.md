@@ -45,7 +45,7 @@ A UI test names a scenario with one comment line, directly above the step that c
 - To find every test that names a scenario, search for its ID: `git grep -n "PAGE-05"`.
 - When a tag is added or taken out, change the tables below to match.
 
-The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI tests that name a scenario yet.
+The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UITests`. Linux has no UI tests that name a scenario yet.
 
 ## Every scenario, and which platforms have a test for it
 
@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 | - | - | - |
 | Mac | 138 | 45 |
 | Linux | 131 | 0 |
-| iPhone | 129 | 23 |
+| iPhone | 129 | 47 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -171,57 +171,57 @@ The Mac's UI tests are in `Tests/WellSpentUITests`. Linux and iPhone have no UI 
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | None yet |
-| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac |
-| SHARE-03 | Send… hands the link to another app | Mac, iPhone | None yet |
-| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | None yet |
+| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | iPhone |
+| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-03 | Send… hands the link to another app | Mac, iPhone | iPhone |
+| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | iPhone |
 | SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | None yet |
 | SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | None yet |
-| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac |
-| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | None yet |
-| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | None yet |
+| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | iPhone |
+| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | iPhone |
 | SHARE-10 | A used link says it was already accepted | Mac, Linux, iPhone | None yet |
 | SHARE-11 | At View, the person who joins sees everything and changes nothing | Mac, Linux, iPhone | None yet |
 | SHARE-12 | At Manage, the person who joins can change budgets | Mac, Linux, iPhone | None yet |
 | SHARE-13 | Only from now on hides what came before | Mac, Linux, iPhone | None yet |
 | SHARE-14 | Entries reach the others after a sync, with who added them | Mac, Linux, iPhone | Mac |
-| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | None yet |
-| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac |
+| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | iPhone |
+| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac, iPhone |
 
 ### [GroupPage.md](GroupPage.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac |
+| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac, iPhone |
 | PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac |
 | PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac |
 | PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | None yet |
-| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac |
-| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac |
-| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | None yet |
-| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac |
-| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | None yet |
-| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | None yet |
+| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, iPhone |
+| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, iPhone |
+| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | iPhone |
+| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, iPhone |
+| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | iPhone |
+| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | iPhone |
 | PAGE-11 | A manager may change and remove only people below Manage | Mac, Linux, iPhone | None yet |
-| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | None yet |
-| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac |
-| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | None yet |
+| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | iPhone |
+| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, iPhone |
+| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | iPhone |
 | PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | None yet |
-| PAGE-16 | The page stays open until its own group goes | Mac, Linux | None yet |
+| PAGE-16 | The page stays open until its own group goes | Mac, Linux | iPhone |
 | PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | None yet |
 
 ### [ClickToJoin.md](ClickToJoin.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| CLICK-01 | A clicked invite link opens its invitation page | Mac, Linux, iPhone | Mac |
+| CLICK-01 | A clicked invite link opens its invitation page | Mac, Linux, iPhone | Mac, iPhone |
 | CLICK-02 | A click starts WellSpent when it is closed | Mac, Linux, iPhone | Mac |
-| CLICK-03 | The page gives the invite's own level and history | Mac, Linux, iPhone | None yet |
-| CLICK-04 | Join takes the group in and opens its page | Mac, Linux, iPhone | Mac |
+| CLICK-03 | The page gives the invite's own level and history | Mac, Linux, iPhone | iPhone |
+| CLICK-04 | Join takes the group in and opens its page | Mac, Linux, iPhone | Mac, iPhone |
 | CLICK-05 | Signed out, Sign in… stands in place of Join | Mac, Linux, iPhone | Mac |
 | CLICK-06 | Not confirmed yet, Confirm your email… stands in place of Join | Mac, Linux, iPhone | None yet |
 | CLICK-07 | The page stays through making an account | Mac, Linux, iPhone | None yet |
-| CLICK-08 | A link cut short says part of it is missing | Mac, Linux, iPhone | Mac |
+| CLICK-08 | A link cut short says part of it is missing | Mac, Linux, iPhone | Mac, iPhone |
 | CLICK-09 | A used link says so | Mac, Linux, iPhone | None yet |
 | CLICK-10 | A link to a group you are in already | Mac, Linux, iPhone | None yet |
 | CLICK-11 | Another link replaces the page | Mac, Linux, iPhone | None yet |
