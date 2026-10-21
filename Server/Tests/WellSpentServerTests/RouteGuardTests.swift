@@ -104,7 +104,7 @@ struct RouteGuardTests {
     }
 
     /// A body that isn't JSON is refused with 400 on every route that reads
-    /// one, signed in or not, and never reaches the database.
+    /// one, signed in or not.
     @Test func aBodyThatIsNotJSONIsRefusedWith400() async throws {
         try await withV2App { app, _ in
             let person = try await v2SignUpConfirmed("guards-json@example.com", on: app)
