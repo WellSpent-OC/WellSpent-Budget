@@ -477,9 +477,12 @@ extension Request {
 
     /// Limits one address, whoever is asking, so nobody can fill a person's
     /// inbox. Keyed by a hash of the address, so the limiter holds no addresses.
+    /// A test address on a server with the test mailbox gets the tests'
+    /// allowance, since a UI test suite signs in to its accounts many times.
     func enforceRateLimit(_ limit: RateLimiter.Limit, key scope: String, for email: String) async throws {
-        let key = "\(scope):\(Data(SHA256.hash(data: Data(email.utf8))).hexString)"
-        guard await application.rateLimiter.allow(key, limit: limit) else {
+        let forTests = application.hasTestMailbox && TestMailbox.isTestAddress(email)
+        let key = "\(forTests ? "test-" : "")\(scope):\(Data(SHA256.hash(data: Data(email.utf8))).hexString)"
+        guard await application.rateLimiter.allow(key, limit: forTests ? limit.forTests : limit) else {
             throw Abort(.tooManyRequests, reason: "Too many attempts. Try again in a few minutes.")
         }
     }

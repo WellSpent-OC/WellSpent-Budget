@@ -125,6 +125,19 @@ struct TestMailboxTests {
         }
     }
 
+    /// A UI test suite signs in to one test account once per test, past both
+    /// the per-machine and the per-account limits a person gets.
+    @Test func aTestAccountSignsInPastTheUsualLimits() async throws {
+        try await withMailbox { app, _ async throws in
+            let email = "uitest-signin@example.com"
+            #expect(try await signUpStatus(email, on: app) == .ok)
+            let tries = RateLimiter.Limit.signInPerAccount.attempts + 5
+            for _ in 0 ..< tries {
+                #expect(try await v2SignIn(email, v2Password, on: app).0 == .ok)
+            }
+        }
+    }
+
     /// Without the mailbox, as on live, a test address gets the usual limit.
     @Test func withoutTheMailboxATestAddressGetsTheUsualLimit() async throws {
         try await withV2App { app, _ async throws in
