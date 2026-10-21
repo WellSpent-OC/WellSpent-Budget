@@ -29,8 +29,11 @@ final class PhoneTestApp {
     // MARK: - Launching and finding things
 
     /// Launches, and refuses to go on against anything but a staging build.
-    func launch(startingOn start: StartingScreen? = nil) {
+    /// `pinnedDay` puts the money wheel on that day of this month, whatever
+    /// day the test runs (`Workspace.pinnedDayVariable`).
+    func launch(startingOn start: StartingScreen? = nil, pinnedDay: Int? = nil) {
         if let start { app.launchEnvironment[StartingScreen.variable] = start.rawValue }
+        if let pinnedDay { app.launchEnvironment[Workspace.pinnedDayVariable] = String(pinnedDay) }
         app.launch()
         XCTAssertTrue(element(AccessibilityID.stagingBanner).waitForExistence(timeout: 30),
                       "no staging banner: this is not a staging build, so nothing more is done")

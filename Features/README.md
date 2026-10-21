@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | - | - | - |
 | Mac | 149 | 54 |
 | Linux | 142 | 0 |
-| iPhone | 141 | 69 |
+| iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -248,16 +248,16 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| WHEEL-01 | A budget's row fills as far as its money is used | Mac, Linux, iPhone | None yet |
-| WHEEL-02 | Over its limit, the row fills all the way and says how far over | Mac, Linux, iPhone | Mac |
+| WHEEL-01 | A budget's row fills as far as its money is used | Mac, Linux, iPhone | iPhone |
+| WHEEL-02 | Over its limit, the row fills all the way and says how far over | Mac, Linux, iPhone | Mac, iPhone |
 | WHEEL-03 | The open budget's row keeps its fill, with an outline | Mac, Linux | None yet |
-| WHEEL-04 | In dark mode, the rows use the dark colours | iPhone | None yet |
-| WHEEL-05 | A budget's page shows its wheel in place of the bar | Mac, Linux, iPhone | Mac |
-| WHEEL-06 | The wheel is full before anything is spent, and empties as money goes out | Mac, Linux, iPhone | Mac |
-| WHEEL-07 | The tick marks where an even pace would be today | Mac, Linux, iPhone | Mac |
-| WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | Mac |
-| WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | Mac |
-| WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | Mac |
+| WHEEL-04 | In dark mode, the rows use the dark colours | iPhone | iPhone |
+| WHEEL-05 | A budget's page shows its wheel in place of the bar | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-06 | The wheel is full before anything is spent, and empties as money goes out | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-07 | The tick marks where an even pace would be today | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | Mac, iPhone |
 | WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac |
-| WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac |
-| WHEEL-13 | Home starts with a group's wheel | iPhone | None yet |
+| WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-13 | Home starts with a group's wheel | iPhone | iPhone |

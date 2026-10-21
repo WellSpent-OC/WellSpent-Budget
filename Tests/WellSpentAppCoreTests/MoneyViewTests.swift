@@ -72,22 +72,31 @@ struct MoneyViewTests {
         let sync = SyncCoordinator(store: model.store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())
         let screen = MainScreen(workspace: Workspace(model: model, sync: sync))
         let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
-        func picked() throws -> [String] {
-            try sidebar.inspect().findAll(BudgetRow.self).map { try $0.actualView() }
-                .filter(\.isPicked).map(\.summary.budget.name)
+        func row(_ name: String) throws -> InspectableView<ViewType.Button> {
+            try sidebar.inspect().find(ViewType.Button.self, where: {
+                try $0.accessibilityIdentifier() == AccessibilityID.sidebarBudget(name)
+            })
+        }
+        /// The budgets whose row draws the outline. Each row must be there.
+        func outlined() throws -> [String] {
+            try ["Groceries", "Eating out"].filter { name in
+                let shown = try row(name)
+                return (try? shown.find(PickedRowOutline.self)) != nil
+            }
         }
 
         screen.selectedBudget = groceries
-        #expect(try picked() == ["Groceries"])
+        #expect(try outlined() == ["Groceries"])
 
-        try sidebar.inspect().find(ViewType.Button.self, where: {
-            try $0.accessibilityIdentifier() == AccessibilityID.sidebarBudget("Eating out")
-        }).tap()
+        try row("Eating out").tap()
         #expect(screen.selectedBudget == eatingOut)
-        #expect(try picked() == ["Eating out"])
+        #expect(try outlined() == ["Eating out"])
+        #expect(throws: Never.self, "Groceries keeps its fill") {
+            _ = try row("Groceries").find(RowFillBackground.self)
+        }
 
         screen.openPage(of: household)
-        #expect(try picked().isEmpty, "no budget is open while a group's page shows")
+        #expect(try outlined().isEmpty, "no budget is open while a group's page shows")
     }
 
     // Scenario WHEEL-03
@@ -166,11 +175,28 @@ struct MoneyViewTests {
         for word in ["Over", "$15", "of $100", "Spent", "$115.00", "$15.00"] {
             #expect(shown.contains(word), "missing \(word) in \(shown)")
         }
+        #expect(!shown.contains(MoneyWheel.Words.left), "Over in place of Left, in \(shown)")
         #expect(!shown.contains("Expected left by today"))
         #expect(throws: Never.self) {
             _ = try panel.inspect().find(viewWithAccessibilityLabel: "Over $15 of $100")
         }
         #expect((try? panel.inspect().find(viewWithAccessibilityIdentifier: AccessibilityID.budgetPace)) == nil)
+    }
+
+    /// The figures' labels and the MONEY section's This month are drawn in
+    /// ink, not the system's text colour, which turns light in dark mode
+    /// while the page and the section stay light. Each column of words sets
+    /// ink for everything in it that has no colour of its own.
+    @Test func theFiguresAreInkOnTheLightPageInEveryMode() throws {
+        let figures = try panel(limit: 10_000, spent: 11_500, october: 18).inspect().find(FiguresList.self)
+        #expect(try figures.vStack().foregroundStyleShapeStyle(Color.self) == Palette.ink)
+
+        let section = try GroupMoneySection(money: household()).inspect()
+        let column = try section.find(ViewType.VStack.self, where: {
+            try $0.text(0).string() == GroupMoney.Words.card
+        })
+        #expect(try column.foregroundStyleShapeStyle(Color.self) == Palette.ink)
+        #expect(throws: Never.self, "the figures are in the column") { _ = try column.find(FiguresList.self) }
     }
 
     /// A budget that never resets has no day of its period, and no tick or

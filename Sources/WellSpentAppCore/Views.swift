@@ -341,10 +341,9 @@ struct SidebarView: View {
     }
 
     /// A budget's row: a click opens the budget, and a right-click shows its
-    /// menu. No row is outlined while a group's page or an invitation shows,
-    /// since no budget is picked then.
+    /// menu. Only the open budget's row is outlined (`MainScreen.isPicked`).
     private func budgetRow(_ summary: BudgetSummary) -> some View {
-        let isPicked = screen.selectedBudget == summary.budget.id
+        let isPicked = screen.isPicked(summary.budget.id)
         return Button {
             screen.selectedBudget = summary.budget.id
         } label: {

@@ -42,6 +42,19 @@ struct BudgetPaceTests {
         #expect(fifteenDays.text == "At this pace, Gas runs out around Oct 16, 15 days early.")
     }
 
+    // Scenario WHEEL-08
+    /// Rent, $1,850.00, paid in full on October 1. Its money ran out that
+    /// day, so on no day of the month does it run out "around" today.
+    @Test func aBudgetSpentToItsLimitSaysNothingAboutThePace() {
+        for day in [1, 2, 21, 30, 31] {
+            #expect(pace("Rent", limit: 185_000, spent: 185_000, october: day) == nil, "October \(day)")
+            #expect(pace("Rent", limit: 185_000, spent: 185_000, october: day, mayEdit: false) == nil,
+                    "October \(day), at Add")
+        }
+        let aCentLeft = pace("Rent", limit: 185_000, spent: 184_999, october: 21)
+        #expect(aCentLeft?.kind == .overPace, "with a cent left, the pace words stay")
+    }
+
     @Test func oneToNineDaysAreWrittenInWords() {
         #expect(BudgetPace.Words.days(1) == "one day")
         #expect(BudgetPace.Words.days(2) == "two days")

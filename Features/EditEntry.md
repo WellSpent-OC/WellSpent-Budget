@@ -29,7 +29,7 @@ A click on a transaction in a budget's list opens it, to change it, move it to a
 - Given Hilltop Grocery is open
 - When Robin changes Amount to 124.08 and presses "Save"
 - Then the sheet closes, and the row shows "$124.08"
-- And what is spent, the bar and what is left change at once, before any sync
+- And what is spent, the wheel and what is left change at once, before any sync
 - And the row still says Leslie added it
 - And Leslie's app shows "$124.08" after its next sync
 - And a refund stays a refund: a new amount never turns money in into money spent

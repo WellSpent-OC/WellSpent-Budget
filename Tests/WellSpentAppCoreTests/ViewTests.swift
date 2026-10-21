@@ -198,6 +198,7 @@ struct ViewTests {
         let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
         #expect(texts.contains { $0.contains("Over") }, "got \(texts)")
+        #expect(!texts.contains(MoneyWheel.Words.left), "no Left figure while over, got \(texts)")
         #expect(!texts.contains { $0.contains("left") }, "no expected figure while over")
     }
 

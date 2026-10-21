@@ -340,6 +340,57 @@ struct AccountsTests {
         try await signingIn.sync.signUp(email: "robin@example.com", password: "a-long-password")
         #expect(signingIn.model.undoWindow == .seconds(120), "the signed-in account's budgets keep it")
     }
+
+    // MARK: - A pinned day, for a UI test
+
+    /// A UI test puts the money wheel on one day of this month, so the pace
+    /// words it checks show whatever day it runs. Only a staging build takes
+    /// the day, and only a day a month can have.
+    @Test func onlyAStagingBuildReadsThePinnedDay() {
+        let set = [Workspace.pinnedDayVariable: "18"]
+        #expect(Workspace.pinnedDay(for: .staging, in: set) == 18)
+        #expect(Workspace.pinnedDay(for: .live, in: set) == nil, "no variable changes the live app")
+        #expect(Workspace.pinnedDay(for: .staging, in: [Workspace.pinnedDayVariable: "1"]) == 1)
+        #expect(Workspace.pinnedDay(for: .staging, in: [Workspace.pinnedDayVariable: "31"]) == 31)
+        for bad in ["", "soon", "0", "-5", "2.5", "32"] {
+            #expect(Workspace.pinnedDay(for: .staging, in: [Workspace.pinnedDayVariable: bad]) == nil, "\(bad)")
+        }
+        #expect(Workspace.pinnedDay(for: .staging, in: [:]) == nil)
+        // The UI test sets it by this name.
+        #expect(Workspace.pinnedDayVariable == "WELLSPENT_DAY_OF_MONTH")
+    }
+
+    /// Launched the way main.swift launches it, with the variable set, every
+    /// wheel reads the pinned day, and still does once an account signs in
+    /// and its budgets take over the window.
+    @Test func aStagingLaunchKeepsThePinnedDayThroughASignIn() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+        let pinned = Workspace.today(pinnedTo: 18)
+
+        let app = try Workspace.launch(processEnvironment: [AccountDirectory.dataRootVariable: root.path,
+                                                            Workspace.pinnedDayVariable: "18"])
+        #expect(app.pinnedDay == 18)
+        #expect(app.model.today() == pinned)
+        let samples = try #require(app.model.groups.first, "a fresh folder starts with the samples")
+        #expect(MainScreen(workspace: app).money(of: samples.id)?.wheel.day?.day == 18)
+
+        let mac = Mac()
+        let signingIn = try Workspace.launch(accounts: mac.accounts, defaults: mac.defaults,
+                                             makeTransport: { [transport = mac.transport] _ in transport },
+                                             pinnedDay: 18)
+        let before = signingIn.model
+        try await signingIn.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        #expect(signingIn.model !== before, "the account's budgets take over")
+        #expect(signingIn.model.today() == pinned, "the signed-in account's budgets keep the day")
+        let household = try #require(signingIn.model.addGroup(named: "Household"))
+        signingIn.model.addBudget(named: "Groceries", limit: .dollars(500), in: household)
+        #expect(MainScreen(workspace: signingIn).money(of: household)?.wheel.day?.day == 18)
+    }
 }
 
 /// The sample budgets are something to look at before signing in. Nobody's

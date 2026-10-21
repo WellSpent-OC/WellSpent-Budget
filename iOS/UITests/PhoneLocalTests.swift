@@ -74,7 +74,10 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Trip")).waitForExistence(timeout: 10))
 
         // Scenario BUDGET-02
-        // 2. Rename from the group's menu.
+        // 2. Rename from the group's menu. Home's card above the groups
+        // leaves a new group low on the screen, where a long press opens
+        // nothing, so it is scrolled up first.
+        run.scrollTo(AccessibilityID.sidebarGroup("Trip"))
         run.longPress(AccessibilityID.sidebarGroup("Trip"))
         run.tapMenuItem(MainScreen.Words.rename)
         run.type("Holiday", into: AccessibilityID.groupEditorName)
@@ -86,6 +89,7 @@ final class PhoneLocalTests: XCTestCase {
         // 3. New Budget from the group's menu. Add stays dimmed without a
         // name and an amount above zero. Saving opens the new budget, with
         // nothing spent.
+        run.scrollTo(AccessibilityID.sidebarGroup("Holiday"))
         run.longPress(AccessibilityID.sidebarGroup("Holiday"))
         run.tapMenuItem(MainScreen.Words.newBudget(in: "Holiday"))
         let budgetSave = run.button(AccessibilityID.budgetEditorSave)
@@ -98,8 +102,9 @@ final class PhoneLocalTests: XCTestCase {
         run.tap(AccessibilityID.budgetEditorSave)
         XCTAssertTrue(run.app.navigationBars["Flights"].waitForExistence(timeout: 10), "Flights did not open")
         XCTAssertTrue(run.shows("$0.00"), "$0.00 does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("of $800.00 this period"), "of $800.00 this period does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$800.00 left"), "$800.00 left does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $800 of $800"),
+                      "the wheel does not say Left $800 of $800. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$800.00"), "$800.00 does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-06
         // 4. Edit under ⋯ changes the monthly amount.
@@ -107,7 +112,7 @@ final class PhoneLocalTests: XCTestCase {
         run.tapMenuItem(MainScreen.Words.edit)
         run.type("650", into: AccessibilityID.budgetEditorAmount)
         run.tap(AccessibilityID.budgetEditorSave)
-        XCTAssertTrue(run.shows("of $650.00 this period"),
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $650 of $650"),
                       "the new amount does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-08
@@ -125,6 +130,7 @@ final class PhoneLocalTests: XCTestCase {
 
         // Scenario BUDGET-11
         // 6. Deleting the group asks first, then it goes.
+        run.scrollTo(AccessibilityID.sidebarGroup("Holiday"))
         run.longPress(AccessibilityID.sidebarGroup("Holiday"))
         run.tapMenuItem(MainScreen.Words.delete)
         let groupQuestion = PendingDelete.group(BudgetGroup(name: "Holiday"), budgets: 0, reach: .justYou)
@@ -163,23 +169,26 @@ final class PhoneLocalTests: XCTestCase {
         let today = BudgetScreen.shortDate(Date())
         XCTAssertTrue(run.row("Corner Bakery", says: "\(today) · Manual"), "no date and source line. The row says: \(run.rowLabel("Corner Bakery"))")
         XCTAssertTrue(run.row("Corner Bakery", says: "birthday cake"), "birthday cake does not show. The row says: \(run.rowLabel("Corner Bakery"))")
-        XCTAssertTrue(run.shows("$60.00 left"), "what is left is wrong. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $60 of $100"),
+                      "what is left is wrong. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("1 transaction since \(Self.startOfMonth())"), "1 transaction since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
 
         // Scenario ENTRY-05, BUDGET-15
         // 3. The newest is on top. Over the limit, the page says how far
-        // over, and Home shows it below zero.
+        // over, and Home shows how far over.
         run.addEntry(merchant: "Market", amount: "75.00")
         let market = run.element(AccessibilityID.entryRow("Market"))
         let bakery = run.element(AccessibilityID.entryRow("Corner Bakery"))
         XCTAssertLessThan(market.frame.minY, bakery.frame.minY, "Market is not on top")
         XCTAssertTrue(run.shows("$115.00"), "$115.00 does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$15.00 over"), "no over. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Over $15 of $100"),
+                      "the wheel does not say Over $15 of $100. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("Over") && run.shows("$15.00"), "no over. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "2 transactions since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
         run.goBack()
         let row = run.element(AccessibilityID.sidebarBudget("Treats"))
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        XCTAssertTrue(row.label.contains("-$15.00"), "Home does not show -$15.00: \(row.label)")
+        XCTAssertTrue(row.label.contains("$15.00 over"), "Home does not show $15.00 over: \(row.label)")
     }
 
     @MainActor

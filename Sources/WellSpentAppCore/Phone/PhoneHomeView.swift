@@ -4,8 +4,9 @@ import SwiftUI
 import WellSpentCrypto
 import WellSpentModel
 
-/// Home: the groups and their budgets, and the bar at the foot with Account,
-/// the sync line and +. Pull down to sync. Draws `MainScreen`. Layout only.
+/// Home: the first group's wheel for the month, the groups and their
+/// budgets, and the bar at the foot with Account, the sync line and +. Pull
+/// down to sync. Draws `MainScreen`. Layout only.
 struct PhoneHomeView: View {
     let screen: MainScreen
     let perform: (MainScreen.Action) -> Void
@@ -13,6 +14,10 @@ struct PhoneHomeView: View {
 
     var body: some View {
         List {
+            // The first group's wheel for the month: PhoneHomeMoneyCard.swift.
+            if let money = screen.homeMoney() {
+                PhoneHomeMoneyCard(money: money)
+            }
             if screen.detail == .noBudgets {
                 empty
             }
@@ -37,6 +42,8 @@ struct PhoneHomeView: View {
                         }
                         .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
                         .contextMenu { PhoneMenu(parts: screen.budgetMenu(summary.budget), perform: perform) }
+                        // Filled as far as it is used: PhoneRowFill.swift.
+                        .phoneRowFill(summary)
                     }
                     if !section.isCollapsed, let newBudget = newBudget(in: section.group) {
                         Button {
@@ -174,21 +181,24 @@ struct PhoneHomeView: View {
 }
 
 /// One budget on Home: its colour, its name and what is left, or how far over
-/// it is.
+/// it is, in words that read on the row's fill in light and dark.
 struct PhoneBudgetRow: View {
     let summary: BudgetSummary
 
     var body: some View {
+        let fill = RowFill(summary)
         HStack(spacing: 10) {
             Circle()
                 .fill(summary.isOverspent ? Palette.warning : Palette.budgetColor(summary.budget.colorIndex))
                 .frame(width: 8, height: 8)
             Text(summary.budget.name)
                 .lineLimit(1)
+                .foregroundStyle(Color(PaletteValues.rowWords))
             Spacer(minLength: 8)
-            Text(summary.remaining.display)
+            Text(fill.amount)
                 .font(.body.monospacedDigit())
-                .foregroundStyle(summary.isOverspent ? Palette.warning : Palette.muted)
+                .fontWeight(fill.isOver ? .semibold : .regular)
+                .foregroundStyle(Color(PaletteValues.rowAmount))
         }
     }
 }

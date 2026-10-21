@@ -25,11 +25,18 @@ public final class Workspace {
     /// budgets are: a screen holding something they can take away, such as
     /// a group's page (`MainScreen`).
     @ObservationIgnored var afterReload: [@MainActor () -> Void] = []
+    /// The day of the month a staging UI test put the money wheel on
+    /// (`pinnedDayVariable`), or nil, so the wheel reads the clock.
+    public let pinnedDay: Int?
 
-    public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil) {
+    /// `notifications` is where the system says the day changed: the
+    /// process's own, unless a test hands in one of its own.
+    public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
+                notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
         self.autoSync = autoSync ?? AutoSync(sync: sync)
+        self.pinnedDay = pinnedDay
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
         sync.didSync = { [weak self] in
@@ -45,11 +52,22 @@ public final class Workspace {
             self.afterReload.forEach { $0() }
         }
         watchForEdits()
+        // A new day moves every wheel's day and tick, and on the 1st starts a
+        // new period. A sync reads the budgets again, but signed out nothing
+        // syncs, so a window left open overnight would show the new day over
+        // yesterday's money. So the budgets are read again when the system
+        // says the day changed: at midnight, or on waking after it. The Mac
+        // and the iPhone say so. Linux does not, and a sync or an edit still
+        // reads them there.
+        _ = notifications.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.model.reload() }
+        }
     }
 
-    /// Every edit syncs a moment later, and what this person may add or
-    /// change comes from the server's levels. Set again whenever the model
-    /// is replaced, because signing in to another account brings a new one.
+    /// Every edit syncs a moment later, what this person may add or change
+    /// comes from the server's levels, and today is the clock's or the pinned
+    /// day. Set again whenever the model is replaced, because signing in to
+    /// another account brings a new one.
     private func watchForEdits() {
         model.didChange = { [weak self] in self?.autoSync.localChange() }
         model.mayAddEntries = { [sync] group in sync.mayAddEntries(in: group) }
@@ -57,6 +75,46 @@ public final class Workspace {
         model.mayManageEntries = { [sync] group in sync.mayManageBudgets(in: group) }
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
+        model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
+    }
+
+    // MARK: - The day the money wheel reads
+
+    /// The environment variable a UI test sets to put the money wheel on one
+    /// day of this month, whatever day the test runs, so the pace words it
+    /// checks always show. A whole number from 1 to 31. A live build never
+    /// reads it.
+    nonisolated public static let pinnedDayVariable = "WELLSPENT_DAY_OF_MONTH"
+
+    /// The day the variable pins, for a staging build. Nil for a live build,
+    /// and for anything that is not a day of a month.
+    public static func pinnedDay(for environment: AppEnvironment, in processEnvironment: [String: String]) -> Int? {
+        guard environment == .staging, let text = processEnvironment[pinnedDayVariable],
+              let day = Int(text), (1 ... 31).contains(day) else { return nil }
+        return day
+    }
+
+    /// Today for the money wheel: `now`, or with a day pinned, that day of
+    /// `now`'s month at noon. A day past the month's end is its last day.
+    nonisolated public static func today(pinnedTo day: Int?, now: Date = Date(),
+                                         calendar: Calendar = .autoupdatingCurrent) -> Date {
+        guard let day, let days = calendar.range(of: .day, in: .month, for: now) else { return now }
+        var parts = calendar.dateComponents([.era, .year, .month], from: now)
+        parts.day = min(max(day, days.lowerBound), days.upperBound - 1)
+        parts.hour = 12
+        return calendar.date(from: parts) ?? now
+    }
+
+    // MARK: - Coming to the front
+
+    /// The app came to the front, which happens at launch too. Signed in, it
+    /// syncs, and the sync reads the budgets again when it is done. Signed
+    /// out, nothing syncs, so the budgets are read again here: a day or a
+    /// month may have begun while the app was away, and this does not wait
+    /// for the system to say the day changed.
+    public func cameToFront() async {
+        if sync.account == nil { model.reload() }
+        await autoSync.syncIfIdle()
     }
 
     // MARK: - Opened links
@@ -131,6 +189,7 @@ public final class Workspace {
         // test pointed it at a folder. The same thing for a normal launch.
         return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment,
                           undoWindow: undoWindow(for: environment, in: processEnvironment),
+                          pinnedDay: pinnedDay(for: environment, in: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
     }
 
@@ -152,10 +211,12 @@ public final class Workspace {
     /// which hands in its own folder, settings and keyring, and then starts up
     /// exactly as the Mac app does.
     /// `undoWindow` is how long the Undo bar after a delete stays.
+    /// `pinnedDay` puts the money wheel on that day of this month.
     public static func launch(accounts: AccountDirectory, defaults: UserDefaults? = nil,
                        environment: AppEnvironment = .current,
                        makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil,
                        undoWindow: Duration = AppModel.defaultUndoWindow,
+                       pinnedDay: Int? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
         let sync: SyncCoordinator
@@ -172,6 +233,6 @@ public final class Workspace {
         // Set either way: an older install that already has budgets has had its
         // first run, and must not get samples after its data moves to an account.
         accounts.samplesSeeded = true
-        return Workspace(model: model, sync: sync)
+        return Workspace(model: model, sync: sync, pinnedDay: pinnedDay)
     }
 }

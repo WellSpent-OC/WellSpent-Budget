@@ -8,15 +8,22 @@ import WellSpentModel
 /// tick and figures, the group's MONEY, a budget over its limit and its row
 /// in the sidebar, and the pace words.
 ///
-/// The words and amounts it expects come from the shared code, read for
-/// today, as the app reads its budgets. So whether the pace words show, and
-/// what they say, depends on the day of the month the test runs.
+/// The app is launched with its wheels on the 18th of this month, and then
+/// again on the 26th (`Workspace.pinnedDayVariable`), whatever day the test
+/// runs. So the pace words show where the steps check them: spending too
+/// fast on the 18th, and more left than expected in the month's last week.
+/// The words and amounts it expects come from the shared code, read for the
+/// same day as the app reads them.
 ///
 /// No account is needed. The run's data folder holds the group, and goes
 /// in tearDown.
 final class MoneyWheelTests: XCTestCase {
     /// The run's data folder, for tearDown.
     nonisolated(unsafe) private static var dataRootPath: String?
+    /// Mid-month, before the last week of any month.
+    private static let midMonth = 18
+    /// In the last week of every month, February's too.
+    private static let lastWeek = 26
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -39,8 +46,11 @@ final class MoneyWheelTests: XCTestCase {
         let stamp = Self.stamp()
         let groupName = "Wheel \(stamp)"
         let treats = "Treats \(stamp)", fuel = "Fuel \(stamp)", books = "Books \(stamp)"
+        let day = Self.midMonth
 
-        // 1. A group with Treats, $100.00 a month. Saving opens it.
+        // 1. The wheels on the 18th. A group with Treats, $100.00 a month.
+        // Saving opens it.
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(day)
         run.launch()
         run.addGroup(named: groupName)
         run.addBudget(named: treats, amount: "100", inGroup: groupName)
@@ -49,18 +59,18 @@ final class MoneyWheelTests: XCTestCase {
         // 2. Nothing spent: the wheel is full, the day of the month shows
         // under the name, and the figures beside the wheel say what is spent
         // and left.
-        let untouched = TodaysBudget(treats, limit: 10_000, spent: 0)
+        let untouched = TodaysBudget(treats, limit: 10_000, spent: 0, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: untouched.wheel.spokenSummary, "Treats, new")
-        let day = try XCTUnwrap(untouched.wheel.day, "a budget made here resets every month")
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.budgetDayLine), holds: day.line, timeout: 10),
-                      "the day line is not \(day.line). On screen: \(run.visibleTexts())")
+        let dayLine = try XCTUnwrap(untouched.wheel.day?.line, "a budget made here resets every month")
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.budgetDayLine), holds: dayLine, timeout: 10),
+                      "the day line is not \(dayLine). On screen: \(run.visibleTexts())")
         run.expect(figures: untouched.wheel.figures, "Treats, new")
 
         // Scenario WHEEL-06, WHEEL-07
         // 3. $25.00 spent: the wheel at once shows $75 left, and Expected
-        // left by today is what an even pace leaves today.
+        // left by today is what an even pace leaves on the 18th.
         run.addEntry(merchant: "Bakery", amount: "25.00")
-        let quarter = TodaysBudget(treats, limit: 10_000, spent: 2_500)
+        let quarter = TodaysBudget(treats, limit: 10_000, spent: 2_500, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: quarter.wheel.spokenSummary, "Treats, a quarter spent")
         XCTAssertNotNil(quarter.wheel.expectedLeft, "a budget that resets each month has an expected figure")
         run.expect(figures: quarter.wheel.figures, "Treats, a quarter spent")
@@ -84,7 +94,7 @@ final class MoneyWheelTests: XCTestCase {
         // sidebar says how far over.
         run.openBudget(named: treats)
         run.addEntry(merchant: "Ice cream", amount: "90.00")
-        let over = TodaysBudget(treats, limit: 10_000, spent: 11_500)
+        let over = TodaysBudget(treats, limit: 10_000, spent: 11_500, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: over.wheel.spokenSummary, "Treats, over")
         run.expect(figures: over.wheel.figures, "Treats, over")
         XCTAssertFalse(run.listText(MoneyWheel.Words.expectedLeft).exists, "an expected figure while over")
@@ -98,39 +108,66 @@ final class MoneyWheelTests: XCTestCase {
         run.expect(wheel: AccessibilityID.groupWheel, reads: overMonth.wheel.spokenSummary, "the group, over")
 
         // Scenario WHEEL-08
-        // 7. Fuel, $100.00, with $99.00 spent: the pace words are the shared
-        // code's for today, or there are none. Edit Budget… beside them opens
-        // Fuel's Edit Budget sheet, and Cancel closes it.
+        // 7. Fuel, $100.00, with $99.00 spent by the 18th: faster than an
+        // even pace, so the words say when its money runs out. Edit Budget…
+        // beside them opens Fuel's Edit Budget sheet, and Cancel closes it.
         run.addBudget(named: fuel, amount: "100", inGroup: groupName)
-        let fuelNew = TodaysBudget(fuel, limit: 10_000, spent: 0)
+        let fuelNew = TodaysBudget(fuel, limit: 10_000, spent: 0, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: fuelNew.wheel.spokenSummary, "Fuel, new")
         run.addEntry(merchant: "Gas station", amount: "99.00")
-        let fuelSpent = TodaysBudget(fuel, limit: 10_000, spent: 9_900)
+        let fuelSpent = TodaysBudget(fuel, limit: 10_000, spent: 9_900, pinnedDay: day)
+        let runsOut = try XCTUnwrap(fuelSpent.pace, "on the 18th, $99.00 of $100.00 is faster than an even pace")
+        XCTAssertEqual(runsOut.kind, .overPace)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: fuelSpent.wheel.spokenSummary, "Fuel, $99.00 spent")
-        run.expect(pace: fuelSpent.pace, "Fuel, $99.00 spent")
-        if fuelSpent.pace?.offersEdit == true {
-            run.click(AccessibilityID.budgetPaceEdit)
-            let name = run.element(AccessibilityID.budgetEditorName)
-            XCTAssertTrue(run.wait(for: name, holds: fuel, timeout: 10),
-                          "Edit Budget\u{2026} did not open Fuel's sheet. On screen: \(run.visibleTexts())")
-            run.click(AccessibilityID.budgetEditorCancel)
-            XCTAssertTrue(run.wait(for: name, until: "exists == false", timeout: 10), "the sheet stayed open")
-        }
+        run.expect(pace: runsOut, "Fuel, $99.00 spent")
+        expectEditBudgetOpens(fuel, in: run)
 
         // Scenario WHEEL-09
-        // 8. Books, $1,000.00, with $1.00 spent: in the month's last week the
-        // words offer to lower it, and before that week nothing is said, as
-        // the shared code says for today.
+        // 8. Books, $1,000.00, with $1.00 spent: on the 18th, before the
+        // month's last week, nothing is said about the pace.
         run.addBudget(named: books, amount: "1000", inGroup: groupName)
-        let booksNew = TodaysBudget(books, limit: 100_000, spent: 0)
+        let booksNew = TodaysBudget(books, limit: 100_000, spent: 0, pinnedDay: day)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: booksNew.wheel.spokenSummary, "Books, new")
         run.addEntry(merchant: "Bookshop", amount: "1.00")
-        let booksSpent = TodaysBudget(books, limit: 100_000, spent: 100)
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: booksSpent.wheel.spokenSummary, "Books, $1.00 spent")
-        run.expect(pace: booksSpent.pace, "Books, $1.00 spent")
+        let booksMidMonth = TodaysBudget(books, limit: 100_000, spent: 100, pinnedDay: day)
+        XCTAssertNil(booksMidMonth.pace, "the 18th is before the month's last week")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: booksMidMonth.wheel.spokenSummary,
+                   "Books, $1.00 spent on the 18th")
+        run.expect(pace: nil, "Books, $1.00 spent on the 18th")
 
-        // 9. Tidy: the group goes, with its budgets.
+        // Scenario WHEEL-09
+        // 9. The app again, with its wheels on the 26th, in the month's last
+        // week: more is left of Books than expected, so the words offer to
+        // lower it, and Edit Budget… beside them opens its sheet.
+        run.app.terminate()
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(Self.lastWeek)
+        run.launch()
+        run.openBudget(named: books)
+        let booksLastWeek = TodaysBudget(books, limit: 100_000, spent: 100, pinnedDay: Self.lastWeek)
+        let moreLeft = try XCTUnwrap(booksLastWeek.pace, "the 26th is in the month's last week")
+        XCTAssertEqual(moreLeft.kind, .underPace)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: booksLastWeek.wheel.spokenSummary,
+                   "Books, $1.00 spent on the 26th")
+        run.expect(pace: moreLeft, "Books, $1.00 spent on the 26th")
+        expectEditBudgetOpens(books, in: run)
+
+        // 10. Tidy: the group goes, with its budgets.
         run.deleteGroup(named: groupName)
+    }
+
+    /// Edit Budget… beside the pace words opens the budget's Edit Budget
+    /// sheet, and Cancel closes it.
+    @MainActor
+    private func expectEditBudgetOpens(_ budget: String, in run: TestApp,
+                                       file: StaticString = #filePath, line: UInt = #line) {
+        run.click(AccessibilityID.budgetPaceEdit)
+        let name = run.element(AccessibilityID.budgetEditorName)
+        XCTAssertTrue(run.wait(for: name, holds: budget, timeout: 10),
+                      "Edit Budget\u{2026} did not open \(budget)'s sheet. On screen: \(run.visibleTexts())",
+                      file: file, line: line)
+        run.click(AccessibilityID.budgetEditorCancel)
+        XCTAssertTrue(run.wait(for: name, until: "exists == false", timeout: 10), "the sheet stayed open",
+                      file: file, line: line)
     }
 
     /// Part of each name, so runs never share one.
