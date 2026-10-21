@@ -14,7 +14,8 @@ import WellSpentStore
 /// - a date before this period, in a new transaction and in an opened one
 /// - the Undo bar going by itself after about 10 seconds
 /// - the Undo bar going at the next change, and a second delete replacing it
-/// - an amount with a decimal comma, in a region that writes one
+/// - an amount with a decimal comma, in a region that writes one, and 1,250
+///   refused there
 ///
 /// Each test launches the app in the region it needs, whatever region this
 /// Mac is set to: the United States, which writes 12.50, or Germany, which
@@ -57,7 +58,10 @@ final class EntryGapTests: XCTestCase {
         let sheet = run.app.sheets.firstMatch
         let title = sheet.staticTexts[EntryEditor.Words.title]
         let add = run.element(AccessibilityID.entryAdd)
-        let nothingSpent = TodaysBudget(limit: 50_000, spent: 0)
+        // What Groceries shows, built anew for each check, so a run that
+        // crosses midnight expects the day the app shows by then.
+        func nothingSpent() -> TodaysBudget { TodaysBudget(limit: 50_000, spent: 0) }
+        func market() -> TodaysBudget { TodaysBudget(limit: 50_000, spent: 950) }
 
         // 1. A group with Groceries, $500.00 a month. Saving opens it.
         run.addGroup(named: groupName)
@@ -130,9 +134,9 @@ final class EntryGapTests: XCTestCase {
         run.click(AccessibilityID.entryCancel)
         run.expectNoSheet()
         run.expectNoRow("Hilltop", "Cancel added it")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent.wheel.spokenSummary, "after Cancel")
-        run.expect(figures: nothingSpent.wheel.figures, "after Cancel")
-        let noneYet = try TestApp.countLine(nothingSpent, region: "en_US")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent().wheel.spokenSummary, "after Cancel")
+        run.expect(figures: nothingSpent().wheel.figures, "after Cancel")
+        let noneYet = try TestApp.countLine(nothingSpent(), region: "en_US")
         XCTAssertTrue(run.listText(noneYet).waitForExistence(timeout: 5),
                       "no line saying \(noneYet) On screen: \(run.visibleTexts())")
 
@@ -147,9 +151,8 @@ final class EntryGapTests: XCTestCase {
         run.app.typeKey(.return, modifierFlags: [])
         run.expectNoSheet()
         run.expect(entry: "Market", shows: "$9.50")
-        let market = TodaysBudget(limit: 50_000, spent: 950)
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: market.wheel.spokenSummary, "after Return")
-        run.expect(figures: market.wheel.figures, "after Return")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: market().wheel.spokenSummary, "after Return")
+        run.expect(figures: market().wheel.figures, "after Return")
 
         // Scenario ENTRY-11
         // 7. Escape closes the sheet without adding anything.
@@ -161,8 +164,8 @@ final class EntryGapTests: XCTestCase {
         run.app.typeKey(.escape, modifierFlags: [])
         run.expectNoSheet()
         run.expectNoRow("Corner Bakery", "Escape added it")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: market.wheel.spokenSummary, "after Escape")
-        run.expect(figures: market.wheel.figures, "after Escape")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: market().wheel.spokenSummary, "after Escape")
+        run.expect(figures: market().wheel.figures, "after Escape")
     }
 
     // MARK: - Amounts and notes
@@ -220,8 +223,9 @@ final class EntryGapTests: XCTestCase {
         let stamp = Self.stamp()
         let groupName = "Entries \(stamp)", groceries = "Groceries \(stamp)"
         let lastMonth = try Self.twentyEighthOfLastMonth()
-        let nothingSpent = TodaysBudget(limit: 50_000, spent: 0)
-        let noneThisPeriod = try TestApp.countLine(nothingSpent, region: "en_US")
+        // What Groceries shows with nothing spent, built anew for each check,
+        // so a run that crosses midnight expects the day the app shows by then.
+        func nothingSpent() -> TodaysBudget { TodaysBudget(limit: 50_000, spent: 0) }
 
         // 1. A group with Groceries, $500.00 a month, holding nothing.
         run.addGroup(named: groupName)
@@ -237,8 +241,9 @@ final class EntryGapTests: XCTestCase {
         run.click(AccessibilityID.entryAdd)
         run.expectNoSheet()
         run.expectNoRow("Hilltop", "a transaction dated last month is in this period's list")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent.wheel.spokenSummary, "after Hilltop")
-        run.expect(figures: nothingSpent.wheel.figures, "after Hilltop")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent().wheel.spokenSummary, "after Hilltop")
+        run.expect(figures: nothingSpent().wheel.figures, "after Hilltop")
+        let noneThisPeriod = try TestApp.countLine(nothingSpent(), region: "en_US")
         XCTAssertTrue(run.listText(noneThisPeriod).waitForExistence(timeout: 5),
                       "no line saying \(noneThisPeriod) On screen: \(run.visibleTexts())")
 
@@ -289,10 +294,11 @@ final class EntryGapTests: XCTestCase {
         run.click(AccessibilityID.entrySave)
         run.expectNoSheet()
         XCTAssertTrue(run.rowIsGone("Hilltop Grocery"), "Hilltop Grocery is still in this period's list")
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent.wheel.spokenSummary, "after the move")
-        run.expect(figures: nothingSpent.wheel.figures, "after the move")
-        XCTAssertTrue(run.listText(noneThisPeriod).waitForExistence(timeout: 5),
-                      "no line saying \(noneThisPeriod) On screen: \(run.visibleTexts())")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent().wheel.spokenSummary, "after the move")
+        run.expect(figures: nothingSpent().wheel.figures, "after the move")
+        let noneAfterTheMove = try TestApp.countLine(nothingSpent(), region: "en_US")
+        XCTAssertTrue(run.listText(noneAfterTheMove).waitForExistence(timeout: 5),
+                      "no line saying \(noneAfterTheMove) On screen: \(run.visibleTexts())")
     }
 
     // MARK: - The Undo bar
@@ -333,9 +339,16 @@ final class EntryGapTests: XCTestCase {
 
         // Scenario EDIT-08
         // 3. The bar is still up 7 seconds after the delete, and has gone by
-        // itself 15 seconds after it. Hilltop Grocery stays deleted.
-        run.pause(until: deletedAt.addingTimeInterval(7))
-        XCTAssertTrue(bar.exists, "the bar went within 7 seconds of the delete")
+        // itself 15 seconds after it. Hilltop Grocery stays deleted. The bar
+        // must still show as this step begins, so a run too slow to get here
+        // in time fails saying how late it was. Begun 7 seconds or more after
+        // the delete, that first look is the 7-second one.
+        let begun = Date().timeIntervalSince(deletedAt)
+        XCTAssertTrue(bar.exists, "the bar was gone when this step began, \(Int(begun)) seconds after the delete")
+        if begun < 7 {
+            run.pause(until: deletedAt.addingTimeInterval(7))
+            XCTAssertTrue(bar.exists, "the bar went within 7 seconds of the delete")
+        }
         XCTAssertTrue(run.wait(for: bar, until: "exists == false",
                                timeout: max(deletedAt.addingTimeInterval(15).timeIntervalSinceNow, 0)),
                       "the bar stayed past 15 seconds after the delete")
@@ -438,6 +451,24 @@ final class EntryGapTests: XCTestCase {
         XCTAssertTrue(run.wait(for: amount, holds: "12,50", timeout: 5), "the amount reads \(run.text(of: amount))")
         run.click(AccessibilityID.entryCancel)
         run.expectNoSheet()
+
+        // Scenario ENTRY-13
+        // 4. Here 1,250 can't be read clearly, since a dollar has only two
+        // decimals. Add stays dimmed, and the line under the amount says to
+        // type it like 12,50. Cancel adds nothing, so no row shows $1250.00.
+        let unclear = TypedAmount.Words.unclear(locale: Locale(identifier: "de_DE"))
+        let problem = run.element(AccessibilityID.entryAmountProblem)
+        let misread = Money(minorUnits: 125_000).display
+        run.click(AccessibilityID.budgetAdd)
+        run.type("Hilltop Grocery", into: AccessibilityID.entryMerchant)
+        run.type("1,250", into: AccessibilityID.entryAmount)
+        run.expectStaysDimmed(AccessibilityID.entryAdd, "Add, with 1,250 as the amount")
+        XCTAssertTrue(run.wait(for: problem, holds: unclear, timeout: 5),
+                      "no line saying \(unclear) On screen: \(run.visibleTexts())")
+        run.expect(problem, under: AccessibilityID.entryAmount)
+        run.click(AccessibilityID.entryCancel)
+        run.expectNoSheet()
+        XCTAssertFalse(run.listText(misread).waitForExistence(timeout: 3), "a row shows \(misread)")
     }
 
     /// Launches the app with a data folder of its own, for tearDown to
