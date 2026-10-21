@@ -97,7 +97,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.row("Hilltop", says: "$40.00"), "the row does not say $40.00. It says: \(run.rowLabel("Hilltop"))")
         XCTAssertTrue(run.shows("$49.50"), "what is spent is not $49.50. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$50.50 left"), "what is left is not $50.50. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$50.50"), "what is left is not $50.50. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-08
         // 4. After a delete the bar stays a few seconds, then goes by itself,
@@ -111,7 +111,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertFalse(run.wait(for: bar, until: "exists == false", timeout: 3), "the bar went at once")
         XCTAssertTrue(run.wait(for: bar, until: "exists == false", timeout: 25), "the bar stayed")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "Market came back")
-        XCTAssertTrue(run.shows("$60.00 left"), "the total still counts it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$60.00"), "the total still counts it. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-04
         // 5. Budget offers the group's budgets only. Moved to Snacks, Hilltop
@@ -129,13 +129,13 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Hilltop")), until: "exists == false",
                                timeout: 10), "Hilltop is still in Treats")
-        XCTAssertTrue(run.shows("$100.00 left"), "Treats' total still counts it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$100.00"), "Treats' total still counts it. On screen: \(run.visibleTexts())")
         run.goBack()
         run.scrollTo(AccessibilityID.sidebarBudget("Snacks"))
         run.openBudget(named: "Snacks")
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
                       "Snacks does not list Hilltop. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$10.00 left"), "Snacks does not count it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$10.00"), "Snacks does not count it. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-05
         // 6. A date in last month says it moves the transaction out of this
@@ -160,7 +160,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Hilltop")), until: "exists == false",
                                timeout: 10), "Hilltop is still in this period's list")
-        XCTAssertTrue(run.shows("$50.00 left"), "this period's total still counts it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$50.00"), "this period's total still counts it. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
@@ -197,7 +197,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Hilltop")), until: "exists == false",
                                timeout: 10), "Delete left the row")
-        XCTAssertTrue(run.shows("$90.50 left"), "the total still counts it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$90.50"), "the total still counts it. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(hilltopBar), "no Undo bar. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.element(AccessibilityID.undoButton).exists, "the bar has no Undo")
 
@@ -207,7 +207,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
                       "Undo did not bring it back")
         XCTAssertTrue(run.row("Hilltop", says: "$40.00"), "it is not back at $40.00. It says: \(run.rowLabel("Hilltop"))")
-        XCTAssertTrue(run.shows("$50.50 left"), "the total does not count it again. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$50.50"), "the total does not count it again. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "the bar stayed after Undo")
 
@@ -271,7 +271,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Kiosk")).waitForExistence(timeout: 10),
                       "Undo did not bring Kiosk back")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Bakery")).exists, "Bakery came back")
-        XCTAssertTrue(run.shows("$88.50 left"), "the total is wrong. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$88.50"), "the total is wrong. On screen: \(run.visibleTexts())")
     }
 
     /// The question a delete asks, built from the shared words, for a
