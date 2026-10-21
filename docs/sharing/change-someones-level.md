@@ -8,17 +8,21 @@ title: "Side quest: Change someone's level, or remove them"
 
 **Before you start:** you need the Manage level or higher. A manager can change and remove only people at View or Add. Only the Owner or an Admin can make someone an Admin.
 
-1. Click the group's name in the sidebar.
+1. ![A hand clicks the group's name in the sidebar](../assets/shots/change-someones-level-1.svg)
+   Click the group's name in the sidebar.
 
    > You see the group's page, with PEOPLE.
 
-2. To change a level, pick the new one in the person's level list.
+2. ![A hand picks a level in a person's level list](../assets/shots/change-someones-level-2.svg)
+   To change a level, pick the new one in the person's level list.
 
    > You see the line under their name change, to say what the new level can do.
 
-3. To take someone out of the group, press **Remove…** in their row.
+3. ![A hand presses Remove](../assets/shots/change-someones-level-3.svg)
+   To take someone out of the group, press **Remove…** in their row.
 
-4. Press **Remove** in the question.
+4. ![A hand presses Remove in the question](../assets/shots/change-someones-level-4.svg)
+   Press **Remove** in the question.
 
    > You see their row gone. What they added stays in the group.
 

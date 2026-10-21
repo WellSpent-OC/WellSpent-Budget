@@ -8,11 +8,14 @@ title: "Side quest: Leave a group"
 
 Leaving takes the group off all your devices. The others keep it, along with everything you added.
 
-1. Right-click the group's name in the sidebar.
+1. ![A hand right-clicks the group's name in the sidebar](../assets/shots/leave-a-group-1-mac.svg)
+   Right-click the group's name in the sidebar.
 
-2. Pick **Leave…**
+2. ![A hand picks Leave](../assets/shots/leave-a-group-2.svg)
+   Pick **Leave…**
 
-3. Press **Leave** in the question.
+3. ![A hand presses Leave in the question](../assets/shots/leave-a-group-3.svg)
+   Press **Leave** in the question.
 
    > You see the group gone from your sidebar.
 
