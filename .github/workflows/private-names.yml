@@ -40,7 +40,9 @@ jobs:
       pull-requests: read
       issues: read
     steps:
-      # For a comment on a pull request, this is main's copy of the check.
+      # For an issue comment, main's copy of the check. For a review or a
+      # review comment, the pull request's merge commit, as for a push: a
+      # fork's has no secret, and the team's own branches hold its own copy.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -61,7 +63,9 @@ jobs:
           words="$RUNNER_TEMP/words"
           mkdir -p "$words"
           team='select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")'
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.title + "\n" + (.body // "")' > "$words/title and description"
+          # The title and description only when the pull request is the team's,
+          # for the same reason as the comments.
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq "$team | .title + \"\n\" + (.body // \"\")" > "$words/title and description"
           gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq ".[] | $team | .body" > "$words/comments"
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --jq ".[] | $team | .body // empty" > "$words/reviews"
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/comments" --jq ".[] | $team | .body" > "$words/review comments"

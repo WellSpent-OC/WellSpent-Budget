@@ -21,6 +21,16 @@ aswritten="$(printf '%s\n' "$PRIVATE_NAMES" | sed -n 's/^aswritten://p')"
     echo "private names: the list needs an anycase line and an aswritten line" >&2
     exit 2
 }
+# A pattern grep can't read makes every search below fail the same way as
+# finding nothing, so each is tried once first. grep answers 2 for one it can't.
+for pattern in "$anycase" "$aswritten"; do
+    status=0
+    grep -q -P -- "$pattern" < /dev/null 2> /dev/null || status=$?
+    if [ "$status" -eq 2 ]; then
+        echo "private names: the list's patterns don't read" >&2
+        exit 2
+    fi
+done
 
 found=0
 say() {
