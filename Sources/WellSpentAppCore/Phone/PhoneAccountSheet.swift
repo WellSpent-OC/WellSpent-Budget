@@ -173,17 +173,17 @@ struct PhoneAccountSheet: View {
                 Text(flow.signedInAs)
                 if flow.needsConfirming {
                     note(ConfirmEmailScreen.reason)
-                    Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
+                    Button(PhoneWording.button(Words.confirmEmail)) { flow.go(to: .confirmEmail) }
                         .accessibilityIdentifier(AccessibilityID.accountConfirmEmail)
                 }
             }
             .listRowBackground(Palette.surface)
             Section {
-                Button(Words.changePassword) { flow.go(to: .changePassword) }
+                Button(PhoneWording.button(Words.changePassword)) { flow.go(to: .changePassword) }
                     .accessibilityIdentifier(AccessibilityID.accountChangePassword)
                 Button(Words.signOut) { Task { await flow.signOut() } }
                     .accessibilityIdentifier(AccessibilityID.accountSignOut)
-                Button(Words.signOutEverywhere, role: .destructive) { flow.askToSignOutEverywhere() }
+                Button(PhoneWording.button(Words.signOutEverywhere), role: .destructive) { flow.askToSignOutEverywhere() }
                     .accessibilityIdentifier(AccessibilityID.accountSignOutEverywhere)
             }
             .listRowBackground(Palette.surface)

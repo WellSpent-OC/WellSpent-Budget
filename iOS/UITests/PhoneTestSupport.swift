@@ -96,9 +96,12 @@ final class PhoneTestApp {
         target.press(forDuration: 1.2)
     }
 
-    /// An item in the menu on screen, by its title. A context menu's items
-    /// reach the test as buttons, a menu button's as buttons or menu items.
-    func menuItem(_ title: String) -> XCUIElement {
+    /// An item in the menu on screen, by its title as the shared words write
+    /// it. The iPhone drops a desktop "…" (`PhoneWording.button`), so this
+    /// does too. A context menu's items reach the test as buttons, a menu
+    /// button's as buttons or menu items.
+    func menuItem(_ desktopTitle: String) -> XCUIElement {
+        let title = PhoneWording.button(desktopTitle)
         for candidate in [app.collectionViews.buttons[title], app.menuItems[title], app.buttons[title]]
         where candidate.exists {
             return candidate.firstMatch

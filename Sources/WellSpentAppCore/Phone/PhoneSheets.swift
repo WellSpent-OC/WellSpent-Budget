@@ -108,7 +108,7 @@ struct PhoneBudgetSheet: View {
                             delete()
                             dismiss()
                         } label: {
-                            Text(MainScreen.Words.delete)
+                            Text(PhoneWording.button(MainScreen.Words.delete))
                                 .frame(maxWidth: .infinity)
                         }
                     }

@@ -65,7 +65,7 @@ struct PhoneShareSheet: View {
                 }
                 Section {
                     Button(action: createOrSend) {
-                        Text(screen.link == nil ? screen.createLabel : Words.send)
+                        Text(screen.link == nil ? screen.createLabel : PhoneWording.button(Words.send))
                             .font(.headline)
                             // White would not read on the dark mode green.
                             .foregroundStyle(Palette.ground)
@@ -176,9 +176,9 @@ struct PhoneJoinSheet: View {
                     Section {
                         PhoneNote(notice)
                         if screen.offersSignIn {
-                            Button(Words.signIn, action: openAccount)
+                            Button(PhoneWording.button(Words.signIn), action: openAccount)
                         } else if screen.offersEmailConfirmation {
-                            Button(Words.confirmEmail, action: openAccount)
+                            Button(PhoneWording.button(Words.confirmEmail), action: openAccount)
                         }
                     }
                     .listRowBackground(Color.clear)
@@ -283,10 +283,10 @@ struct PhoneInvitationView: View {
             Section {
                 PhoneNote(notice)
                 if screen.offersSignIn {
-                    Button(Words.signIn) { showingAccount = true }
+                    Button(PhoneWording.button(Words.signIn)) { showingAccount = true }
                         .accessibilityIdentifier(AccessibilityID.invitationSignIn)
                 } else if screen.offersEmailConfirmation {
-                    Button(Words.confirmEmail) { showingAccount = true }
+                    Button(PhoneWording.button(Words.confirmEmail)) { showingAccount = true }
                         .accessibilityIdentifier(AccessibilityID.invitationConfirmEmail)
                 }
             }

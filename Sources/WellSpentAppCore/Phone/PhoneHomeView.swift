@@ -140,7 +140,7 @@ struct PhoneHomeView: View {
                 .frame(maxWidth: .infinity)
             Menu {
                 ForEach(addItems) { item in
-                    Button(item.title) { perform(item.action) }
+                    Button(PhoneWording.button(item.title)) { perform(item.action) }
                 }
             } label: {
                 Image(systemName: "plus")

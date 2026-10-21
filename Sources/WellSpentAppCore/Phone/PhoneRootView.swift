@@ -209,7 +209,7 @@ struct PhoneMenu: View {
         ForEach(Array(shown.enumerated()), id: \.offset) { index, part in
             if index > 0 { Divider() }
             ForEach(part) { item in
-                Button(item.title, role: item.isDestructive ? .destructive : nil) { perform(item.action) }
+                Button(PhoneWording.button(item.title), role: item.isDestructive ? .destructive : nil) { perform(item.action) }
             }
         }
     }
