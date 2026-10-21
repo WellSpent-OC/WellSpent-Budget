@@ -285,7 +285,10 @@ jobs:
     name: Linux UI test
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    container: swift:6.2.4-noble
+    container:
+      image: swift:6.2.4-noble
+      # A failed step reads a stuck app's stacks with lldb, which needs ptrace.
+      options: --cap-add=SYS_PTRACE
     steps:
       - uses: actions/checkout@v4
 
@@ -309,6 +312,8 @@ jobs:
           # Staging's test mailbox, for the tests that make an account. A
           # fork's pull request has none, and those tests are skipped.
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+          # With the mailbox there, nothing may be skipped to get a pass.
+          WELLSPENT_UI_NO_SKIPS: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
         run: WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" Linux/UITests/run.sh
 
@@ -320,7 +325,11 @@ jobs:
           # A failure on the account sheet can show a test address, and
           # artifacts on a public repo are public. Kept briefly.
           retention-days: 3
-          path: .build/linux-ui-test/*.png
+          # Pictures and process notes only: a stack or the app's log could
+          # hold a test session's values.
+          path: |
+            .build/linux-ui-test/*.png
+            .build/linux-ui-test/*-process.txt
           if-no-files-found: ignore
 
   # Gate enforcement, without branch protection.
