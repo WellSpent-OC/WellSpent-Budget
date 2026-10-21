@@ -79,6 +79,7 @@ It's an early test version. Some things aren't built yet, and some things may br
 **Help**
 
 - [Common problems](help/common-problems.md)
+- [Copy and paste](help/copy-and-paste.md)
 - [Use WellSpent offline](help/use-wellspent-offline.md)
 - [Report a problem](help/report-a-problem.md)
 

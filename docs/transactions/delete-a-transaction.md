@@ -20,6 +20,8 @@ title: "Side quest: Delete a transaction, and undo it"
 
    > You see the transaction back, just as it was.
 
+On a Mac, you can also right-click the transaction, and pick **Delete…**
+
 In a shared group, a delete takes the transaction out for everyone in the group.
 
 ## On an iPhone
@@ -43,4 +45,4 @@ In a shared group, a delete takes the transaction out for everyone in the group.
 
 - [Side quest: Change or move a transaction](change-or-move-a-transaction.md)
 
-<!-- Scenarios: EDIT-06, EDIT-07, EDIT-08, EDIT-09 -->
+<!-- Scenarios: EDIT-06, EDIT-07, EDIT-08, EDIT-09, EDIT-15, EDIT-17 -->

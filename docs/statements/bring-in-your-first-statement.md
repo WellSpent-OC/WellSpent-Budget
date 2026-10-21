@@ -52,11 +52,13 @@ Skip deposits, transfers and payments to your card: leave them on **Choose**.
 
 - **WellSpent can't read the file:** download it again from your bank as another type, and try again.
 - **A line is missing:** a budget's page shows this month only. Lines from earlier months go in, but don't show there.
-- **You imported the same file twice:** nothing is added twice. Lines already imported are skipped.
+- **You imported the same file twice:** nothing is added twice. Lines already imported are skipped, and a line you deleted stays deleted.
+- **A line asks for a budget again:** its budget was deleted. Pick another one, or leave it on **Choose**.
+- **Everything says Already imported:** in a shared group, someone else imported this statement. Their lines count for everyone.
 - **A purchase you typed in shows twice:** the amounts were different, or the dates were more than four days apart.
 
 ## Next quest
 
 [Quest 7: Share a group](../sharing/share-a-group.md)
 
-<!-- Scenarios: IMPORT-01, IMPORT-03, IMPORT-05, IMPORT-06, IMPORT-07, IMPORT-11, IMPORT-13, IMPORT-14 -->
+<!-- Scenarios: IMPORT-01, IMPORT-03, IMPORT-05, IMPORT-06, IMPORT-07, IMPORT-08, IMPORT-09, IMPORT-10, IMPORT-11, IMPORT-13, IMPORT-14 -->

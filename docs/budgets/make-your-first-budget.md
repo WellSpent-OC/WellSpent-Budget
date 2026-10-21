@@ -40,11 +40,11 @@ A budget is an amount to spend each month. It starts again on the 1st.
 ## If it doesn't work
 
 - **The menu has only Edit… and Delete…:** that's a budget's menu. Right-click the group's name instead. It's in capital letters.
-- **Add stays dimmed:** a budget needs a name, and an amount above zero.
+- **Add stays dimmed:** a budget needs a name, and an amount above zero, written the way your region writes numbers. Where a comma marks decimals, type 500,00. The empty field shows an example.
 - **You can't see the budget:** click the small arrow at the end of the group's line. It shows or hides the group's budgets.
 
 ## Next quest
 
 [Quest 5: Add your first transaction](../transactions/add-your-first-transaction.md)
 
-<!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-14, PAGE-05 -->
+<!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-16, BUDGET-14, PAGE-05 -->

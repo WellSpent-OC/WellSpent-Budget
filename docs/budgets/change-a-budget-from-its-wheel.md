@@ -8,6 +8,8 @@ title: "Side quest: Change a budget from its wheel"
 
 A budget's wheel is full on the 1st, and empties as money goes out. When you spend faster than an even pace, it turns orange and says when the money runs out. In the month's last week, with more left than expected, it asks whether to lower the budget. Both times, **Edit Budget…** sits beside the words.
 
+On an iPhone, Home starts with your first group's wheel, with what's left of the whole group's month. The wheels and rows follow your iPhone's light or dark setting.
+
 **Before you start:** you need the Manage level or higher in the group.
 
 1. ![A hand clicks Gas in the sidebar](../assets/shots/change-a-budget-from-its-wheel-1.svg)
@@ -46,4 +48,4 @@ A budget's wheel is full on the 1st, and empties as money goes out. When you spe
 
 - [Tour: A budget's page](tour-a-budgets-page.md)
 
-<!-- Scenarios: WHEEL-05, WHEEL-06, WHEEL-07, WHEEL-08, WHEEL-09, BUDGET-06, BUDGET-07 -->
+<!-- Scenarios: WHEEL-04, WHEEL-13, WHEEL-05, WHEEL-06, WHEEL-07, WHEEL-08, WHEEL-09, BUDGET-06, BUDGET-07 -->

@@ -34,7 +34,7 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
    Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
 
 8. ![A hand types the code in Code](../assets/shots/make-your-account-8.svg)
-   Type the code in **Code**.
+   Type or paste the code in **Code**.
 
 9. ![A hand presses Confirm](../assets/shots/make-your-account-9.svg)
    Press **Confirm**.
@@ -64,7 +64,7 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 
 7. Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
 
-8. Type the code in **Code**.
+8. Type or paste the code in **Code**.
 
 9. Tap **Confirm**.
 
@@ -81,8 +81,12 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 - **No code email after two minutes:** check your spam or junk folder. Then press **Send another code**, and use the code in the newest email.
 - **"That code is wrong or has expired":** a code works for 24 hours, and for five tries. Press **Send another code**, and use the new one.
 
+## Related
+
+- [Copy and paste](../help/copy-and-paste.md)
+
 ## Next quest
 
 [Quest 3: Make your first group](../budgets/make-your-first-group.md)
 
-<!-- Scenarios: ACCT-02, ACCT-03, ACCT-04, ACCT-05, ACCT-06, SAMP-02, SAMP-04, SAMP-05 -->
+<!-- Scenarios: ACCT-02, ACCT-03, ACCT-04, ACCT-05, ACCT-06, SAMP-02, SAMP-04, SAMP-05, PASTE-09 -->

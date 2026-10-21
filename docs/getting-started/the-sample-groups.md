@@ -16,7 +16,7 @@ A new install starts with two made-up groups, **HOUSEHOLD** and **SIDE BUSINESS*
 
    > You see HOUSEHOLD gone from the sidebar.
 
-Do the same for **SIDE BUSINESS**.
+Do the same for **SIDE BUSINESS**. With both gone, you see **No budgets yet**. Deleted samples don't come back.
 
 If you sign in to an account you made on another computer, the samples hide. They show again when you sign out.
 
@@ -36,4 +36,4 @@ If you sign in to an account you made on another computer, the samples hide. The
 
 - [Quest 2: Make your account](make-your-account.md)
 
-<!-- Scenarios: SAMP-01, SAMP-02, SAMP-03, SAMP-04, SAMP-05, SAMP-06, BUDGET-11 -->
+<!-- Scenarios: SAMP-01, SAMP-02, SAMP-03, SAMP-04, SAMP-05, SAMP-06, SAMP-07, BUDGET-10, BUDGET-11 -->

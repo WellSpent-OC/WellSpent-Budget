@@ -35,6 +35,8 @@ title: "Quest 7: Share a group"
 9. ![A hand pastes the link into an email](../assets/shots/share-a-group-9.svg)
    Paste the link into an email or a text to them, and send it.
 
+After they join, they show on the group's page at your next sync, and what they add shows who added it.
+
 The link works once, and runs out after 7 days. You can't see or cancel it once it's made, so send it only to the person you mean.
 
 ## On an iPhone
@@ -65,4 +67,4 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 
 [Quest 8: Join a group](join-a-group.md)
 
-<!-- Scenarios: SHARE-01, SHARE-02, SHARE-04, SHARE-05, SHARE-06, PAGE-02, SHARE-16 -->
+<!-- Scenarios: SHARE-01, SHARE-02, SHARE-04, SHARE-05, SHARE-06, PAGE-02, PAGE-15, SHARE-16 -->

@@ -35,4 +35,4 @@ title: "Side quest: Change someone's level, or remove them"
 - [What each level can do](what-each-level-can-do.md)
 - [Tour: A group's page](tour-a-groups-page.md)
 
-<!-- Scenarios: PAGE-01, PAGE-09, PAGE-10, PAGE-11, SHARE-16 -->
+<!-- Scenarios: PAGE-01, PAGE-09, PAGE-10, PAGE-11, SHARE-16, PAGE-17 -->
