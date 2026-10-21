@@ -113,6 +113,14 @@ class Element:
         """What a text box holds, or a label shows."""
         return _text(self.node)
 
+    @property
+    def placeholder(self):
+        """The example an empty text box shows, such as "500.00"."""
+        try:
+            return self.node.get_attributes().get("placeholder-text", "")
+        except Exception:
+            return ""
+
     def _has(self, state):
         return self.node.get_state_set().contains(state)
 
@@ -272,9 +280,46 @@ class App:
                 last_error = error
             if time.monotonic() > deadline:
                 picture = self.picture("failed")
+                # The app's own log goes beside the picture, since its home
+                # goes when the test ends.
+                shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
+                    if os.path.exists(os.path.join(self.home, "app.log")) else None
+                self._note_process(picture.replace(".png", "-process.txt"))
                 cause = f" ({last_error})" if last_error else ""
                 raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
             time.sleep(0.2)
+
+    def _note_process(self, path):
+        """Whether the app was still running when a step failed, and what each
+        of its threads was waiting on, to tell a hang from a crash or a quit."""
+        lines = []
+        pid = getattr(self, "pid", None)
+        if pid is None:
+            lines.append("no app process was started")
+        elif self.process is not None and self.process.poll() is not None:
+            lines.append(f"the app's session ended, exit status {self.process.returncode}")
+        try:
+            with open(f"/proc/{pid}/status") as status:
+                lines += [l.strip() for l in status if l.startswith(("State:", "Threads:"))]
+            for task in sorted(os.listdir(f"/proc/{pid}/task"), key=int):
+                with open(f"/proc/{pid}/task/{task}/comm") as comm, open(f"/proc/{pid}/task/{task}/wchan") as wchan:
+                    lines.append(f"thread {task} {comm.read().strip()}: waiting in {wchan.read().strip() or '-'}")
+        except (OSError, TypeError):
+            lines.append(f"process {pid} is gone")
+        with open(path, "w") as note:
+            note.write("\n".join(lines) + "\n")
+        # Still running: every thread's stack, which names the lock or wait a
+        # hang is stuck on. Swift's own debugger reads Swift's frames. It
+        # needs the container's ptrace capability (run-in-docker.sh, CI).
+        if pid is not None and os.path.exists(f"/proc/{pid}"):
+            try:
+                stacks = subprocess.run(["lldb", "--batch", "-p", str(pid), "-o", "thread backtrace all"],
+                                        capture_output=True, text=True, timeout=120)
+                with open(path.replace("-process.txt", "-stacks.txt"), "w") as out:
+                    out.write(stacks.stdout + stacks.stderr)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                with open(path, "a") as note:
+                    note.write(f"no stacks: {error}\n")
 
     def picture(self, name):
         os.makedirs(OUT, exist_ok=True)
@@ -438,6 +483,43 @@ class App:
             return hits[0] if hits else None
         return self.until(row, f"the transaction from {merchant!r}")
 
+    def sidebar(self):
+        """The sidebar's lines, top to bottom: each group's name in capitals,
+        and each budget's row, its name then what's left."""
+        lines = []
+        for button in self.main.all("push button"):
+            words = button.words
+            if not button.showing or words in ("⋯", "Add Budget", "More", "Sign in", "Account", "Sync") \
+                    or words.endswith("budgets"):
+                continue
+            parts = [label.words for label in button.all("label") if label.words]
+            if parts and len(parts) >= 4 and _looks_like_a_date(parts[0]):
+                continue  # a transaction's row, on the open budget's page
+            if words.isupper() or "$" in words:
+                lines.append(words)
+        return lines
+
+    def budgets_in(self, group):
+        """The budgets' rows under a group's name in the sidebar."""
+        lines = self.sidebar()
+        start = lines.index(group.upper()) + 1
+        rows = []
+        for line in lines[start:]:
+            if line.isupper() and "$" not in line:
+                break
+            rows.append(line)
+        return rows
+
+    def menu_items(self, menu):
+        """The words of an open menu's items, top to bottom."""
+        return [e.words for e in menu.all("menu item") if e.showing]
+
+    def question(self):
+        """The words of the question in front, such as a delete's: its title
+        and what it says, as GTK shows them, one under the other."""
+        self.until(lambda: len(self.windows()) > 1, "a question")
+        return self.until(lambda: self.texts(self.front)[0], "the question's words").replace("\n\n", " ")
+
     def open_menu(self, button):
         """Presses a button that opens a menu, such as More or a group's ⋯,
         until its items show, and gives it back for `pick`. A press as a
@@ -549,6 +631,15 @@ class App:
         self.button("Add", within=sheet).press()
         self.wait_for_window(1, "the New transaction sheet to close")
 
+    def delete_entry(self, merchant):
+        """Opens a transaction, Delete…, then Delete in the question."""
+        self.entry(merchant).press()
+        editor = self.wait_for_window(2, f"{merchant} to open")
+        self.button("Delete…", within=editor).press()
+        self.answer("Delete")
+        self.until(lambda: len(self.windows()) == 1, "the transaction to close")
+        self.until(lambda: all(row[1] != merchant for row in self.entries()), f"{merchant} to go")
+
     def answer(self, button):
         """Presses `button` in the question in front, such as "Delete"."""
         count = self.until(lambda: len(self.windows()) if len(self.windows()) > 1 else None, "a question")
@@ -578,7 +669,42 @@ class App:
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the account sheet to close")
         self.button("Sync", within=self.main)
+        _ACCOUNTS[name.lower()] = (self.email, self.password)
         return self.email
+
+    def sign_in_as(self, name):
+        """Signs this copy in to the person's account for this run, making it
+        the first time it's needed. Signed in, with their groups synced."""
+        if name.lower() not in _ACCOUNTS:
+            return self.sign_up(name)
+        self.email, self.password = _ACCOUNTS[name.lower()]
+        self.button("Sign in", within=self.main).press()
+        sheet = self.wait_for_window(2, "the account sheet")
+        self.field("Email", sheet).type(self.email)
+        self.field("Password", sheet).type(self.password)
+        self.button("Sign in", within=sheet).press()
+        # Signed in to a confirmed account, the sheet closes by itself.
+        self.wait_for_window(1, "the account sheet to close")
+        self.button("Sync", within=self.main)
+        self.sync()
+        return self.email
+
+    def remove_group(self, name):
+        """Takes a group a test made off this person's computer and, for its
+        owner, off the server: Delete… where they may, else Leave…. For a
+        test's clean-up."""
+        if not self.shows(name.upper(), within=self.main):
+            return
+        menu = self.group_menu(name)
+        items = self.menu_items(menu)
+        if "Delete…" in items:
+            self.pick("Delete…", menu)
+            self.answer("Delete")
+        else:
+            self.pick("Leave…", menu)
+            self.answer("Leave")
+        self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
+        self.sync()
 
     def sync(self):
         """The Sync button, then waits until it's done."""
@@ -605,6 +731,15 @@ class App:
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the Share sheet to close")
         return link.replace("\n", "").replace(" ", "")
+
+    def set_level(self, group, person, level):
+        """On the group's page, the level list on the person's row, then
+        `level`, then a sync so it reaches the server."""
+        self.group(group).press()
+        self.sync()
+        row_label = self.find("label", person, within=self.main)
+        self.choose(level, self.near("combo box", None, to=row_label))
+        self.sync()
 
     def join(self, link, my_name):
         """More, Join a Group…, the link and this person's name, Join."""
@@ -679,8 +814,18 @@ def _accessibility_bus():
 STAGING = "https://staging.wellspent.space"
 MAILBOX_TOKEN = os.environ.get("WELLSPENT_UI_TEST_MAILBOX_TOKEN") or None
 RUN = f"{datetime.datetime.now():%m%d%H%M%S}{secrets.token_hex(2)}"
-# Every account in a run has an address of its own, even two Robins in two tests.
+# Every account in a run has an address of its own.
 _ACCOUNT_NUMBERS = itertools.count(1)
+# Each person's account, made once per run and signed into after that, since
+# staging limits how many accounts one computer may make in an hour.
+_ACCOUNTS = {}
+# Names no earlier test in the run has used.
+_NAME_NUMBERS = itertools.count(1)
+
+
+def unique(name):
+    """A group's name no other test in this run uses: "Home 3"."""
+    return f"{name} {next(_NAME_NUMBERS)}"
 
 
 def needs_accounts(test):
