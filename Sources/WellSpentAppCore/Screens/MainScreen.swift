@@ -185,6 +185,25 @@ public final class MainScreen {
                                transactions: model.transactionCount(inGroup: group.id), reach: .thisMacOnly)
     }
 
+    /// The group's money this month, for the MONEY section of its page: every
+    /// budget in it added up. A hidden group's budgets count too, so this
+    /// reads them from the model, never from its section. Nil when it holds
+    /// no budgets.
+    public func money(of group: GroupID, now: Date = Date(),
+                      calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
+        guard let found = model.group(named: group) else { return nil }
+        return GroupMoney(group: found, summaries: model.summaries[group] ?? [], now: now, calendar: calendar)
+    }
+
+    // MARK: - Home on a phone
+
+    /// Home's card on a phone: the money of the first group, in Home's order,
+    /// that holds a budget, hidden or not. Nil with no budgets in any group.
+    public func homeMoney(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
+        guard let first = model.groups.first(where: { !(model.summaries[$0.id] ?? []).isEmpty }) else { return nil }
+        return money(of: first.id, now: now, calendar: calendar)
+    }
+
     // MARK: - An invitation
 
     /// The invitation page a clicked invite link put up

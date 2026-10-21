@@ -39,8 +39,15 @@ public struct BudgetScreen {
     public let mayAdd: Bool
     /// The bar at the top after a delete, with its Undo button.
     public let undo: UndoOffer?
+    /// What is left this period, drawn as the budget's wheel.
+    public let wheel: MoneyWheel
+    /// The pace words under the wheel's figures, when there are any.
+    public let pace: BudgetPace?
 
-    public init(summary: BudgetSummary, model: AppModel, me: UserID?) {
+    /// `now` and `calendar` place today in the budget's period, for its
+    /// wheel and its pace words.
+    public init(summary: BudgetSummary, model: AppModel, me: UserID?, now: Date = Date(),
+                calendar: Calendar = .autoupdatingCurrent) {
         self.summary = summary
         let group = summary.budget.groupID
         // Asked once for the whole list: every entry is in this group.
@@ -56,9 +63,17 @@ public struct BudgetScreen {
         showsAddedBy = model.isShared(group)
         self.mayAdd = mayAdd
         undo = model.undoOffer
+        let wheel = MoneyWheel(budget: summary, now: now, calendar: calendar)
+        self.wheel = wheel
+        // Changing a budget takes Manage, the level the workspace answers
+        // `mayManageEntries` with.
+        pace = BudgetPace(wheel: wheel, budgetName: summary.budget.name, mayEdit: mayManage, calendar: calendar)
     }
 
     public var title: String { summary.budget.name }
+    /// Under the budget's name: "October · day 18 of 31". None for a budget
+    /// that never resets.
+    public var dayLine: String? { wheel.day?.line }
     public var spent: String { summary.spent.display }
     public var ofLimit: String { "of \(summary.budget.limit.display) this period" }
     public var isOverspent: Bool { summary.isOverspent }

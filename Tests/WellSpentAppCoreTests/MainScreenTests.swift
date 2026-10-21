@@ -501,6 +501,91 @@ struct MainScreenTests {
         #expect(robin.sync.members(of: id).count == 1)
     }
 
+    // MARK: - The money wheel
+
+    // Scenario WHEEL-03
+    /// The outline marks the budget picked on the left, and moves with the
+    /// pick. While a group's page shows, no budget is picked, so no row has it.
+    @Test func theOutlineFollowsThePickAndLeavesEveryRowWhileAGroupsPageShows() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
+        let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: household))
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.selectedBudget == groceries)
+        device.screen.selectedBudget = eatingOut
+        #expect(device.screen.selectedBudget == eatingOut)
+        device.screen.openPage(of: household)
+        #expect(device.screen.selectedBudget == nil)
+    }
+
+    // Scenario WHEEL-11
+    /// A group's money adds up every budget in it. A hidden group's budgets
+    /// still count, though its section on the left lists none.
+    @Test func aGroupsMoneyAddsUpEveryBudgetInItHiddenOrNot() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(1000), in: household))
+        device.model.addBudget(named: "Eating out", limit: .dollars(300), in: household)
+        device.model.selectedBudget = groceries
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: Money(minorUnits: 55_536), date: Date(),
+                                    note: "")
+
+        let money = try #require(device.screen.money(of: household))
+        #expect(money.groupID == household && money.groupName == "Household")
+        #expect(money.wheel.budgeted == .dollars(1300))
+        #expect(money.wheel.spent == Money(minorUnits: 55_536))
+
+        device.screen.toggle(household)
+        #expect(device.screen.sections.first { $0.id == household }?.budgets.isEmpty == true, "hidden")
+        #expect(device.screen.money(of: household)?.wheel.budgeted == .dollars(1300), "its budgets still count")
+
+        let empty = try #require(device.model.addGroup(named: "Side Business"))
+        #expect(device.screen.money(of: empty) == nil, "a group with no budgets shows no MONEY")
+        #expect(device.screen.money(of: GroupID()) == nil, "nor does a group that is not here")
+    }
+
+    // Scenario WHEEL-06
+    @Test func aGroupsMoneyFollowsANewTransactionAtOnce() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(1000), in: household))
+        #expect(device.screen.money(of: household)?.wheel.arc == 1, "full before anything is spent")
+
+        device.model.selectedBudget = groceries
+        device.model.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(250), date: Date(), note: "")
+        let money = try #require(device.screen.money(of: household))
+        #expect(money.wheel.spent == .dollars(250))
+        #expect(money.wheel.arc == 0.75)
+        #expect(money.wheel.middleAmount == "$750")
+    }
+
+    // Scenario WHEEL-13
+    /// Home's card on a phone holds the first group on Home that holds a
+    /// budget, skipping one with none, and there is no card with no budgets.
+    @Test func homesCardIsTheFirstGroupThatHoldsABudget() async throws {
+        let device = try await Device()
+        #expect(device.screen.homeMoney() == nil, "no groups")
+        let errands = try #require(device.model.addGroup(named: "Errands"))
+        #expect(device.screen.homeMoney() == nil, "no budgets in any group")
+
+        let household = try #require(device.model.addGroup(named: "Household"))
+        device.model.addBudget(named: "Groceries", limit: .dollars(1000), in: household)
+        let side = try #require(device.model.addGroup(named: "Side Business"))
+        device.model.addBudget(named: "Materials", limit: .dollars(900), in: side)
+        #expect(device.screen.sections.map(\.id) == [errands, household, side], "Home's order")
+
+        let now = WheelCalendar.date(2026, 10, 18)
+        let card = try #require(device.screen.homeMoney(now: now, calendar: WheelCalendar.calendar))
+        #expect(card == device.screen.money(of: household, now: now, calendar: WheelCalendar.calendar))
+        #expect(card.title == "Household · October")
+        #expect(card.wheel.day?.shortLine == "Day 18 of 31")
+
+        device.screen.toggle(household)
+        #expect(device.screen.homeMoney()?.groupID == household, "hidden or not")
+    }
+
     // MARK: - Entries
 
     /// The row's menu offers Edit and Delete only where the server

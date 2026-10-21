@@ -638,3 +638,73 @@ struct EditorAmountTests {
         #expect(reopened.amountText == "1500,00")
     }
 }
+
+/// An open budget trades its bar for its wheel: the day of its period under
+/// its name, the wheel and its figures, and the pace words when there are
+/// any, with Edit Budget only for someone who may change budgets.
+@Suite("Budget screen, its wheel", .serialized)
+@MainActor
+struct BudgetWheelScreenTests {
+    private let calendar = WheelCalendar.calendar
+
+    /// The screen for `name`, `limit` a month with `spent` spent, on the
+    /// given day of October 2026, in a group on `model`. Cents.
+    private func budgetScreen(_ name: String = "Groceries", limit: Int, spent: Int, october day: Int,
+                        model: AppModel) throws -> BudgetScreen {
+        let group = try #require(model.addGroup(named: "Household"))
+        let now = WheelCalendar.date(2026, 10, day)
+        let summary = WheelCalendar.summary(name, limit: limit, spent: spent, on: now, in: group)
+        return BudgetScreen(summary: summary, model: model, me: nil, now: now, calendar: calendar)
+    }
+
+    // Scenario WHEEL-05
+    @Test func anOpenBudgetShowsItsWheelAndTheDayOfItsPeriod() throws {
+        let screen = try budgetScreen(limit: 100_000, spent: 55_536, october: 18, model: emptyModel())
+        let now = WheelCalendar.date(2026, 10, 18)
+        #expect(screen.wheel == MoneyWheel(budget: screen.summary, now: now, calendar: calendar))
+        #expect(screen.dayLine == "October · day 18 of 31")
+        #expect(screen.wheel.spokenSummary == "Left $445 of $1,000")
+        #expect(screen.wheel.figures.map(\.amount) == ["$555.36", "$444.64", "$419.35"])
+        #expect(screen.pace == nil, "more is left than expected, and it is not the last week")
+    }
+
+    // Scenario WHEEL-08
+    @Test func spendingFasterThanAnEvenPaceOffersEditBudgetOnlyToSomeoneWhoMayChangeIt() throws {
+        let model = try emptyModel()
+        let gas = try budgetScreen("Gas", limit: 18_000, spent: 12_200, october: 18, model: model)
+        #expect(gas.wheel.isWarning)
+        #expect(gas.pace?.text == "At this pace, Gas runs out around Oct 26, five days early.")
+        #expect(gas.pace?.offersEdit == true)
+
+        model.mayManageEntries = { _ in false }
+        let atAdd = try budgetScreen("Gas", limit: 18_000, spent: 12_200, october: 18, model: model)
+        #expect(atAdd.pace?.text == "At this pace, Gas runs out around Oct 26, five days early.")
+        #expect(atAdd.pace?.offersEdit == false)
+    }
+
+    // Scenario WHEEL-09
+    @Test func inTheLastWeekOnlySomeoneWhoMayChangeItIsAskedToLowerIt() throws {
+        let model = try emptyModel()
+        let groceries = try budgetScreen(limit: 100_000, spent: 50_000, october: 26, model: model)
+        #expect(groceries.pace?.kind == .underPace)
+        #expect(groceries.pace?.offersEdit == true)
+
+        model.mayManageEntries = { _ in false }
+        #expect(try budgetScreen(limit: 100_000, spent: 50_000, october: 26, model: model).pace == nil)
+    }
+
+    /// A budget that never resets has no day of its period to show.
+    @Test func aBudgetThatNeverResetsHasNoDayLine() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Household"))
+        let now = WheelCalendar.date(2026, 10, 18)
+        let summary = BudgetSummary(
+            budget: Budget(groupID: group, name: "Savings", limit: .dollars(500), reset: .never),
+            period: ResetSchedule.never.period(containing: now, calendar: calendar),
+            spent: .dollars(100), transactionCount: 1)
+        let screen = BudgetScreen(summary: summary, model: model, me: nil, now: now, calendar: calendar)
+        #expect(screen.dayLine == nil)
+        #expect(screen.pace == nil)
+        #expect(screen.wheel.figures.map(\.label) == ["Spent", "Left"])
+    }
+}
