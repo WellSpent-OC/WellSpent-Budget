@@ -25,11 +25,14 @@ If you sign in to an account you made on another computer, the samples hide. The
 
 ## On an iPhone
 
-1. Touch and hold **HOUSEHOLD** on Home.
+1. ![A thumb holds HOUSEHOLD on Home](../assets/shots/the-sample-groups-iphone-1.svg)
+   Touch and hold **HOUSEHOLD** on Home.
 
-2. Tap **Delete**.
+2. ![A thumb taps Delete](../assets/shots/the-sample-groups-iphone-2.svg)
+   Tap **Delete**.
 
-3. Tap **Delete** in the question.
+3. ![A thumb taps Delete in the question](../assets/shots/the-sample-groups-iphone-3.svg)
+   Tap **Delete** in the question.
 
 ## If it doesn't work
 

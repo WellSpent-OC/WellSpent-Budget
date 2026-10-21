@@ -24,12 +24,16 @@ title: "Side quest: Rename a group"
 
 ## On an iPhone
 
-1. Touch and hold the group's name on Home.
+1. ![A thumb holds the group's name on Home](../assets/shots/rename-a-group-iphone-1.svg)
+   Touch and hold the group's name on Home.
 
-2. Tap **Rename**.
+2. ![A thumb taps Rename](../assets/shots/rename-a-group-iphone-2.svg)
+   Tap **Rename**.
 
-3. Type a new name in **Name**.
+3. ![A thumb types a new name in Name](../assets/shots/rename-a-group-iphone-3.svg)
+   Type a new name in **Name**.
 
-4. Tap **Save**.
+4. ![A thumb taps Save](../assets/shots/rename-a-group-iphone-4.svg)
+   Tap **Save**.
 
 <!-- Scenarios: BUDGET-02, BUDGET-07 -->

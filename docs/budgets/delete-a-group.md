@@ -23,11 +23,14 @@ title: "Side quest: Delete a group"
 
 ## On an iPhone
 
-1. Touch and hold the group's name on Home.
+1. ![A thumb holds the group's name on Home](../assets/shots/delete-a-group-iphone-1.svg)
+   Touch and hold the group's name on Home.
 
-2. Tap **Delete**.
+2. ![A thumb taps Delete](../assets/shots/delete-a-group-iphone-2.svg)
+   Tap **Delete**.
 
-3. Tap **Delete** in the question.
+3. ![A thumb taps Delete in the question](../assets/shots/delete-a-group-iphone-3.svg)
+   Tap **Delete** in the question.
 
 ## If it doesn't work
 

@@ -30,15 +30,19 @@ On an iPhone, Home starts with your first group's wheel, with what's left of the
 
 ## On an iPhone
 
-1. Tap a budget on Home.
+1. ![A thumb taps Gas on Home](../assets/shots/change-a-budget-from-its-wheel-iphone-1.svg)
+   Tap a budget on Home.
 
    > You see the budget's wheel.
 
-2. Tap **Edit Budget**.
+2. ![A thumb taps Edit Budget](../assets/shots/change-a-budget-from-its-wheel-iphone-2.svg)
+   Tap **Edit Budget**.
 
-3. Type a new amount in **Each month**.
+3. ![A thumb types a new amount in Each month](../assets/shots/change-a-budget-from-its-wheel-iphone-3.svg)
+   Type a new amount in **Each month**.
 
-4. Tap **Save**.
+4. ![A thumb taps Save](../assets/shots/change-a-budget-from-its-wheel-iphone-4.svg)
+   Tap **Save**.
 
 ## If it doesn't work
 

@@ -26,12 +26,16 @@ When the money wheel has something to say, **Edit Budget…** on the budget's pa
 
 ## On an iPhone
 
-1. Touch and hold the budget on Home.
+1. ![A thumb holds a budget on Home](../assets/shots/change-a-budget-iphone-1.svg)
+   Touch and hold the budget on Home.
 
-2. Tap **Edit**.
+2. ![A thumb taps Edit](../assets/shots/change-a-budget-iphone-2.svg)
+   Tap **Edit**.
 
-3. Change **Name**, or **Each month**.
+3. ![A thumb types in Each month](../assets/shots/change-a-budget-iphone-3.svg)
+   Change **Name**, or **Each month**.
 
-4. Tap **Save**.
+4. ![A thumb taps Save](../assets/shots/change-a-budget-iphone-4.svg)
+   Tap **Save**.
 
 <!-- Scenarios: BUDGET-06, BUDGET-07 -->

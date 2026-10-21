@@ -27,13 +27,17 @@ A budget is an amount to spend each month. It starts again on the 1st.
 
 ## On an iPhone
 
-1. Under **HOME**, tap **New Budget**.
+1. ![A thumb taps New Budget under HOME](../assets/shots/make-your-first-budget-iphone-1.svg)
+   Under **HOME**, tap **New Budget**.
 
-2. Type a name in **Name**, like Groceries.
+2. ![A thumb types Groceries in Name](../assets/shots/make-your-first-budget-iphone-2.svg)
+   Type a name in **Name**, like Groceries.
 
-3. Type how much a month in **Each month**, like 500.
+3. ![A thumb types 500 in Each month](../assets/shots/make-your-first-budget-iphone-3.svg)
+   Type how much a month in **Each month**, like 500.
 
-4. Tap **Add**.
+4. ![A thumb taps Add](../assets/shots/make-your-first-budget-iphone-4.svg)
+   Tap **Add**.
 
    > You see **Groceries** under **HOME**, with what's left beside it.
 

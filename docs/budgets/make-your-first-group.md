@@ -24,13 +24,17 @@ A group holds budgets you track together. It's also what you share with someone 
 
 ## On an iPhone
 
-1. Tap **+** at the bottom right of Home.
+1. ![A thumb taps + at the bottom right of Home](../assets/shots/make-your-first-group-iphone-1.svg)
+   Tap **+** at the bottom right of Home.
 
-2. Tap **New Group**.
+2. ![A thumb taps New Group](../assets/shots/make-your-first-group-iphone-2.svg)
+   Tap **New Group**.
 
-3. Type a name in **Name**, like Home.
+3. ![A thumb types Home in Name](../assets/shots/make-your-first-group-iphone-3.svg)
+   Type a name in **Name**, like Home.
 
-4. Tap **Add**.
+4. ![A thumb taps Add](../assets/shots/make-your-first-group-iphone-4.svg)
+   Tap **Add**.
 
    > You see **HOME** on Home.
 

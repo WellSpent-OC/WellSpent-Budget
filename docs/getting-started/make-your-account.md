@@ -48,29 +48,39 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 
 ## On an iPhone
 
-1. Tap **Sign in** at the bottom left of Home.
+1. ![A thumb taps Sign in at the bottom of Home](../assets/shots/make-your-account-iphone-1.svg)
+   Tap **Sign in** at the bottom left of Home.
 
-2. Tap **Create an account**.
+2. ![A thumb taps Create an account](../assets/shots/make-your-account-iphone-2.svg)
+   Tap **Create an account**.
 
-3. Type your email in **Email**.
+3. ![A thumb types in Email](../assets/shots/make-your-account-iphone-3.svg)
+   Type your email in **Email**.
 
-4. Type a password of at least 10 characters in **Password**.
+4. ![A thumb types in Password](../assets/shots/make-your-account-iphone-4.svg)
+   Type a password of at least 10 characters in **Password**.
 
-5. Type the same password in **Confirm password**.
+5. ![A thumb types in Confirm password](../assets/shots/make-your-account-iphone-5.svg)
+   Type the same password in **Confirm password**.
 
-6. Tap **Create account**.
+6. ![A thumb taps Create account](../assets/shots/make-your-account-iphone-6.svg)
+   Tap **Create account**.
 
    > You see **Confirm your email**, and "Enter the code sent to" your email.
 
-7. Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
+7. ![An email with the subject Your WellSpent code](../assets/shots/make-your-account-iphone-7.svg)
+   Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
 
-8. Type or paste the code in **Code**.
+8. ![A thumb types the code in Code](../assets/shots/make-your-account-iphone-8.svg)
+   Type or paste the code in **Code**.
 
-9. Tap **Confirm**.
+9. ![A thumb taps Confirm](../assets/shots/make-your-account-iphone-9.svg)
+   Tap **Confirm**.
 
    > You see "Your email is confirmed."
 
-10. Tap **Done**.
+10. ![A thumb taps Done](../assets/shots/make-your-account-iphone-10.svg)
+    Tap **Done**.
 
     > You see **Syncs through WellSpent's server** at the bottom of Home.
 

@@ -25,11 +25,14 @@ On a Mac, you can also right-click the transaction, and pick **Edit…** With th
 
 You can also swipe a transaction to the left, or touch and hold it, and tap **Edit**.
 
-1. In the budget, tap the transaction.
+1. ![A thumb taps a transaction](../assets/shots/change-or-move-a-transaction-iphone-1.svg)
+   In the budget, tap the transaction.
 
-2. Change what's wrong. To move it, pick another budget in **Budget**.
+2. ![A thumb changes the Amount](../assets/shots/change-or-move-a-transaction-iphone-2.svg)
+   Change what's wrong. To move it, pick another budget in **Budget**.
 
-3. Tap **Save**.
+3. ![A thumb taps Save](../assets/shots/change-or-move-a-transaction-iphone-3.svg)
+   Tap **Save**.
 
 ## If it doesn't work
 

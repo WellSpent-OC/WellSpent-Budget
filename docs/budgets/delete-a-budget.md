@@ -21,10 +21,13 @@ title: "Side quest: Delete a budget"
 
 ## On an iPhone
 
-1. Touch and hold the budget on Home.
+1. ![A thumb holds a budget on Home](../assets/shots/delete-a-budget-iphone-1.svg)
+   Touch and hold the budget on Home.
 
-2. Tap **Delete**.
+2. ![A thumb taps Delete](../assets/shots/delete-a-budget-iphone-2.svg)
+   Tap **Delete**.
 
-3. Tap **Delete** in the question.
+3. ![A thumb taps Delete in the question](../assets/shots/delete-a-budget-iphone-3.svg)
+   Tap **Delete** in the question.
 
 <!-- Scenarios: BUDGET-07, BUDGET-08 -->

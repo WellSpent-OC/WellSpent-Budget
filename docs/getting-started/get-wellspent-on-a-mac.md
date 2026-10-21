@@ -45,19 +45,26 @@ title: "Quest 1: Get WellSpent on your Mac or iPhone"
 
 ## On an iPhone
 
-1. Open the **App Store** app on your iPhone.
+1. ![A thumb opens the App Store](../assets/shots/get-wellspent-iphone-1.svg)
+   Open the **App Store** app on your iPhone.
 
-2. Search for the **TestFlight** app.
+2. ![A thumb types TestFlight in the search box](../assets/shots/get-wellspent-iphone-2.svg)
+   Search for the **TestFlight** app.
 
-3. Tap **Get**.
+3. ![A thumb taps Get](../assets/shots/get-wellspent-iphone-3.svg)
+   Tap **Get**.
 
-4. In Apple's email, tap **View in TestFlight**.
+4. ![A thumb taps View in TestFlight in Apple's email](../assets/shots/get-wellspent-iphone-4.svg)
+   In Apple's email, tap **View in TestFlight**.
 
-5. Tap **Accept**.
+5. ![A thumb taps Accept](../assets/shots/get-wellspent-iphone-5.svg)
+   Tap **Accept**.
 
-6. Tap **Install**.
+6. ![A thumb taps Install](../assets/shots/get-wellspent-iphone-6.svg)
+   Tap **Install**.
 
-7. Tap **Open**.
+7. ![A thumb taps Open](../assets/shots/get-wellspent-iphone-7.svg)
+   Tap **Open**.
 
    > You see WellSpent, with two sample groups, **HOUSEHOLD** and **SIDE BUSINESS**.
 

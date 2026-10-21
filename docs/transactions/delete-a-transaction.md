@@ -30,15 +30,19 @@ In a shared group, a delete takes the transaction out for everyone in the group.
 
 ## On an iPhone
 
-1. In the budget, swipe the transaction to the left.
+1. ![A thumb swipes a transaction to the left](../assets/shots/delete-a-transaction-iphone-1.svg)
+   In the budget, swipe the transaction to the left.
 
-2. Tap **Delete**.
+2. ![A thumb taps Delete](../assets/shots/delete-a-transaction-iphone-2.svg)
+   Tap **Delete**.
 
-3. Tap **Delete** in the question.
+3. ![A thumb taps Delete in the question](../assets/shots/delete-a-transaction-iphone-3.svg)
+   Tap **Delete** in the question.
 
    > You see a bar with **Undo**.
 
-4. Changed your mind? Tap **Undo** within about 10 seconds.
+4. ![A thumb taps Undo](../assets/shots/delete-a-transaction-iphone-4.svg)
+   Changed your mind? Tap **Undo** within about 10 seconds.
 
 ## If it doesn't work
 

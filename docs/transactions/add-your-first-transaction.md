@@ -29,15 +29,20 @@ On a Mac, Command-N opens **New transaction**, Return adds it, and Escape closes
 
 ## On an iPhone
 
-1. Tap **Groceries** on Home.
+1. ![A thumb taps Groceries on Home](../assets/shots/add-your-first-transaction-iphone-1.svg)
+   Tap **Groceries** on Home.
 
-2. Tap **Add** at the bottom of the budget.
+2. ![A thumb taps Add at the bottom of the budget](../assets/shots/add-your-first-transaction-iphone-2.svg)
+   Tap **Add** at the bottom of the budget.
 
-3. Type where you spent the money in **Merchant**.
+3. ![A thumb types in Merchant](../assets/shots/add-your-first-transaction-iphone-3.svg)
+   Type where you spent the money in **Merchant**.
 
-4. Type how much in **Amount**, like 12.50.
+4. ![A thumb types 12.50 in Amount](../assets/shots/add-your-first-transaction-iphone-4.svg)
+   Type how much in **Amount**, like 12.50.
 
-5. Tap **Add**.
+5. ![A thumb taps Add](../assets/shots/add-your-first-transaction-iphone-5.svg)
+   Tap **Add**.
 
    > You see your transaction in the list, and what's spent goes up.
 
