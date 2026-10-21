@@ -73,7 +73,7 @@ struct PhoneGroupView: View {
             }
             if screen.mayLeave {
                 Section {
-                    Button(Words.leave, role: .destructive) { main.askToLeave(group) }
+                    Button(PhoneWording.button(Words.leave), role: .destructive) { main.askToLeave(group) }
                         .frame(maxWidth: .infinity)
                         .disabled(screen.isWorking)
                         .accessibilityIdentifier(AccessibilityID.groupLeave)
@@ -104,7 +104,7 @@ struct PhoneGroupView: View {
                 Button {
                     perform(.share(group))
                 } label: {
-                    Text(Words.invite)
+                    Text(PhoneWording.button(Words.invite))
                         .font(.headline)
                         // White would not read on the dark mode green.
                         .foregroundStyle(Palette.ground)
@@ -230,7 +230,7 @@ struct PhonePersonView: View {
                 }
                 if row.mayRemove {
                     Section {
-                        Button(Words.remove, role: .destructive) { screen.askToRemove(id) }
+                        Button(PhoneWording.button(Words.remove), role: .destructive) { screen.askToRemove(id) }
                             .frame(maxWidth: .infinity)
                             .disabled(screen.isWorking)
                             .accessibilityIdentifier(AccessibilityID.groupRemove(row.name))

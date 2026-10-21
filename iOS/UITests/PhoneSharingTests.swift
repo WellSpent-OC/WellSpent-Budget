@@ -84,7 +84,7 @@ final class PhoneSharingTests: XCTestCase {
         // 3. Send opens the share sheet again for the same link. Copy puts it
         // on the pasteboard, and the Share sheet closes with the share sheet.
         let send = run.button(AccessibilityID.shareCreate)
-        XCTAssertEqual(send.label, ShareScreen.Words.send)
+        XCTAssertEqual(send.label, PhoneWording.button(ShareScreen.Words.send))
         send.tap()
         run.copyInShareSheet()
         XCTAssertTrue(run.wait(for: run.text(ShareScreen.Words.shareTitle(groupName)), until: "exists == false",

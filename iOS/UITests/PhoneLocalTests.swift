@@ -244,7 +244,7 @@ final class PhoneLocalTests: XCTestCase {
         // the account sheet in its place.
         XCTAssertTrue(run.text(JoinScreen.Words.signInToJoin).exists, "no sign-in notice")
         XCTAssertFalse(run.button(AccessibilityID.joinJoin).isEnabled, "Join is not dimmed")
-        run.app.buttons[JoinScreen.Words.signIn].firstMatch.tap()
+        run.app.buttons[PhoneWording.button(JoinScreen.Words.signIn)].firstMatch.tap()
         XCTAssertTrue(run.element(AccessibilityID.accountEmail).waitForExistence(timeout: 10),
                       "no account sheet. On screen: \(run.visibleTexts())")
         run.tap(AccessibilityID.accountClose)
