@@ -154,6 +154,11 @@ public final class MainScreen {
         }
     }
 
+    /// Whether a budget's row on the left is marked as the open one. None
+    /// is while a group's page or an invitation shows, since no budget is
+    /// picked then.
+    public func isPicked(_ budget: BudgetID) -> Bool { selectedBudget == budget }
+
     // MARK: - A group's page
 
     /// The group whose page shows on the right, where a budget opens: its

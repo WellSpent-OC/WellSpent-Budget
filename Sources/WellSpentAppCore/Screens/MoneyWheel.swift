@@ -69,6 +69,10 @@ public struct MoneyWheel: Equatable, Sendable {
         }
 
         public var id: String { label }
+
+        /// The amount's colour: warning for the Over figure, whose label
+        /// says Over too, and ink for the rest.
+        public var amountColor: ColorPair { isWarning ? PaletteValues.warning : PaletteValues.ink }
     }
 
     public let scope: Scope

@@ -122,6 +122,7 @@ struct MoneyWheelTests {
         #expect(!groceries.isOver && !groceries.isOverPace && !groceries.isWarning)
         #expect(groceries.arcColor == PaletteValues.wheelLeft)
         #expect(groceries.amountColor == PaletteValues.ink)
+        #expect(groceries.figures.map(\.amountColor) == [PaletteValues.ink, PaletteValues.ink, PaletteValues.ink])
         #expect(groceries.compactWord == "left")
     }
 
@@ -205,6 +206,8 @@ struct MoneyWheelTests {
             MoneyWheel.Figure(label: "Spent", amount: "$115.00"),
             MoneyWheel.Figure(label: "Over", amount: "$15.00", isWarning: true),
         ])
+        #expect(groceries.figures.map(\.amountColor) == [PaletteValues.ink, PaletteValues.warning],
+                "the Over figure's amount is in the warning colour")
         #expect(groceries.arcColor == PaletteValues.warning)
         #expect(groceries.amountColor == PaletteValues.warning)
         #expect(groceries.compactWord == "over")

@@ -67,11 +67,9 @@ struct FiguresList: View {
                     Text(figure.label)
                         .font(.system(size: 13))
                     Spacer(minLength: 0)
-                    // The Over figure's amount is in the warning colour, and
-                    // its label says Over, so the colour is not the only sign.
                     Text(figure.amount)
                         .font(.money(13))
-                        .foregroundStyle(figure.isWarning ? Palette.warning : Palette.ink)
+                        .foregroundStyle(Color(figure.amountColor))
                 }
                 .padding(.vertical, 5)
                 if figure.id != figures.last?.id {
