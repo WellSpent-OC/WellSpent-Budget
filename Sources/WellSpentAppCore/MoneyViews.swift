@@ -79,6 +79,10 @@ struct FiguresList: View {
                 }
             }
         }
+        // The labels in ink, not the system's text colour, which turns light
+        // in dark mode while the page under them stays light. Each amount
+        // has its own colour.
+        .foregroundStyle(Palette.ink)
     }
 }
 
@@ -130,6 +134,8 @@ struct GroupMoneySection: View {
                         .foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // In ink, as the figures are: the well stays light in dark mode.
+                .foregroundStyle(Palette.ink)
                 .frame(maxWidth: 360)
             }
             .padding(12)

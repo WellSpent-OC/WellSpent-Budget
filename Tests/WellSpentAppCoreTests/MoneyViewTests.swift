@@ -183,6 +183,22 @@ struct MoneyViewTests {
         #expect((try? panel.inspect().find(viewWithAccessibilityIdentifier: AccessibilityID.budgetPace)) == nil)
     }
 
+    /// The figures' labels and the MONEY section's This month are drawn in
+    /// ink, not the system's text colour, which turns light in dark mode
+    /// while the page and the section stay light. Each column of words sets
+    /// ink for everything in it that has no colour of its own.
+    @Test func theFiguresAreInkOnTheLightPageInEveryMode() throws {
+        let figures = try panel(limit: 10_000, spent: 11_500, october: 18).inspect().find(FiguresList.self)
+        #expect(try figures.vStack().foregroundStyleShapeStyle(Color.self) == Palette.ink)
+
+        let section = try GroupMoneySection(money: household()).inspect()
+        let column = try section.find(ViewType.VStack.self, where: {
+            try $0.text(0).string() == GroupMoney.Words.card
+        })
+        #expect(try column.foregroundStyleShapeStyle(Color.self) == Palette.ink)
+        #expect(throws: Never.self, "the figures are in the column") { _ = try column.find(FiguresList.self) }
+    }
+
     /// A budget that never resets has no day of its period, and no tick or
     /// expected figure to show.
     @Test func aBudgetThatNeverResetsShowsNoDayLine() throws {
