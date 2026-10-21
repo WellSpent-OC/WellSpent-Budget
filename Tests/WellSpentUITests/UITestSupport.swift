@@ -829,28 +829,3 @@ final class TestApp {
             .removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
     }
 }
-
-/// What the shared code says a budget shows today, `limit` a month with
-/// `spent` spent from it, in cents. The app reads its budgets for today in
-/// this Mac's calendar, and so does this, so a test expects exactly what the
-/// app draws without typing a word or an amount in.
-struct TodaysBudget {
-    let summary: BudgetSummary
-
-    init(_ name: String = "", limit: Int, spent: Int) {
-        let budget = Budget(groupID: GroupID(), name: name, limit: Money(minorUnits: limit))
-        summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: Date()),
-                                spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1)
-    }
-
-    var wheel: MoneyWheel { MoneyWheel(budget: summary) }
-    var row: RowFill { RowFill(summary) }
-
-    /// The pace words under the figures, for someone who may change budgets.
-    var pace: BudgetPace? { BudgetPace(wheel: wheel, budgetName: summary.budget.name, mayEdit: true) }
-
-    /// The money of a group holding these budgets, as its page shows it.
-    static func group(_ name: String, _ budgets: [TodaysBudget]) -> GroupMoney? {
-        GroupMoney(group: BudgetGroup(name: name), summaries: budgets.map(\.summary))
-    }
-}

@@ -29,8 +29,11 @@ final class PhoneTestApp {
     // MARK: - Launching and finding things
 
     /// Launches, and refuses to go on against anything but a staging build.
-    func launch(startingOn start: StartingScreen? = nil) {
+    /// `day` asks the app to count that day of this month as today
+    /// (`PinnedDay`).
+    func launch(startingOn start: StartingScreen? = nil, countingAsToday day: Int? = nil) {
         if let start { app.launchEnvironment[StartingScreen.variable] = start.rawValue }
+        if let day { app.launchEnvironment[PinnedDay.variable] = String(day) }
         app.launch()
         XCTAssertTrue(element(AccessibilityID.stagingBanner).waitForExistence(timeout: 30),
                       "no staging banner: this is not a staging build, so nothing more is done")
