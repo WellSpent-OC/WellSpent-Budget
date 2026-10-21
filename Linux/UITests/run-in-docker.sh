@@ -25,13 +25,17 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" "$R
 mkdir -p "$SCRATCH/home" "$SCRATCH/out"
 
 # The source goes in read-only. The build, its home and the pictures go in the
-# scratch folder, owned by you.
+# scratch folder, owned by you: the container starts as root only to hand
+# your user the one capability a failed step needs to read a stuck app's
+# stacks (ptrace), then runs as you.
 docker run --rm --name "$NAME" \
     -v "$ROOT:/src:ro" -v "$SCRATCH:/b" \
-    --user "$(id -u):$(id -g)" -e HOME=/b/home -e WELLSPENT_UI_OUT=/b/out \
+    -e HOME=/b/home -e WELLSPENT_UI_OUT=/b/out \
+    --cap-add=SYS_PTRACE \
     ${WELLSPENT_UI_TEST_MAILBOX_TOKEN:+-e WELLSPENT_UI_TEST_MAILBOX_TOKEN} \
     ${WELLSPENT_UI_NO_SKIPS:+-e WELLSPENT_UI_NO_SKIPS} \
-    "$IMAGE" sh -c '
+    "$IMAGE" setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+        --inh-caps=+sys_ptrace --ambient-caps=+sys_ptrace sh -c '
         swift build --package-path /src/Linux --scratch-path /b/linux &&
         WELLSPENT_APP=/b/linux/debug/WellSpentLinux /src/Linux/UITests/run.sh "$@"
     ' sh "$@"

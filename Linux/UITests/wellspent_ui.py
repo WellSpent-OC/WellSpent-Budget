@@ -308,6 +308,18 @@ class App:
             lines.append(f"process {pid} is gone")
         with open(path, "w") as note:
             note.write("\n".join(lines) + "\n")
+        # Still running: every thread's stack, which names the lock or wait a
+        # hang is stuck on. Swift's own debugger reads Swift's frames. It
+        # needs the container's ptrace capability (run-in-docker.sh, CI).
+        if pid is not None and os.path.exists(f"/proc/{pid}"):
+            try:
+                stacks = subprocess.run(["lldb", "--batch", "-p", str(pid), "-o", "thread backtrace all"],
+                                        capture_output=True, text=True, timeout=120)
+                with open(path.replace("-process.txt", "-stacks.txt"), "w") as out:
+                    out.write(stacks.stdout + stacks.stderr)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                with open(path, "a") as note:
+                    note.write(f"no stacks: {error}\n")
 
     def picture(self, name):
         os.makedirs(OUT, exist_ok=True)
