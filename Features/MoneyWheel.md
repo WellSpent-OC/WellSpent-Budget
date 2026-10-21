@@ -71,6 +71,7 @@ Platforms: iPhone
 - And under the figures it says "At this pace, Gas runs out around Oct 26, five days early."
 - And beside those words, "Edit Budget…" opens the Edit Budget sheet
 - And Leslie, at Add, sees the same words with no button
+- And Rent, $1,850.00 a month and paid in full on October 1, has nothing left to run out, so it says nothing about the pace
 
 ## WHEEL-09 In the month's last week, more left than expected offers to lower the budget
 
