@@ -203,6 +203,16 @@ final class PhoneTestApp {
         let field = element(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
         waitUntilHittable(field, identifier)
+        // On a slow runner a Paste can land nowhere, leaving the field empty.
+        // So the field is checked, and pasted into once more if it is empty.
+        pasteOnce(into: field)
+        if !isFilled(field) { pasteOnce(into: field) }
+        XCTAssertTrue(isFilled(field), "the paste into \(identifier) did not land. On screen: \(visibleTexts())")
+        UIPasteboard.general.items = []
+    }
+
+    /// Empties the field, then Paste from its own menu.
+    private func pasteOnce(into field: XCUIElement) {
         field.tap()
         clear(field)
         field.tap()
@@ -212,7 +222,18 @@ final class PhoneTestApp {
         }
         XCTAssertTrue(paste.waitForExistence(timeout: 5), "the field's menu shows no Paste. On screen: \(visibleButtons())")
         paste.tap()
-        UIPasteboard.general.items = []
+    }
+
+    /// Whether the field holds something other than its prompt, within a
+    /// few seconds. A password field holds dots, which counts.
+    private func isFilled(_ field: XCUIElement) -> Bool {
+        let deadline = Date().addingTimeInterval(3)
+        repeat {
+            let value = (field.value as? String) ?? ""
+            if !value.isEmpty, value != field.placeholderValue { return true }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date() < deadline
+        return false
     }
 
     /// Pulls Home down and waits for the sync it starts to end, so every
