@@ -10,6 +10,7 @@
 #                                  screen (default /tmp/wellspent-ui)
 # WELLSPENT_UI_TEST_MAILBOX_TOKEN  staging's test mailbox, for the tests that
 #                                  make an account; without it they're skipped
+# WELLSPENT_UI_NO_SKIPS            "true" fails the run if any test is skipped
 #
 # Test names are unittest's, such as test_group_page or
 # test_group_page.SignedOut.test_the_name_opens_the_page. None runs them all.
@@ -45,5 +46,5 @@ dbus-run-session -- sh -c '
     export GNOME_KEYRING_CONTROL
     cd "$1"
     shift
-    exec python3 -m unittest -v "$@"
+    exec python3 run_tests.py "$@"
 ' sh "$HERE" "$@"

@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 21 |
+| Linux | 142 | 49 |
 | iPhone | 141 | 141 |
 
 ### [Accounts.md](Accounts.md)
@@ -92,22 +92,22 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-02 | Rename a group | Mac, Linux, iPhone | iPhone |
-| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | iPhone |
-| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | iPhone |
-| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | iPhone |
-| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | iPhone |
-| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | iPhone |
-| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | None yet |
-| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | iPhone |
-| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | iPhone |
-| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | iPhone |
-| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | iPhone |
-| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | iPhone |
-| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | iPhone |
+| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-02 | Rename a group | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | Linux |
+| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | Linux, iPhone |
 
 ### [Entries.md](Entries.md)
 
@@ -131,19 +131,19 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-01 | A click on any row opens it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | iPhone |
-| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | iPhone |
-| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | iPhone |
-| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | iPhone |
-| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, iPhone |
-| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | iPhone |
-| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | iPhone |
+| EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Linux, iPhone |
+| EDIT-09 | An Undo that can't be done now says why | Mac, Linux, iPhone | Linux, iPhone |
+| EDIT-10 | At View, a transaction opens read-only | Mac, Linux, iPhone | Linux, iPhone |
+| EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | Linux, iPhone |
+| EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | Linux, iPhone |
 | EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | iPhone |
 | EDIT-15 | Right-click offers Edit… and Delete… where they are allowed | Mac | Mac |
 | EDIT-16 | The keyboard in the list and in the sheet | Mac | Mac |

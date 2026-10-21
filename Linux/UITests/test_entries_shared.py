@@ -2,12 +2,13 @@
 on staging, each in a copy of the app of their own: who added each
 transaction, one arriving at the next sync, and no Add at View.
 
-Each run makes fresh accounts and reads their codes from staging's test
-mailbox, so these are skipped without its token."""
+Each person's account is made once per run, through staging's test mailbox,
+and signed into after that, so these are skipped without its token. Each test
+names its groups for itself and removes them at the end."""
 
 import unittest
 
-from wellspent_ui import launch_fresh, needs_accounts
+from wellspent_ui import launch_fresh, needs_accounts, unique
 
 
 class EntriesShared(unittest.TestCase):
@@ -16,8 +17,8 @@ class EntriesShared(unittest.TestCase):
         needs_accounts(self)
         self.robin = launch_fresh(self)
         self.leslie = launch_fresh(self)
-        self.robin.sign_up("robin")
-        self.leslie.sign_up("leslie")
+        self.robin.sign_in_as("Robin")
+        self.leslie.sign_in_as("Leslie")
 
     def find(self, app, merchant):
         return app.until(lambda: next((e for e in app.entries() if e[1] == merchant), None),
@@ -25,8 +26,10 @@ class EntriesShared(unittest.TestCase):
 
     def test_who_added_each_transaction_and_the_next_sync(self):
         robin, leslie = self.robin, self.leslie
-        robin.new_group("Home")
-        robin.new_budget("Food", "500", group="Home")
+        home = unique("Home")
+        robin.new_group(home)
+        self.addCleanup(robin.remove_group, home)
+        robin.new_budget("Food", "500", group=home)
         robin.add_entry("Market", "10.00")
 
         # Scenario ENTRY-08
@@ -36,7 +39,7 @@ class EntriesShared(unittest.TestCase):
 
         # 2. Robin shares Home as Robin, and Leslie joins as Leslie.
         robin.sync()
-        leslie.join(robin.share("Home", "Robin"), "Leslie")
+        leslie.join(robin.share(home, "Robin"), "Leslie")
 
         # Scenario ENTRY-09
         # 3. Leslie adds Corner Bakery, 99.00. At Robin's next sync it shows in
@@ -64,10 +67,12 @@ class EntriesShared(unittest.TestCase):
 
         # Scenario ENTRY-10
         # 1. Leslie makes Club with Snacks, and shares it with Robin at View.
-        leslie.new_group("Club")
-        leslie.new_budget("Snacks", "100", group="Club")
+        club = unique("Club")
+        leslie.new_group(club)
+        self.addCleanup(leslie.remove_group, club)
+        leslie.new_budget("Snacks", "100", group=club)
         leslie.sync()
-        robin.join(leslie.share("Club", "Leslie", level="View"), "Robin")
+        robin.join(leslie.share(club, "Leslie", level="View"), "Robin")
 
         # Scenario ENTRY-10
         # 2. Robin opens Snacks: no Add and no Import statement. Leslie, who
