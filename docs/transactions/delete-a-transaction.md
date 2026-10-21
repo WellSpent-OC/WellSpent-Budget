@@ -8,15 +8,19 @@ title: "Side quest: Delete a transaction, and undo it"
 
 **Before you start:** at the Add level, you can delete only the transactions you added. At Manage or higher, anyone's.
 
-1. Click the transaction in the budget's list.
+1. ![A hand clicks a transaction in a budget's list](../assets/shots/delete-a-transaction-1.svg)
+   Click the transaction in the budget's list.
 
-2. Press **Delete…**
+2. ![A hand presses Delete](../assets/shots/delete-a-transaction-2.svg)
+   Press **Delete…**
 
-3. Press **Delete** in the question.
+3. ![A hand presses Delete in the question](../assets/shots/delete-a-transaction-3.svg)
+   Press **Delete** in the question.
 
    > You see a bar at the top of the budget, with **Undo**.
 
-4. Changed your mind? Press **Undo** within about 10 seconds.
+4. ![A hand presses Undo](../assets/shots/delete-a-transaction-4.svg)
+   Changed your mind? Press **Undo** within about 10 seconds.
 
    > You see the transaction back, just as it was.
 

@@ -8,11 +8,14 @@ title: "Side quest: Change or move a transaction"
 
 **Before you start:** at the Add level, you can change only the transactions you added. At Manage or higher, anyone's.
 
-1. Click the transaction in the budget's list.
+1. ![A hand clicks a transaction in a budget's list](../assets/shots/change-or-move-a-transaction-1.svg)
+   Click the transaction in the budget's list.
 
-2. Change what's wrong: **Merchant**, **Amount**, **Date** or **Note**. To move it, pick another budget in **Budget**.
+2. ![A hand changes the Amount](../assets/shots/change-or-move-a-transaction-2.svg)
+   Change what's wrong: **Merchant**, **Amount**, **Date** or **Note**. To move it, pick another budget in **Budget**.
 
-3. Press **Save**.
+3. ![A hand presses Save](../assets/shots/change-or-move-a-transaction-3.svg)
+   Press **Save**.
 
    > You see the change in the list, and the budget's totals follow at once.
 
