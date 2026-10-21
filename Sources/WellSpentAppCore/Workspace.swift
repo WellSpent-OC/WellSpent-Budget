@@ -80,6 +80,23 @@ public final class Workspace {
         await page.lookUp()
     }
 
+    /// The link a launch was given on its command line, for `open(_:)`. On
+    /// Linux the desktop starts the app for a clicked link with the link as
+    /// its argument. The last argument that reads as a link, with a type in
+    /// front such as `wellspent-staging:`, counts, as the last of several
+    /// does on the Mac. It need not be this build's, so the page can say
+    /// which app a link is for. Nil when there is none: a plain start, or
+    /// one given only an option or a file, opens no page.
+    nonisolated public static func openedLink(in arguments: [String]) -> URL? {
+        for argument in arguments.dropFirst().reversed() {
+            let text = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.hasPrefix("-"), let url = URL(string: text), let scheme = url.scheme,
+                  !scheme.isEmpty else { continue }
+            return url
+        }
+        return nil
+    }
+
     /// Takes the invitation page down, when the person goes elsewhere or has
     /// joined. `MainScreen` decides when.
     func closeInvitation() {
