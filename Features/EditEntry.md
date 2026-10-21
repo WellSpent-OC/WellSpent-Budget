@@ -21,7 +21,7 @@ A click on a transaction in a budget's list opens it, to change it, move it to a
 - When Robin changes any of Merchant, Amount, Date, Note or Budget
 - Then Save lights
 - When he puts it back as it was
-- Then Save dims again, and an amount of 142.080 counts the same as 142.08
+- Then Save dims again, and an amount of $142.08 counts the same as 142.08
 - And Save stays dimmed while Merchant is empty or only spaces, or Amount is not a number
 
 ## EDIT-03 Save changes it, and the totals follow at once
