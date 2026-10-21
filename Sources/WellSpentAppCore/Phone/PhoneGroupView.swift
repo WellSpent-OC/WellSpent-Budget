@@ -179,7 +179,8 @@ struct PhoneLevelBadge: View {
 
 /// One person's page: the levels this person may move them to, each with
 /// what it lets them do and a tick on theirs, and Remove… at the end, apart.
-/// Remove asks from the bottom of the screen first. Layout only.
+/// Remove asks from the bottom of the screen first. The page closes once they
+/// are out of the group. Layout only.
 struct PhonePersonView: View {
     let screen: MembersScreen
     let id: UserID
@@ -244,14 +245,16 @@ struct PhonePersonView: View {
                                                  set: { if !$0 { screen.keepThem() } }),
                             titleVisibility: .visible,
                             presenting: screen.removing) { row in
-            Button(Words.removeButton, role: .destructive) {
-                screen.remove(row.id)
-                // Back to the group's page, which says they were removed.
-                dismiss()
-            }
+            Button(Words.removeButton, role: .destructive) { screen.remove(row.id) }
             Button(Words.cancel, role: .cancel) { screen.keepThem() }
         } message: { _ in
             Text(screen.removeMessage ?? "")
+        }
+        // Once they are out of the group, removed here or gone by themselves,
+        // back to the group's page. It says they were removed, or why a
+        // change to them failed. A removal that fails keeps this page, saying why.
+        .onChange(of: screen.rows.contains { $0.id == id }) { _, isThere in
+            if !isThere { dismiss() }
         }
     }
 
