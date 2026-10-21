@@ -1348,16 +1348,19 @@ struct AbuseProtectionTests {
                                expiresOn: Date().addingTimeInterval(-60)).save(on: app.db)
             _ = await app.rateLimiter.allow("housekeeping-key", limit: .signIn)
 
+            // One tick purges the tokens, then sweeps the limiter, so both are
+            // waited for: reading the limiter as soon as the tokens were gone
+            // sometimes landed between the two.
             var tokens = 1
+            var remaining = 1
             for _ in 0 ..< 40 {
                 try await Task.sleep(for: .milliseconds(50))
                 tokens = try await TokenRow.query(on: app.db)
                     .filter(\.$userID == userID).count()
-                if tokens == 0 { break }
+                remaining = await app.rateLimiter.count(for: "housekeeping-key")
+                if tokens == 0, remaining == 0 { break }
             }
             #expect(tokens == 0, "the scheduled token purge never ran")
-
-            let remaining = await app.rateLimiter.count(for: "housekeeping-key")
             #expect(remaining == 0, "the limiter's dictionary is never swept, so it grows forever")
         } catch {
             try? await app.asyncShutdown()
