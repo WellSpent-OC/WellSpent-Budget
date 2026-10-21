@@ -15,9 +15,14 @@ struct PhoneBudgetView: View {
     let main: MainScreen
     let perform: (MainScreen.Action) -> Void
     @Binding var addingEntry: Bool
+    /// The day counted as today, when a staging build was asked for one
+    /// (`PinnedDay`). Nil counts the real day.
+    var today: Date?
 
     /// The budget's words and rows, shared with every app.
-    private var screen: BudgetScreen { BudgetScreen(summary: summary, model: model, me: sync.userID) }
+    private var screen: BudgetScreen {
+        BudgetScreen(summary: summary, model: model, me: sync.userID, now: today ?? Date())
+    }
 
     var body: some View {
         let screen = self.screen

@@ -21,18 +21,22 @@ struct PhoneRootView: View {
     /// The screen a staging build was asked to open on, applied once.
     private let start: StartingScreen?
     @State private var startApplied = false
+    /// The day a staging build was asked to count as today, for a test of
+    /// the money wheel (`PinnedDay`). Nil counts the real day.
+    private let pinnedToday: Date?
     private var model: AppModel { workspace.model }
     private var sync: SyncCoordinator { workspace.sync }
 
-    init(workspace: Workspace, startingOn start: StartingScreen? = nil) {
+    init(workspace: Workspace, startingOn start: StartingScreen? = nil, today pinnedToday: Date? = nil) {
         _workspace = State(initialValue: workspace)
         _screen = State(initialValue: MainScreen(workspace: workspace))
         self.start = start
+        self.pinnedToday = pinnedToday
     }
 
     var body: some View {
         NavigationStack(path: openBudget) {
-            PhoneHomeView(screen: screen, perform: perform, showingAccount: $showingAccount)
+            PhoneHomeView(screen: screen, perform: perform, showingAccount: $showingAccount, today: pinnedToday)
                 .navigationDestination(for: BudgetID.self) { _ in budget }
         }
         .tint(Palette.accent)
@@ -86,7 +90,7 @@ struct PhoneRootView: View {
     private var budget: some View {
         if case .budget(let summary) = screen.detail {
             PhoneBudgetView(model: model, sync: sync, summary: summary, main: screen, perform: perform,
-                            addingEntry: $addingEntry)
+                            addingEntry: $addingEntry, today: pinnedToday)
         }
     }
 
@@ -170,10 +174,12 @@ struct PhoneMenu: View {
 }
 
 /// The iPhone's screens. `start` is for a staging build asked to open on one
-/// screen. See `StartingScreen`.
+/// screen, and `today` for one asked to count another day of the month as
+/// today. See `StartingScreen` and `PinnedDay`.
 @MainActor
-public func wellSpentPhoneRootView(workspace: Workspace, startingOn start: StartingScreen? = nil) -> AnyView {
-    AnyView(PhoneRootView(workspace: workspace, startingOn: start))
+public func wellSpentPhoneRootView(workspace: Workspace, startingOn start: StartingScreen? = nil,
+                                   today: Date? = nil) -> AnyView {
+    AnyView(PhoneRootView(workspace: workspace, startingOn: start, today: today))
 }
 
 #endif

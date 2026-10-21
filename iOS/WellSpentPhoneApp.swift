@@ -13,6 +13,9 @@ struct WellSpentPhoneApp: App {
     private let launch: Result<Workspace, any Error>
     /// The screen a staging build was asked to open on, for a test.
     private let start = StartingScreen.requested()
+    /// The day of the month a staging build was asked to count as today, for
+    /// a test of the money wheel.
+    private let today = PinnedDay.requested()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -30,7 +33,7 @@ struct WellSpentPhoneApp: App {
         WindowGroup {
             switch launch {
             case .success(let workspace):
-                wellSpentPhoneRootView(workspace: workspace, startingOn: start)
+                wellSpentPhoneRootView(workspace: workspace, startingOn: start, today: today)
                     // Midnight, the clocks moving or a new time zone: a new
                     // day may begin a new month, so the budgets are read
                     // again for it.

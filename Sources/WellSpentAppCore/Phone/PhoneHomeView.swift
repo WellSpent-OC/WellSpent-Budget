@@ -11,11 +11,14 @@ struct PhoneHomeView: View {
     let screen: MainScreen
     let perform: (MainScreen.Action) -> Void
     @Binding var showingAccount: Bool
+    /// The day counted as today, when a staging build was asked for one
+    /// (`PinnedDay`). Nil counts the real day.
+    var today: Date?
 
     var body: some View {
         List {
             // The first group's wheel for the month: PhoneHomeMoneyCard.swift.
-            if let money = screen.homeMoney() {
+            if let money = screen.homeMoney(now: today ?? Date()) {
                 PhoneHomeMoneyCard(money: money)
             }
             if screen.detail == .noBudgets {
