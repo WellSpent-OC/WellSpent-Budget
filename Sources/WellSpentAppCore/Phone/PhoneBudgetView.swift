@@ -4,7 +4,7 @@ import SwiftUI
 import WellSpentCrypto
 import WellSpentModel
 
-/// One budget: spent, of, left or over, the bar, the count and its entries,
+/// One budget: its day, its wheel and figures, the count and its entries,
 /// with Add at the foot in thumb reach and the budget's menu under ⋯. Draws
 /// `BudgetScreen`. Layout only.
 struct PhoneBudgetView: View {
@@ -23,11 +23,9 @@ struct PhoneBudgetView: View {
         let screen = self.screen
         let menu = main.budgetMenu(summary.budget)
         List {
-            Section {
-                header(screen)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 8, trailing: 4))
-            }
+            // The day, the wheel, its figures and the pace words:
+            // PhoneBudgetWheel.swift.
+            PhoneBudgetWheelSections(screen: screen) { perform(.editBudget(summary.budget)) }
             Section {
                 if screen.rows.isEmpty {
                     Text(BudgetScreen.Words.empty)
@@ -76,38 +74,6 @@ struct PhoneBudgetView: View {
                 .padding(.bottom, 8)
                 .accessibilityIdentifier(AccessibilityID.budgetAdd)
             }
-        }
-    }
-
-    private func header(_ screen: BudgetScreen) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(screen.spent)
-                // The system font with even-width digits, as for every amount
-                // on the phone, so figures line up without reading like code.
-                .font(.largeTitle.weight(.medium).monospacedDigit())
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            HStack(alignment: .firstTextBaseline) {
-                Text(screen.ofLimit)
-                    .foregroundStyle(Palette.muted)
-                Spacer(minLength: 8)
-                Text(screen.standing)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(screen.isOverspent ? Palette.warning : Palette.ink)
-            }
-            .font(.subheadline)
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.track)
-                    Capsule()
-                        .fill(screen.isOverspent ? Palette.warning : Palette.accent)
-                        .frame(width: max(4, geometry.size.width * screen.fraction))
-                }
-            }
-            .frame(height: 10)
-            Text(screen.countLine)
-                .font(.footnote)
-                .foregroundStyle(Palette.muted)
         }
     }
 }

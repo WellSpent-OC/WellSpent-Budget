@@ -102,8 +102,9 @@ final class PhoneLocalTests: XCTestCase {
         run.tap(AccessibilityID.budgetEditorSave)
         XCTAssertTrue(run.app.navigationBars["Flights"].waitForExistence(timeout: 10), "Flights did not open")
         XCTAssertTrue(run.shows("$0.00"), "$0.00 does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("of $800.00 this period"), "of $800.00 this period does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$800.00 left"), "$800.00 left does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $800 of $800"),
+                      "the wheel does not say Left $800 of $800. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$800.00"), "$800.00 does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-06
         // 4. Edit under ⋯ changes the monthly amount.
@@ -111,7 +112,7 @@ final class PhoneLocalTests: XCTestCase {
         run.tapMenuItem(MainScreen.Words.edit)
         run.type("650", into: AccessibilityID.budgetEditorAmount)
         run.tap(AccessibilityID.budgetEditorSave)
-        XCTAssertTrue(run.shows("of $650.00 this period"),
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $650 of $650"),
                       "the new amount does not show. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-08
@@ -168,7 +169,8 @@ final class PhoneLocalTests: XCTestCase {
         let today = BudgetScreen.shortDate(Date())
         XCTAssertTrue(run.shows("\(today) · Manual"), "no date and source line. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("birthday cake"), "birthday cake does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$60.00 left"), "what is left is wrong. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $60 of $100"),
+                      "what is left is wrong. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("1 transaction since \(Self.startOfMonth())"), "1 transaction since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
 
         // Scenario ENTRY-05, BUDGET-15
@@ -179,7 +181,9 @@ final class PhoneLocalTests: XCTestCase {
         let bakery = run.element(AccessibilityID.entryRow("Corner Bakery"))
         XCTAssertLessThan(market.frame.minY, bakery.frame.minY, "Market is not on top")
         XCTAssertTrue(run.shows("$115.00"), "$115.00 does not show. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$15.00 over"), "no over. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Over $15 of $100"),
+                      "the wheel does not say Over $15 of $100. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("Over") && run.shows("$15.00"), "no over. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "2 transactions since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
         run.goBack()
         let row = run.element(AccessibilityID.sidebarBudget("Treats"))
