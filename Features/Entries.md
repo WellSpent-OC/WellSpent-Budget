@@ -8,7 +8,7 @@ Add puts money spent into the budget that is open. A transaction has a merchant,
 - When Robin presses "Add", types Hilltop Grocery in "Merchant" and 142.08 in "Amount", and presses "Add" in the sheet
 - Then the sheet closes
 - And Groceries lists Hilltop Grocery, with "Oct 18", "Manual" and "$142.08"
-- And Groceries says "$142.08", "$357.92 left" and "1 transaction since Oct 1"
+- And Groceries says "Spent" $142.08, "Left" $357.92 and "1 transaction since Oct 1"
 - And the list shows $357.92 beside Groceries
 
 ## ENTRY-02 The sheet asks for a merchant and an amount
