@@ -18,10 +18,13 @@ struct WellSpentLinuxApp: App {
     /// shares a placeholder ID, and opening live while staging was open only
     /// brought staging to the front. SwiftCrossUI asks for it once, just
     /// before GTK starts: a launch given a link while a copy is open hands it
-    /// over there (`OpenedLinks`).
+    /// over there (`OpenedLinks`). A click while the app is open starts such a
+    /// launch, and the open copy opens the link's page.
     var backend: GtkBackend {
         let backend = GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
-        OpenedLinks.handToOpenCopy(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
+        OpenedLinks.handOver(appIdentifier: LinuxSetup.environment.linuxAppIdentifier) { [workspace] link in
+            Task { await workspace.open(link) }
+        }
         return backend
     }
 
@@ -50,12 +53,6 @@ struct WellSpentLinuxApp: App {
     var body: some Scene {
         WindowGroup(LinuxSetup.environment.appName) {
             RootView(workspace: workspace)
-                // A click while the app is open: the launch it started handed
-                // the link over. Its page opens, and SwiftCrossUI then brings
-                // the window to the front.
-                .onOpenURL { [workspace] link in
-                    Task { @MainActor in await workspace.open(link) }
-                }
         }
         .defaultSize(width: 1100, height: 720)
     }

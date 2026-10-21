@@ -51,6 +51,24 @@ void wellspent_clipboard_set_text(const char *text) {
     gdk_clipboard_set_text(gdk_display_get_clipboard(display), text);
 }
 
+// The link goes over as plain text, through an action of the app's own. GTK's
+// usual way, GApplication's "open", sends it as a file, and both copies make a
+// GFile of it. Where the desktop's file layer (gvfs) is installed, as it is on
+// most desktops, that changes the link: "wellspent://join#s=..." arrives as
+// "wellspent://join/#s=...", which no longer reads as an invite.
+#define OPEN_LINK_ACTION "open-link"
+
+// The Swift side, which opens the link's page.
+static wellspent_link_receiver link_receiver;
+
+// In the open copy, when another launch sends it a link.
+static void open_link(GSimpleAction *action, GVariant *link, gpointer app) {
+    (void)action;
+    if (link_receiver) link_receiver(g_variant_get_string(link, NULL));
+    GtkWindow *window = gtk_application_get_active_window(GTK_APPLICATION(app));
+    if (window) gtk_window_present(window);
+}
+
 // GLib calls this as GTK starts, before it decides on a window. Registering is
 // what tells this launch whether a copy is running already. GLib registers
 // next anyway, and a second call does nothing. When a copy is running, it gets
@@ -59,9 +77,7 @@ void wellspent_clipboard_set_text(const char *text) {
 static gint hand_link_over(GApplication *app, GVariantDict *options, gpointer link) {
     (void)options;
     if (!g_application_register(app, NULL, NULL) || !g_application_get_is_remote(app)) return -1;
-    GFile *file = g_file_new_for_uri(link);
-    g_application_open(app, &file, 1, "");
-    g_object_unref(file);
+    g_action_group_activate_action(G_ACTION_GROUP(app), OPEN_LINK_ACTION, g_variant_new_string(link));
     // Sent before this launch stops.
     GDBusConnection *bus = g_application_get_dbus_connection(app);
     if (bus) g_dbus_connection_flush_sync(bus, NULL, NULL);
@@ -73,10 +89,16 @@ static void free_link(gpointer link, GClosure *closure) {
     g_free(link);
 }
 
-void wellspent_hand_link_to_running_copy(const char *app_id, const char *link) {
+void wellspent_link_handoff(const char *app_id, const char *link, wellspent_link_receiver receive) {
     // The application SwiftCrossUI made, which became the default as it was made.
     GApplication *app = g_application_get_default();
-    if (!app || !link || g_strcmp0(g_application_get_application_id(app), app_id) != 0) return;
-    g_signal_connect_data(app, "handle-local-options", G_CALLBACK(hand_link_over), g_strdup(link),
-                          free_link, 0);
+    if (!app || g_strcmp0(g_application_get_application_id(app), app_id) != 0) return;
+    link_receiver = receive;
+    GSimpleAction *action = g_simple_action_new(OPEN_LINK_ACTION, G_VARIANT_TYPE_STRING);
+    g_signal_connect(action, "activate", G_CALLBACK(open_link), app);
+    g_action_map_add_action(G_ACTION_MAP(app), G_ACTION(action));
+    g_object_unref(action);
+    if (link)
+        g_signal_connect_data(app, "handle-local-options", G_CALLBACK(hand_link_over), g_strdup(link),
+                              free_link, 0);
 }
