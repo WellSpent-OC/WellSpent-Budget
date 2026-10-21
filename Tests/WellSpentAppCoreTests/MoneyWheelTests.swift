@@ -204,6 +204,20 @@ struct MoneyWheelTests {
         #expect(groceries.figures == [
             MoneyWheel.Figure(label: "Spent", amount: "$115.00"),
             MoneyWheel.Figure(label: "Over", amount: "$15.00", isWarning: true),
+    /// Rent is $1,850.00 a month and was paid in full on October 1. Nothing is
+    /// left, which is not a pace: the wheel is empty, not over, and has no
+    /// orange to show, while the tick and the expected figure stay.
+    @Test func aBudgetSpentToTheCentIsNotOverPace() {
+        let rent = wheel(limit: 185_000, spent: 185_000, on: october18)
+        #expect(rent.left == Money(minorUnits: 0))
+        #expect(rent.arc == 0)
+        #expect(!rent.isOver && !rent.isOverPace && !rent.isWarning)
+        #expect(rent.arcColor == PaletteValues.wheelLeft)
+        #expect(rent.tick == 13.0 / 31)
+        #expect(rent.expectedLeft == Money(minorUnits: 77_581), "185000 × 13 ÷ 31 is 77580.65")
+        #expect(rent.spokenSummary == "Left $0 of $1,850")
+    }
+
         ])
         #expect(groceries.arcColor == PaletteValues.warning)
         #expect(groceries.amountColor == PaletteValues.warning)

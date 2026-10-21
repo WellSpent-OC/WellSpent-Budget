@@ -118,9 +118,11 @@ public struct MoneyWheel: Equatable, Sendable {
         return Money(minorUnits: units, currency: budgeted.currency)
     }
 
-    /// Less is left than an even pace would leave today.
+    /// Less is left than an even pace would leave today. Nothing left is not
+    /// a pace: the money has run out already, so there is no day ahead for
+    /// it to run out on, and the empty wheel has no colour to turn.
     public var isOverPace: Bool {
-        guard let expectedLeft else { return false }
+        guard let expectedLeft, left.minorUnits > 0 else { return false }
         return left < expectedLeft
     }
 

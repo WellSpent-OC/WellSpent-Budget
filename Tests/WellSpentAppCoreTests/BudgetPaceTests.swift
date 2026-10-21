@@ -81,6 +81,17 @@ struct BudgetPaceTests {
         #expect(pace(limit: 3_100, spent: 100, october: 1) == nil, "$30.00 left, and $30.00 expected")
     }
 
+    /// Rent is $1,850.00 a month and was paid in full on October 1. Its money
+    /// ran out that day, so no day still to come is named: not "around Oct
+    /// 18" on the 18th, nor "around Oct 19" the day after.
+    @Test func aBudgetSpentToTheCentSaysNothingAboutItsPace() {
+        #expect(pace("Rent", limit: 185_000, spent: 185_000, october: 18) == nil)
+        #expect(pace("Rent", limit: 185_000, spent: 185_000, october: 19) == nil)
+        #expect(pace("Rent", limit: 185_000, spent: 185_000, october: 18, mayEdit: false) == nil)
+        #expect(pace("Rent", limit: 185_000, spent: 185_000, october: 28) == nil, "nor in the last week")
+        #expect(pace("Rent", limit: 185_000, spent: 184_999, october: 18) != nil, "a cent left still has a pace")
+    }
+
     // Scenario WHEEL-10
     @Test func overItsLimitThereAreNoPaceWords() {
         #expect(pace(limit: 10_000, spent: 11_500, october: 18) == nil)

@@ -7,7 +7,8 @@ import WellSpentModel
 /// everyone. In the period's last week, more left than expected asks whether
 /// to keep the budget or lower it, and only of someone who may change it. A
 /// budget on pace, over its limit, or with no period says nothing, and so
-/// does a group's wheel.
+/// does a group's wheel. So does a budget spent to the cent: its money ran
+/// out when the last of it was spent, not on a day still to come.
 public struct BudgetPace: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case overPace, underPace }
 
@@ -21,10 +22,10 @@ public struct BudgetPace: Equatable, Sendable {
         guard wheel.scope == .budget, !wheel.isOver, let day = wheel.day,
               let expected = wheel.expectedLeft else { return nil }
         let left = wheel.left
-        if left < expected {
+        if wheel.isOverPace {
             // The day the money runs out at today's pace, counted from the
-            // period's first day. Less is left than expected only once
-            // something is spent, so this never divides by nothing.
+            // period's first day. Over pace, less is left than expected, so
+            // something is spent and this never divides by nothing.
             let runsOut = wheel.budgeted.minorUnits * day.day / wheel.spent.minorUnits
             let date = calendar.date(byAdding: .day, value: runsOut - 1, to: day.start) ?? day.start
             let style = Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
