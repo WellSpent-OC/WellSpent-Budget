@@ -182,7 +182,7 @@ iphone-ui-test-build: iphone-project
 # Mac's screen is never taken. The tests that sign in read the same four
 # WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and skip
 # without them, and run in light only: staging allows 10 sign-ins in 15 minutes
-# from one place, a signed-in run takes 3, and the local tests already draw
+# from one place, a signed-in run takes 7, and the local tests already draw
 # every screen in dark. The rest need no account and no server. If anything stops the
 # run, Control-C included, the simulator is still deleted. The simulator is the
 # newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
@@ -215,7 +215,8 @@ iphone-ui-test: iphone-ui-test-build
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
 			$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY)) \
-			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests; fi) \
+			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
 			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \

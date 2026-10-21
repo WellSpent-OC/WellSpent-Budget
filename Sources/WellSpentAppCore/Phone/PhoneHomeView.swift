@@ -32,7 +32,7 @@ struct PhoneHomeView: View {
                             .foregroundStyle(Palette.muted)
                     }
                     ForEach(section.budgets, id: \.budget.id) { summary in
-                        NavigationLink(value: summary.budget.id) {
+                        NavigationLink(value: PhoneRoute.budget(summary.budget.id)) {
                             PhoneBudgetRow(summary: summary)
                         }
                         .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
@@ -66,30 +66,37 @@ struct PhoneHomeView: View {
         .navigationTitle(AppEnvironment.current.appName)
     }
 
-    /// A group's name hides or shows its budgets. A long press holds its menu,
-    /// with hiding in it too. Not a Button, which takes a long press as a tap.
+    /// A tap on a group's name opens its page, and the arrow beside it hides
+    /// or shows its budgets. A long press holds the group's menu, with hiding
+    /// in it too. The name is not a Button, which takes a long press as a tap.
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 4) {
             // In capitals, as on the Mac and in the design.
             Text(section.title.uppercased())
-            Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
-                .font(.caption2.weight(.semibold))
+                .contentShape(Rectangle())
+                .onTapGesture { screen.openPage(of: section.group.id) }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+            } label: {
+                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: 32, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(section.toggleHelp)
+            .accessibilityIdentifier(AccessibilityID.sidebarGroupToggle(section.group.name))
             Spacer()
         }
         .foregroundStyle(Palette.muted)
         .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
-        }
         .contextMenu {
             PhoneMenu(parts: screen.groupMenu(section.group), perform: perform)
             Divider()
             Button(section.toggleHelp) { screen.toggle(section.group.id) }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint(section.toggleHelp)
-        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
     }
 
     /// The group's New Budget, when its menu offers one.
@@ -156,7 +163,7 @@ struct PhoneHomeView: View {
 
     /// Add Budget first, then the rarer ones.
     private var addItems: [MainScreen.MenuItem] {
-        ([screen.addButton] + screen.addMenu).filter(\.action.isOnThePhone)
+        [screen.addButton] + screen.addMenu
     }
 
     /// Why the last sync failed, or that one is running, or where the budgets

@@ -172,12 +172,19 @@ final class PhoneTestApp {
     /// field with Paste from the field's own menu, the way a person pastes on
     /// a phone. The pasteboard is emptied again after.
     func paste(_ text: String, into identifier: String) {
+        UIPasteboard.general.string = text
+        pasteCopied(into: identifier)
+    }
+
+    /// Pastes whatever was copied, such as a link copied in the share sheet,
+    /// into an empty field with Paste from the field's own menu. The
+    /// pasteboard is emptied after.
+    func pasteCopied(into identifier: String) {
         let field = element(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
         waitUntilHittable(field, identifier)
         field.tap()
         clear(field)
-        UIPasteboard.general.string = text
         field.tap()
         let paste = app.menuItems["Paste"].firstMatch
         if !paste.waitForExistence(timeout: 3) {
@@ -186,6 +193,44 @@ final class PhoneTestApp {
         XCTAssertTrue(paste.waitForExistence(timeout: 5), "the field's menu shows no Paste. On screen: \(visibleButtons())")
         paste.tap()
         UIPasteboard.general.items = []
+    }
+
+    /// Copy, in the iPhone's own share sheet, once it has slid up. The
+    /// share sheet draws Copy as a button or a cell, by iOS version.
+    func copyInShareSheet() {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            for candidate in [app.buttons["Copy"], app.cells["Copy"]] where candidate.firstMatch.exists {
+                let copy = candidate.firstMatch
+                if copy.isHittable {
+                    copy.tap()
+                    return
+                }
+            }
+            _ = app.buttons["Copy"].waitForExistence(timeout: 0.5)
+        }
+        XCTFail("the share sheet shows no Copy. On screen: \(visibleButtons())")
+    }
+
+    /// A tap on a link, as in Messages: the system hands it to the copy of
+    /// the app already running. Not XCUIApplication.open(_:), which may start
+    /// a fresh copy: a test run keeps its keys in memory only, so that copy
+    /// would have no session. iOS may ask first whether to open the app.
+    func open(link: String) {
+        guard let url = URL(string: link) else {
+            XCTFail("\(link) is not a link")
+            return
+        }
+        XCUIDevice.shared.system.open(url)
+        let ask = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
+        if ask.waitForExistence(timeout: 3) { ask.tap() }
+    }
+
+    /// A tap on a group's name on Home, which opens its page.
+    func openGroupPage(named name: String) {
+        let header = scrollTo(AccessibilityID.sidebarGroup(name))
+        XCTAssertTrue(header.exists, "no group called \(name) on Home. On screen: \(visibleTexts())")
+        tap(AccessibilityID.sidebarGroup(name))
     }
 
     /// A control inside a sheet exists before the sheet has finished sliding

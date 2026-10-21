@@ -136,6 +136,14 @@ public enum AccessibilityID {
     public static func groupRemove(_ name: String) -> String { "group.remove.\(name)" }
     /// The quiet line at the top after a removal.
     public static let groupRemoved = "group.removed"
+    /// A person's row on a phone, which opens their page, by the name the row
+    /// shows.
+    public static func groupPerson(_ name: String) -> String { "group.person.\(name)" }
+    /// The group's menu under ⋯ on a phone's group page.
+    public static let groupMenu = "group.menu"
+    /// The arrow beside a group's name on a phone's Home, which hides or
+    /// shows its budgets. The name itself opens the group's page.
+    public static func sidebarGroupToggle(_ name: String) -> String { "sidebar.group.toggle.\(name)" }
 
     // MARK: The invitation page
 

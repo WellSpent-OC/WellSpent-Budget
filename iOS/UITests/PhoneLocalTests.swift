@@ -183,6 +183,83 @@ final class PhoneLocalTests: XCTestCase {
     }
 
     /// "Oct 1", the way a budget's count line names the start of the month.
+    @MainActor
+    func testAGroupsPageAndJoiningWhileSignedOut() throws {
+        let run = launched()
+        let household = AccessibilityID.sidebarGroup("Household")
+        XCTAssertTrue(run.element(household).waitForExistence(timeout: 10), "no Household")
+
+        // Scenario PAGE-05
+        // 1. The arrow beside a group's name hides its budgets, and shows
+        // them again.
+        run.tap(AccessibilityID.sidebarGroupToggle("Household"))
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarBudget("Groceries")), until: "exists == false",
+                               timeout: 10), "Groceries still shows")
+        run.tap(AccessibilityID.sidebarGroupToggle("Household"))
+        XCTAssertTrue(run.element(AccessibilityID.sidebarBudget("Groceries")).waitForExistence(timeout: 10),
+                      "Groceries did not come back")
+
+        // Scenario PAGE-01, PAGE-07
+        // 2. A tap on the group's name opens its page. Signed out, it says
+        // only that it is not shared, and lists nobody.
+        run.openGroupPage(named: "Household")
+        let summary = run.element(AccessibilityID.groupSummary)
+        XCTAssertTrue(summary.waitForExistence(timeout: 10), "no page. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(summary.label, MembersScreen.Words.notShared)
+        XCTAssertFalse(run.text(MembersScreen.Words.people).exists, "the page lists people")
+        XCTAssertFalse(run.element(AccessibilityID.groupLeave).exists, "the page offers Leave Group")
+
+        // Scenario PAGE-13, SHARE-04
+        // 3. Invite Someone opens the Share sheet, which says to sign in
+        // first, and Create Link stays dimmed even with a name typed. Cancel
+        // goes back to the page.
+        run.tap(AccessibilityID.groupInvite)
+        XCTAssertTrue(run.text(ShareScreen.Words.shareTitle("Household")).waitForExistence(timeout: 10),
+                      "no Share sheet. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.text(ShareScreen.Words.signInToShare).exists, "no sign-in notice")
+        run.type("Robin", into: AccessibilityID.shareName)
+        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Create Link is not dimmed")
+        run.tap(AccessibilityID.shareCancel)
+        XCTAssertTrue(run.wait(for: run.text(ShareScreen.Words.shareTitle("Household")), until: "exists == false",
+                               timeout: 10), "the Share sheet did not close")
+        XCTAssertTrue(summary.exists, "the page closed with the sheet")
+
+        // 4. Back goes Home.
+        run.goBack()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+
+        // Scenario SHARE-08
+        // 5. Join a Group says when a pasted link is cut short, and when it is
+        // the other app's.
+        run.openAddMenu()
+        run.tapMenuItem(MainScreen.Words.join)
+        run.paste("wellspent-staging://join#s=abc", into: AccessibilityID.joinLink)
+        XCTAssertTrue(run.text(JoinScreen.Words.notWhole).waitForExistence(timeout: 10),
+                      "no cut-short notice. On screen: \(run.visibleTexts())")
+        run.paste("wellspent://join#s=abc", into: AccessibilityID.joinLink)
+        XCTAssertTrue(run.text(JoinScreen.Words.otherApp(AppEnvironment.live.appName)).waitForExistence(timeout: 10),
+                      "no other-app notice. On screen: \(run.visibleTexts())")
+
+        // Scenario SHARE-09
+        // 6. Signed out, it says joining needs an account, and Sign in opens
+        // the account sheet in its place.
+        XCTAssertTrue(run.text(JoinScreen.Words.signInToJoin).exists, "no sign-in notice")
+        XCTAssertFalse(run.button(AccessibilityID.joinJoin).isEnabled, "Join is not dimmed")
+        run.app.buttons[JoinScreen.Words.signIn].firstMatch.tap()
+        XCTAssertTrue(run.element(AccessibilityID.accountEmail).waitForExistence(timeout: 10),
+                      "no account sheet. On screen: \(run.visibleTexts())")
+        run.tap(AccessibilityID.accountClose)
+
+        // Scenario CLICK-08
+        // 7. A tapped link cut short opens a page that says part of it is
+        // missing. Back takes the page down.
+        run.open(link: "wellspent-staging://join#s=abc")
+        XCTAssertTrue(run.text(JoinScreen.Words.notWhole).waitForExistence(timeout: 10),
+                      "no page for the link. On screen: \(run.visibleTexts())")
+        run.goBack()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+    }
+
     private static func startOfMonth() -> String {
         let calendar = Calendar.current
         let start = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
