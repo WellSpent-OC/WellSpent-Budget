@@ -18,22 +18,26 @@ struct PhoneOpenedEntrySheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    if let top = editor.topLine {
-                        Text(top)
-                            .font(.footnote)
-                            .foregroundStyle(Palette.muted)
-                            .accessibilityIdentifier(AccessibilityID.entryTopLine)
+                // Only when there is a line to show: someone's own entry has
+                // neither, and an empty section would leave a gap.
+                if editor.topLine != nil || editor.noticeLine != nil {
+                    Section {
+                        if let top = editor.topLine {
+                            Text(top)
+                                .font(.footnote)
+                                .foregroundStyle(Palette.muted)
+                                .accessibilityIdentifier(AccessibilityID.entryTopLine)
+                        }
+                        if let notice = editor.noticeLine {
+                            Text(notice)
+                                .font(.footnote)
+                                .foregroundStyle(Palette.ink)
+                                .accessibilityIdentifier(AccessibilityID.entryNoticeLine)
+                        }
                     }
-                    if let notice = editor.noticeLine {
-                        Text(notice)
-                            .font(.footnote)
-                            .foregroundStyle(Palette.ink)
-                            .accessibilityIdentifier(AccessibilityID.entryNoticeLine)
-                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
                 }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
 
                 if editor.isReadOnly {
                     details
