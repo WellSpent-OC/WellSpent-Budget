@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | - | - | - |
 | Mac | 138 | 45 |
 | Linux | 131 | 0 |
-| iPhone | 129 | 47 |
+| iPhone | 129 | 48 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -207,7 +207,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, iPhone |
 | PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | iPhone |
 | PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | None yet |
-| PAGE-16 | The page stays open until its own group goes | Mac, Linux | iPhone |
+| PAGE-16 | The page stays open until its own group goes | Mac, Linux | None yet |
 | PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | None yet |
 
 ### [ClickToJoin.md](ClickToJoin.md)
@@ -226,7 +226,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | CLICK-10 | A link to a group you are in already | Mac, Linux, iPhone | None yet |
 | CLICK-11 | Another link replaces the page | Mac, Linux, iPhone | None yet |
 | CLICK-12 | Picking a budget or a group takes the page down | Mac, Linux, iPhone | None yet |
-| CLICK-13 | A link from the other app says which app it is for | Mac, Linux, iPhone | None yet |
+| CLICK-13 | A link from the other app says which app it is for | Mac, Linux, iPhone | iPhone |
 
 ### [Paste.md](Paste.md)
 
@@ -234,7 +234,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, and the iPhone's in `iOS/UIT
 | - | - | - | - |
 | PASTE-01 | Paste puts copied text into a field | Mac, Linux, iPhone | Mac, iPhone |
 | PASTE-02 | Sign in by pasting the email and the password | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-03 | Paste an invite link to join a group | Mac, Linux, iPhone | Mac |
+| PASTE-03 | Paste an invite link to join a group | Mac, Linux, iPhone | Mac, iPhone |
 | PASTE-04 | Select all, then typing replaces the whole field | Mac, Linux, iPhone | Mac |
 | PASTE-05 | Copy, then paste, brings the copied words back | Mac, Linux, iPhone | Mac |
 | PASTE-06 | Cut takes the words out, and paste puts them back | Mac, Linux, iPhone | None yet |

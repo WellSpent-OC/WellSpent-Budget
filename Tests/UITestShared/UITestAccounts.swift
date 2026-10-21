@@ -103,10 +103,10 @@ final class SecondAccount {
     }
 
     /// A group of the second person's own, with one budget and one entry in
-    /// it, shared with a link that invites at `role` and names them as
-    /// `myName`. Everything is sent before the link comes back.
+    /// it, shared with a link that invites at `role`, shows `history`, and
+    /// names them as `myName`. Everything is sent before the link comes back.
     func shareNewGroup(_ name: String, budget: String, entry merchant: String, amount: Money,
-                       myName: String, role: InviteRole) async throws -> InviteLink {
+                       myName: String, role: InviteRole, history: HistoryAccess = .all) async throws -> InviteLink {
         let model = AppModel(store: sync.store)
         guard let group = model.addGroup(named: name),
               let budgetID = model.addBudget(named: budget, limit: Money(minorUnits: 50_000), in: group) else {
@@ -115,7 +115,7 @@ final class SecondAccount {
         model.selectedBudget = budgetID
         model.addTransaction(merchant: merchant, amount: amount, date: Date(), note: "")
         if let problem = model.errorMessage { throw UITestError("the second account could not add \(merchant): \(problem)") }
-        let link = try await sync.share(group: group, groupName: name, level: role.level, historyAccess: .all,
+        let link = try await sync.share(group: group, groupName: name, level: role.level, historyAccess: history,
                                         myName: myName)
         try await syncAll()
         return link

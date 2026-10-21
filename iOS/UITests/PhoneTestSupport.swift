@@ -195,6 +195,30 @@ final class PhoneTestApp {
         UIPasteboard.general.items = []
     }
 
+    /// Pulls Home down and waits for the sync it starts to end, so every
+    /// change made so far is on the server.
+    func syncAndWait() {
+        pullDown()
+        Thread.sleep(forTimeInterval: 1)
+        let done = text(SyncWording.footer(signedIn: true, device: Self.device))
+        XCTAssertTrue(wait(for: done, until: "exists == true", timeout: 30),
+                      "the sync did not end. On screen: \(visibleTexts())")
+    }
+
+    /// Closes a menu that is open, with a tap beside it, as a person does.
+    func dismissMenu() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.6)).tap()
+        _ = app.collectionViews.firstMatch.waitForExistence(timeout: 2)
+    }
+
+    /// Closes the iPhone's own share sheet without sending anything.
+    func closeShareSheetWithoutSending() {
+        let close = app.buttons["Close"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 20), "the share sheet has no Close. On screen: \(visibleButtons())")
+        close.tap()
+        XCTAssertTrue(wait(for: close, until: "exists == false", timeout: 10), "the share sheet stayed")
+    }
+
     /// Copy, in the iPhone's own share sheet, once it has slid up. The
     /// share sheet draws Copy as a button or a cell, by iOS version.
     func copyInShareSheet() {
@@ -226,8 +250,10 @@ final class PhoneTestApp {
         if ask.waitForExistence(timeout: 3) { ask.tap() }
     }
 
-    /// A tap on a group's name on Home, which opens its page.
+    /// A tap on a group's name on Home, which opens its page. Home is
+    /// scrolled to the top first, since a list only scrolls down to it.
     func openGroupPage(named name: String) {
+        for _ in 0..<3 where !element(AccessibilityID.sidebarGroup(name)).exists { app.swipeDown() }
         let header = scrollTo(AccessibilityID.sidebarGroup(name))
         XCTAssertTrue(header.exists, "no group called \(name) on Home. On screen: \(visibleTexts())")
         tap(AccessibilityID.sidebarGroup(name))
@@ -341,7 +367,9 @@ final class PhoneTestApp {
         }
     }
 
-    /// Sign out, from Account at the foot of Home. Best effort.
+    /// Sign out, from Account at the foot of Home. A step of its own, so it
+    /// fails the test when it cannot. Changes not sent yet are not sent: wait
+    /// for the sync first (`syncAndWait()`).
     func signOut() {
         guard app.state == .runningForeground else { return }
         let account = button(AccessibilityID.toolbarAccount)

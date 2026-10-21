@@ -182,7 +182,6 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(row.label.contains("-$15.00"), "Home does not show -$15.00: \(row.label)")
     }
 
-    /// "Oct 1", the way a budget's count line names the start of the month.
     @MainActor
     func testAGroupsPageAndJoiningWhileSignedOut() throws {
         let run = launched()
@@ -228,7 +227,7 @@ final class PhoneLocalTests: XCTestCase {
         run.goBack()
         XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
 
-        // Scenario SHARE-08
+        // Scenario SHARE-08, CLICK-13
         // 5. Join a Group says when a pasted link is cut short, and when it is
         // the other app's.
         run.openAddMenu()
@@ -260,6 +259,7 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
     }
 
+    /// "Oct 1", the way a budget's count line names the start of the month.
     private static func startOfMonth() -> String {
         let calendar = Calendar.current
         let start = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()

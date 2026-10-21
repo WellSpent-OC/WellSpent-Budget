@@ -7,15 +7,18 @@ import WellSpentModel
 import WellSpentSync
 
 /// Sharing on a phone, signed in: Robin shares a group through the iPhone's
-/// share sheet and manages who is in it, and Robin taps a link Leslie sent
-/// and joins her group, then leaves it. Leslie has no window: she is a
-/// coordinator inside this process, against the same staging server.
+/// share sheet, joins one of Leslie's through Join a Group, and manages who
+/// is in his own. Then Robin taps a link Leslie sent, joins her group, and
+/// leaves it. Leslie has no window: she is a coordinator inside this process,
+/// against the same staging server.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestAccounts.swift)
 /// and skips without them. Both accounts must exist on staging with their
 /// addresses confirmed. Every run makes groups of its own, named with the
-/// time, and deletes them at the end. Other runs may share the accounts at
-/// the same time, so it never assumes the groups it sees are its own.
+/// time. At the end it waits until the phone's changes are on the server,
+/// deletes the groups and signs every session out. Other runs may share the
+/// accounts at the same time, so it never assumes the groups it sees are its
+/// own.
 final class PhoneSharingTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
 
@@ -41,7 +44,9 @@ final class PhoneSharingTests: XCTestCase {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         let leslie = try SecondAccount(server: accounts.server)
-        let groupName = SecondAccount.phoneRunPrefix + PhoneTestApp.stamp()
+        let stamp = PhoneTestApp.stamp()
+        let groupName = SecondAccount.phoneRunPrefix + stamp
+        let lesliesGroup = groupName + " Leslie"
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         XCTAssertTrue(run.element(AccessibilityID.toolbarAccount).waitForExistence(timeout: 10), "no Account")
@@ -65,24 +70,34 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertTrue(run.text(ShareScreen.Words.linkNote).exists)
         XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Create Link is not dimmed")
 
-        // Scenario SHARE-02, SHARE-03
+        // Scenario SHARE-02
         // 2. Create Link makes the link and opens the iPhone's share sheet
-        // with it. Copy puts it on the pasteboard, and the Share sheet
-        // closes with the share sheet.
+        // with it. Closed without sending, the Share sheet stays and says the
+        // link works once and expires in 7 days.
         run.type("Robin", into: AccessibilityID.shareName)
         run.tap(AccessibilityID.shareCreate)
+        run.closeShareSheetWithoutSending()
+        XCTAssertTrue(run.text(SyncWording.inviteNote).waitForExistence(timeout: 10),
+                      "the sheet does not say the link works once. On screen: \(run.visibleTexts())")
+
+        // Scenario SHARE-03
+        // 3. Send opens the share sheet again for the same link. Copy puts it
+        // on the pasteboard, and the Share sheet closes with the share sheet.
+        let send = run.button(AccessibilityID.shareCreate)
+        XCTAssertEqual(send.label, ShareScreen.Words.send)
+        send.tap()
         run.copyInShareSheet()
         XCTAssertTrue(run.wait(for: run.text(ShareScreen.Words.shareTitle(groupName)), until: "exists == false",
                                timeout: 10), "the Share sheet stayed after Copy")
 
-        // Scenario SHARE-07
-        // 3. Pasted into Join a Group, the link says who invited whom to
-        // what. Leslie joins with it.
+        // Scenario PASTE-03
+        // 4. Pasted into Join a Group, the field holds the whole link, and
+        // the sheet says who invited whom to what. Leslie joins with it.
         run.openAddMenu()
         run.tapMenuItem(MainScreen.Words.join)
         run.pasteCopied(into: AccessibilityID.joinLink)
         let pasted = (run.element(AccessibilityID.joinLink).value as? String) ?? ""
-        let link = try XCTUnwrap(InviteLink(parsing: pasted), "the copied text is not an invite link")
+        let link = try XCTUnwrap(InviteLink(parsing: pasted), "the copied text is not a whole invite link")
         XCTAssertEqual(link.scheme, InviteLink.stagingScheme)
         XCTAssertTrue(run.text("Robin invited you to \u{201C}\(groupName)\u{201D}.").waitForExistence(timeout: 10),
                       "the pasted link does not say who invited whom. On screen: \(run.visibleTexts())")
@@ -91,8 +106,25 @@ final class PhoneSharingTests: XCTestCase {
         await leslie.deleteLeftoverRuns()
         _ = try await leslie.join(link, as: "Leslie")
 
+        // Scenario SHARE-07
+        // 5. A link Leslie sent, pasted into Join a Group with a name, joins
+        // her group: the sheet closes and the group is on Home.
+        let lesliesLink = try await leslie.shareNewGroup(lesliesGroup, budget: "Costs \(stamp)", entry: "Costco",
+                                                         amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
+        run.openAddMenu()
+        run.tapMenuItem(MainScreen.Words.join)
+        run.paste(lesliesLink.url, into: AccessibilityID.joinLink)
+        XCTAssertTrue(run.text("Leslie invited you to \u{201C}\(lesliesGroup)\u{201D}.").waitForExistence(timeout: 10),
+                      "the pasted link does not say who invited whom. On screen: \(run.visibleTexts())")
+        run.type("Robin", into: AccessibilityID.joinName)
+        run.tap(AccessibilityID.joinJoin)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.joinLink), until: "exists == false", timeout: 20),
+                      "Join a Group stayed. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.scrollTo(AccessibilityID.sidebarGroup(lesliesGroup)).exists,
+                      "her group is not on Home. On screen: \(run.visibleTexts())")
+
         // Scenario PAGE-01, PAGE-06, PAGE-08, PAGE-09
-        // 4. A tap on the group's name opens its page. It says it is shared
+        // 6. A tap on the group's name opens its page. It says it is shared
         // by two, made by Robin, and lists him first as the owner, then
         // Leslie at Add. Invite Someone shows, and Leave Group does not.
         run.openGroupPage(named: groupName)
@@ -111,7 +143,7 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.groupLeave).exists, "the owner is offered Leave Group")
 
         // Scenario PAGE-10
-        // 5. A tap on Leslie opens her page: the four levels, a tick on Add.
+        // 7. A tap on Leslie opens her page: the four levels, a tick on Add.
         // A tap on View moves the tick, and her row says what View does.
         run.tap(AccessibilityID.groupPerson("Leslie"))
         for level in MembershipRules.grantable.sorted() {
@@ -127,22 +159,23 @@ final class PhoneSharingTests: XCTestCase {
                       "her row does not say what View does: \(leslieRow.label)")
 
         // Scenario SHARE-16
-        // 6. Remove on her page asks from the bottom of the screen. Once
-        // removed, the page says so, and that it is no longer shared.
+        // 8. Remove on her page asks from the bottom of the screen. Once
+        // removed, her page closes, and the group's page says so, and that
+        // it is no longer shared.
         run.tap(AccessibilityID.groupPerson("Leslie"))
         run.tap(AccessibilityID.groupRemove("Leslie"))
         XCTAssertTrue(run.text(MembersScreen.Words.removeTitle("Leslie")).waitForExistence(timeout: 5),
                       "no question. On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.questionButton(MembersScreen.Words.removeButton)).tap()
-        XCTAssertTrue(run.element(AccessibilityID.groupRemoved).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.element(AccessibilityID.groupRemoved).waitForExistence(timeout: 20),
                       "no line saying she was removed. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.element(AccessibilityID.groupRemoved).label, MembersScreen.Words.removed("Leslie"))
         let alone = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.madeByYou])
         XCTAssertTrue(run.wait(for: summary, until: "label == '\(alone)'", timeout: 10),
                       "the page still says it is shared: \(summary.label)")
 
-        // Scenario PAGE-16
-        // 7. Delete under the page's ⋯ asks first, then the group and its
+        // Scenario BUDGET-11
+        // 9. Delete under the page's ⋯ asks first, then the group and its
         // page go, back to Home.
         run.tap(AccessibilityID.groupMenu)
         run.tapMenuItem(MainScreen.Words.delete)
@@ -151,6 +184,12 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(groupName)), until: "exists == false",
                                timeout: 10), "the group is still on Home")
 
+        // 10. Tidy: the delete reaches the server before signing out, which
+        // sends nothing. Leslie's group goes for everyone, and every session
+        // ends.
+        run.syncAndWait()
+        run.signOut()
+        await leslie.deleteGroup(named: lesliesGroup)
         await leslie.cleanUp()
     }
 
@@ -162,25 +201,28 @@ final class PhoneSharingTests: XCTestCase {
         let leslie = try SecondAccount(server: accounts.server)
         let stamp = PhoneTestApp.stamp()
         let groupName = SecondAccount.phoneRunPrefix + stamp
+        let budgetName = "Costs \(stamp)"
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         XCTAssertTrue(run.element(AccessibilityID.toolbarAccount).waitForExistence(timeout: 10), "no Account")
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await leslie.deleteLeftoverRuns()
-        let link = try await leslie.shareNewGroup(groupName, budget: "Costs \(stamp)", entry: "Costco",
-                                                  amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
+        let link = try await leslie.shareNewGroup(groupName, budget: budgetName, entry: "Costco",
+                                                  amount: Money(minorUnits: 9900), myName: "Leslie", role: .view,
+                                                  history: .fromNow)
 
         // Scenario CLICK-01, CLICK-03
         // 1. A tap on Leslie's link opens its invitation page: who invited
-        // Robin to what, then what the server says it offers. Join stays
-        // dimmed until there is a name, and there is no Decline.
+        // Robin to what, then what the server says it offers, here View and
+        // only what is added from now on. Join stays dimmed until there is a
+        // name, and there is no Decline.
         run.open(link: link.url)
         XCTAssertTrue(run.text("Leslie invited you to \u{201C}\(groupName)\u{201D}.").waitForExistence(timeout: 15),
                       "no invitation page. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text(JoinScreen.Words.joinsAt(InviteRole.add.title)).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.text(JoinScreen.Words.joinsAt(InviteRole.view.title)).waitForExistence(timeout: 15),
                       "no level from the server. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text(InviteRole.add.explanation).exists)
-        XCTAssertTrue(run.text(JoinScreen.Words.sees(.all)).exists)
+        XCTAssertTrue(run.text(InviteRole.view.explanation).exists, "no line about what View lets them do")
+        XCTAssertTrue(run.text(JoinScreen.Words.sees(.fromNow)).exists, "no line about what they would see")
         XCTAssertFalse(run.app.buttons["Decline"].exists, "the page offers Decline")
         let join = run.button(AccessibilityID.invitationJoin)
         XCTAssertTrue(join.waitForExistence(timeout: 10),
@@ -200,19 +242,33 @@ final class PhoneSharingTests: XCTestCase {
                       "the page does not say Leslie shared it with two: \(summary.label)")
 
         // Scenario PAGE-12
-        // 3. At Add, the page shows levels only: no one to tap, no Invite
+        // 3. At View, the page shows levels only: no one to tap, no Invite
         // Someone, and Leave Group at the end.
         let robinRow = run.element(AccessibilityID.groupPerson("Robin"))
-        XCTAssertTrue(robinRow.label.contains(MembersScreen.Words.levelTitle(.write)), "Robin is not at Add")
+        XCTAssertTrue(robinRow.label.contains(MembersScreen.Words.levelTitle(.read)), "Robin is not at View")
         XCTAssertNotEqual(robinRow.elementType, .button, "Robin's own row opens a page")
         XCTAssertNotEqual(run.element(AccessibilityID.groupPerson("Leslie")).elementType, .button,
                           "Leslie's row opens a page")
-        XCTAssertFalse(run.element(AccessibilityID.groupInvite).exists, "Add is offered Invite Someone")
+        XCTAssertFalse(run.element(AccessibilityID.groupInvite).exists, "View is offered Invite Someone")
         XCTAssertTrue(run.element(AccessibilityID.groupLeave).exists, "no Leave Group")
 
         // Scenario PAGE-14, SHARE-15
-        // 4. Leave Group asks first, then the group and its page go from the
-        // phone. Leslie keeps it.
+        // 4. Leslie makes Robin an admin, so the group's menu offers him
+        // Delete. Leave Group still asks first, and leaves: the group and its
+        // page go from the phone, and Leslie keeps it, with what is in it.
+        let model = AppModel(store: leslie.sync.store)
+        let group = try XCTUnwrap(model.groups.first { $0.name == groupName }, "Leslie has no group").id
+        await leslie.sync.refresh(group)
+        let robin = try XCTUnwrap(leslie.sync.members(of: group).keys.first { $0 != leslie.sync.userID },
+                                  "Leslie does not see Robin in her group")
+        try await leslie.sync.setLevel(.admin, of: robin, in: group)
+        run.pullDown()
+        XCTAssertTrue(run.wait(for: robinRow, until: "label CONTAINS '\(MembersScreen.Words.levelTitle(.admin))'",
+                               timeout: 20), "Robin is not an admin on the phone: \(robinRow.label)")
+        run.tap(AccessibilityID.groupMenu)
+        XCTAssertTrue(run.menuItem(MainScreen.Words.delete).waitForExistence(timeout: 5),
+                      "the group's menu does not offer Delete. On screen: \(run.visibleButtons())")
+        run.dismissMenu()
         run.tap(AccessibilityID.groupLeave)
         XCTAssertTrue(run.text(MembersScreen.Words.leaveTitle(groupName)).waitForExistence(timeout: 5),
                       "no question. On screen: \(run.visibleTexts())")
@@ -220,10 +276,20 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(groupName)), until: "exists == false",
                                timeout: 10), "the group is still on Home")
-        try await leslie.syncAll()
-        XCTAssertNotNil(AppModel(store: leslie.sync.store).groups.first { $0.name == groupName },
-                        "Leslie lost the group")
+        var others = leslie.sync.members(of: group).count
+        let deadline = Date().addingTimeInterval(30)
+        while others > 1, Date() < deadline {
+            try await Task.sleep(for: .seconds(1))
+            await leslie.sync.refresh(group)
+            others = leslie.sync.members(of: group).count
+        }
+        XCTAssertEqual(others, 1, "the server still lists Robin in Leslie's group")
+        let kept = try await leslie.waitFor(group: groupName, budget: budgetName, merchant: "Costco", timeout: 15)
+        XCTAssertTrue(kept, "Leslie lost her group, its budget or Costco")
 
+        // 5. Tidy: the leave is on the server, as Leslie's list shows. Her
+        // group goes for everyone, and every session ends.
+        run.signOut()
         await leslie.deleteGroup(named: groupName)
         await leslie.cleanUp()
     }
