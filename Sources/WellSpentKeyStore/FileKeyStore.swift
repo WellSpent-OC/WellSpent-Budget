@@ -1,3 +1,9 @@
+// Linux only. Its passphrase key comes from scrypt in swift-crypto's
+// CryptoExtras, which brings BoringSSL, and the Mac and iPhone apps keep their
+// keys in the keychain, so they build without either. os(Linux) matches
+// Package.swift's condition exactly, where canImport would also find a
+// module left over from an earlier build.
+#if os(Linux)
 import Foundation
 #if canImport(Darwin)
 import Darwin
@@ -189,3 +195,4 @@ public final class FileKeyStore: KeyStore, @unchecked Sendable {
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 }
+#endif

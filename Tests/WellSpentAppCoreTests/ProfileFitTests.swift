@@ -85,11 +85,6 @@ struct ProfileFitTests {
 
     // MARK: - Running the script
 
-    struct Result {
-        let status: Int32
-        let said: String
-    }
-
     /// As Apple writes a Mac App Store profile.
     static func fittingProfile() -> [String: Any] {
         [
@@ -117,7 +112,7 @@ struct ProfileFitTests {
 
     static func check(profile changeProfile: (inout [String: Any]) -> Void = { _ in },
                       claims changeClaims: (inout [String: Any]) -> Void = { _ in },
-                      signedBy signer: Data = certificate) throws -> Result {
+                      signedBy signer: Data = certificate) throws -> ScriptRun {
         var profile = fittingProfile()
         changeProfile(&profile)
         var claims = fittingClaims()
@@ -133,21 +128,8 @@ struct ProfileFitTests {
         try PropertyListSerialization.data(fromPropertyList: profile, format: .xml, options: 0).write(to: profileFile)
         try PropertyListSerialization.data(fromPropertyList: claims, format: .xml, options: 0).write(to: claimsFile)
         try signer.write(to: certificateFile)
-
-        let script = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("scripts/profile-fit.sh")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = [script.path, "--parts", profileFile.path, claimsFile.path, team,
-                             certificateFile.path, now]
-        let errors = Pipe()
-        process.standardError = errors
-        process.standardOutput = Pipe()
-        try process.run()
-        let said = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        process.waitUntilExit()
-        return Result(status: process.terminationStatus, said: said)
+        return try ScriptRun.run("profile-fit.sh", ["--parts", profileFile.path, claimsFile.path, team,
+                                                    certificateFile.path, now])
     }
 
     static func date(_ text: String) -> Date {

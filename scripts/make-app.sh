@@ -118,9 +118,14 @@ fi
 
 # WellSpentEnvironment is what the app reads to decide which build it is. Anything
 # but "live" there, or no key at all, makes it staging. App Store Connect refuses
-# an upload without LSApplicationCategoryType. CFBundleURLTypes has macOS open the
-# app for a click on one of this build's invite links, which puts up the invitation
-# page. Each build claims its own type, AppEnvironment.inviteScheme, so a link opens
+# an upload without LSApplicationCategoryType. It also asks each upload whether
+# the app uses encryption that export rules do not exempt, and holds the build
+# until someone answers. ITSAppUsesNonExemptEncryption answers no, so an upload
+# does not wait. The answer holds while the app's code has Apple's encryption
+# only. The release check looks for encryption code that is not Apple's before
+# an upload (crypto-check.sh). CFBundleURLTypes has macOS open the app for a
+# click on one of this build's invite links, which puts up the invitation page.
+# Each build claims its own type, AppEnvironment.inviteScheme, so a link opens
 # the build whose server made it. Both signings use this one file, which a test
 # checks.
 cat > "$APP/Contents/Info.plist" <<EOF
@@ -148,6 +153,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
         </dict>
     </array>
     <key>LSApplicationCategoryType</key><string>public.app-category.finance</string>
+    <key>ITSAppUsesNonExemptEncryption</key><false/>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSHighResolutionCapable</key><true/>

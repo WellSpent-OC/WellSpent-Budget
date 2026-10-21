@@ -1,6 +1,5 @@
 import Foundation
 import Crypto
-import CryptoExtras
 import WellSpentCrypto
 
 /// What a device keeps between launches.
