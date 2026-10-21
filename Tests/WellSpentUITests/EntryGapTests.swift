@@ -19,7 +19,8 @@ import WellSpentStore
 /// Each test launches the app in the region it needs, whatever region this
 /// Mac is set to: the United States, which writes 12.50, or Germany, which
 /// writes 12,50. `-AppleLocale` sets it for the app alone, as a change of
-/// region in System Settings would.
+/// region in System Settings would. A line the test expects with a date in
+/// it is built in that same region, not in this Mac's.
 ///
 /// What needs someone else's change to arrive by sync is not here: a sync
 /// that leaves the Undo bar (EDIT-08), an Undo after a move down or after
@@ -131,7 +132,7 @@ final class EntryGapTests: XCTestCase {
         run.expectNoRow("Hilltop", "Cancel added it")
         run.expect(wheel: AccessibilityID.budgetWheel, reads: nothingSpent.wheel.spokenSummary, "after Cancel")
         run.expect(figures: nothingSpent.wheel.figures, "after Cancel")
-        let noneYet = try TestApp.countLine(nothingSpent)
+        let noneYet = try TestApp.countLine(nothingSpent, region: "en_US")
         XCTAssertTrue(run.listText(noneYet).waitForExistence(timeout: 5),
                       "no line saying \(noneYet) On screen: \(run.visibleTexts())")
 
@@ -220,7 +221,7 @@ final class EntryGapTests: XCTestCase {
         let groupName = "Entries \(stamp)", groceries = "Groceries \(stamp)"
         let lastMonth = try Self.twentyEighthOfLastMonth()
         let nothingSpent = TodaysBudget(limit: 50_000, spent: 0)
-        let noneThisPeriod = try TestApp.countLine(nothingSpent)
+        let noneThisPeriod = try TestApp.countLine(nothingSpent, region: "en_US")
 
         // 1. A group with Groceries, $500.00 a month, holding nothing.
         run.addGroup(named: groupName)
@@ -686,8 +687,12 @@ private extension TestApp {
 
     /// The line under a budget's wheel that counts its transactions this
     /// period, such as "0 transactions since Oct 1", from the shared code.
-    static func countLine(_ budget: TodaysBudget) throws -> String {
+    /// It is built in `region`, the one the app was launched in, so its date
+    /// reads as the app writes it whatever region this Mac is set to.
+    static func countLine(_ budget: TodaysBudget, region: String) throws -> String {
         let model = AppModel(store: Store(database: try WellSpentDatabase.inMemory()))
-        return BudgetScreen(summary: budget.summary, model: model, me: nil).countLine
+        return AppLocale.$override.withValue(Locale(identifier: region)) {
+            BudgetScreen(summary: budget.summary, model: model, me: nil).countLine
+        }
     }
 }
