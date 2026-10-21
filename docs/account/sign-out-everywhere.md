@@ -21,11 +21,14 @@ This signs out every device signed in to your account, this one too. Each device
 
 ## On an iPhone
 
-1. Tap **Account** at the bottom left of Home.
+1. ![A thumb taps Account at the bottom of Home](../assets/shots/sign-out-everywhere-iphone-1.svg)
+   Tap **Account** at the bottom left of Home.
 
-2. Tap **Sign out everywhere**.
+2. ![A thumb taps Sign out everywhere](../assets/shots/sign-out-everywhere-iphone-2.svg)
+   Tap **Sign out everywhere**.
 
-3. Tap **Sign Out Everywhere** in the question.
+3. ![A thumb taps Sign Out Everywhere in the question](../assets/shots/sign-out-everywhere-iphone-3.svg)
+   Tap **Sign Out Everywhere** in the question.
 
 ## If it doesn't work
 

@@ -20,9 +20,11 @@ Signing out works even with no internet.
 
 ## On an iPhone
 
-1. Tap **Account** at the bottom left of Home.
+1. ![A thumb taps Account at the bottom of Home](../assets/shots/sign-out-iphone-1.svg)
+   Tap **Account** at the bottom left of Home.
 
-2. Tap **Sign out**.
+2. ![A thumb taps Sign out](../assets/shots/sign-out-iphone-2.svg)
+   Tap **Sign out**.
 
    > You see **Kept on this iPhone only** at the bottom of Home.
 

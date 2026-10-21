@@ -43,19 +43,26 @@ Then sign in again on your other devices. Your budgets stay.
 
 ## On an iPhone
 
-1. Tap **Sign in** at the bottom left of Home.
+1. ![A thumb taps Sign in at the bottom of Home](../assets/shots/reset-a-forgotten-password-iphone-1.svg)
+   Tap **Sign in** at the bottom left of Home.
 
-2. Type your email in **Email**.
+2. ![A thumb types in Email](../assets/shots/reset-a-forgotten-password-iphone-2.svg)
+   Type your email in **Email**.
 
-3. Tap **Forgot your password?**
+3. ![A thumb taps Forgot your password](../assets/shots/reset-a-forgotten-password-iphone-3.svg)
+   Tap **Forgot your password?**
 
-4. Tap **Send code**.
+4. ![A thumb taps Send code](../assets/shots/reset-a-forgotten-password-iphone-4.svg)
+   Tap **Send code**.
 
-5. Open the email whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
+5. ![An email with the subject Reset your WellSpent password](../assets/shots/reset-a-forgotten-password-iphone-5.svg)
+   Open the email whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
 
-6. Type the code in **Code**, and a new password of at least 10 characters in **New password** and **Confirm password**.
+6. ![A thumb types the code and a new password](../assets/shots/reset-a-forgotten-password-iphone-6.svg)
+   Type the code in **Code**, and a new password of at least 10 characters in **New password** and **Confirm password**.
 
-7. Tap **Set password**.
+7. ![A thumb taps Set password](../assets/shots/reset-a-forgotten-password-iphone-7.svg)
+   Tap **Set password**.
 
 ## If it doesn't work
 

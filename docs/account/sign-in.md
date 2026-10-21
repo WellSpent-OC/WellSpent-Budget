@@ -26,13 +26,17 @@ Budgets made on this computer while signed out stay hidden while you're signed i
 
 ## On an iPhone
 
-1. Tap **Sign in** at the bottom left of Home.
+1. ![A thumb taps Sign in at the bottom of Home](../assets/shots/sign-in-iphone-1.svg)
+   Tap **Sign in** at the bottom left of Home.
 
-2. Type your email in **Email**.
+2. ![A thumb types in Email](../assets/shots/sign-in-iphone-2.svg)
+   Type your email in **Email**.
 
-3. Type your password in **Password**.
+3. ![A thumb types in Password](../assets/shots/sign-in-iphone-3.svg)
+   Type your password in **Password**.
 
-4. Tap **Sign in**.
+4. ![A thumb taps Sign in](../assets/shots/sign-in-iphone-4.svg)
+   Tap **Sign in**.
 
    > You see your account's budgets on Home.
 
