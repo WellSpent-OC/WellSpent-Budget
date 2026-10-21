@@ -36,6 +36,8 @@ final class PhoneEntryEditingTests: XCTestCase {
         return run
     }
 
+    /// One launch, with the bar's usual 10 seconds, for opening, changing,
+    /// moving and redating a transaction, and the bar going by itself.
     @MainActor
     func testATapOpensATransactionToChangeOrMoveIt() throws {
         let run = launched()
@@ -93,8 +95,22 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertTrue(run.shows("$49.50"), "what is spent is not $49.50. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("$50.50 left"), "what is left is not $50.50. On screen: \(run.visibleTexts())")
 
+        // Scenario EDIT-08
+        // 4. After a delete the bar stays a few seconds, then goes by itself,
+        // and the transaction stays deleted.
+        run.openEntry("Market")
+        run.tap(AccessibilityID.entryDelete)
+        run.answer(Self.question(deleting: "Market", cents: 950).confirmLabel)
+        run.expectNoSheet()
+        let bar = run.element(AccessibilityID.undoBar)
+        XCTAssertTrue(bar.waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.wait(for: bar, until: "exists == false", timeout: 3), "the bar went at once")
+        XCTAssertTrue(run.wait(for: bar, until: "exists == false", timeout: 25), "the bar stayed")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "Market came back")
+        XCTAssertTrue(run.shows("$60.00 left"), "the total still counts it. On screen: \(run.visibleTexts())")
+
         // Scenario EDIT-04
-        // 4. Budget offers the group's budgets only. Moved to Snacks, Hilltop
+        // 5. Budget offers the group's budgets only. Moved to Snacks, Hilltop
         // leaves Treats' list and total, and Snacks lists it and counts it.
         run.openEntry("Hilltop")
         run.tap(AccessibilityID.entryBudget)
@@ -109,13 +125,38 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Hilltop")), until: "exists == false",
                                timeout: 10), "Hilltop is still in Treats")
-        XCTAssertTrue(run.shows("$90.50 left"), "Treats' total still counts it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows("$100.00 left"), "Treats' total still counts it. On screen: \(run.visibleTexts())")
         run.goBack()
         run.scrollTo(AccessibilityID.sidebarBudget("Snacks"))
         run.openBudget(named: "Snacks")
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
                       "Snacks does not list Hilltop. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("$10.00 left"), "Snacks does not count it. On screen: \(run.visibleTexts())")
+
+        // Scenario EDIT-05
+        // 6. A date in last month says it moves the transaction out of this
+        // period, and back to today the line goes. Saved in last month, it
+        // leaves this period's list and total.
+        let today = Date()
+        let calendar = Calendar.current
+        let lastMonth = try XCTUnwrap(calendar.date(byAdding: .month, value: -1, to: today))
+        var fifteenth = calendar.dateComponents([.year, .month], from: lastMonth)
+        fifteenth.day = 15
+        let lastMonthsFifteenth = try XCTUnwrap(calendar.date(from: fifteenth))
+        let line = run.element(AccessibilityID.entryPeriodLine)
+        run.openEntry("Hilltop")
+        run.pickDate(lastMonthsFifteenth, showing: today)
+        XCTAssertTrue(line.waitForExistence(timeout: 5), "no line under the date. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(line.label, EntryEditor.Words.outOfPeriod)
+        run.pickDate(today, showing: lastMonthsFifteenth)
+        XCTAssertTrue(run.wait(for: line, until: "exists == false", timeout: 5), "the line stayed at today")
+        run.pickDate(lastMonthsFifteenth, showing: today)
+        XCTAssertTrue(line.waitForExistence(timeout: 5), "no line under the date. On screen: \(run.visibleTexts())")
+        run.tap(AccessibilityID.entrySave)
+        run.expectNoSheet()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Hilltop")), until: "exists == false",
+                               timeout: 10), "Hilltop is still in this period's list")
+        XCTAssertTrue(run.shows("$50.00 left"), "this period's total still counts it. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
@@ -227,59 +268,6 @@ final class PhoneEntryEditingTests: XCTestCase {
                       "Undo did not bring Kiosk back")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Bakery")).exists, "Bakery came back")
         XCTAssertTrue(run.shows("$88.50 left"), "the total is wrong. On screen: \(run.visibleTexts())")
-    }
-
-    @MainActor
-    func testTheUndoBarGoesAfterAboutTenSeconds() throws {
-        let run = launched()
-        run.addBudget(named: "Treats", amount: "100", inGroup: "Household")
-        run.addEntry(merchant: "Market", amount: "9.50")
-
-        // Scenario EDIT-08
-        // 1. The bar stays a few seconds after a delete, then goes by itself,
-        // and the transaction stays deleted.
-        run.openEntry("Market")
-        run.tap(AccessibilityID.entryDelete)
-        run.answer(Self.question(deleting: "Market", cents: 950).confirmLabel)
-        run.expectNoSheet()
-        let bar = run.element(AccessibilityID.undoBar)
-        XCTAssertTrue(bar.waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.wait(for: bar, until: "exists == false", timeout: 3), "the bar went at once")
-        XCTAssertTrue(run.wait(for: bar, until: "exists == false", timeout: 25), "the bar stayed")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "Market came back")
-        XCTAssertTrue(run.shows("$100.00 left"), "the total still counts it. On screen: \(run.visibleTexts())")
-    }
-
-    @MainActor
-    func testADateOutsideThisPeriodSaysSo() throws {
-        let run = launched()
-        run.addBudget(named: "Treats", amount: "100", inGroup: "Household")
-        run.addEntry(merchant: "Market", amount: "9.50")
-        let today = Date()
-        let calendar = Calendar.current
-        let lastMonth = try XCTUnwrap(calendar.date(byAdding: .month, value: -1, to: today))
-        var fifteenth = calendar.dateComponents([.year, .month], from: lastMonth)
-        fifteenth.day = 15
-        let lastMonthsFifteenth = try XCTUnwrap(calendar.date(from: fifteenth))
-        let line = run.element(AccessibilityID.entryPeriodLine)
-
-        // Scenario EDIT-05
-        // 1. A date in last month says it moves the transaction out of this
-        // period, and back to today the line goes. Saved in last month, it
-        // leaves this period's list and total.
-        run.openEntry("Market")
-        run.pickDate(lastMonthsFifteenth, showing: today)
-        XCTAssertTrue(line.waitForExistence(timeout: 5), "no line under the date. On screen: \(run.visibleTexts())")
-        XCTAssertEqual(line.label, EntryEditor.Words.outOfPeriod)
-        run.pickDate(today, showing: lastMonthsFifteenth)
-        XCTAssertTrue(run.wait(for: line, until: "exists == false", timeout: 5), "the line stayed at today")
-        run.pickDate(lastMonthsFifteenth, showing: today)
-        XCTAssertTrue(line.waitForExistence(timeout: 5), "no line under the date. On screen: \(run.visibleTexts())")
-        run.tap(AccessibilityID.entrySave)
-        run.expectNoSheet()
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryRow("Market")), until: "exists == false",
-                               timeout: 10), "Market is still in this period's list")
-        XCTAssertTrue(run.shows("$100.00 left"), "this period's total still counts it. On screen: \(run.visibleTexts())")
     }
 
     /// The question a delete asks, built from the shared words, for a

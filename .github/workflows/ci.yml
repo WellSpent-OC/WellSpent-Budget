@@ -390,12 +390,15 @@ jobs:
   # made for the run and deleted after. No window opens. The tests that need
   # no account run on every pull request. The signed-in one runs when the
   # staging test accounts are in this repository's secrets, and skips without
-  # them, as for a pull request from a fork.
+  # them, as for a pull request from a fork. A runner takes two to three times
+  # as long as a Mac at a desk, and the two looks run one after the other, so
+  # the job has 100 minutes. It stays one job, since the branch rules require
+  # it by this name.
   iphone-ui-test:
     name: iPhone UI test
     needs: unit-tests
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 100
     env:
       HAS_UI_TEST_ACCOUNTS: ${{ secrets.WELLSPENT_UI_TEST_EMAIL != '' && secrets.WELLSPENT_UI_TEST_EMAIL_2 != '' }}
     steps:
