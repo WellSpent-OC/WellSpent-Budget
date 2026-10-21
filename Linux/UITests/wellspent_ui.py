@@ -284,9 +284,30 @@ class App:
                 # goes when the test ends.
                 shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
                     if os.path.exists(os.path.join(self.home, "app.log")) else None
+                self._note_process(picture.replace(".png", "-process.txt"))
                 cause = f" ({last_error})" if last_error else ""
                 raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
             time.sleep(0.2)
+
+    def _note_process(self, path):
+        """Whether the app was still running when a step failed, and what each
+        of its threads was waiting on, to tell a hang from a crash or a quit."""
+        lines = []
+        pid = getattr(self, "pid", None)
+        if pid is None:
+            lines.append("no app process was started")
+        elif self.process is not None and self.process.poll() is not None:
+            lines.append(f"the app's session ended, exit status {self.process.returncode}")
+        try:
+            with open(f"/proc/{pid}/status") as status:
+                lines += [l.strip() for l in status if l.startswith(("State:", "Threads:"))]
+            for task in sorted(os.listdir(f"/proc/{pid}/task"), key=int):
+                with open(f"/proc/{pid}/task/{task}/comm") as comm, open(f"/proc/{pid}/task/{task}/wchan") as wchan:
+                    lines.append(f"thread {task} {comm.read().strip()}: waiting in {wchan.read().strip() or '-'}")
+        except (OSError, TypeError):
+            lines.append(f"process {pid} is gone")
+        with open(path, "w") as note:
+            note.write("\n".join(lines) + "\n")
 
     def picture(self, name):
         os.makedirs(OUT, exist_ok=True)
