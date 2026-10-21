@@ -209,9 +209,10 @@ enum SidebarRow: Identifiable {
 }
 
 /// The groups and their budgets, drawn by hand rather than as a GTK list,
-/// whose highlight would cover each budget's fill. A click on a budget's row
-/// opens it, and the open budget's row is outlined. A click on a group's name
-/// opens its page, and the name is marked while it shows.
+/// whose highlight would cover each budget's fill. Each budget's row and each
+/// group's name is a plain button, as on the Mac, so Tab reaches it, and Space
+/// or Return opens it as a click does. The open budget's row is outlined, and
+/// a group's name is marked while its page shows.
 struct SidebarView: View {
     var screen: MainScreen
     var perform: (MainScreen.Action) -> Void
@@ -258,10 +259,14 @@ struct SidebarView: View {
         case .group(let section):
             groupRow(section)
         case .budget(let summary):
+            // A button, not a tap, so the keyboard reaches the row. The plain
+            // style adds no padding or background, so the row looks the same.
             // No row is outlined while a group's page or an invitation shows,
             // since no budget is picked then.
-            BudgetRow(summary: summary, isPicked: screen.selectedBudget == summary.budget.id)
-                .onTapGesture { screen.selectedBudget = summary.budget.id }
+            Button(action: { screen.selectedBudget = summary.budget.id }) {
+                BudgetRow(summary: summary, isPicked: screen.selectedBudget == summary.budget.id)
+            }
+            .buttonStyle(.plain)
         case .note(let text):
             Text(text)
                 .font(.system(size: 12))
@@ -270,21 +275,24 @@ struct SidebarView: View {
     }
 
     /// A group's name, marked while its page is open, then its menu and the
-    /// arrow. A click on the name, or on the line up to the menu, opens the
-    /// page. The menu and the arrow sit outside that part, since the click
-    /// that opens the page would take theirs away.
+    /// arrow. The name and the line up to the menu are one plain button that
+    /// opens the page, by a click or by the keyboard. The menu and the arrow
+    /// sit beside that button, not inside it, so each keeps its own click.
     private func groupRow(_ section: MainScreen.Section) -> some View {
         HStack {
-            HStack {
-                Text(section.title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(RoundedRectangle(cornerRadius: 4)
-                        .fill(section.isPageOpen ? Color(PaletteValues.accent).opacity(0.15) : Color.clear))
-                Spacer()
+            Button(action: { screen.openPage(of: section.id) }) {
+                HStack {
+                    Text(section.title.uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 4)
+                            .fill(section.isPageOpen ? Color(PaletteValues.accent).opacity(0.15) : Color.clear))
+                    Spacer()
+                }
+                .frame(maxWidth: Self.widestLine)
             }
-            .onTapGesture { screen.openPage(of: section.id) }
+            .buttonStyle(.plain)
             // GTK has no right-click menu here, so each group has a button
             // that opens the menu the Mac shows on a right-click.
             Menu("⋯") {
@@ -296,6 +304,13 @@ struct SidebarView: View {
                 .help(section.toggleHelp)
         }
     }
+
+    /// How wide the button with a group's name may grow. SwiftCrossUI 0.10.0's
+    /// Button turns its label's width into a whole number. A stack first asks
+    /// each part how wide it would grow with no limit, and the Spacer's answer
+    /// has no end, which crashes the app. This limit is far wider than any
+    /// sidebar, so the line is laid out as before.
+    private static let widestLine: Double = 10_000
 
     /// A menu's parts, with a divider between each.
     @ViewBuilder
