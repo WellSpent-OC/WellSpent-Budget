@@ -115,9 +115,12 @@ public enum TypedAmount: Equatable, Sendable {
         if groups.count > 1 {
             // The last group has the region's group size, the ones before it
             // the other size, and the first may be shorter, but never empty.
+            // Nor does it start with a zero: nobody writes five hundred as
+            // "0.500", so where a dot groups thousands that is refused.
             guard groups.last?.count == marks.groupSize,
                   groups.dropFirst().dropLast().allSatisfy({ $0.count == marks.otherGroupSize }),
-                  let first = groups.first, (1...marks.otherGroupSize).contains(first.count) else { return .unclear }
+                  let first = groups.first, (1...marks.otherGroupSize).contains(first.count),
+                  !first.hasPrefix("0") else { return .unclear }
         }
 
         let digits = groups.joined() + part.padding(toLength: currency.minorUnitDigits, withPad: "0", startingAt: 0)

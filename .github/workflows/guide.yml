@@ -1,0 +1,57 @@
+# Publishes the user guide in docs/ to GitHub Pages, at help.wellspent.space,
+# whenever main's copy of it changes. Jekyll builds it the same way Pages built
+# it straight from the branch, with the same plugins.
+#
+# The site is published from this workflow, not from the branch, so its domain
+# is kept in the repository's Pages settings alone. Changing the domain there
+# never writes a CNAME commit to main, which only moves to tested heads.
+# docs/CNAME stays as a record of the domain; this workflow ignores it.
+name: Guide
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", ".github/workflows/guide.yml"]
+  workflow_dispatch:
+
+permissions: {}
+
+# One publish at a time. A newer one waits rather than cutting the last short.
+concurrency:
+  group: guide
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the guide
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+
+      - uses: actions/upload-pages-artifact@v3
+
+  publish:
+    name: Publish to help.wellspent.space
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
