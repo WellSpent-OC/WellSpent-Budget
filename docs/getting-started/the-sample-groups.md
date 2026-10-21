@@ -8,11 +8,14 @@ title: "Side quest: Clear out the sample groups"
 
 A new install starts with two made-up groups, **HOUSEHOLD** and **SIDE BUSINESS**, so you can look around. If you make an account and haven't changed them, they stay out of it. If you changed one, or added to it, it comes into your account. Delete it before you make your account.
 
-1. Right-click **HOUSEHOLD** in the sidebar.
+1. ![A hand right-clicks HOUSEHOLD in the sidebar](../assets/shots/the-sample-groups-1-mac.svg)
+   Right-click **HOUSEHOLD** in the sidebar.
 
-2. Pick **Delete…**
+2. ![A hand picks Delete](../assets/shots/the-sample-groups-2.svg)
+   Pick **Delete…**
 
-3. Press **Delete** in the question.
+3. ![A hand presses Delete in the question](../assets/shots/the-sample-groups-3.svg)
+   Press **Delete** in the question.
 
    > You see HOUSEHOLD gone from the sidebar.
 
