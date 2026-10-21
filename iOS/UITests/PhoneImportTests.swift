@@ -201,7 +201,6 @@ final class PhoneImportTests: XCTestCase {
 
         // 1. Costco, typed into Groceries by hand.
         run.addEntry(merchant: "Costco", amount: "286.31")
-        let hilltopRows = run.entryRows("Hilltop Grocery")
         let counted = run.transactionCount()
 
         // Scenario IMPORT-03, IMPORT-04
@@ -220,13 +219,24 @@ final class PhoneImportTests: XCTestCase {
         // Hilltop Grocery to Groceries.
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
-        XCTAssertTrue(run.wait(forEntryRows: "Hilltop Grocery", timeout: 10) { $0 > hilltopRows },
-                      "Hilltop Grocery was not added. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("$58.10"), "no $58.10. On screen: \(run.visibleTexts())")
-        // By the count line: the wheel above the list can push a row below the
-        // bottom of the screen, where a list draws nothing to count.
-        XCTAssertEqual(run.transactionCount(), counted + 1, "the Costco line was added as well. The page says: "
+        // By the count line: one more, since the Costco line matched. The
+        // wheel above the list can push a row below the bottom of the screen,
+        // where a list draws nothing to count.
+        let added = Date().addingTimeInterval(10)
+        while run.transactionCount() != counted + 1, Date() < added { Thread.sleep(forTimeInterval: 0.5) }
+        XCTAssertEqual(run.transactionCount(), counted + 1, "not one more transaction. The page says: "
                        + run.countLine())
+        // And the one added is Hilltop Grocery's, at $58.10: the list is
+        // scrolled until its row shows, then back to the top.
+        var swipes = 0
+        var hilltopAdded = run.row("Hilltop Grocery", says: "$58.10", timeout: 5)
+        while !hilltopAdded, swipes < 6 {
+            run.app.swipeUp()
+            swipes += 1
+            hilltopAdded = run.row("Hilltop Grocery", says: "$58.10", timeout: 2)
+        }
+        XCTAssertTrue(hilltopAdded, "Hilltop Grocery was not added at $58.10. On screen: \(run.visibleTexts())")
+        for _ in 0..<swipes { run.app.swipeDown() }
 
         // Scenario IMPORT-11
         // 4. A line from before this period goes in, but the budget's page

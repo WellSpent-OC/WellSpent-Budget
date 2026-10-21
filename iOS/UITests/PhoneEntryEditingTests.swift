@@ -287,6 +287,9 @@ final class PhoneEntryEditingTests: XCTestCase {
 extension PhoneTestApp {
     /// A tap on an entry's row, which opens its sheet.
     func openEntry(_ merchant: String) {
+        // The wheel above the list can leave a row low on the screen, behind
+        // the foot bar, where a tap lands on the bar. So it comes up first.
+        _ = scrollTo(AccessibilityID.entryRow(merchant))
         tap(AccessibilityID.entryRow(merchant))
         XCTAssertTrue(app.navigationBars[EntryEditor.Words.editTitle].waitForExistence(timeout: 10),
                       "\(merchant) did not open. On screen: \(visibleTexts())")
