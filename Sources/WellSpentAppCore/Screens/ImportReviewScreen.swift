@@ -3,15 +3,26 @@ import WellSpentCrypto
 import WellSpentImport
 import WellSpentModel
 
-/// The review before a bank statement goes in, on any desktop: what each line
+/// The review before a bank statement goes in, on every app: what each line
 /// will do, a budget for the lines that need one, and Import or Cancel. The
-/// statement is read on this computer; nothing is sent until Import. What it
-/// says lives here; the Mac and Linux screens only draw it.
+/// statement is read on this device, and nothing is sent until Import. What
+/// it says lives here. The Mac, Linux and iPhone screens only draw it.
 @MainActor
 public struct ImportReviewScreen {
-    /// What a line will do, for its colour.
+    /// What a line will do, for its colour. Each tone has its own words too,
+    /// so colour is never the only sign.
     public enum Tone: Equatable, Sendable {
         case matched, toAdd, alreadyImported, needsBudget
+
+        /// The same colour on every app.
+        public var color: ColorPair {
+            switch self {
+            case .matched: PaletteValues.accent
+            case .toAdd: PaletteValues.blue
+            case .alreadyImported: PaletteValues.muted
+            case .needsBudget: PaletteValues.warning
+            }
+        }
     }
 
     /// One count across the top.
@@ -39,6 +50,10 @@ public struct ImportReviewScreen {
         /// or not.
         public let needsBudget: Bool
         public let chosenBudget: BudgetID?
+
+        /// The date and the cleaned-up name on one line, for a phone:
+        /// "Oct 2 · Trader Joes".
+        public var dateAndName: String { "\(BudgetScreen.shortDate(date)) · \(description)" }
     }
 
     private let model: AppModel
@@ -91,6 +106,18 @@ public struct ImportReviewScreen {
     /// Files a line that needs a budget; nil takes the choice back.
     public func choose(_ budget: BudgetID?, for row: Int) {
         model.pendingImport?.chosenBudgets[row] = budget
+    }
+
+    /// What the system's file picker gives back. The first file chosen is read
+    /// and reviewed. Nothing chosen does nothing. A picker that failed says why
+    /// on the window, and no review opens.
+    public func open(_ picked: Result<[URL], any Error>) {
+        switch picked {
+        case .success(let files):
+            if let file = files.first { model.prepareImport(from: file) }
+        case .failure(let error):
+            model.errorMessage = error.localizedDescription
+        }
     }
 
     public func commit() { model.commitImport() }

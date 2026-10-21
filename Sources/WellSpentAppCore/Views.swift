@@ -148,15 +148,8 @@ struct RootView: View {
             ImportReviewSheet(model: model)
         }
         .fileImporter(isPresented: $showingFileImporter,
-                      allowedContentTypes: [.commaSeparatedText, .plainText, .data],
-                      allowsMultipleSelection: false) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first { model.prepareImport(from: url) }
-            case .failure(let error):
-                model.errorMessage = error.localizedDescription
-            }
-        }
+                      allowedContentTypes: ImportReviewScreen.fileTypes,
+                      allowsMultipleSelection: false) { ImportReviewScreen(model: model).open($0) }
         .alert(MainScreen.Words.errorTitle,
                isPresented: Binding(get: { model.errorMessage != nil },
                                     set: { if !$0 { model.dismissError() } })) {
@@ -943,12 +936,7 @@ struct ImportReviewSheet: View {
     }
 
     static func color(_ tone: ImportReviewScreen.Tone) -> Color {
-        switch tone {
-        case .matched: Palette.accent
-        case .toAdd: Palette.blue
-        case .alreadyImported: Palette.muted
-        case .needsBudget: Palette.warning
-        }
+        Color(tone.color)
     }
 }
 
