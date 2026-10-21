@@ -16,9 +16,16 @@ struct WellSpentLinuxApp: App {
 
     /// GTK under this build's own app ID. Without one, every SwiftCrossUI app
     /// shares a placeholder ID, and opening live while staging was open only
-    /// brought staging to the front.
+    /// brought staging to the front. SwiftCrossUI asks for it once, just
+    /// before GTK starts: a launch given a link while a copy is open hands it
+    /// over there (`OpenedLinks`). A click while the app is open starts such a
+    /// launch, and the open copy opens the link's page.
     var backend: GtkBackend {
-        GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
+        let backend = GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
+        OpenedLinks.handOver(appIdentifier: LinuxSetup.environment.linuxAppIdentifier) { [workspace] link in
+            Task { await workspace.open(link) }
+        }
+        return backend
     }
 
     init() {
@@ -36,6 +43,11 @@ struct WellSpentLinuxApp: App {
         // The launch sync. The Mac also syncs whenever its window comes to the
         // front; here the timer and every edit cover that.
         Task { @MainActor in await workspace.autoSync.syncIfIdle() }
+        // A click on an invite link that started the app: its page is up as
+        // the window opens.
+        if let link = OpenedLinks.launchLink {
+            Task { @MainActor in await workspace.open(link) }
+        }
     }
 
     var body: some Scene {

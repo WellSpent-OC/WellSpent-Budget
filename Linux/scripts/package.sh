@@ -21,18 +21,21 @@ set -eu
 WELLSPENT_ENV="${WELLSPENT_ENV:-staging}"
 OUT="${OUT:-Linux/dist}"
 
-# These must match AppEnvironment.swift: appName, dataFolderName and
-# linuxAppIdentifier.
+# These must match AppEnvironment.swift: appName, dataFolderName,
+# linuxAppIdentifier and inviteScheme. SCHEME is the build's own type of invite
+# link, which its menu entry claims, so a click on one opens this build.
 case "$WELLSPENT_ENV" in
     live)
         NAME="WellSpent"
         SLUG="wellspent"
         APPID="app.wellspent.linux"
+        SCHEME="wellspent"
         ;;
     staging)
         NAME="WellSpent Staging"
         SLUG="wellspent-staging"
         APPID="app.wellspent.linux.staging"
+        SCHEME="wellspent-staging"
         ;;
     *)
         echo "WELLSPENT_ENV must be live or staging, not $WELLSPENT_ENV" >&2
@@ -53,7 +56,7 @@ strip "$DEST/$SLUG"
 cp -R "$BIN/WellSpentLinux_WellSpentLinux.resources" "$DEST/"
 printf '%s\n' "$WELLSPENT_ENV" > "$DEST/WellSpentLinux_WellSpentLinux.resources/environment"
 cp Design/AppIcon/AppIcon.svg "$DEST/$SLUG.svg"
-sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" \
+sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" -e "s/@SCHEME@/$SCHEME/g" \
     Linux/scripts/install.sh.in > "$DEST/install.sh"
 chmod +x "$DEST/install.sh" "$DEST/$SLUG"
 

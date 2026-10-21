@@ -392,4 +392,46 @@ struct InvitationPageTests {
         #expect(page !== broken)
         #expect(page.invitation == invitedToHousehold)
     }
+
+    // MARK: - A link on the command line
+
+    /// Linux starts the app for a clicked link with the link as its
+    /// argument. That link opens its invitation page, as a click does on
+    /// the Mac.
+    @Test func aLinkOnTheCommandLineOpensItsInvitation() async throws {
+        let server = InMemoryReadableServer()
+        let (_, url) = try await robinsLink(on: server)
+        let leslie = try await Device("leslie@example.com", on: server)
+        let arguments = ["/opt/wellspent-staging/wellspent-staging", url.absoluteString]
+
+        await leslie.workspace.open(try #require(Workspace.openedLink(in: arguments)))
+
+        let page = try #require(leslie.workspace.invitation)
+        #expect(leslie.screen.invitation === page, "the window shows it")
+        #expect(page.invitation == invitedToHousehold)
+        #expect(page.levelLine == "You'd join at Add.")
+    }
+
+    /// Any link counts, the other build's or one cut short, so the page
+    /// can say what is wrong with it. Only the last of several counts. A
+    /// plain start, an option or a file opens no page, and neither does the
+    /// app's own path, which comes first.
+    @Test func onlyALinkOnTheCommandLineOpensAPage() {
+        func link(_ arguments: String...) -> String? {
+            Workspace.openedLink(in: ["/opt/wellspent/wellspent"] + arguments)?.absoluteString
+        }
+        #expect(link("wellspent-staging://join#s=AbCd") == "wellspent-staging://join#s=AbCd")
+        #expect(link("wellspent://join#s=AbCd&g=Household&f=Robin")
+                == "wellspent://join#s=AbCd&g=Household&f=Robin")
+        #expect(link(" wellspent://join\n") == "wellspent://join", "spaces around it")
+        #expect(link("wellspent://join#s=One", "wellspent://join#s=Two") == "wellspent://join#s=Two")
+        #expect(link("wellspent://join#s=One", "--verbose") == "wellspent://join#s=One")
+        #expect(link() == nil)
+        #expect(link("--verbose") == nil)
+        #expect(link("/tmp/statement.csv") == nil)
+        #expect(link("statement.csv") == nil)
+        #expect(link("") == nil)
+        #expect(Workspace.openedLink(in: ["wellspent://join#s=AbCd"]) == nil, "the app's own path")
+        #expect(Workspace.openedLink(in: []) == nil)
+    }
 }
