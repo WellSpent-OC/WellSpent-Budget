@@ -214,8 +214,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         // Scenario EDIT-17, EDIT-06, EDIT-07
         // 4. A swipe to the left offers Edit and Delete. Edit opens the sheet.
         // Delete asks the same question, and its Delete puts up the same bar.
-        run.swipeLeft(onEntry: "Hilltop")
-        XCTAssertTrue(run.app.buttons[delete].waitForExistence(timeout: 5), "the swipe offers no Delete")
+        run.swipeOpen(entry: "Hilltop")
         XCTAssertTrue(run.app.buttons[edit].exists, "the swipe offers no Edit. On screen: \(run.visibleButtons())")
         run.app.buttons[edit].tap()
         XCTAssertTrue(run.app.navigationBars[EntryEditor.Words.editTitle].waitForExistence(timeout: 10),
@@ -223,8 +222,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertEqual(run.fieldText(AccessibilityID.entryMerchant), "Hilltop")
         run.tap(AccessibilityID.entryCancel)
         run.expectNoSheet()
-        run.swipeLeft(onEntry: "Hilltop")
-        XCTAssertTrue(run.app.buttons[delete].waitForExistence(timeout: 5), "the swipe offers no Delete")
+        run.swipeOpen(entry: "Hilltop")
         run.app.buttons[delete].tap()
         XCTAssertTrue(run.shows(question.title), "no question. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(question.message), "\(question.message) does not show. On screen: \(run.visibleTexts())")
@@ -331,6 +329,19 @@ extension PhoneTestApp {
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no \(merchant) to swipe")
         waitUntilHittable(row, merchant)
         row.swipeLeft()
+    }
+
+    /// Swipes an entry's row to the left until its Delete shows. A swipe
+    /// made while the list is still settling, such as just after Undo puts a
+    /// row back, is lost on CI's slow runners. So it swipes again, three
+    /// times at most, and never while the buttons are already out.
+    func swipeOpen(entry merchant: String) {
+        let delete = app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch
+        for _ in 0..<3 where !delete.exists {
+            swipeLeft(onEntry: merchant)
+            _ = delete.waitForExistence(timeout: 10)
+        }
+        XCTAssertTrue(delete.exists, "the swipe offers no Delete after three swipes. On screen: \(visibleButtons())")
     }
 
     /// Taps a button on the question a delete asks. The question is its own

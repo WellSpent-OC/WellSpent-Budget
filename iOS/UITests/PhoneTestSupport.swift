@@ -328,8 +328,10 @@ final class PhoneTestApp {
 
     /// A control inside a sheet exists before the sheet has finished sliding
     /// in, and a tap then misses. So every tap waits for it to be hittable.
+    /// The wait is long because CI's runners are slow: one look at the screen
+    /// there took 9 seconds while a sheet slid in after a menu.
     func waitUntilHittable(_ target: XCUIElement, _ identifier: String) {
-        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 10),
+        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 30),
                       "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
     }
 

@@ -371,29 +371,24 @@ final class PhoneImportTests: XCTestCase {
                                  as: "picked.csv", in: folder)
         defer { try? FileManager.default.removeItem(at: file) }
         // Files lists a file written into its folder while the picker is open
-        // a moment before it will hand it over. So the picker closes, and
-        // opens again with the file already there.
-        let cancel = run.app.buttons["Cancel"].firstMatch
-        cancel.tap()
-        XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 10), "the Files picker did not close")
-        run.openFilesPicker()
-        let browse = run.app.tabBars.buttons["Browse"].firstMatch
-        XCTAssertTrue(browse.waitForExistence(timeout: 10), "no Browse in the Files picker. On screen: \(run.visibleButtons())")
-        browse.tap()
-        let onMyIPhone = run.app.staticTexts["On My iPhone"].firstMatch
-        XCTAssertTrue(onMyIPhone.waitForExistence(timeout: 10), "no On My iPhone. On screen: \(run.visibleTexts())")
-        onMyIPhone.tap()
-        let picked = run.app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", "picked")).firstMatch
-        XCTAssertTrue(picked.waitForExistence(timeout: 15), "picked.csv is not in On My iPhone. On screen: \(run.visibleTexts())")
-        // On a slow runner the list is still settling when the file shows, and
-        // a tap then picks nothing. So the tap waits for the file to take one,
-        // and taps once more if the picker is still up.
-        run.waitUntilHittable(picked, "picked.csv")
-        picked.tap()
+        // a moment before it will hand it over. On CI's slow runners that
+        // moment ran past two taps 10 seconds apart. So each try closes the
+        // picker, opens it again with the file already there, and picks it,
+        // three times at most.
         let review = run.element(AccessibilityID.importConfirm)
-        if !review.waitForExistence(timeout: 8), picked.exists, picked.isHittable { picked.tap() }
+        var picked = run.app.cells.firstMatch
+        for _ in 0..<3 where !review.exists {
+            let cancel = run.app.buttons["Cancel"].firstMatch
+            guard cancel.exists else { break }
+            cancel.tap()
+            XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 15), "the Files picker did not close")
+            run.openFilesPicker()
+            picked = run.pickInOnMyIPhone("picked")
+            _ = review.waitForExistence(timeout: 15)
+        }
         XCTAssertTrue(review.waitForExistence(timeout: 15),
-                      "the review did not open after a pick. On screen: \(run.visibleTexts())")
+                      "the review did not open after three picks. The file's row was "
+                      + "\(!picked.exists ? "gone" : picked.isEnabled ? "enabled" : "dimmed"). On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(Words.title(into: "Household")), "no heading. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("picked.csv"), "the file's name does not show. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.status(of: "TRADER JOES #123"), Words.needsBudget)
@@ -468,6 +463,25 @@ extension PhoneTestApp {
         tapMenuItem(BudgetScreen.Words.importStatement)
         XCTAssertTrue(app.buttons["Cancel"].firstMatch.waitForExistence(timeout: 15),
                       "the Files picker did not open. On screen: \(visibleTexts())")
+    }
+
+    /// In the open Files picker: Browse, On My iPhone, then the file whose
+    /// name starts with `name`, once it is ready to be picked. Returns its row.
+    func pickInOnMyIPhone(_ name: String) -> XCUIElement {
+        let browse = app.tabBars.buttons["Browse"].firstMatch
+        XCTAssertTrue(browse.waitForExistence(timeout: 15), "no Browse in the Files picker. On screen: \(visibleButtons())")
+        browse.tap()
+        let onMyIPhone = app.staticTexts["On My iPhone"].firstMatch
+        XCTAssertTrue(onMyIPhone.waitForExistence(timeout: 15), "no On My iPhone. On screen: \(visibleTexts())")
+        onMyIPhone.tap()
+        let row = app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), "\(name) is not in On My iPhone. On screen: \(visibleTexts())")
+        // A file Files has not finished reading yet is listed dimmed, and a
+        // tap on it picks nothing.
+        wait(for: row, until: "enabled == true", timeout: 15)
+        waitUntilHittable(row, name)
+        row.tap()
+        return row
     }
 
     func waitForTheReviewToClose() {
