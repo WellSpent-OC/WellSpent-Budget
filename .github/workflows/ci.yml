@@ -337,6 +337,7 @@ jobs:
           WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
           WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
           WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: make ui-test
 
       - name: Say why the run was skipped
@@ -429,6 +430,7 @@ jobs:
           WELLSPENT_UI_TEST_PASSWORD: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD }}
           WELLSPENT_UI_TEST_EMAIL_2: ${{ secrets.WELLSPENT_UI_TEST_EMAIL_2 }}
           WELLSPENT_UI_TEST_PASSWORD_2: ${{ secrets.WELLSPENT_UI_TEST_PASSWORD_2 }}
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: make iphone-ui-test
 
       - name: Say why the signed-in test was skipped
