@@ -177,6 +177,12 @@ public final class MainScreen {
         page = (group, model.selectedBudget)
     }
 
+    /// Closes a group's page with nothing in its place, as Back does on a
+    /// phone. A desktop never needs it: something else always opens there.
+    public func closePage() {
+        page = nil
+    }
+
     /// Leave Group… on a group's page. It asks first, with the question
     /// Leave… in the group's menu asks, and it is always a leave, never a
     /// delete for everyone, whatever this person's level.

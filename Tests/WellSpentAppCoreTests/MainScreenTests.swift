@@ -380,6 +380,26 @@ struct MainScreenTests {
         #expect(device.screen.detail == .budget(try #require(device.model.summary(for: groceries))))
     }
 
+    /// Back on a phone closes a group's page with nothing in its place. A
+    /// budget picked after opens as usual.
+    @Test func closingAGroupsPageLeavesNothingOpen() async throws {
+        let device = try await Device()
+        let id = try #require(device.model.addGroup(named: "Household"))
+        let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: id))
+        device.screen.selectedBudget = nil
+        device.screen.openPage(of: id)
+        #expect(device.screen.openGroup?.id == id)
+
+        device.screen.closePage()
+        #expect(device.screen.openGroup == nil)
+        #expect(device.screen.selectedBudget == nil)
+        #expect(device.screen.sections.filter(\.isPageOpen).isEmpty)
+
+        device.screen.selectedBudget = groceries
+        #expect(device.screen.selectedBudget == groceries)
+        #expect(device.screen.detail == .budget(try #require(device.model.summary(for: groceries))))
+    }
+
     /// The left side marks the group whose page shows, so the person knows
     /// where they are, and marks none once a budget shows instead.
     @Test func theLeftSideMarksTheGroupWhosePageShows() async throws {
