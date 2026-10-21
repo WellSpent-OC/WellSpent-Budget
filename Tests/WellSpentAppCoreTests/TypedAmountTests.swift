@@ -53,6 +53,22 @@ struct TypedAmountTests {
         #expect(TypedAmount("   ", locale: Self.us) == .empty)
     }
 
+    // Scenario ENTRY-13
+    /// Nobody writes five hundred as "0.500". A number with thousands marks
+    /// never starts with a zero, so in Germany "0.500" is refused, not read
+    /// as 500,00 and not guessed as 0,50.
+    @Test func anAmountWithThousandsMarksNeverStartsWithAZero() {
+        #expect(TypedAmount("0.500", locale: Self.germany) == .unclear)
+        #expect(TypedAmount("00.500", locale: Self.germany) == .unclear)
+        #expect(TypedAmount("0.500,00", locale: Self.germany) == .unclear)
+        #expect(TypedAmount("0,500", locale: Self.us) == .unclear)
+        #expect(TypedAmount("0 500", locale: Self.france) == .unclear)
+        #expect(TypedAmount("0,00,500", locale: Self.india) == .unclear)
+        #expect(cents("1.500", Self.germany) == 150_000, "a group after a real digit still reads")
+        #expect(cents("0,50", Self.germany) == 50, "a zero before the decimal mark still reads")
+        #expect(cents("0", Self.germany) == 0)
+    }
+
     @Test func regionsThatGroupAnotherWayReadTheirOwnWay() {
         #expect(cents("1\u{2019}250.50", Self.switzerland) == 125_050)
         #expect(cents("1'250.50", Self.switzerland) == 125_050, "either apostrophe")

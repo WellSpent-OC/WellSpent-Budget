@@ -687,7 +687,7 @@ public final class AppModel {
         try store.save(Budget(groupID: business.id, name: "Materials",
                               limit: Money(minorUnits: 500_000), colorIndex: 3))
 
-        let calendar = Calendar.current
+        let calendar = AppLocale.calendar
         let samples: [(Budget, String, Int, Int)] = [
             (groceries, "Hilltop Grocery", -14208, 5),
             (groceries, "Costco", -28631, 6),

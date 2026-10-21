@@ -64,7 +64,6 @@ Locally, with no database at all:
 | `EMAIL_CODE_KEY` | 32 bytes in base64 (`openssl rand -base64 32`). The secret emailed codes are hashed under. **Required in production**; development and tests use a public key. Changing it voids codes already sent, nothing else |
 | `RESEND_API_KEY` | A **sending-only** key from Resend. **Required on a live production server**, which refuses to start without one; a server with `WELLSPENT_ENVIRONMENT=staging` writes codes to its log instead, because staging has no internet access. Whoever can read Resend's sent mail can read every code |
 | `MAIL_FROM` | Optional. Defaults to `WellSpent <no-reply@wellspent.space>`, which must be on a domain verified in Resend |
-| `LEGACY_API` | `on` or `off`. Docker Compose passes `off` unless `.env` sets it, so a server built from readable sync closes the old API by itself: every `/api/v1` request then answers 401 asking the person to update, and the old app keeps everything it has queued. Set `on` only to roll back. The server logs which it is at start. Run outside Compose, an unset value means `on`, which the tests rely on. Anything else stops the server |
 
 ## Where to host it
 

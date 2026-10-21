@@ -248,7 +248,11 @@ struct PaceLine: View {
                 .foregroundColor(Color(PaletteValues.ink))
                 .fixedSize(horizontal: false, vertical: true)
             if pace.offersEdit {
+                // The button keeps its whole width, and the words wrap in
+                // what is left, as on the Mac. In a narrow window it read
+                // "Edit Budge…".
                 Button(BudgetPace.Words.editBudget(onPhone: false)) { editBudget() }
+                    .fixedSize()
             }
         }
     }

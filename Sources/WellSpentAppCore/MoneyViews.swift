@@ -105,12 +105,14 @@ struct PaceLine: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-                // The words take the room, and the button its own width.
-                .layoutPriority(1)
                 .accessibilityIdentifier(AccessibilityID.budgetPace)
             if pace.offersEdit {
                 Button(BudgetPace.Words.editBudget(onPhone: false), action: editBudget)
                     .buttonStyle(.bordered)
+                    // The button keeps its whole width, and the words wrap in
+                    // what is left. Given the room first, the words took it
+                    // all, and the button read "E…".
+                    .fixedSize()
                     .accessibilityIdentifier(AccessibilityID.budgetPaceEdit)
             }
         }
