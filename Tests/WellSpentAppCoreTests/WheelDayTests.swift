@@ -25,9 +25,11 @@ struct WheelDayTests {
         return (workspace, group, groceries)
     }
 
+    #if !os(Linux)
     /// A window left open past midnight, signed out, has no sync to read its
     /// budgets again. When the system says the day changed, the workspace
     /// reads them itself, so each wheel shows the new day's period and money.
+    /// Only on Apple's systems, which say so. Linux never does.
     @Test func aNewDayReadsTheBudgetsAgain() throws {
         let days = NotificationCenter()
         let (workspace, group, groceries) = try household(notifications: days)
@@ -39,6 +41,7 @@ struct WheelDayTests {
         days.post(name: .NSCalendarDayChanged, object: nil)
         #expect(workspace.model.summary(for: groceries)?.spent == Money(minorUnits: 14_208))
     }
+    #endif
 
     /// A pinned day is that day of this month, at noon. A day past the
     /// month's end is its last day, and with no day pinned it is the clock.

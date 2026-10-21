@@ -58,10 +58,15 @@ public final class Workspace {
         // yesterday's money. So the budgets are read again when the system
         // says the day changed: at midnight, or on waking after it. The Mac
         // and the iPhone say so. Linux does not, and a sync or an edit still
-        // reads them there.
+        // reads them there. So the watch is only on Apple's systems: on Linux
+        // it would never fire, and Linux's Foundation runs a main-queue
+        // watcher by waiting on the main thread, which hangs when the post
+        // comes from the main thread.
+        #if !os(Linux)
         _ = notifications.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.model.reload() }
         }
+        #endif
     }
 
     /// Every edit syncs a moment later, what this person may add or change
