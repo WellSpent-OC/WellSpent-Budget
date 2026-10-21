@@ -62,7 +62,7 @@ final class PhoneImportTests: XCTestCase {
         // 1. ⋯ then Import statement opens the review. The heading names the
         // group, with the file's name under it, then the four counts, a row
         // for each line and the note at the foot. Cancel and Import are in
-        // the top bar, and nothing is in Groceries yet.
+        // the top bar.
         run.importStatement()
         XCTAssertTrue(run.shows(Words.title(into: "Household")), "no heading. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("statement.csv"), "the file's name does not show. On screen: \(run.visibleTexts())")
@@ -76,7 +76,6 @@ final class PhoneImportTests: XCTestCase {
             XCTAssertTrue(run.app.navigationBars.buttons.matching(identifier: button).firstMatch.exists,
                           "\(button) is not in the top bar")
         }
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Trader Joes")).exists, "added before Import")
 
         // Scenario IMPORT-02
         // 2. Each line shows its date and cleaned-up name, the amount, the
@@ -84,17 +83,26 @@ final class PhoneImportTests: XCTestCase {
         run.expect(["\(today) · Trader Joes", "-$54.20", joes], on: AccessibilityID.importLine(joes))
         XCTAssertEqual(run.status(of: joes), Words.needsBudget)
 
-        // Scenario IMPORT-12
-        // 3. Cancel closes the review and adds nothing, and so does swiping
-        // it down. Imported again, the file offers the same lines.
+        // Scenario IMPORT-01, IMPORT-12
+        // 3. Nothing is added before Import. With Groceries chosen for Corner
+        // Bakery, Cancel closes the review and Corner Bakery is not in
+        // Groceries. Chosen again, then swiped down, it is still not there.
+        // Imported again, the file offers the same lines, and Corner
+        // Bakery's list is back at Choose.
+        run.choose("Groceries", for: bakery)
         run.tap(AccessibilityID.importCancel)
         run.waitForTheReviewToClose()
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 3),
+                       "Cancel added Corner Bakery")
         run.importStatement()
+        run.choose("Groceries", for: bakery)
         run.swipeTheReviewDown()
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Trader Joes")).exists, "Trader Joes was added")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery was added")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 3),
+                       "swiping the review down added Corner Bakery")
         run.importStatement()
         XCTAssertEqual([run.status(of: joes), run.status(of: bakery)], [Words.needsBudget, Words.needsBudget])
+        XCTAssertTrue(run.budgetList(bakery).hasSuffix(Words.choose),
+                      "Groceries is still chosen for Corner Bakery: \(run.budgetList(bakery))")
 
         // Scenario IMPORT-05, IMPORT-06
         // 4. A new merchant's list starts at Choose and offers Household's

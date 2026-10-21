@@ -138,8 +138,8 @@ struct PhoneImportLine: View {
                 if row.needsBudget {
                     // "Budget" names the list for VoiceOver. On screen, the
                     // list shows only what is chosen.
-                    Picker(EntryEditor.Words.budget, selection: Binding(get: { row.chosenBudget },
-                                                                        set: { choose($0) })) {
+                    Picker(ImportReviewScreen.Words.budget, selection: Binding(get: { row.chosenBudget },
+                                                                               set: { choose($0) })) {
                         Text(ImportReviewScreen.Words.choose).tag(BudgetID?.none)
                         ForEach(choices) { budget in
                             Text(budget.name).tag(BudgetID?.some(budget.id))

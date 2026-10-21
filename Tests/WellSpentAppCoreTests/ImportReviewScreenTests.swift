@@ -10,9 +10,9 @@ import WellSpentImport
 import WellSpentModel
 import WellSpentStore
 
-/// The import review's parts that every app draws the same way: the colours,
-/// the words beside them, the line a phone shows, and what the file picker
-/// hands back.
+/// The import review's parts that live in shared code: the colours the Mac
+/// and the iPhone draw, the words beside them, the line a phone shows, and
+/// what the file picker hands back.
 @Suite("Import review, shared by every app", .serialized)
 @MainActor
 struct ImportReviewScreenTests {

@@ -14,7 +14,7 @@ public struct ImportReviewScreen {
     public enum Tone: Equatable, Sendable {
         case matched, toAdd, alreadyImported, needsBudget
 
-        /// The same colour on every app.
+        /// The same colour on the Mac and the iPhone.
         public var color: ColorPair {
             switch self {
             case .matched: PaletteValues.accent
@@ -144,6 +144,8 @@ public struct ImportReviewScreen {
         public static let matchedEntry = "Matched to entry"
         public static let willBeAdded = "Will be added"
         public static let choose = "Choose"
+        /// The name VoiceOver reads for a line's budget list.
+        public static let budget = "Budget"
         public static let importButton = "Import"
         public static let cancel = "Cancel"
     }
