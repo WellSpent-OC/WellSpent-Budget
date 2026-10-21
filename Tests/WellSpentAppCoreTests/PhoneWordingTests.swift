@@ -22,4 +22,10 @@ struct PhoneWordingTests {
         #expect(PhoneWording.button(MainScreen.Words.edit) == "Edit")
         #expect(PhoneWording.button(MainScreen.Words.delete) == "Delete")
     }
+
+    /// A tap on any row of a budget's list opens it, and VoiceOver says so
+    /// after the row's words.
+    @Test func aRowSaysWhatATapOnItDoes() {
+        #expect(BudgetScreen.Words.rowHelp == "Opens the transaction.")
+    }
 }

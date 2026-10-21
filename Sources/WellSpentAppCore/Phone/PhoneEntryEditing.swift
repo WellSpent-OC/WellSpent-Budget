@@ -52,6 +52,9 @@ struct PhoneEntryActions: ViewModifier {
         let tappable = content
             .contentShape(Rectangle())
             .onTapGesture { openEntry(row.id) }
+            // VoiceOver reads the row as one button, as Home's group names.
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(BudgetScreen.Words.rowHelp)
         if parts.isEmpty {
             tappable
         } else {

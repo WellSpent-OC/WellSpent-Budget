@@ -63,6 +63,23 @@ final class PhoneTestApp {
             .waitForExistence(timeout: timeout)
     }
 
+    /// Whether an entry's row holds these words within the time given. A row
+    /// is one element, read as its words in order, so its words are in its
+    /// label and not on screen as words of their own. Capitals are ignored,
+    /// as in `shows`.
+    func row(_ merchant: String, says words: String, timeout: TimeInterval = 10) -> Bool {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS[c] %@",
+                                  AccessibilityID.entryRow(merchant), words))
+            .firstMatch.waitForExistence(timeout: timeout)
+    }
+
+    /// What an entry's row says, for a failure message.
+    func rowLabel(_ merchant: String) -> String {
+        let row = element(AccessibilityID.entryRow(merchant))
+        return row.exists ? row.label : "no row for \(merchant)"
+    }
+
     func tap(_ identifier: String, timeout: TimeInterval = 10) {
         let target = element(identifier)
         XCTAssertTrue(target.waitForExistence(timeout: timeout),

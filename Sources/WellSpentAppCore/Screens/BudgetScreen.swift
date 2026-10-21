@@ -95,5 +95,7 @@ public struct BudgetScreen {
         public static let add = "Add"
         public static let importStatement = "Import statement"
         public static let notice = "Your change didn't go through."
+        /// What a tap on a row does, said by VoiceOver after the row's words.
+        public static let rowHelp = "Opens the transaction."
     }
 }

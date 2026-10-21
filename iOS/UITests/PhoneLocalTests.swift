@@ -161,8 +161,8 @@ final class PhoneLocalTests: XCTestCase {
         // amount, and the note under the merchant. The page adds it up.
         run.addEntry(merchant: "Corner Bakery", amount: "40.00", note: "birthday cake")
         let today = BudgetScreen.shortDate(Date())
-        XCTAssertTrue(run.shows("\(today) · Manual"), "no date and source line. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("birthday cake"), "birthday cake does not show. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row("Corner Bakery", says: "\(today) · Manual"), "no date and source line. The row says: \(run.rowLabel("Corner Bakery"))")
+        XCTAssertTrue(run.row("Corner Bakery", says: "birthday cake"), "birthday cake does not show. The row says: \(run.rowLabel("Corner Bakery"))")
         XCTAssertTrue(run.shows("$60.00 left"), "what is left is wrong. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("1 transaction since \(Self.startOfMonth())"), "1 transaction since \(Self.startOfMonth()) does not show. On screen: \(run.visibleTexts())")
 

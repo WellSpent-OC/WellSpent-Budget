@@ -48,9 +48,13 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.addEntry(merchant: "Market", amount: "9.50")
 
         // Scenario EDIT-01
-        // 1. A tap on a row opens it as "Transaction", filled in, with its
-        // budget, and where it came from above, since nobody else is in the
-        // group. Delete has no "…", and Save is dimmed.
+        // 1. A row reads as one button with its words, since a tap opens it.
+        // A tap on it opens it as "Transaction", filled in, with its budget,
+        // and where it came from above, since nobody else is in the group.
+        // Delete has no "…", and Save is dimmed.
+        let row = run.element(AccessibilityID.entryRow("Hilltop"))
+        XCTAssertEqual(row.elementType, .button, "VoiceOver does not read the row as a button")
+        XCTAssertTrue(run.row("Hilltop", says: "$42.00"), "the row does not read as one. It says: \(run.rowLabel("Hilltop"))")
         run.openEntry("Hilltop")
         XCTAssertEqual(run.fieldText(AccessibilityID.entryMerchant), "Hilltop")
         XCTAssertEqual(run.fieldText(AccessibilityID.entryAmount), "42.00")
@@ -91,7 +95,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertTrue(run.wait(for: save, until: "isEnabled == true", timeout: 5), "a new amount left Save dimmed")
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
-        XCTAssertTrue(run.shows("$40.00"), "the row does not say $40.00. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row("Hilltop", says: "$40.00"), "the row does not say $40.00. It says: \(run.rowLabel("Hilltop"))")
         XCTAssertTrue(run.shows("$49.50"), "what is spent is not $49.50. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("$50.50 left"), "what is left is not $50.50. On screen: \(run.visibleTexts())")
 
@@ -202,7 +206,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.tap(AccessibilityID.undoButton)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
                       "Undo did not bring it back")
-        XCTAssertTrue(run.shows("$40.00"), "it is not back at $40.00. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row("Hilltop", says: "$40.00"), "it is not back at $40.00. It says: \(run.rowLabel("Hilltop"))")
         XCTAssertTrue(run.shows("$50.50 left"), "the total does not count it again. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "the bar stayed after Undo")

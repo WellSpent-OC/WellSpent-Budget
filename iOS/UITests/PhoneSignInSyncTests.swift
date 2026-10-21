@@ -107,7 +107,7 @@ final class PhoneSignInSyncTests: XCTestCase {
         run.openBudget(named: budgetName)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows("Leslie"), "her entry does not say she added it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row("Costco", says: "Leslie"), "her entry does not say she added it. The row says: \(run.rowLabel("Costco"))")
 
         // Scenario EDIT-01, EDIT-11
         // 5. Robin is at Add, so a tap opens her Costco read-only: who added
