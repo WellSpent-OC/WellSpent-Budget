@@ -115,6 +115,9 @@ app:
 # using this Mac for anything else. The first run asks once to let Xcode's test
 # manager control the app.
 #
+# UI_TEST_ONLY runs one test class or test, such as
+# WellSpentUITests/MoneyWheelTests, as IPHONE_UI_TEST_ONLY does for the iPhone.
+#
 # Xcode/project.yml is the source; the .xcodeproj it generates is ignored.
 # Everything xcodebuild writes stays under .build/, including the result bundle
 # with the screenshots XCUITest takes when a step fails.
@@ -152,7 +155,8 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
-	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult
+	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult \
+		$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
 # Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
