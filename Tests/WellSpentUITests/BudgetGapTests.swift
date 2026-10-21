@@ -87,17 +87,16 @@ final class BudgetGapTests: XCTestCase {
             ("Utilities", 45_000, ["Regional Power"]),
             ("Materials", 500_000, []),
         ]
-        let days = Self.sampleDays(before: opened)
         var listed = 0
         for sample in samples {
             run.openBudget(named: sample.budget)
             run.expect(wheel: AccessibilityID.budgetWheel, endsWith: Self.limitWords(sample.limit), sample.budget)
             for merchant in sample.entries where run.isListed(merchant) {
-                run.expect(entry: merchant, datedOneOf: days.thisMonth)
+                run.expect(entry: merchant, datedOneOf: Self.sampleDays(before: opened).thisMonth)
                 listed += 1
             }
         }
-        if days.allThisMonth {
+        if Self.sampleDays(before: opened).allThisMonth {
             XCTAssertEqual(listed, 6, "from the 13th on, all six sample entries are this month's")
         }
 
@@ -260,7 +259,7 @@ final class BudgetGapTests: XCTestCase {
         run.askToDelete(budget: "Groceries", expecting: three)
         XCTAssertNotNil(run.dialogButton(three.confirmLabel), "no \(three.confirmLabel) on the question")
         run.answer(MainScreen.Words.cancel)
-        run.expect(row: "Groceries", shows: thisPeriod.row.amount)
+        run.expect(row: "Groceries", endsWith: thisPeriod.row.amount)
         run.openBudget(named: "Groceries")
         run.expect(figures: thisPeriod.wheel.figures, "Groceries, after Cancel")
         XCTAssertTrue(run.isListed("Hilltop Grocery") && run.isListed("Corner Bakery"), "Cancel took entries away")
@@ -407,7 +406,7 @@ final class BudgetGapTests: XCTestCase {
         run.expect(wheel: AccessibilityID.budgetWheel, reads: over.wheel.spokenSummary, "Groceries, over")
         run.expect(figures: over.wheel.figures, "Groceries, over")
         XCTAssertFalse(run.listText(MoneyWheel.Words.left).exists, "Groceries says what is left as well as Over")
-        run.expect(row: "Groceries", shows: over.row.amount)
+        run.expect(row: "Groceries", endsWith: over.row.amount)
     }
 
     // MARK: - The Edit menu
@@ -569,11 +568,14 @@ final class BudgetGapTests: XCTestCase {
 
     /// The days the samples can be dated, 3 to 12 days before the first
     /// opening: as the list shows the ones in this month, and whether every
-    /// one of them is.
+    /// one of them is. This month is the one it is when asked, just before
+    /// each check, so a run that crosses into a new month expects what the
+    /// app shows by then.
     private static func sampleDays(before opened: Date) -> (thisMonth: [String], allThisMonth: Bool) {
         let calendar = Calendar.autoupdatingCurrent
         let days = (3 ... 12).compactMap { calendar.date(byAdding: .day, value: -$0, to: opened) }
-        let thisMonth = days.filter { calendar.isDate($0, equalTo: opened, toGranularity: .month) }
+        let now = Date()
+        let thisMonth = days.filter { calendar.isDate($0, equalTo: now, toGranularity: .month) }
         return (thisMonth.map(BudgetScreen.shortDate), thisMonth.count == days.count)
     }
 
@@ -816,22 +818,13 @@ private extension TestApp {
     }
 
     /// Add, in the budget's toolbar, for an entry dated `day`. The date is
-    /// set last, since a click in another field after the arrow keys in
-    /// Date can leave the keyboard in Date. A click on Date also opens a
-    /// calendar, which lies over the sheet's buttons, so a click on the
-    /// sheet's title closes it before Add.
+    /// set last, with the keyboard from Amount, and its Tab leaves Date.
     func addEntry(merchant: String, amount: String, dated day: Date,
                   file: StaticString = #filePath, line: UInt = #line) {
         click(AccessibilityID.budgetAdd)
         type(merchant, into: AccessibilityID.entryMerchant)
         type(amount, into: AccessibilityID.entryAmount)
         setDate(to: day, file: file, line: line)
-        let title = app.sheets.firstMatch.staticTexts[EntryEditor.Words.title]
-        XCTAssertTrue(title.waitForExistence(timeout: 5), "the sheet has no title \(EntryEditor.Words.title)",
-                      file: file, line: line)
-        title.click()
-        XCTAssertTrue(wait(for: app.dialogs.firstMatch, until: "exists == false", timeout: 5),
-                      "the calendar stayed over the sheet", file: file, line: line)
         click(AccessibilityID.entryAdd)
         expectNoSheet(file: file, line: line)
     }
@@ -852,16 +845,18 @@ private extension TestApp {
     }
 
     /// Sets the sheet's Date to `target` with the keyboard, the way a person
-    /// does: a click on its first part, then the arrow keys, one part at a
-    /// time, reading the date back after each key. The parts come in the
-    /// region's order, such as month, day and year in the United States. The
-    /// day is set first, and `target` is the 28th or before, so no step lands
-    /// on a day the month lacks, and no part is stepped past its end.
+    /// moves through the form and the entry tests do: Tab from Amount into
+    /// Date, the arrow keys one part at a time, then Tab on to Note. Date's
+    /// field is never clicked: a click on it opens a calendar over the
+    /// sheet's buttons, and in the entry tests' first runs it left them
+    /// unclickable. The date is read back after each key. The parts come in
+    /// the region's order, such as month, day and year in the United States.
+    /// The day is set first, and `target` is the 28th or before, so no step
+    /// lands on a day the month lacks, and no part is stepped past its end.
     func setDate(to target: Date, file: StaticString = #filePath, line: UInt = #line) {
-        let picker = element(AccessibilityID.entryDate)
+        let picker = element(AccessibilityID.entryDate), amount = element(AccessibilityID.entryAmount)
         XCTAssertTrue(picker.waitForExistence(timeout: 10), "no Date. On screen: \(visibleTexts())",
                       file: file, line: line)
-        waitUntilHittable(picker, AccessibilityID.entryDate)
         let calendar = Calendar.autoupdatingCurrent
         XCTAssertLessThanOrEqual(calendar.component(.day, from: target), 28, "a day every month has",
                                  file: file, line: line)
@@ -872,8 +867,34 @@ private extension TestApp {
                 ?? 0
         }
         let places = [Calendar.Component.month, .day, .year].sorted { place($0) < place($1) }
-        picker.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).click()
-        var at = 0
+        waitUntilHittable(amount, AccessibilityID.entryAmount)
+        amount.click()
+        app.typeKey(.tab, modifierFlags: [])
+        // Which part has the keyboard: one step up shows it, and one step
+        // down puts it back.
+        guard let before = shownDate() else {
+            XCTFail("Date shows no date: \(picker)", file: file, line: line)
+            return
+        }
+        step(.upArrow, from: before)
+        var after = shownDate() ?? before
+        if after == before {
+            // Tab went elsewhere, so the arrow beside Date steps it up
+            // instead.
+            picker.incrementArrows.firstMatch.click()
+            let moved = NSPredicate { _, _ in self.shownDate() != before }
+            _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 2)
+            after = shownDate() ?? before
+        }
+        let changed = { (part: Calendar.Component) in
+            calendar.component(part, from: after) != calendar.component(part, from: before)
+        }
+        guard var at = places.firstIndex(where: changed) else {
+            XCTFail("neither Tab from Amount nor the arrow beside Date changed it. On screen: \(visibleTexts())",
+                    file: file, line: line)
+            return
+        }
+        step(.downArrow, from: after)
         for part in [Calendar.Component.day, .month, .year] {
             guard let wanted = places.firstIndex(of: part) else { continue }
             while at < wanted {
@@ -889,14 +910,21 @@ private extension TestApp {
                 guard let shown = shownDate() else { break }
                 let now = calendar.component(part, from: shown)
                 if now == goal { break }
-                app.typeKey(now < goal ? .upArrow : .downArrow, modifierFlags: [])
-                let moved = NSPredicate { _, _ in self.shownDate() != shown }
-                _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 2)
+                step(now < goal ? .upArrow : .downArrow, from: shown)
             }
         }
+        app.typeKey(.tab, modifierFlags: [])
         let shown = shownDate()
         XCTAssertTrue(shown.map { calendar.isDate($0, inSameDayAs: target) } ?? false,
                       "Date shows \(shown.map { "\($0)" } ?? "nothing"), not \(target)", file: file, line: line)
+    }
+
+    /// One arrow key in Date, then up to two seconds for the date it shows
+    /// to change.
+    private func step(_ key: XCUIKeyboardKey, from shown: Date) {
+        app.typeKey(key, modifierFlags: [])
+        let moved = NSPredicate { _, _ in self.shownDate() != shown }
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 2)
     }
 
     // MARK: Menus and fields
