@@ -617,6 +617,15 @@ class App:
         self.settle()
         self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
 
+    def calendar(self, within):
+        """A date's calendar, the part that takes the keyboard for its days.
+        GTK 4.14 gives it no role of its own, so it's the nearest part around
+        its Previous month that can take the keyboard."""
+        node = self.button("Previous month", within=within).node.get_parent()
+        while node is not None and not node.get_state_set().contains(Atspi.StateType.FOCUSABLE):
+            node = node.get_parent()
+        return Element(self, node)
+
     # Steps many tests take, done as a person does them
 
     def new_group(self, name):

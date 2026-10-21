@@ -48,8 +48,9 @@ void wellspent_accessible_set_selected(void *widget, int selected);
 /// The four arrows of the GTK calendar inside `widget` (a GtkWidget): names
 /// them, since GTK leaves them unnamed and a screen reader hears four plain
 /// buttons, in the order GTK shows them (the month back and on, then the
-/// year back and on). And a move by them chooses the day the calendar then
-/// shows chosen, as a click on a day does. Call after every update.
+/// year back and on). A move by them chooses the day the calendar then shows
+/// chosen, as a click on a day does. And the arrow keys move the chosen day
+/// by a day or a week, as on the Mac. Call after every update.
 void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
                                const char *previous_year, const char *next_year);
 

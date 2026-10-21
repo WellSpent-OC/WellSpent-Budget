@@ -144,6 +144,33 @@ static void arrow_moved(GtkCalendar *calendar, gpointer data) {
     g_signal_emit_by_name(calendar, "day-selected");
 }
 
+// The arrow keys on a calendar move its chosen day by a day or a week. GTK's
+// own move only a box drawn around a day, which nothing reads aloud, and the
+// first press jumps to the grid's last box, often in another month. With
+// Control, GTK's own: the month and the year.
+static gboolean move_day_by_key(GtkEventControllerKey *controller, guint keyval, guint keycode,
+                                GdkModifierType state, gpointer data) {
+    (void)keycode;
+    (void)data;
+    if (state & (GDK_CONTROL_MASK | GDK_ALT_MASK)) return FALSE;
+    int days;
+    switch (keyval) {
+    case GDK_KEY_Left: case GDK_KEY_KP_Left: days = -1; break;
+    case GDK_KEY_Right: case GDK_KEY_KP_Right: days = 1; break;
+    case GDK_KEY_Up: case GDK_KEY_KP_Up: days = -7; break;
+    case GDK_KEY_Down: case GDK_KEY_KP_Down: days = 7; break;
+    default: return FALSE;
+    }
+    GtkCalendar *calendar = GTK_CALENDAR(gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller)));
+    GDateTime *date = gtk_calendar_get_date(calendar);
+    GDateTime *moved = g_date_time_add_days(date, days);
+    gtk_calendar_select_day(calendar, moved);
+    g_date_time_unref(moved);
+    g_date_time_unref(date);
+    g_signal_emit_by_name(calendar, "day-selected");
+    return TRUE;
+}
+
 void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
                                const char *previous_year, const char *next_year) {
     if (!GTK_IS_WIDGET(widget)) return;
@@ -166,6 +193,12 @@ void wellspent_calendar_arrows(void *widget, const char *previous_month, const c
     const char *moves[] = { "prev-month", "next-month", "prev-year", "next-year" };
     for (int i = 0; i < 4; i++)
         g_signal_connect(calendar, moves[i], G_CALLBACK(arrow_moved), NULL);
+    // Before GTK's own handling of the keys, which this replaces for the
+    // plain arrows.
+    GtkEventController *keys = gtk_event_controller_key_new();
+    gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
+    g_signal_connect(keys, "key-pressed", G_CALLBACK(move_day_by_key), NULL);
+    gtk_widget_add_controller(calendar, keys);
 }
 
 static gboolean quit_app(gpointer data) {
