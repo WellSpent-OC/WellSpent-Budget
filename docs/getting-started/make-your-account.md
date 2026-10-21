@@ -8,7 +8,7 @@ title: "Quest 2: Make your account"
 
 **Before you start:** you need an account to sync between computers and to share a group. Changed or added to a sample group? Delete it first, or it comes into your account. Sample groups you haven't changed stay out.
 
-Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets, which is how it checks who may change what and how it resets a forgotten password.
+Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets. That's how it checks who may change what, and why resetting a forgotten password doesn't lose your budgets.
 
 1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/make-your-account-1.svg)
    Press **Sign in** at the bottom of the sidebar.

@@ -34,6 +34,10 @@ It's an early test version. Some things aren't built yet, and some things may br
 - [The Sign in window](account/tour-the-sign-in-window.md)
 - [Your account](account/tour-your-account.md)
 
+## Side quests
+
+- [Change a budget from its wheel](budgets/change-a-budget-from-its-wheel.md)
+
 ## Need help?
 
 Write to **dev@wellspent.space**. Say what you were doing, what you expected, and what happened instead. A screenshot helps. Never send a password or a code.

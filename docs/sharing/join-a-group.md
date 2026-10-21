@@ -30,9 +30,9 @@ title: "Quest 8: Join a group"
 
    > You see the group in your sidebar. Its budgets fill in a moment later.
 
-## Coming in the next update: click to join
+## Faster: click the link
 
-On a Mac, click the link in the message. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
+Click the link in the message. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
 
 ## If it doesn't work
 

@@ -12,7 +12,7 @@ The sidebar is the list on the left of the window, shown here signed in.
 
 1. **HOME**: a group, in capital letters. Right-click it for its menu.
 2. The arrow: hides or shows the group's budgets. It points up while they show.
-3. **Groceries**: a budget, with what's left beside it. Click it to open its page.
+3. **Groceries**: a budget. Its row fills from the left as its money is used this month, with what's left at the right. Over its limit, it fills all the way and says how far over. Click it to open its page.
 4. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
 5. The small arrow: opens a menu with **New Group…** and **Join a Group…**
 6. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**, with **Sign in**.
@@ -41,4 +41,4 @@ The sidebar is the list on the left of the window, shown here signed in.
 1. **New Group…**: make a group. [Quest 3](../budgets/make-your-first-group.md)
 2. **Join a Group…**: join a group with an invite link. [Quest 8](../sharing/join-a-group.md)
 
-<!-- Scenarios: BUDGET-01, BUDGET-02, BUDGET-03, BUDGET-06, BUDGET-08, BUDGET-11, BUDGET-13, PAGE-02, PAGE-05, SHARE-01, SHARE-07, ACCT-01 -->
+<!-- Scenarios: BUDGET-01, BUDGET-02, BUDGET-03, BUDGET-06, BUDGET-08, BUDGET-11, BUDGET-13, PAGE-02, PAGE-05, WHEEL-01, WHEEL-02, WHEEL-03, SHARE-01, SHARE-07, ACCT-01 -->

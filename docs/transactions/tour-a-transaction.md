@@ -6,7 +6,7 @@ title: "Tour: A transaction"
 
 > *Every coin has a story. Here's where you read it.*
 
-**Coming in the next update:** on a Mac, click a transaction in a budget's list, and it opens like this.
+Click a transaction in a budget's list, and it opens like this.
 
 ![A transaction opened on a Mac, with numbers 1 to 8](../assets/shots/tour-a-transaction.svg)
 

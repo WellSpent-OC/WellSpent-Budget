@@ -23,16 +23,15 @@ title: "Quest 5: Add your first transaction"
 
    > You see your transaction in the list, marked **Manual**. What's spent goes up.
 
-**Coming in the next update:** spot a mistake later? On a Mac, click the transaction to change or delete it. Until then, check it before you press **Add**.
+Spot a mistake later? Click the transaction to change or delete it.
 
 ## If it doesn't work
 
 - **Add stays dimmed:** **Merchant** and **Amount** both need something. Type the amount as a number.
 - **It isn't in the list:** a budget's page shows this month only, from the 1st. A transaction dated earlier is saved, but doesn't show there.
-- **The amount came out 100 times too big:** in places that write decimals with a comma, type a dot instead for now, like 12.50.
 
 ## Next quest
 
 [Quest 6: Bring in your first statement](../statements/bring-in-your-first-statement.md)
 
-<!-- Scenarios: ENTRY-01, ENTRY-02, ENTRY-06, EDIT-01 -->
+<!-- Scenarios: ENTRY-01, ENTRY-02, ENTRY-06, EDIT-01, WHEEL-01 -->

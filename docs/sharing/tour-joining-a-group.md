@@ -16,9 +16,9 @@ title: "Tour: Joining a group"
 4. **Cancel**: close without joining.
 5. **Join**: join the group. [Quest 8](join-a-group.md)
 
-## Coming in the next update: the invitation page
+## The invitation page
 
-On a Mac, click an invite link, and WellSpent opens this page.
+Click an invite link, and WellSpent opens this page.
 
 ![The invitation page, with numbers 1 to 3](../assets/shots/tour-join-a-group-b.svg)
 
