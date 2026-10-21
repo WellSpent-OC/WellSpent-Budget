@@ -15,7 +15,7 @@ public enum TypedAmount: Equatable, Sendable {
     /// Typed, but not clearly an amount the way this region writes one.
     case unclear
 
-    public init(_ text: String, currency: Currency = .usd, locale: Locale = .autoupdatingCurrent) {
+    public init(_ text: String, currency: Currency = .usd, locale: Locale = AppLocale.current) {
         self = Self.read(text, currency: currency, marks: Marks(locale))
     }
 
@@ -27,13 +27,13 @@ public enum TypedAmount: Equatable, Sendable {
 
     /// What an amount field starts with: the region's decimal mark and no
     /// thousands marks, so it reads back as the same amount.
-    public static func text(_ money: Money, locale: Locale = .autoupdatingCurrent) -> String {
+    public static func text(_ money: Money, locale: Locale = AppLocale.current) -> String {
         money.description.replacingOccurrences(of: ".", with: Marks(locale).decimal)
     }
 
     public enum Words {
         /// Said under the amount, with an example written the region's way.
-        public static func unclear(locale: Locale = .autoupdatingCurrent) -> String {
+        public static func unclear(locale: Locale = AppLocale.current) -> String {
             "That amount can't be read clearly. Type it like \(TypedAmount.text(Money(minorUnits: 1_250), locale: locale))."
         }
     }

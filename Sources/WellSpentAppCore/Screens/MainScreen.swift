@@ -213,7 +213,7 @@ public final class MainScreen {
     /// reads them from the model, never from its section. Nil when it holds
     /// no budgets. With no `now`, today is the model's (`AppModel.today`).
     public func money(of group: GroupID, now: Date? = nil,
-                      calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
+                      calendar: Calendar = AppLocale.calendar) -> GroupMoney? {
         guard let found = model.group(named: group) else { return nil }
         return GroupMoney(group: found, summaries: model.summaries[group] ?? [], now: now ?? model.today(),
                           calendar: calendar)
@@ -223,7 +223,7 @@ public final class MainScreen {
 
     /// Home's card on a phone: the money of the first group, in Home's order,
     /// that holds a budget, hidden or not. Nil with no budgets in any group.
-    public func homeMoney(now: Date? = nil, calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
+    public func homeMoney(now: Date? = nil, calendar: Calendar = AppLocale.calendar) -> GroupMoney? {
         guard let first = model.groups.first(where: { !(model.summaries[$0.id] ?? []).isEmpty }) else { return nil }
         return money(of: first.id, now: now, calendar: calendar)
     }

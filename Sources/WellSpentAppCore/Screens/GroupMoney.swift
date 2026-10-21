@@ -20,7 +20,7 @@ public struct GroupMoney: Equatable, Sendable {
     /// month: every budget the apps make resets on the 1st, so each budget's
     /// period agrees with it.
     public init?(group: BudgetGroup, summaries: [BudgetSummary], now: Date = Date(),
-                 calendar: Calendar = .autoupdatingCurrent) {
+                 calendar: Calendar = AppLocale.calendar) {
         let month = ResetSchedule.firstOfMonth.period(containing: now, calendar: calendar)
         guard let currency = summaries.first?.budget.limit.currency,
               let day = PeriodDay(period: month, now: now, calendar: calendar) else { return nil }

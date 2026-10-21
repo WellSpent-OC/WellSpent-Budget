@@ -102,7 +102,7 @@ public final class Workspace {
     /// Today for the money wheel: `now`, or with a day pinned, that day of
     /// `now`'s month at noon. A day past the month's end is its last day.
     nonisolated public static func today(pinnedTo day: Int?, now: Date = Date(),
-                                         calendar: Calendar = .autoupdatingCurrent) -> Date {
+                                         calendar: Calendar = AppLocale.calendar) -> Date {
         guard let day, let days = calendar.range(of: .day, in: .month, for: now) else { return now }
         var parts = calendar.dateComponents([.era, .year, .month], from: now)
         parts.day = min(max(day, days.lowerBound), days.upperBound - 1)

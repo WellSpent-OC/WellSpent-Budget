@@ -99,7 +99,8 @@ public enum SyncWording {
         case .signedIn(let email):
             guard let at = lastSyncedAt else { return "Signed in as \(email). Not synced yet." }
             return "Signed in as \(email). Last synced at "
-                 + at.formatted(date: .omitted, time: .shortened) + "."
+                 + at.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: AppLocale.current,
+                                                calendar: AppLocale.calendar)) + "."
         }
     }
 }
