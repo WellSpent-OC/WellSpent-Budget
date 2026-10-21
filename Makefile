@@ -108,8 +108,11 @@ app:
 #   WELLSPENT_UI_TEST_EMAIL    WELLSPENT_UI_TEST_PASSWORD
 #   WELLSPENT_UI_TEST_EMAIL_2  WELLSPENT_UI_TEST_PASSWORD_2
 # WELLSPENT_UI_TEST_SERVER is optional and defaults to https://staging.wellspent.space.
-# Both accounts must exist on staging with their addresses confirmed. The values
-# reach the test runner as TEST_RUNNER_ variables, never on a command line.
+# Both accounts must exist on staging with their addresses confirmed.
+# WELLSPENT_UI_TEST_MAILBOX_TOKEN is optional too. With it, the tests that make
+# an account read the code staging emails it (Tests/UITestShared/StagingMailbox.swift).
+# Without it, they skip. The values reach the test runner as TEST_RUNNER_
+# variables, never on a command line.
 #
 # The app's window opens on screen for the whole run, so run it when nobody is
 # using this Mac for anything else. The first run asks once to let Xcode's test
@@ -155,6 +158,7 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult \
 		$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))
 
@@ -184,8 +188,8 @@ iphone-ui-test-build: iphone-project
 # simulator made for the run and deleted after, so nothing of an earlier run
 # is left in the app. It runs headless: no Simulator window opens, and the
 # Mac's screen is never taken. The tests that sign in read the same four
-# WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and skip
-# without them, and run in light only: staging allows 10 sign-ins in 15 minutes
+# WELLSPENT_UI_TEST_ variables as the Mac's (see ui-test above), and the tests
+# that make an account its mailbox token. Each skips without them, and runs in light only: staging allows 10 sign-ins in 15 minutes
 # from one place, a signed-in run takes 7, and the local tests already draw
 # every screen in dark. The rest need no account and no server. If anything stops the
 # run, Control-C included, the simulator is still deleted. The simulator is the
@@ -214,6 +218,7 @@ iphone-ui-test: iphone-ui-test-build
 		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
