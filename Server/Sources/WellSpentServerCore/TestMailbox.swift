@@ -131,10 +131,12 @@ private struct TestMailboxOnKey: StorageKey {
 }
 
 extension RateLimiter.Limit {
-    /// A test address's allowance on a server with the test mailbox: twelve
-    /// times as many tries in the same window. UI tests make a fresh account
-    /// for each scenario, and every test on one machine shares its address.
-    var forTests: RateLimiter.Limit { .init(attempts: attempts * 12, window: window) }
+    /// A test address's allowance on a server with the test mailbox: sixty
+    /// times as many tries in the same window, 300 sign-ups an hour. UI tests
+    /// make a fresh account for each scenario, and every run on one machine
+    /// shares its address: twelve times ran out with two engineers' suites
+    /// running at once on one box.
+    var forTests: RateLimiter.Limit { .init(attempts: attempts * 60, window: window) }
 }
 
 extension Request {
