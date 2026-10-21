@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 21 |
+| Linux | 142 | 37 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -92,22 +92,22 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-02 | Rename a group | Mac, Linux, iPhone | iPhone |
-| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | iPhone |
-| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | None yet |
-| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | iPhone |
-| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | None yet |
-| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | iPhone |
-| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | None yet |
-| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | None yet |
-| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, iPhone |
-| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | None yet |
-| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | None yet |
-| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | None yet |
-| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | iPhone |
-| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | None yet |
+| BUDGET-01 | Make a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-02 | Rename a group | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-03 | Make a budget in a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-04 | A budget needs a name and an amount above zero | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-05 | With no group to put it in, a new budget makes one | Mac, Linux, iPhone | Linux |
+| BUDGET-06 | Change a budget's name or monthly amount | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-07 | Changing budgets and groups takes Manage | Mac, Linux, iPhone | Linux |
+| BUDGET-08 | Deleting a budget asks first, and says how many transactions go with it | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-09 | A budget opens by itself when none is open | Mac, Linux | Linux |
+| BUDGET-10 | With no budgets, the right side says how to start | Mac, Linux, iPhone | Linux |
+| BUDGET-11 | Deleting a group asks first, and counts what goes with it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-12 | The owner of a shared group deletes it for everyone | Mac, Linux, iPhone | Linux |
+| BUDGET-13 | A member leaves a shared group instead of deleting it | Mac, Linux, iPhone | Linux |
+| BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | Linux |
+| BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | Linux, iPhone |
+| BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | Linux |
 
 ### [Entries.md](Entries.md)
 

@@ -13,6 +13,7 @@
 # WELLSPENT_UI_TEST_MAILBOX_TOKEN  passed in from your environment when set,
 #                   never on the command line, for the tests that make an
 #                   account
+# WELLSPENT_UI_NO_SKIPS  passed in when set: "true" fails the run on a skip
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 NAME="${UITEST_CONTAINER:-wsr-linux-uitest}"
@@ -29,6 +30,7 @@ docker run --rm --name "$NAME" \
     -v "$ROOT:/src:ro" -v "$SCRATCH:/b" \
     --user "$(id -u):$(id -g)" -e HOME=/b/home -e WELLSPENT_UI_OUT=/b/out \
     ${WELLSPENT_UI_TEST_MAILBOX_TOKEN:+-e WELLSPENT_UI_TEST_MAILBOX_TOKEN} \
+    ${WELLSPENT_UI_NO_SKIPS:+-e WELLSPENT_UI_NO_SKIPS} \
     "$IMAGE" sh -c '
         swift build --package-path /src/Linux --scratch-path /b/linux &&
         WELLSPENT_APP=/b/linux/debug/WellSpentLinux /src/Linux/UITests/run.sh "$@"

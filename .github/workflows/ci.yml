@@ -302,6 +302,8 @@ jobs:
           # Staging's test mailbox, for the tests that make an account. A
           # fork's pull request has none, and those tests are skipped.
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+          # With the mailbox there, nothing may be skipped to get a pass.
+          WELLSPENT_UI_NO_SKIPS: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
         run: WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" Linux/UITests/run.sh
 
