@@ -109,6 +109,33 @@ struct TestMailboxTests {
                                      at: sent.addingTimeInterval(TestMailbox.keepFor)) == nil)
     }
 
+    /// With the mailbox, test addresses sign up from one machine past the
+    /// usual five an hour, on an allowance of their own, and any other address
+    /// still stops at five.
+    @Test func testAddressesGetTheTestsAllowanceAndOthersKeepTheUsualOne() async throws {
+        try await withMailbox { app, _ async throws in
+            let usual = RateLimiter.Limit.signUp.attempts
+            for index in 0 ..< usual + 3 {
+                #expect(try await signUpStatus("uitest-many-\(index)@example.com", on: app) == .ok)
+            }
+            for index in 0 ..< usual {
+                #expect(try await signUpStatus("person-\(index)@wellspent.space", on: app) == .ok)
+            }
+            #expect(try await signUpStatus("person-\(usual)@wellspent.space", on: app) == .tooManyRequests)
+        }
+    }
+
+    /// Without the mailbox, as on live, a test address gets the usual limit.
+    @Test func withoutTheMailboxATestAddressGetsTheUsualLimit() async throws {
+        try await withV2App { app, _ async throws in
+            let usual = RateLimiter.Limit.signUp.attempts
+            for index in 0 ..< usual {
+                #expect(try await signUpStatus("uitest-few-\(index)@example.com", on: app) == .ok)
+            }
+            #expect(try await signUpStatus("uitest-few-\(usual)@example.com", on: app) == .tooManyRequests)
+        }
+    }
+
     /// Without a token the server has no such route at all.
     @Test func withNoTokenThereIsNoRoute() async throws {
         try await withV2App { app, _ async throws in
@@ -132,6 +159,11 @@ struct TestMailboxTests {
             throw error
         }
         try await app.asyncShutdown()
+    }
+
+    private func signUpStatus(_ email: String, on app: Application) async throws -> HTTPStatus {
+        try await v2Status(.POST, "api/v2/signup",
+                           body: V2SignUp(email: email, password: v2Password, deviceLabel: "Mac"), on: app)
     }
 
     private func path(_ address: String) -> String {

@@ -226,8 +226,9 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     let small: HTTPBodyStreamStrategy = .collect(maxSize: "4kb")
 
     routes.on(.POST, "signup", body: small) { request async throws -> SessionResponse in
-        try await request.enforceRateLimit(.signUp, scope: "v2-signup")
+        // Read first, so a test address on staging gets the tests' allowance.
         let body = try request.content.decode(SignUpV2Request.self)
+        try await request.enforceRateLimit(.signUp, scope: "v2-signup", email: body.email)
         let email = try AccountRules.normaliseEmail(body.email)
         try AccountRules.checkPassword(body.password)
         guard try await UserRow.query(on: request.db).filter(\.$email == email).first() == nil else {
@@ -248,8 +249,8 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     }
 
     routes.on(.POST, "signin", body: small) { request async throws -> SessionResponse in
-        try await request.enforceRateLimit(.signIn, scope: "v2-signin")
         let body = try request.content.decode(SignInV2Request.self)
+        try await request.enforceRateLimit(.signIn, scope: "v2-signin", email: body.email)
         let email = (try? AccountRules.normaliseEmail(body.email)) ?? ""
         // Per account too, so guesses spread over many addresses still slow
         // down for any one account. Looser than per caller, because anyone can
@@ -271,8 +272,8 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     /// account. The code goes only to a confirmed address, and the work is done
     /// after answering, so the time taken says nothing either.
     routes.on(.POST, "password", "forgot", body: small) { request async throws -> HTTPStatus in
-        try await request.enforceRateLimit(.emailCode, scope: "v2-forgot")
         let body = try request.content.decode(ForgotPasswordRequest.self)
+        try await request.enforceRateLimit(.emailCode, scope: "v2-forgot", email: body.email)
         guard let email = try? AccountRules.normaliseEmail(body.email) else { return .noContent }
         try await request.enforceRateLimit(.emailCode, key: "v2-forgot-address", for: email)
 
@@ -301,8 +302,8 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     /// Sets a new password with an emailed code, signs every device out, and
     /// signs this one in.
     routes.on(.POST, "password", "reset", body: small) { request async throws -> SessionResponse in
-        try await request.enforceRateLimit(.codeCheck, scope: "v2-reset")
         let body = try request.content.decode(ResetPasswordRequest.self)
+        try await request.enforceRateLimit(.codeCheck, scope: "v2-reset", email: body.email)
         try AccountRules.checkPassword(body.newPassword)
         guard let email = try? AccountRules.normaliseEmail(body.email),
               let user = try await UserRow.query(on: request.db).filter(\.$email == email).first(),
@@ -375,9 +376,9 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     }
 
     authed.on(.POST, "email", "verify", body: small) { request async throws -> HTTPStatus in
-        try await request.enforceRateLimit(.codeCheck, scope: "v2-verify")
         let body = try request.content.decode(CodeRequest.self)
         let user = try await request.currentUser()
+        try await request.enforceRateLimit(.codeCheck, scope: "v2-verify", email: user.email)
         guard user.emailVerifiedAt == nil else { return .noContent }
         guard try await redeemEmailCode(for: try user.requireID(), purpose: .verify, typed: body.code,
                                         on: request.db, key: request.application.emailCodeKey) else {
@@ -389,8 +390,8 @@ func registerAccountRoutesV2(_ routes: any RoutesBuilder) throws {
     }
 
     authed.post("email", "verify", "resend") { request async throws -> HTTPStatus in
-        try await request.enforceRateLimit(.emailCode, scope: "v2-verify-resend")
         let user = try await request.currentUser()
+        try await request.enforceRateLimit(.emailCode, scope: "v2-verify-resend", email: user.email)
         guard user.emailVerifiedAt == nil else { return .noContent }
         try await request.enforceRateLimit(.emailCode, key: "v2-verify-address", for: user.email)
         if let code = try await issueEmailCode(for: try user.requireID(), purpose: .verify,

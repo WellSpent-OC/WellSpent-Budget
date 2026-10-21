@@ -104,6 +104,7 @@ extension Application {
         }
         let mailbox = TestMailbox()
         mailer = KeepingMailer(mailbox: mailbox, next: mailer)
+        storage[TestMailboxOnKey.self] = true
         // The token is compared by its hash, so the time a wrong guess takes
         // says nothing about how much of it was right.
         let expected = SHA256.hash(data: Data(token.utf8))
@@ -119,5 +120,34 @@ extension Application {
             return message
         }
         logger.notice("test mailbox: on, for \(TestMailbox.domain) addresses only")
+    }
+
+    /// Whether `enableTestMailbox` ran. Never on live.
+    var hasTestMailbox: Bool { storage[TestMailboxOnKey.self] ?? false }
+}
+
+private struct TestMailboxOnKey: StorageKey {
+    typealias Value = Bool
+}
+
+extension RateLimiter.Limit {
+    /// A test address's allowance on a server with the test mailbox: twelve
+    /// times as many tries in the same window. UI tests make a fresh account
+    /// for each scenario, and every test on one machine shares its address.
+    var forTests: RateLimiter.Limit { .init(attempts: attempts * 12, window: window) }
+}
+
+extension Request {
+    /// The caller's limit, as `enforceRateLimit(_:scope:)`. On a server with
+    /// the test mailbox, a request for a test address draws on a separate,
+    /// larger allowance instead, so UI tests neither run out nor use up what
+    /// anyone else has. Every other address, and every request to live, gets
+    /// the usual limit.
+    func enforceRateLimit(_ limit: RateLimiter.Limit, scope: String, email: String) async throws {
+        if application.hasTestMailbox, TestMailbox.isTestAddress(email) {
+            try await enforceRateLimit(limit.forTests, scope: "test-\(scope)")
+        } else {
+            try await enforceRateLimit(limit, scope: scope)
+        }
     }
 }
