@@ -23,11 +23,14 @@ To come back, ask someone in the group for a new invite link.
 
 ## On an iPhone
 
-1. Touch and hold the group's name on Home.
+1. ![A thumb holds the group's name on Home](../assets/shots/leave-a-group-iphone-1.svg)
+   Touch and hold the group's name on Home.
 
-2. Tap **Leave**.
+2. ![A thumb taps Leave](../assets/shots/leave-a-group-iphone-2.svg)
+   Tap **Leave**.
 
-3. Tap **Leave** in the question.
+3. ![A thumb taps Leave in the question](../assets/shots/leave-a-group-iphone-3.svg)
+   Tap **Leave** in the question.
 
 ## If it doesn't work
 

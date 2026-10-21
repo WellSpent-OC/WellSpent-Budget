@@ -28,11 +28,14 @@ title: "Side quest: Change someone's level, or remove them"
 
 ## On an iPhone
 
-1. Tap the group's name on Home.
+1. ![A thumb taps the group's name on Home](../assets/shots/change-someones-level-iphone-1.svg)
+   Tap the group's name on Home.
 
-2. Tap the person.
+2. ![A thumb taps a person](../assets/shots/change-someones-level-iphone-2.svg)
+   Tap the person.
 
-3. Under **Can**, pick the new level. Or tap **Remove**, then **Remove** again, to take them out of the group.
+3. ![A thumb picks a level](../assets/shots/change-someones-level-iphone-3.svg)
+   Under **Can**, pick the new level. Or tap **Remove**, then **Remove** again, to take them out of the group.
 
 ## Related
 

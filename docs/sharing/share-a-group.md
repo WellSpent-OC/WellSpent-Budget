@@ -41,19 +41,26 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 
 ## On an iPhone
 
-1. Touch and hold **HOME** on Home.
+1. ![A thumb holds HOME on Home](../assets/shots/share-a-group-iphone-1.svg)
+   Touch and hold **HOME** on Home.
 
-2. Tap **Share**.
+2. ![A thumb taps Share](../assets/shots/share-a-group-iphone-2.svg)
+   Tap **Share**.
 
-3. Type your name in **Your name**.
+3. ![A thumb types in Your name](../assets/shots/share-a-group-iphone-3.svg)
+   Type your name in **Your name**.
 
-4. Under **They can**, pick **View**, **Add** or **Manage**.
+4. ![A thumb picks a level under They can](../assets/shots/share-a-group-iphone-4.svg)
+   Under **They can**, pick **View**, **Add** or **Manage**.
 
-5. Under **They see**, pick **Everything so far** or **Only from now on**.
+5. ![A thumb picks under They see](../assets/shots/share-a-group-iphone-5.svg)
+   Under **They see**, pick **Everything so far** or **Only from now on**.
 
-6. Tap **Create Link**.
+6. ![A thumb taps Create Link](../assets/shots/share-a-group-iphone-6.svg)
+   Tap **Create Link**.
 
-7. Tap **Send**, and pick how to send it, such as a message or an email.
+7. ![A thumb taps Send](../assets/shots/share-a-group-iphone-7.svg)
+   Tap **Send**, and pick how to send it, such as a message or an email.
 
 ## If it doesn't work
 
