@@ -18,6 +18,7 @@ final class PhoneTestApp {
     let dataRoot: URL
 
     init() {
+        PhoneFailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-phone-ui-test-\(UUID().uuidString)", isDirectory: true)
         // Not made here: a folder that does not exist yet tells the app this
