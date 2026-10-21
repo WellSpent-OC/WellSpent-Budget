@@ -1,10 +1,11 @@
 import Foundation
 
 /// A statement file a staging build reads when Import statement is pressed,
-/// in place of showing the file picker, so a UI test can import one. A test
-/// cannot reach the iPhone's Files picker, and a new simulator holds no files
-/// to pick. A live build never reads it, so a TestFlight build always shows
-/// the picker.
+/// in place of showing the file picker, so a UI test can import a file it
+/// wrote in one step. A new simulator holds no files to pick, and the Files
+/// picker takes several steps, so only the tests of the picker itself go
+/// through it. A live build never reads this, so a TestFlight build always
+/// shows the picker.
 public enum UITestStatement {
     /// The environment variable that names the file, by its whole path. Like
     /// `StartingScreen.variable`, only a staging build reads it.

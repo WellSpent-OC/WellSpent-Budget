@@ -119,6 +119,8 @@ targets:
         product: WellSpentKeyStore
       - package: WellSpentBudget
         product: WellSpentModel
+      - package: WellSpentBudget
+        product: WellSpentImport
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.phone-uitests
