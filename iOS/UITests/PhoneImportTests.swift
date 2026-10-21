@@ -258,6 +258,43 @@ final class PhoneImportTests: XCTestCase {
 
     // MARK: - A file that is not a statement
 
+    // MARK: - A line deleted after it was imported
+
+    @MainActor
+    func testADeletedLineStaysDeletedWhenItsStatementIsImportedAgain() throws {
+        let joes = "TRADER JOES #123", bakery = "CORNER BAKERY"
+        let statement = try statements().write([(joes, "-54.20", 0), (bakery, "-12.00", 0)])
+        let run = launched(importing: statement)
+        let counted = run.transactionCount()
+
+        // Scenario IMPORT-08
+        // 1. Both lines go into Groceries. Then Corner Bakery is deleted.
+        run.importStatement()
+        run.choose("Groceries", for: joes)
+        run.choose("Groceries", for: bakery)
+        run.tap(AccessibilityID.importConfirm)
+        run.waitForTheReviewToClose()
+        XCTAssertTrue(run.waitForTransactionCount(counted + 2), "both lines did not go in. The page says: \(run.countLine())")
+        run.openEntry("Corner Bakery")
+        run.tap(AccessibilityID.entryDelete)
+        run.answer("Delete")
+        run.expectNoSheet()
+        XCTAssertTrue(run.waitForTransactionCount(counted + 1), "Corner Bakery was not deleted. The page says: \(run.countLine())")
+
+        // Scenario IMPORT-08
+        // 2. The same statement again: both lines say Already imported, and
+        // Import finishes with no error. Corner Bakery stays deleted.
+        run.importStatement()
+        XCTAssertEqual([run.status(of: joes), run.status(of: bakery)], [Words.alreadyImported, Words.alreadyImported])
+        run.tap(AccessibilityID.importConfirm)
+        run.waitForTheReviewToClose()
+        XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3),
+                       "the import ended in an error. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForTransactionCount(counted + 1, timeout: 5),
+                      "Corner Bakery came back. The page says: \(run.countLine())")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery is listed again")
+    }
+
     @MainActor
     func testAFileThatIsNotAStatementIsExplained() throws {
         let folder = try statements()
@@ -514,6 +551,18 @@ private extension PhoneTestApp {
         let line = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", " since ")).firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 5), "no count line. On screen: \(visibleTexts())")
         return line.label
+    }
+
+    /// Waits until the count line says the period holds this many
+    /// transactions. A row can be below the bottom of the screen, where a
+    /// list draws nothing to count, but the count line counts every one.
+    func waitForTransactionCount(_ count: Int, timeout: TimeInterval = 10) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if transactionCount() == count { return true }
+            Thread.sleep(forTimeInterval: 0.5)
+        } while Date() < deadline
+        return false
     }
 
     /// How many transactions the count line says the period holds: 3 in "3

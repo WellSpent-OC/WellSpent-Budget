@@ -187,7 +187,9 @@ iphone-ui-test-build: iphone-project
 # run, Control-C included, the simulator is still deleted. The simulator is the
 # newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
 # one, such as "iPhone 17". IPHONE_UI_TEST_ONLY runs one test class or test,
-# such as WellSpentPhoneUITests/PhoneSignInSyncTests.
+# such as WellSpentPhoneUITests/PhoneSignInSyncTests. Each look's result bundle,
+# .build/xcode-iphone/ui-test-<look>.xcresult, holds the code coverage of the
+# run, the iPhone's own screens included, which no Mac test can reach.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
@@ -214,6 +216,7 @@ iphone-ui-test: iphone-ui-test-build
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
+			-enableCodeCoverage YES \
 			$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY)) \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
