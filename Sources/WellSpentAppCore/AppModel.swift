@@ -30,6 +30,11 @@ public final class AppModel {
     /// This device, so a change of its own that lost or was refused can be
     /// told apart from another device's. Nil on a model on its own.
     public var thisDevice: () -> DeviceID? = { nil }
+    /// Today, for the money wheel: how far each budget is through its period.
+    /// The workspace answers it from the clock, or with the day a staging UI
+    /// test pins (`Workspace.pinnedDayVariable`). A model on its own reads
+    /// the clock.
+    public var today: () -> Date = { Date() }
 
     /// The bar after a delete. It goes after `undoWindow`, or at the next
     /// change made here. A sync that brings changes in leaves it.

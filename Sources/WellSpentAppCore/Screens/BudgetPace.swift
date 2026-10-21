@@ -6,9 +6,8 @@ import WellSpentModel
 /// Spending faster than an even pace says when the money runs out, to
 /// everyone. In the period's last week, more left than expected asks whether
 /// to keep the budget or lower it, and only of someone who may change it. A
-/// budget on pace, over its limit, or with no period says nothing, and so
-/// does a group's wheel. So does a budget spent to the cent: its money ran
-/// out when the last of it was spent, not on a day still to come.
+/// budget on pace, over its limit, with nothing left, or with no period says
+/// nothing, and so does a group's wheel.
 public struct BudgetPace: Equatable, Sendable {
     public enum Kind: Equatable, Sendable { case overPace, underPace }
 
@@ -18,14 +17,18 @@ public struct BudgetPace: Equatable, Sendable {
     public let offersEdit: Bool
 
     /// `mayEdit`: whether this person may change budgets in the group.
+    ///
+    /// With nothing left, the money has run out already, so there is no day
+    /// ahead for it to run out on. Rent paid in full on the 1st would
+    /// otherwise run out "around" today, on every day of the month.
     public init?(wheel: MoneyWheel, budgetName: String, mayEdit: Bool, calendar: Calendar = .autoupdatingCurrent) {
-        guard wheel.scope == .budget, !wheel.isOver, let day = wheel.day,
+        guard wheel.scope == .budget, !wheel.isOver, wheel.left.minorUnits > 0, let day = wheel.day,
               let expected = wheel.expectedLeft else { return nil }
         let left = wheel.left
-        if wheel.isOverPace {
+        if left < expected {
             // The day the money runs out at today's pace, counted from the
-            // period's first day. Over pace, less is left than expected, so
-            // something is spent and this never divides by nothing.
+            // period's first day. Less is left than expected only once
+            // something is spent, so this never divides by nothing.
             let runsOut = wheel.budgeted.minorUnits * day.day / wheel.spent.minorUnits
             let date = calendar.date(byAdding: .day, value: runsOut - 1, to: day.start) ?? day.start
             let style = Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,

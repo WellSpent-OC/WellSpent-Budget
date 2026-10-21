@@ -154,6 +154,11 @@ public final class MainScreen {
         }
     }
 
+    /// Whether a budget's row on the left is marked as the open one. None
+    /// is while a group's page or an invitation shows, since no budget is
+    /// picked then.
+    public func isPicked(_ budget: BudgetID) -> Bool { selectedBudget == budget }
+
     // MARK: - A group's page
 
     /// The group whose page shows on the right, where a budget opens: its
@@ -188,18 +193,19 @@ public final class MainScreen {
     /// The group's money this month, for the MONEY section of its page: every
     /// budget in it added up. A hidden group's budgets count too, so this
     /// reads them from the model, never from its section. Nil when it holds
-    /// no budgets.
-    public func money(of group: GroupID, now: Date = Date(),
+    /// no budgets. With no `now`, today is the model's (`AppModel.today`).
+    public func money(of group: GroupID, now: Date? = nil,
                       calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
         guard let found = model.group(named: group) else { return nil }
-        return GroupMoney(group: found, summaries: model.summaries[group] ?? [], now: now, calendar: calendar)
+        return GroupMoney(group: found, summaries: model.summaries[group] ?? [], now: now ?? model.today(),
+                          calendar: calendar)
     }
 
     // MARK: - Home on a phone
 
     /// Home's card on a phone: the money of the first group, in Home's order,
     /// that holds a budget, hidden or not. Nil with no budgets in any group.
-    public func homeMoney(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
+    public func homeMoney(now: Date? = nil, calendar: Calendar = .autoupdatingCurrent) -> GroupMoney? {
         guard let first = model.groups.first(where: { !(model.summaries[$0.id] ?? []).isEmpty }) else { return nil }
         return money(of: first.id, now: now, calendar: calendar)
     }

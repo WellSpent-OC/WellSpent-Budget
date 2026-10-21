@@ -68,9 +68,9 @@ struct PeriodDayTests {
     }
 
     /// A day read outside its period stays within it: the summary read
-    /// before midnight on the last day stays on that day until the app reads
-    /// its budgets again. Its month stays the period's too, so October's
-    /// money is never named November.
+    /// before midnight on the last day stays on that day, and in that day's
+    /// month, until the app reads its budgets again. So it never names
+    /// November over October's money.
     @Test func aDayOutsideItsPeriodStaysWithinIt() throws {
         let october = WheelCalendar.month(of: WheelCalendar.date(2026, 10, 18))
         let after = try #require(PeriodDay(period: october, now: WheelCalendar.date(2026, 11, 2), calendar: calendar))
@@ -137,6 +137,7 @@ struct MoneyWheelTests {
         #expect(!groceries.isOver && !groceries.isOverPace && !groceries.isWarning)
         #expect(groceries.arcColor == PaletteValues.wheelLeft)
         #expect(groceries.amountColor == PaletteValues.ink)
+        #expect(groceries.figures.map(\.amountColor) == [PaletteValues.ink, PaletteValues.ink, PaletteValues.ink])
         #expect(groceries.compactWord == "left")
     }
 
@@ -204,20 +205,6 @@ struct MoneyWheelTests {
         #expect(gas.middleKey == "Left" && gas.middleAmount == "$58" && gas.middleOf == "of $180")
     }
 
-    /// Rent is $1,850.00 a month and was paid in full on October 1. Nothing is
-    /// left, which is not a pace: the wheel is empty, not over, and has no
-    /// orange to show, while the tick and the expected figure stay.
-    @Test func aBudgetSpentToTheCentIsNotOverPace() {
-        let rent = wheel(limit: 185_000, spent: 185_000, on: october18)
-        #expect(rent.left == Money(minorUnits: 0))
-        #expect(rent.arc == 0)
-        #expect(!rent.isOver && !rent.isOverPace && !rent.isWarning)
-        #expect(rent.arcColor == PaletteValues.wheelLeft)
-        #expect(rent.tick == 13.0 / 31)
-        #expect(rent.expectedLeft == Money(minorUnits: 77_581), "185000 × 13 ÷ 31 is 77580.65")
-        #expect(rent.spokenSummary == "Left $0 of $1,850")
-    }
-
     // Scenario WHEEL-10
     @Test func overItsLimitTheWheelIsOrangeAllTheWayRoundAndSaysHowFarOver() {
         let groceries = wheel(limit: 10_000, spent: 11_500, on: october18)
@@ -234,10 +221,39 @@ struct MoneyWheelTests {
             MoneyWheel.Figure(label: "Spent", amount: "$115.00"),
             MoneyWheel.Figure(label: "Over", amount: "$15.00", isWarning: true),
         ])
+        #expect(groceries.figures.map(\.amountColor) == [PaletteValues.ink, PaletteValues.warning],
+                "the Over figure's amount is in the warning colour")
         #expect(groceries.arcColor == PaletteValues.warning)
         #expect(groceries.amountColor == PaletteValues.warning)
         #expect(groceries.compactWord == "over")
         #expect(groceries.spokenSummary == "Over $15 of $100")
+    }
+
+    // Scenario WHEEL-10
+    /// Over by a few cents, the orange wheel still says how far over: at least
+    /// a whole dollar, never "Over $0". Past that it rounds half up, as every
+    /// whole amount in the middle does.
+    @Test func overByLessThanADollarTheMiddleSaysOneDollar() {
+        let cents = wheel(limit: 10_000, spent: 10_020, on: october18)
+        #expect(cents.isOver)
+        #expect(cents.middleKey == "Over" && cents.middleAmount == "$1" && cents.middleOf == "of $100")
+        #expect(cents.spokenSummary == "Over $1 of $100")
+        #expect(cents.figures.last == MoneyWheel.Figure(label: "Over", amount: "$0.20", isWarning: true),
+                "the figure keeps the cents")
+        #expect(wheel(limit: 10_000, spent: 10_001, on: october18).middleAmount == "$1", "one cent over")
+        #expect(wheel(limit: 10_000, spent: 10_050, on: october18).middleAmount == "$1")
+        #expect(wheel(limit: 10_000, spent: 10_149, on: october18).middleAmount == "$1")
+        #expect(wheel(limit: 10_000, spent: 10_150, on: october18).middleAmount == "$2")
+    }
+
+    // Scenario WHEEL-12
+    @Test func overByLessThanADollarAGroupsMiddleSaysOneDollar() {
+        let household = MoneyWheel(scope: .group, budgeted: Money(minorUnits: 130_000),
+                                   spent: Money(minorUnits: 130_020),
+                                   day: PeriodDay(period: WheelCalendar.month(of: october18), now: october18,
+                                                  calendar: calendar))
+        #expect(household.spokenSummary == "Over this month $1 of $1,300")
+        #expect(household.middleAmount == "$1" && household.compactWord == "over", "Home's card says $1 over")
     }
 
     // Scenario WHEEL-12

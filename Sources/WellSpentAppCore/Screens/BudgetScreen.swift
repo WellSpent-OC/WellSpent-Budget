@@ -45,8 +45,9 @@ public struct BudgetScreen {
     public let pace: BudgetPace?
 
     /// `now` and `calendar` place today in the budget's period, for its
-    /// wheel and its pace words.
-    public init(summary: BudgetSummary, model: AppModel, me: UserID?, now: Date = Date(),
+    /// wheel and its pace words. With no `now`, today is the model's
+    /// (`AppModel.today`).
+    public init(summary: BudgetSummary, model: AppModel, me: UserID?, now: Date? = nil,
                 calendar: Calendar = .autoupdatingCurrent) {
         self.summary = summary
         let group = summary.budget.groupID
@@ -63,7 +64,7 @@ public struct BudgetScreen {
         showsAddedBy = model.isShared(group)
         self.mayAdd = mayAdd
         undo = model.undoOffer
-        let wheel = MoneyWheel(budget: summary, now: now, calendar: calendar)
+        let wheel = MoneyWheel(budget: summary, now: now ?? model.today(), calendar: calendar)
         self.wheel = wheel
         // Changing a budget takes Manage, the level the workspace answers
         // `mayManageEntries` with.

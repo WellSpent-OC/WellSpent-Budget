@@ -67,11 +67,9 @@ struct FiguresList: View {
                     Text(figure.label)
                         .font(.system(size: 13))
                     Spacer(minLength: 0)
-                    // The Over figure's amount is in the warning colour, and
-                    // its label says Over, so the colour is not the only sign.
                     Text(figure.amount)
                         .font(.money(13))
-                        .foregroundStyle(figure.isWarning ? Palette.warning : Palette.ink)
+                        .foregroundStyle(Color(figure.amountColor))
                 }
                 .padding(.vertical, 5)
                 if figure.id != figures.last?.id {
@@ -81,6 +79,10 @@ struct FiguresList: View {
                 }
             }
         }
+        // The labels in ink, not the system's text colour, which turns light
+        // in dark mode while the page under them stays light. Each amount
+        // has its own colour.
+        .foregroundStyle(Palette.ink)
     }
 }
 
@@ -132,6 +134,8 @@ struct GroupMoneySection: View {
                         .foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                // In ink, as the figures are: the well stays light in dark mode.
+                .foregroundStyle(Palette.ink)
                 .frame(maxWidth: 360)
             }
             .padding(12)

@@ -71,6 +71,7 @@ Platforms: iPhone
 - And under the figures it says "At this pace, Gas runs out around Oct 26, five days early."
 - And beside those words, "Edit Budget…" opens the Edit Budget sheet
 - And Leslie, at Add, sees the same words with no button
+- And Rent, $1,850.00 a month and paid in full on October 1, has nothing left to run out, so it says nothing about the pace
 
 ## WHEEL-09 In the month's last week, more left than expected offers to lower the budget
 
@@ -88,6 +89,7 @@ Platforms: iPhone
 - Then its wheel is orange all the way round, with no tick
 - And its middle says "Over", "$15" and "of $100"
 - And beside the wheel it says "Spent" $115.00 and "Over" $15.00, with nothing about the pace
+- And with $100.20 spent, its middle says "Over", "$1" and "of $100", never "$0"
 
 ## WHEEL-11 A group's page opens with its money for the month
 

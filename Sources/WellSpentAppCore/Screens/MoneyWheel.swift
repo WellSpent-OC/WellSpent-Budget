@@ -15,17 +15,15 @@ public struct PeriodDay: Equatable, Sendable {
     public let days: Int
     /// The start of the period's first day.
     public let start: Date
-    /// The month of the day counted, "October": today's, unless today is
-    /// outside the period.
+    /// The month of the day counted, "October".
     public let month: String
 
     /// Nil when the period has no end, as for a budget that never resets.
     ///
     /// Today counts as spent through, so day 18 of 31 leaves 13 days to come.
     /// A day read before midnight on the period's last day stays on that day,
-    /// in that day's month, until the app reads its budgets again. So a
-    /// period read in October still says "October · day 31 of 31" on
-    /// November 1, never November beside October's money.
+    /// and in that day's month, until the app reads its budgets again. So the
+    /// words never name the new month over the last one's money.
     public init?(period: BudgetPeriod, now: Date, calendar: Calendar) {
         guard period.start != .distantPast, period.end != .distantFuture else { return nil }
         let start = calendar.startOfDay(for: period.start)
@@ -36,7 +34,7 @@ public struct PeriodDay: Equatable, Sendable {
         self.day = day
         self.days = days
         self.start = start
-        let counted = calendar.date(byAdding: .day, value: day - 1, to: start) ?? start
+        let counted = calendar.date(byAdding: .day, value: day - 1, to: start) ?? now
         month = counted.formatted(Date.FormatStyle(locale: calendar.locale ?? .current, calendar: calendar,
                                                    timeZone: calendar.timeZone).month(.wide))
     }
@@ -74,6 +72,10 @@ public struct MoneyWheel: Equatable, Sendable {
         }
 
         public var id: String { label }
+
+        /// The amount's colour: warning for the Over figure, whose label
+        /// says Over too, and ink for the rest.
+        public var amountColor: ColorPair { isWarning ? PaletteValues.warning : PaletteValues.ink }
     }
 
     public let scope: Scope
@@ -123,11 +125,9 @@ public struct MoneyWheel: Equatable, Sendable {
         return Money(minorUnits: units, currency: budgeted.currency)
     }
 
-    /// Less is left than an even pace would leave today. Nothing left is not
-    /// a pace: the money has run out already, so there is no day ahead for
-    /// it to run out on, and the empty wheel has no colour to turn.
+    /// Less is left than an even pace would leave today.
     public var isOverPace: Bool {
-        guard let expectedLeft, left.minorUnits > 0 else { return false }
+        guard let expectedLeft else { return false }
         return left < expectedLeft
     }
 
@@ -151,7 +151,13 @@ public struct MoneyWheel: Equatable, Sendable {
     }
 
     /// In the wheel's middle, in whole units: what is left, or how far over.
-    public var middleAmount: String { (isOver ? spent - budgeted : left).wholeDisplay }
+    /// Over by less than half a unit still shows one whole unit, so an
+    /// orange wheel never says "Over $0".
+    public var middleAmount: String {
+        guard isOver else { return left.wholeDisplay }
+        let over = spent - budgeted
+        return Money(minorUnits: max(over.minorUnits, over.minorUnitsPerUnit), currency: over.currency).wholeDisplay
+    }
     /// Under the amount in the wheel's middle: "of $1,000".
     public var middleOf: String { Words.of(budgeted.wholeDisplay) }
     /// Under the amount in Home's small wheel: "left" or "over".
@@ -307,9 +313,12 @@ public extension Money {
 }
 
 extension Money {
+    /// How many minor units make one whole unit: 100 cents to the dollar.
+    var minorUnitsPerUnit: Int { Int(pow(10.0, Double(currency.minorUnitDigits))) }
+
     /// The size of the amount in whole units, rounded half up.
     var wholeUnits: Int {
-        let divisor = Int(pow(10.0, Double(currency.minorUnitDigits)))
+        let divisor = minorUnitsPerUnit
         return (abs(minorUnits) + divisor / 2) / divisor
     }
 }

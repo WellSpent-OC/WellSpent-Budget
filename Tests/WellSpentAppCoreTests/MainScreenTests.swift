@@ -505,19 +505,27 @@ struct MainScreenTests {
 
     // Scenario WHEEL-03
     /// The outline marks the budget picked on the left, and moves with the
-    /// pick. While a group's page shows, no budget is picked, so no row has it.
+    /// pick. While a group's page or an invitation shows, no budget is
+    /// picked, so no row has it.
     @Test func theOutlineFollowsThePickAndLeavesEveryRowWhileAGroupsPageShows() async throws {
         let device = try await Device()
         let household = try #require(device.model.addGroup(named: "Household"))
         let groceries = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(500), in: household))
         let eatingOut = try #require(device.model.addBudget(named: "Eating out", limit: .dollars(200), in: household))
+        func picked() -> [BudgetID] { [groceries, eatingOut].filter { device.screen.isPicked($0) } }
 
         device.screen.selectedBudget = groceries
-        #expect(device.screen.selectedBudget == groceries)
+        #expect(picked() == [groceries])
         device.screen.selectedBudget = eatingOut
-        #expect(device.screen.selectedBudget == eatingOut)
+        #expect(picked() == [eatingOut])
         device.screen.openPage(of: household)
-        #expect(device.screen.selectedBudget == nil)
+        #expect(picked().isEmpty, "a group's page shows")
+
+        device.screen.selectedBudget = groceries
+        #expect(picked() == [groceries])
+        await device.workspace.open(try #require(URL(string: "https://example.com/join")))
+        #expect(device.screen.invitation != nil)
+        #expect(picked().isEmpty, "an invitation shows")
     }
 
     // Scenario WHEEL-11
