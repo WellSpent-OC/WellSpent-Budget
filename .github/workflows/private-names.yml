@@ -1,0 +1,72 @@
+# Nothing public may name a person, a team seat or a machine. The list of those
+# names is itself private, so it lives in the WELLSPENT_PRIVATE_NAMES secret, and
+# scripts/private-names-check.sh says where a name is, never which.
+#
+# At each push to a pull request: every file, the pull request's new commits,
+# its title and description, and the team's comments and reviews on it. Again
+# whenever someone on the team comments or reviews. Only the team's own words
+# are read: anyone can comment on a public repository, and checking a
+# stranger's words would let them learn the list by guessing and watching this
+# pass or fail. A fork's pull request has no secrets, so review checks it.
+name: Private names
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review:
+    types: [submitted, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions: {}
+
+jobs:
+  names:
+    name: Private names
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      # For a comment on a pull request, this is main's copy of the check.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No private name in the pull request
+        env:
+          PRIVATE_NAMES: ${{ secrets.WELLSPENT_PRIVATE_NAMES }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$PRIVATE_NAMES" ]; then
+            echo "::notice::No list of private names here, as for a fork's pull request. Review checks names instead."
+            exit 0
+          fi
+          words="$RUNNER_TEMP/words"
+          mkdir -p "$words"
+          team='select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")'
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.title + "\n" + (.body // "")' > "$words/title and description"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq ".[] | $team | .body" > "$words/comments"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" --jq ".[] | $team | .body // empty" > "$words/reviews"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/comments" --jq ".[] | $team | .body" > "$words/review comments"
+          if [ "$EVENT" = pull_request ]; then
+            scripts/private-names-check.sh --files --commits "$BASE" "$HEAD" "$words"/*
+          else
+            scripts/private-names-check.sh "$words"/*
+          fi
