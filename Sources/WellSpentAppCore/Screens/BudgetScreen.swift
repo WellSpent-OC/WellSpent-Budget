@@ -48,7 +48,7 @@ public struct BudgetScreen {
     /// wheel and its pace words. With no `now`, today is the model's
     /// (`AppModel.today`).
     public init(summary: BudgetSummary, model: AppModel, me: UserID?, now: Date? = nil,
-                calendar: Calendar = .autoupdatingCurrent) {
+                calendar: Calendar = AppLocale.calendar) {
         self.summary = summary
         let group = summary.budget.groupID
         // Asked once for the whole list: every entry is in this group.
@@ -92,13 +92,13 @@ public struct BudgetScreen {
     /// "3 transactions since Oct 1".
     public var countLine: String {
         let count = summary.transactionCount
-        let since = summary.period.start.formatted(.dateTime.day().month(.abbreviated))
+        let since = summary.period.start.formatted(.dateTime.day().month(.abbreviated).locale(AppLocale.current))
         return "\(count) transaction\(count == 1 ? "" : "s") since \(since)"
     }
 
     /// A short date for the list, as the Mac's table shows it.
     nonisolated public static func shortDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month(.abbreviated))
+        date.formatted(.dateTime.day().month(.abbreviated).locale(AppLocale.current))
     }
 
     public enum Words {

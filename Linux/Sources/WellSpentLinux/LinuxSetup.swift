@@ -35,6 +35,12 @@ enum LinuxSetup {
 
     @MainActor
     static func launch() throws -> Workspace {
+        // Foundation on Linux answers en_001 whatever the computer's region,
+        // so amounts and dates follow the region the environment names, as
+        // the Mac's follow the system's. Before anything reads an amount.
+        if let region = AppLocale.posix(ProcessInfo.processInfo.environment) {
+            AppLocale.set(region)
+        }
         let defaults = self.defaults
         let environment = self.environment
         let accounts = AccountDirectory(root: dataRoot, defaults: defaults, makeKeyStore: { namespace in

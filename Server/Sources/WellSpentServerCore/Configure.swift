@@ -116,6 +116,14 @@ public func configure(_ app: Application) async throws {
     // accounts need, rather than run one that cannot confirm an address or
     // reset a password.
     try app.configureMailer()
+    // Staging's UI tests read the codes it emails to test addresses here.
+    // Never on live, whatever is set.
+    let mailboxVariable = Environment.get("TEST_MAILBOX_TOKEN")
+    if let token = try TestMailboxChoice.token(server: serverEnvironment, variable: mailboxVariable) {
+        try app.enableTestMailbox(token: token)
+    } else if serverEnvironment == .live, !(mailboxVariable ?? "").isEmpty {
+        app.logger.warning("TEST_MAILBOX_TOKEN is set on live and ignored: live never has a test mailbox")
+    }
     try app.configureEmailCodeKey()
     app.legacyAPIOpen = try LegacyAPIGate.parse(Environment.get("LEGACY_API"))
     // Said either way, so a deploy shows at a glance whether the switch took.
