@@ -44,7 +44,7 @@ Skip deposits, transfers and payments to your card: leave them on **Choose**.
    Tap **Import statement**.
 
 4. ![A thumb picks the statement file in Files](../assets/shots/import-a-bank-statement-iphone-4.svg)
-   Pick your statement file. It's in the **Downloads** folder, unless you saved it somewhere else.
+   Find your statement in **Recents**, or tap **Browse** and open **Downloads**.
 
 5. ![A thumb picks a budget from a line's menu](../assets/shots/import-a-bank-statement-iphone-5.svg)
    For each line marked **Needs a budget**, pick a budget. To skip a line, leave it on **Choose**.

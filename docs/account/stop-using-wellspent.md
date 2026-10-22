@@ -27,4 +27,6 @@ These steps take WellSpent off a Mac. On an iPhone, see the end of this page. Yo
 
 Leave your shared groups and sign out first, as above. Then, in the TestFlight app, open WellSpent Budget, and tap **Stop Testing**. To remove the app, touch and hold its icon on the iPhone's Home Screen, tap **Remove App**, then **Delete App**.
 
-<!-- Scenarios: SHARE-15, ACCT-11 -->
+Budgets kept only on this iPhone are deleted with the app, for good. To keep them, make an account before you delete the app. The groups you made move into your account, and the server keeps them. [Quest 2: Make your account](../getting-started/make-your-account.md)
+
+<!-- Scenarios: SHARE-15, ACCT-11, SAMP-03 -->

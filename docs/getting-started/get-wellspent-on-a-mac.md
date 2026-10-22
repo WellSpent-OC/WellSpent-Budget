@@ -68,6 +68,8 @@ title: "Quest 1: Get WellSpent on your Mac or iPhone"
 
    > You see WellSpent, with two sample groups, **HOUSEHOLD** and **SIDE BUSINESS**.
 
+Got a link instead of Apple's email? Tap the link, then tap **Accept** and **Install**.
+
 ## If it doesn't work
 
 - **No email from Apple:** check your spam or junk folder, and search your mail for "TestFlight".
