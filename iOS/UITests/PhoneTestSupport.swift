@@ -343,9 +343,16 @@ final class PhoneTestApp {
         if close.exists, close.isHittable {
             close.tap()
         } else {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
-                       withVelocity: .fast, thenHoldForDuration: 0)
+            // Down from inside the share sheet, never from mid screen: the share
+            // sheet can start below the middle, and a drag there closes the
+            // app's own Share sheet behind it instead (seen on CI). From its
+            // link at the top, or else a little above Copy.
+            let link = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "wellspent")).firstMatch
+            let row = copy.exists ? copy : copyCell
+            let start = link.exists ? link.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                                    : row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -2.5))
+            start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
+                        withVelocity: .fast, thenHoldForDuration: 0)
         }
         let gone = wait(for: copy, until: "exists == false", timeout: 10)
             && wait(for: copyCell, until: "exists == false", timeout: 5)
