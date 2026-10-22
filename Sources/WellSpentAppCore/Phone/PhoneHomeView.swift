@@ -36,12 +36,19 @@ struct PhoneHomeView: View {
                             .font(.footnote)
                             .foregroundStyle(Palette.muted)
                     }
+                    // A list sets up a row's long-press menu once, when the
+                    // row first comes in. So a budget whose menu goes from
+                    // none to some, as when the owner moves this person up to
+                    // Manage, comes in as a new row. Otherwise a long press
+                    // still opens it.
                     ForEach(section.budgets, id: \.budget.id) { summary in
+                        let menu = screen.budgetMenu(summary.budget)
                         NavigationLink(value: PhoneRoute.budget(summary.budget.id)) {
                             PhoneBudgetRow(summary: summary)
                         }
                         .accessibilityIdentifier(AccessibilityID.sidebarBudget(summary.budget.name))
-                        .contextMenu { PhoneMenu(parts: screen.budgetMenu(summary.budget), perform: perform) }
+                        .contextMenu { PhoneMenu(parts: menu, perform: perform) }
+                        .id(RowKey(budget: summary.budget.id, hasMenu: !menu.isEmpty))
                         // Filled as far as it is used: PhoneRowFill.swift.
                         .phoneRowFill(summary)
                     }
@@ -104,6 +111,13 @@ struct PhoneHomeView: View {
             Divider()
             Button(section.toggleHelp) { screen.toggle(section.group.id) }
         }
+    }
+
+    /// A budget row's identity in the list: its budget, and whether it has a
+    /// long-press menu.
+    private struct RowKey: Hashable {
+        let budget: BudgetID
+        let hasMenu: Bool
     }
 
     /// The group's New Budget, when its menu offers one.

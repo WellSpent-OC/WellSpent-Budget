@@ -40,7 +40,7 @@ struct PhoneRootView: View {
                 .navigationDestination(for: PhoneRoute.self) { route in destination(route) }
         }
         .tint(Palette.accent)
-        .stagingBanner(workspace.environment)
+        .stagingBanner(workspace.environment, syncedAt: sync.lastSyncedAt)
         // The view preferences go where this build keeps its settings, so a
         // staging build never writes into live's.
         .defaultAppStorage(sync.defaults)

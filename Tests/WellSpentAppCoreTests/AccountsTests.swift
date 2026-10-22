@@ -360,6 +360,40 @@ struct AccountsTests {
         #expect(signingIn.model.undoWindow == .seconds(120), "the signed-in account's budgets keep it")
     }
 
+    // MARK: - A slower timed sync, for a UI test
+
+    /// A UI test that needs the phone not to hear of a change for a moment
+    /// stretches the timed sync. Only a staging build reads it, in whole
+    /// seconds above zero. Anything else keeps every 2 minutes.
+    @Test func onlyAStagingBuildReadsTheTimedSyncInterval() {
+        let set = [Workspace.autoSyncIntervalVariable: "3600"]
+        #expect(Workspace.autoSyncInterval(for: .staging, in: set) == .seconds(3600))
+        #expect(Workspace.autoSyncInterval(for: .live, in: set) == AutoSync.defaultInterval,
+                "no variable changes the live app")
+        for bad in ["", "soon", "0", "-5", "2.5"] {
+            #expect(Workspace.autoSyncInterval(for: .staging, in: [Workspace.autoSyncIntervalVariable: bad])
+                    == AutoSync.defaultInterval, "\(bad)")
+        }
+        #expect(Workspace.autoSyncInterval(for: .staging, in: [:]) == AutoSync.defaultInterval)
+        // The UI test sets it by this name.
+        #expect(Workspace.autoSyncIntervalVariable == "WELLSPENT_AUTOSYNC_SECONDS")
+    }
+
+    /// Launched the way main.swift launches it, the timed sync takes the
+    /// longer interval.
+    @Test func aStagingLaunchTakesTheLongerTimedSync() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        let app = try Workspace.launch(processEnvironment: [AccountDirectory.dataRootVariable: root.path,
+                                                            Workspace.autoSyncIntervalVariable: "3600"])
+        #expect(app.autoSync.interval == .seconds(3600))
+    }
+
     // MARK: - A pinned day, for a UI test
 
     /// A UI test puts the money wheel on one day of this month, so the pace
