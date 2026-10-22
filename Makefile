@@ -231,7 +231,9 @@ iphone-ui-test: iphone-ui-test-build
 		trap '$(IPHONE_SIMCTL) shutdown "$$udid" >/dev/null 2>&1 || true; $(IPHONE_SIMCTL) delete "$$udid" >/dev/null 2>&1 || true' EXIT; \
 		trap 'exit 130' INT TERM; \
 		$(IPHONE_SIMCTL) boot "$$udid"; \
+		$(IPHONE_SIMCTL) bootstatus "$$udid" -b >/dev/null; \
 		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true; \
+		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.Preferences DidShowContinuousPathIntroduction -bool true; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
 		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
 		status=0; \
