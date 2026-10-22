@@ -269,6 +269,10 @@ struct SidebarView: View {
             Button(action: { screen.selectedBudget = summary.budget.id }) {
                 BudgetRow(summary: summary, isPicked: screen.selectedBudget == summary.budget.id)
             }
+            // How much is used, and whether it's the open one, as the Mac's
+            // row tells VoiceOver. Before the style, which wraps the button.
+            .accessibility(value: RowFill(summary).spokenValue,
+                           selected: screen.selectedBudget == summary.budget.id)
             .buttonStyle(.plain)
         case .note(let text):
             Text(text)
@@ -295,6 +299,8 @@ struct SidebarView: View {
                 }
                 .frame(maxWidth: Self.widestLine)
             }
+            // Before the style, which wraps the button in a widget of its own.
+            .accessibility(selected: section.isPageOpen)
             .buttonStyle(.plain)
             // GTK has no right-click menu here, so each group has a button
             // that opens the menu the Mac shows on a right-click.
@@ -302,8 +308,9 @@ struct SidebarView: View {
                 menuItems(screen.groupMenu(section.group))
             }
             // The arrow at the end of the line hides or shows the budgets,
-            // as on the Mac.
+            // as on the Mac, which names it by its tooltip too.
             Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
+                .accessibility(label: section.toggleHelp)
                 .help(section.toggleHelp)
         }
     }
@@ -427,8 +434,14 @@ struct BudgetDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(screen.rows) { row in
-                            EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
-                                .onTapGesture { openEntry(row.id) }
+                            // A button, not a tap, so the keyboard and a
+                            // screen reader reach the row, as in the sidebar.
+                            // The plain style adds no padding or background.
+                            Button(action: { openEntry(row.id) }) {
+                                EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                                    .frame(maxWidth: Self.widestRow)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -437,6 +450,11 @@ struct BudgetDetailView: View {
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    /// How wide a row's button may grow. As in the sidebar, SwiftCrossUI
+    /// 0.10.0's Button needs a finite width for a label holding a Spacer, and
+    /// this is far wider than any window.
+    private static let widestRow: Double = 10_000
 }
 
 struct EntryRow: View {

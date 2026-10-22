@@ -377,4 +377,60 @@ struct GroupsV2Tests {
             #expect(try await accept(live.token, as: joiner, on: app).0 == .notFound)
         }
     }
+
+    /// Only someone who may manage the group sees its invites. Someone at Add
+    /// or View, and anyone outside it, is refused.
+    @Test func onlyAManagerSeesTheGroupsInvites() async throws {
+        try await withV2App { app, _ in
+            let (groupID, founder, writer) = try await groupWith(.write, founder: "v2-see-inv-founder@example.com",
+                                                                  member: "v2-see-inv-writer@example.com", on: app)
+            let reader = try await v2SignUpConfirmed("v2-see-inv-reader@example.com", on: app)
+            let token = try #require(try await invite(groupID, level: .read, as: founder, on: app).1?.token)
+            #expect(try await accept(token, as: reader, on: app).0 == .ok)
+            let stranger = try await v2SignUpConfirmed("v2-see-inv-stranger@example.com", on: app)
+            _ = try #require(try await invite(groupID, level: .read, as: founder, on: app).1)
+
+            let path = "api/v2/groups/\(groupID)/invites"
+            #expect(try await v2Status(.GET, path, token: founder.token, on: app) == .ok)
+            #expect(try await v2Status(.GET, path, token: writer.token, on: app) == .forbidden, "at Add")
+            #expect(try await v2Status(.GET, path, token: reader.token, on: app) == .forbidden, "at View")
+            #expect(try await v2Status(.GET, path, token: stranger.token, on: app) == .forbidden, "not in it")
+        }
+    }
+
+    /// Cancelling an invite that isn't there, or one of another group's
+    /// through this group, is not found, and the other group's stays.
+    @Test func cancellingAnInviteThatIsNotTheGroupsIsNotFound() async throws {
+        try await withV2App { app, _ in
+            let founder = try await v2SignUpConfirmed("v2-cancel-none-founder@example.com", on: app)
+            let mine = UUID()
+            let other = UUID()
+            #expect(try await create(mine, as: founder, on: app).0 == .created)
+            #expect(try await create(other, as: founder, on: app).0 == .created)
+            let theirs = try #require(try await invite(other, level: .read, as: founder, on: app).1)
+
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(mine)/invites/\(UUID())",
+                                       token: founder.token, on: app) == .notFound)
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(mine)/invites/\(theirs.id)",
+                                       token: founder.token, on: app) == .notFound)
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(other)/invites/\(theirs.id)",
+                                       token: founder.token, on: app) == .noContent, "it was still there")
+        }
+    }
+
+    /// Removing someone who isn't in the group is not found, whether nobody
+    /// has that ID or it's someone outside the group, and nobody is removed.
+    @Test func removingSomeoneNotInTheGroupIsNotFound() async throws {
+        try await withV2App { app, _ in
+            let (groupID, founder, _) = try await groupWith(.write, founder: "v2-rm-none-founder@example.com",
+                                                             member: "v2-rm-none-writer@example.com", on: app)
+            let outsider = try await v2SignUpConfirmed("v2-rm-none-outsider@example.com", on: app)
+
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(groupID)/members/\(UUID())",
+                                       token: founder.token, on: app) == .notFound)
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(groupID)/members/\(outsider.userID)",
+                                       token: founder.token, on: app) == .notFound)
+            #expect(try await members(of: groupID, as: founder, on: app).1.count == 2)
+        }
+    }
 }

@@ -4,53 +4,55 @@ import Vapor
 import VaporTesting
 @testable import WellSpentServerCore
 
-private struct OldSignUp: Content {
-    let email: String; let password: String; let identitySigning: Data; let identityKEM: Data
-    let escrowNonce: Data?; let escrowCiphertext: Data?
-}
 private struct Reason: Content { let reason: String }
 
-@Suite("Server, closing the old API at the switch", .serialized)
+@Suite("Server, the old API is gone", .serialized)
 struct LegacyAPITests {
-    /// Closed, every old route answers 401 with the update message, which the
-    /// old app shows as is and treats as something that may clear up, so it
-    /// keeps everything it has queued. The new API and the health check carry on.
-    @Test func aClosedOldAPIAsksTheAppToUpdateAndTheNewOneCarriesOn() async throws {
+    /// Every path under /api/v1, by every method, signed in or not, answers 401
+    /// with the update message. The old app shows it as is and treats it as
+    /// something that may clear up, so it keeps everything it has queued. The
+    /// new API and the health check carry on.
+    @Test func everyOldPathAsksTheAppToUpdateAndTheNewOneCarriesOn() async throws {
         try await withV2App { app, _ in
-            app.legacyAPIOpen = false
-            var reason = ""
-            try await app.testing().test(.POST, "api/v1/signup", beforeRequest: { request in
-                try request.content.encode(OldSignUp(email: "legacy-closed@example.com", password: v2Password,
-                                                     identitySigning: Data([1]), identityKEM: Data([2]),
-                                                     escrowNonce: nil, escrowCiphertext: nil))
-            }, afterResponse: { response async throws in
-                #expect(response.status == .unauthorized)
-                reason = try response.content.decode(Reason.self).reason
-            })
-            #expect(reason == LegacyAPIGate.refusal)
-            for path in ["api/v1/groups/\(UUID())/pull", "api/v1/groups/\(UUID())/log"] {
-                #expect(try await v2Status(.GET, path, token: "any-old-token", on: app) == .unauthorized)
+            let group = UUID()
+            let paths = ["signup", "signin", "signout", "escrow/someone@example.com",
+                         "groups/\(group)/pull?since=0", "groups/\(group)/push", "groups/\(group)/log",
+                         "groups/\(group)/keys", "groups/\(group)/invites", "invites", "invites/accept",
+                         "invites/abcdef", "a/path/that/never/was"]
+            var answered: [String] = []
+            for path in paths {
+                for method: HTTPMethod in [.GET, .POST, .DELETE] {
+                    for token: String? in [nil, "any-old-token"] {
+                        var reason = ""
+                        var status = HTTPStatus.ok
+                        try await app.testing().test(method, "api/v1/\(path)", headers: token.map(v2Bearer) ?? [:],
+                                                     beforeRequest: { request in
+                            if method == .POST { request.body = ByteBuffer(string: "{\"email\": \"x\"}") }
+                        }, afterResponse: { response async throws in
+                            status = response.status
+                            reason = (try? response.content.decode(Reason.self).reason) ?? ""
+                        })
+                        if status != .unauthorized || reason != LegacyAPI.refusal {
+                            answered.append("\(method.rawValue) \(path): \(status.code)")
+                        }
+                    }
+                }
             }
-            _ = try await v2SignUp("legacy-closed-new@example.com", on: app)
+            #expect(answered.isEmpty, "these did not ask for the update: \(answered)")
+
+            _ = try await v2SignUp("legacy-gone-new@example.com", on: app)
             #expect(try await v2Status(.GET, "health", on: app) == .ok)
         }
     }
 
-    @Test func theOldAPIIsOpenUntilTheSwitch() async throws {
+    /// The only routes left under /api/v1 are its answer, one for each
+    /// method, so nothing of the sealed sync can be reached by any path.
+    @Test func noRouteOfTheOldAPIIsLeft() async throws {
         try await withV2App { app, _ in
-            let answer = try await v2Status(.POST, "api/v1/signup",
-                                            body: OldSignUp(email: "legacy-open@example.com", password: v2Password,
-                                                            identitySigning: Data([1]), identityKEM: Data([2]),
-                                                            escrowNonce: nil, escrowCiphertext: nil), on: app)
-            #expect(answer == .ok)
+            let left = app.routes.all.map { route in route.path.map(\.description) }
+                .filter { $0.first == "api" && $0.dropFirst().first == "v1" }
+            #expect(left.allSatisfy { $0 == ["api", "v1", "**"] }, "\(left)")
+            #expect(left.count == 5, "one answer for each method: \(left.count)")
         }
-    }
-
-    @Test func theSettingIsOnOrOffAndNothingElse() throws {
-        #expect(try LegacyAPIGate.parse(nil) == true)
-        #expect(try LegacyAPIGate.parse("") == true)
-        #expect(try LegacyAPIGate.parse("on") == true)
-        #expect(try LegacyAPIGate.parse(" OFF ") == false)
-        #expect(throws: (any Error).self) { try LegacyAPIGate.parse("maybe") }
     }
 }

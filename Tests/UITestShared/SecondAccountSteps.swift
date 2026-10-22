@@ -56,7 +56,9 @@ extension SecondAccount {
     }
 
     /// Changes an entry's note or amount, as its opened sheet's Save does.
-    /// The amount is written the way a person types it, such as "60.00".
+    /// The amount is written the way a person types it, and read in the test
+    /// runner's region: "60.00" on our Macs and in CI, where a dot marks
+    /// decimals. A runner set to a comma region would read it differently.
     func changeEntry(_ merchant: String, inGroup group: String, note: String? = nil, amount: String? = nil) async throws {
         let model = AppModel(store: sync.store)
         guard let editor = EntryEditor(model: model, entry: try entry(merchant, inGroup: group).id) else {

@@ -15,7 +15,7 @@ public enum TypedAmount: Equatable, Sendable {
     /// Typed, but not clearly an amount the way this region writes one.
     case unclear
 
-    public init(_ text: String, currency: Currency = .usd, locale: Locale = .autoupdatingCurrent) {
+    public init(_ text: String, currency: Currency = .usd, locale: Locale = AppLocale.current) {
         self = Self.read(text, currency: currency, marks: Marks(locale))
     }
 
@@ -27,13 +27,13 @@ public enum TypedAmount: Equatable, Sendable {
 
     /// What an amount field starts with: the region's decimal mark and no
     /// thousands marks, so it reads back as the same amount.
-    public static func text(_ money: Money, locale: Locale = .autoupdatingCurrent) -> String {
+    public static func text(_ money: Money, locale: Locale = AppLocale.current) -> String {
         money.description.replacingOccurrences(of: ".", with: Marks(locale).decimal)
     }
 
     public enum Words {
         /// Said under the amount, with an example written the region's way.
-        public static func unclear(locale: Locale = .autoupdatingCurrent) -> String {
+        public static func unclear(locale: Locale = AppLocale.current) -> String {
             "That amount can't be read clearly. Type it like \(TypedAmount.text(Money(minorUnits: 1_250), locale: locale))."
         }
     }
@@ -115,9 +115,12 @@ public enum TypedAmount: Equatable, Sendable {
         if groups.count > 1 {
             // The last group has the region's group size, the ones before it
             // the other size, and the first may be shorter, but never empty.
+            // Nor does it start with a zero: nobody writes five hundred as
+            // "0.500", so where a dot groups thousands that is refused.
             guard groups.last?.count == marks.groupSize,
                   groups.dropFirst().dropLast().allSatisfy({ $0.count == marks.otherGroupSize }),
-                  let first = groups.first, (1...marks.otherGroupSize).contains(first.count) else { return .unclear }
+                  let first = groups.first, (1...marks.otherGroupSize).contains(first.count),
+                  !first.hasPrefix("0") else { return .unclear }
         }
 
         let digits = groups.joined() + part.padding(toLength: currency.minorUnitDigits, withPad: "0", startingAt: 0)
