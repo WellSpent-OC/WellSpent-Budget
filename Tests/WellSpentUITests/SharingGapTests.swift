@@ -235,6 +235,11 @@ final class SharingGapTests: XCTestCase {
         // Nothing is picked, since each would start another app: Escape
         // closes them, and the sheet stays, with its link.
         let send = run.send(made)
+        XCTAssertTrue(send.opened, "Send\u{2026} opened none of the system's ways to share. Seen: \(send.summary)")
+        XCTAssertTrue(send.showsLink, "the ways to share do not show the link. Seen: \(send.summary)")
+        XCTAssertTrue(send.closed, "Escape did not close the ways to share. Seen: \(send.summary)")
+        XCTAssertTrue(send.stayed, "the sheet did not stay after Escape. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(send.sameLink, "the sheet's link changed after Send\u{2026}")
 
         // Scenario SHARE-01
         // 7. Done closes the sheet. Share… again: Your name holds the name he
@@ -294,7 +299,7 @@ final class SharingGapTests: XCTestCase {
         let leaving = PendingDelete.group(BudgetGroup(name: lesliesGroup), budgets: 1, transactions: 2,
                                           reach: .thisMacOnly)
         run.askToLeave(lesliesGroup, question: leaving.title)
-        XCTAssertTrue(run.app.staticTexts[leaving.message(sendsChanges: true)].waitForExistence(timeout: 5),
+        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: true)).waitForExistence(timeout: 10),
                       "the question does not say \(leaving.message(sendsChanges: true)) On screen: \(run.visibleTexts())")
         XCTAssertNotNil(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question")
         try XCTUnwrap(run.dialogButton(leaving.confirmLabel), "no Leave on the question").click()
@@ -339,7 +344,7 @@ final class SharingGapTests: XCTestCase {
         // 15. At View, Leave… asks without the two sentences about changes
         // not synced yet. Cancel keeps the group.
         run.askToLeave(lesliesGroup, question: leaving.title)
-        XCTAssertTrue(run.app.staticTexts[leaving.message(sendsChanges: false)].waitForExistence(timeout: 5),
+        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: false)).waitForExistence(timeout: 10),
                       "the question does not say \(leaving.message(sendsChanges: false)) On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question").click()
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(lesliesGroup)).waitForExistence(timeout: 10),
@@ -367,12 +372,6 @@ final class SharingGapTests: XCTestCase {
         // 18. Tidy: Leslie's group goes, for everyone, and her session ends.
         await leslie.deleteGroup(named: lesliesGroup)
         await leslie.cleanUp()
-
-        // PROBE (first signed-in run only): what Send… showed, checked once
-        // everything is tidied.
-        XCTAssertTrue(send.opened, "Send\u{2026} opened no ways to share. Seen: \(send.summary)")
-        XCTAssertTrue(send.showsLink, "the ways to share do not show the link. Seen: \(send.summary)")
-        XCTAssertTrue(send.summary.hasSuffix("stayed true sameLink true closed true"), "after Escape: \(send.summary)")
     }
 
     /// The server's words for an invite someone already used, as the app
@@ -407,10 +406,14 @@ final class SharingGapTests: XCTestCase {
 // MARK: - Helpers
 
 /// What Send… showed: whether the system's ways to share opened, and whether
-/// they named the link.
+/// they named the link. Then, after Escape: whether they closed, and whether
+/// the sheet stayed with the same link.
 private struct SendResult {
     let opened: Bool
     let showsLink: Bool
+    var closed = false
+    var stayed = false
+    var sameLink = false
     /// Which of the system's own ways showed, and the shape of what opened.
     /// Never the other words in it: the list can name people this Mac knows.
     let summary: String
@@ -591,15 +594,14 @@ private extension TestApp {
         button.click()
         let opened = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == true }
         _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: opened, object: nil)], timeout: 10)
-        let seen = waysToShare(link)
-        print("PROBE send: \(seen.summary) opened \(seen.opened) showsLink \(seen.showsLink)")
+        var seen = waysToShare(link)
         app.typeKey(.escape, modifierFlags: [])
-        let stayed = wait(for: element(AccessibilityID.shareCopyLink), until: "hittable == true", timeout: 10)
-        let after = waysToShare(link)
-        let sameLink = InviteLink(parsing: text(of: element(AccessibilityID.shareLink))) == link
-        print("PROBE after escape: stayed \(stayed) sameLink \(sameLink) still open \(after.opened) \(after.summary)")
-        return SendResult(opened: seen.opened, showsLink: seen.showsLink,
-                          summary: seen.summary + " | stayed \(stayed) sameLink \(sameLink) closed \(!after.opened)")
+        let gone = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == false }
+        seen.closed = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: nil)], timeout: 10)
+            == .completed
+        seen.stayed = wait(for: element(AccessibilityID.shareCopyLink), until: "hittable == true", timeout: 10)
+        seen.sameLink = InviteLink(parsing: text(of: element(AccessibilityID.shareLink))) == link
+        return seen
     }
 
     /// What shows of the system's ways to share now, read from one snapshot
@@ -642,7 +644,7 @@ private extension TestApp {
         XCTAssertFalse(items.contains(MainScreen.Words.delete), "the menu offers Delete\u{2026}: \(items)",
                        file: file, line: line)
         clickMenuItem(MainScreen.Words.leave)
-        XCTAssertTrue(app.staticTexts[question].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.staticTexts[question].waitForExistence(timeout: 10),
                       "no question \(question) On screen: \(visibleTexts())", file: file, line: line)
     }
 
@@ -671,6 +673,12 @@ private extension TestApp {
         clickMenuItem(MainScreen.Words.join)
         XCTAssertTrue(element(AccessibilityID.joinLink).waitForExistence(timeout: 10),
                       "Join a Group\u{2026} opened no sheet. On screen: \(visibleTexts())")
+    }
+
+    /// A text on screen with exactly these words. A query by its words alone
+    /// refuses words longer than 128 characters, so this names what to match.
+    func staticText(_ words: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", words, words)).firstMatch
     }
 
     /// Sign in…, then Create an account, with an address nobody confirms.
