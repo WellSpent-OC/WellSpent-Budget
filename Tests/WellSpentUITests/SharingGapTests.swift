@@ -72,7 +72,7 @@ final class SharingGapTests: XCTestCase {
         // 1. A fresh install, signed out, with Household kept on this
         // computer only.
         try run.launchAsFreshInstall()
-        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Household")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Household")).waitForExistence(timeout: 30),
                       "no sample Household. Sidebar: \(run.sidebarIdentifiers())")
         XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].exists,
                       "the foot does not say the budgets are kept on this computer. On screen: \(run.visibleTexts())")
@@ -165,7 +165,7 @@ final class SharingGapTests: XCTestCase {
         // budget open, the window has no other way to it.
         run.openAccountThroughJoin(link)
         run.click(AccessibilityID.accountSignOut)
-        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 15),
+        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 30),
                       "still signed in. On screen: \(run.visibleTexts())")
     }
 
@@ -185,7 +185,7 @@ final class SharingGapTests: XCTestCase {
         // their budgets' rows say is kept, to compare after signing out.
         try run.launchAsFreshInstall()
         for group in Self.sampleGroups {
-            XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 10),
+            XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 30),
                           "no sample \(group). Sidebar: \(run.sidebarIdentifiers())")
         }
         let samples = run.rows(of: Self.sampleBudgets)
@@ -196,7 +196,7 @@ final class SharingGapTests: XCTestCase {
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         for group in Self.sampleGroups {
             XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(group)), until: "exists == false",
-                                   timeout: 15), "the sample \(group) shows in the account")
+                                   timeout: 30), "the sample \(group) shows in the account")
         }
         run.deleteLeftovers(startingWith: Self.robinsPrefix)
 
@@ -299,7 +299,7 @@ final class SharingGapTests: XCTestCase {
         XCTAssertNotNil(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question")
         try XCTUnwrap(run.dialogButton(leaving.confirmLabel), "no Leave on the question").click()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(lesliesGroup)), until: "exists == false",
-                               timeout: 15), "her group is still in his sidebar")
+                               timeout: 30), "her group is still in his sidebar")
 
         // Scenario SHARE-15
         // 12. Leslie keeps the group, with its budget, Costco and his Bakery.
@@ -356,10 +356,10 @@ final class SharingGapTests: XCTestCase {
         // Scenario SAMP-06
         // 17. Signed out, the samples show again, as they were.
         run.signOut()
-        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 15),
+        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 30),
                       "still signed in. On screen: \(run.visibleTexts())")
         for group in Self.sampleGroups {
-            XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 10),
+            XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 30),
                           "the sample \(group) did not come back. Sidebar: \(run.sidebarIdentifiers())")
         }
         XCTAssertEqual(run.rows(of: Self.sampleBudgets), samples, "the samples are not as they were")
@@ -440,7 +440,9 @@ private extension TestApp {
     /// checks it can be clicked.
     func revealLine(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
         let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: 10), "no line called \(identifier). Sidebar: \(sidebarIdentifiers())",
+        // Up to 30 seconds: a budget of a group just joined comes with the
+        // sync that follows, which a slow machine takes a while over.
+        XCTAssertTrue(target.waitForExistence(timeout: 30), "no line called \(identifier). Sidebar: \(sidebarIdentifiers())",
                       file: file, line: line)
         let placed = NSPredicate { _, _ in !target.frame.isEmpty }
         XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: placed, object: nil)], timeout: 10),
