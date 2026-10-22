@@ -202,9 +202,12 @@ iphone-ui-test-build: iphone-project
 # light only: the local tests already draw every screen in dark, and every
 # sign-in counts against staging's limits. The rest need no account and no
 # server. If anything stops the run, Control-C included, the simulator is still
-# deleted. The simulator is the newest numbered iPhone the machine has, unless
-# IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17". IPHONE_UI_TEST_ONLY
-# runs one test class or test, such as WellSpentPhoneUITests/PhoneSignInSyncTests.
+# deleted. Each simulator is told it has shown its keyboard's first-run tip:
+# CI's on-screen keyboard otherwise opens with it over the keys, and the tests
+# stall reading the screen. The simulator is the newest numbered iPhone the
+# machine has, unless IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17".
+# IPHONE_UI_TEST_ONLY runs one test class or test, such as
+# WellSpentPhoneUITests/PhoneSignInSyncTests.
 # IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
 # UI_TEST_SHARD does for the Mac. Each look's result bundle,
 # .build/xcode-iphone/ui-test-<look>.xcresult, holds the code coverage of the
@@ -228,6 +231,7 @@ iphone-ui-test: iphone-ui-test-build
 		trap '$(IPHONE_SIMCTL) shutdown "$$udid" >/dev/null 2>&1 || true; $(IPHONE_SIMCTL) delete "$$udid" >/dev/null 2>&1 || true' EXIT; \
 		trap 'exit 130' INT TERM; \
 		$(IPHONE_SIMCTL) boot "$$udid"; \
+		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
 		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
 		status=0; \
