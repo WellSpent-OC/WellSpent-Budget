@@ -205,6 +205,12 @@ final class SharingGapTests: XCTestCase {
                           "no sample \(group). Sidebar: \(run.sidebarIdentifiers())")
         }
         let samples = run.rows(of: Self.sampleBudgets)
+        // Two empty lists would compare equal, so each sample budget must
+        // have a row before it counts as "as they were" later.
+        for budget in Self.sampleBudgets {
+            XCTAssertFalse(samples[budget, default: []].isEmpty,
+                           "no row for the sample budget \(budget). Sidebar: \(run.sidebarIdentifiers())")
+        }
 
         // Scenario SAMP-06
         // 2. Signed in to the account made on another computer: the list
@@ -265,7 +271,7 @@ final class SharingGapTests: XCTestCase {
         // Scenario SHARE-01
         // 7. Done closes the sheet. Share… again: Your name holds the name he
         // used for this group.
-        if run.element(AccessibilityID.shareDone).exists { run.click(AccessibilityID.shareDone) }
+        run.click(AccessibilityID.shareDone)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareDone), until: "exists == false", timeout: 10),
                       "Done did not close the sheet")
         run.revealLine(AccessibilityID.sidebarGroup(robinsGroup))
@@ -389,7 +395,15 @@ final class SharingGapTests: XCTestCase {
             XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 30),
                           "the sample \(group) did not come back. Sidebar: \(run.sidebarIdentifiers())")
         }
-        XCTAssertEqual(run.rows(of: Self.sampleBudgets), samples, "the samples are not as they were")
+        // The rows come back with the next draw, so they get up to 30
+        // seconds to read as they did.
+        var rowsNow = run.rows(of: Self.sampleBudgets)
+        let deadline = Date().addingTimeInterval(30)
+        while rowsNow != samples, Date() < deadline {
+            try await Task.sleep(for: .seconds(1))
+            rowsNow = run.rows(of: Self.sampleBudgets)
+        }
+        XCTAssertEqual(rowsNow, samples, "the samples are not as they were")
 
         // 18. Tidy: Leslie's group goes, for everyone, and her session ends.
         await leslie.deleteGroup(named: lesliesGroup)
