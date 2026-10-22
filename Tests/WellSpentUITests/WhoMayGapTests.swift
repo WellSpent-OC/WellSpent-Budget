@@ -23,7 +23,8 @@ import WellSpentSync
 ///   that shows only what comes after it.
 /// - Leslie's group with a link at Add: the Share sheet at Add, an entry
 ///   open while she moves him down to View from Manage, an entry of his own
-///   at View, an Undo she moves him down under, and leaving the group.
+///   at View, an Undo she moves him down under, and leaving the group. A
+///   second group of hers stays in his list, so he can sign out after.
 /// - Leslie's group with a link at Add: his menus at Add, and once she
 ///   moves him up to Manage.
 ///
@@ -126,7 +127,8 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.listText(BudgetScreen.Words.notice).waitForExistence(timeout: 60),
                       "no line saying his change didn't go through. On screen: \(run.visibleTexts())")
         run.expectEntry(hilltop, shows: ["two loaves", BudgetScreen.Words.notice, Money(minorUnits: 12408).display])
-        XCTAssertFalse(run.listText("$150.00").exists, "his amount stayed. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.listText(Money(minorUnits: 15000).display).exists,
+                       "his amount stayed. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-14
         // 4. Opened, the sheet says his last change didn't go through and
@@ -218,7 +220,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importCancel), until: "exists == false", timeout: 10),
                       "the review did not close")
 
-        // Scenario BUDGET-07, ENTRY-10
+        // Scenario BUDGET-07
         // 11. Robin deletes any group of his own an earlier run left, then
         // makes one, with a budget and two transactions. As the one who
         // made it, his budget has Add and Import statement. The group's menu
@@ -385,6 +387,7 @@ final class WhoMayGapTests: XCTestCase {
         Self.secondSuite = second.suite
         let stamp = Self.stamp()
         let added = "\(Self.prefix)Add \(stamp)", eatingOut = "Eating out \(stamp)"
+        let kept = "\(Self.prefix)Keep \(stamp)", snacks = "Snacks \(stamp)"
         let hilltop = "Hilltop Grocery", bakery = "Corner Bakery", market = "Market"
         let leave = MainScreen.Words.leave, cancel = MainScreen.Words.cancel
         let hilltopAmount = Money(minorUnits: 14208), bakeryAmount = Money(minorUnits: 1200)
@@ -392,20 +395,26 @@ final class WhoMayGapTests: XCTestCase {
         // 1. Leslie, with no window, signs in and deletes any groups an
         // earlier run left on her account. Then she makes a group with
         // Hilltop Grocery and Corner Bakery, and a link that invites at Add.
+        // She also makes a small group with a link that invites at View.
+        // Robin keeps that one to the end: once he has left the first, its
+        // budget's toolbar is where he signs out.
         try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await second.deleteLeftovers(startingWith: Self.prefix)
         let addLink = try await second.shareNewGroup(added, budget: eatingOut, entry: hilltop, amount: hilltopAmount,
                                                      myName: "Leslie", role: .add)
         try await second.addEntry(bakery, amount: bakeryAmount, inBudget: eatingOut, group: added)
+        let keepLink = try await second.shareNewGroup(kept, budget: snacks, entry: "Costco",
+                                                      amount: Money(minorUnits: 900), myName: "Leslie", role: .view)
 
-        // 2. The window, signed in as Robin, joins with the link and opens
-        // the budget. Its Undo bar stays ten minutes, not ten seconds, so
-        // Leslie can move him down while it is up.
+        // 2. The window, signed in as Robin, joins with both links and opens
+        // the first group's budget. Its Undo bar stays ten minutes, not ten
+        // seconds, so Leslie can move him down while it is up.
         run.app.launchEnvironment[Workspace.undoWindowVariable] = "600"
         run.launch()
         let opened = Date()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.join(addLink.url, as: "Robin")
+        run.join(keepLink.url, as: "Robin")
         run.openBudget(named: eatingOut)
         XCTAssertTrue(run.entryRow(bakery).waitForExistence(timeout: 60),
                       "Corner Bakery did not arrive. On screen: \(run.visibleTexts())")
@@ -475,7 +484,8 @@ final class WhoMayGapTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.listText(hilltopAmount.display).waitForExistence(timeout: 5),
                       "Hilltop Grocery's row lost \(hilltopAmount.display). On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.listText("$150.00").exists, "his amount was saved. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.listText(Money(minorUnits: 15000).display).exists,
+                       "his amount was saved. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-10
         // 7. Market, which he added before the move down, opens read-only,
@@ -542,10 +552,11 @@ final class WhoMayGapTests: XCTestCase {
             XCTAssertNoThrow(try second.entry(merchant, inGroup: added), "Leslie lost \(merchant)")
         }
 
-        // 11. Tidy: Robin's session ends. Then Leslie deletes her group for
-        // everyone, and her session ends.
+        // 11. Tidy: Robin's session ends, from the toolbar of the budget he
+        // kept. Then Leslie deletes her groups for everyone, and her session
+        // ends.
         run.signOut()
-        await second.deleteGroup(named: added)
+        for name in [added, kept] { await second.deleteGroup(named: name) }
         await second.cleanUp()
     }
 
