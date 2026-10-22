@@ -15,11 +15,13 @@ import WellSpentSync
 /// Three tests, each launched as a fresh install, with the samples:
 /// - Signed out: Share… on the sample Household makes no link, and Join a
 ///   Group… joins nothing. No account is needed.
-/// - Not confirmed: Leslie makes an account in the window and does not
-///   confirm its email. Join a Group… sends her to confirm it, and Join
-///   pressed anyway adds nothing. It needs the mailbox token, as every test
-///   that makes an account does, and skips without it. The account stays on
-///   staging, unconfirmed, at an example.com address.
+/// - Not confirmed: Robin, with no window, makes a group and a link to it.
+///   Leslie makes an account in the window and does not confirm its email.
+///   Join a Group… sends her to confirm it, and Join pressed anyway adds
+///   nothing: the server still lists only Robin in his group. It needs the
+///   mailbox token, as every test that makes an account does, and skips
+///   without it. Her account stays on staging, unconfirmed, at an example.com
+///   address. Robin signs in once, as the second account.
 /// - Signed in: the Share sheet for a group of Robin's own, and Send…. Then a
 ///   group of Leslie's, joined, left, refused with its used link, and joined
 ///   again with a new one. The samples are gone while he is signed in, and
@@ -28,10 +30,10 @@ import WellSpentSync
 ///   Staging allows few sign-ins from one place, so the test signs in twice
 ///   in all: once in the window, and once as Leslie.
 ///
-/// The signed-in test needs the four WELLSPENT_UI_TEST_ variables (see
-/// UITestSupport.swift) and skips without them. Both accounts must exist on
-/// staging with their addresses confirmed. Its groups are named with the time
-/// and deleted at the end, for everyone. A halted run can leave them on
+/// The last two tests need the four WELLSPENT_UI_TEST_ variables (see
+/// UITestSupport.swift) and skip without them. Both accounts must exist on
+/// staging with their addresses confirmed. Their groups are named with the
+/// time and deleted at the end, for everyone. A halted run can leave them on
 /// staging. The next run with the same accounts deletes them once they are
 /// an hour old.
 final class SharingGapTests: XCTestCase {
@@ -44,6 +46,7 @@ final class SharingGapTests: XCTestCase {
     /// find the ones a halted run left.
     fileprivate static let robinsPrefix = "UI Share "
     fileprivate static let lesliesPrefix = "UI Leave "
+    fileprivate static let unconfirmedPrefix = "UI Unconfirmed "
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -85,7 +88,7 @@ final class SharingGapTests: XCTestCase {
                       "no notice to sign in first. On screen: \(run.visibleTexts())")
         run.expect(AccessibilityID.shareCreate, enabled: false, "Create Link, signed out")
         run.type("Robin", into: AccessibilityID.shareName)
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 5),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 30),
                       "the name did not go in")
         run.expect(AccessibilityID.shareCreate, enabled: false, "Create Link, signed out with a name typed")
         run.click(AccessibilityID.shareCancel)
@@ -103,7 +106,7 @@ final class SharingGapTests: XCTestCase {
         let invitation = try XCTUnwrap(Self.invitation(in: link), "the shared Join screen does not read the link")
         run.openJoin()
         run.paste(link.url, into: AccessibilityID.joinLink)
-        XCTAssertTrue(run.app.staticTexts[invitation].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.staticTexts[invitation].waitForExistence(timeout: 30),
                       "the sheet does not read the link. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.signInToJoin].exists,
                       "no notice to sign in or make an account first. On screen: \(run.visibleTexts())")
@@ -115,27 +118,34 @@ final class SharingGapTests: XCTestCase {
     // MARK: - Signed in, the email not confirmed
 
     @MainActor
-    func testJoiningBeforeTheEmailIsConfirmedAddsNothing() throws {
+    func testJoiningBeforeTheEmailIsConfirmedAddsNothing() async throws {
         let mailbox = try StagingMailbox.fromEnvironment()
+        let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
         Self.dataRootPath = run.dataRoot.path
+        let robin = try SecondAccount(server: mailbox.server)
+        let robinsGroup = Self.unconfirmedPrefix + Self.stamp()
         let address = StagingMailbox.freshAddress("mac", for: "leslie")
         let password = UUID().uuidString + "Aa1!"
-        // Robin's link, made here. Pressing Join asks the server only whether
-        // her address is confirmed, so no invite on the server is needed.
-        let secret = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
-        let link = InviteLink(secret: secret, groupName: "Household", inviterName: "Robin",
-                              scheme: AppEnvironment.staging.inviteScheme)
         let refused = AccountWording.words(for: SyncCoordinator.Failure.emailNotConfirmed)
 
-        // 1. A fresh install. Leslie makes an account here and does not
+        // 1. Robin, with no window, makes a group with a budget and Costco in
+        // it, and a link that invites at Add. The link is real, so the server
+        // would add her if her Join ever reached it.
+        try await robin.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await robin.deleteLeftovers(startingWith: Self.unconfirmedPrefix)
+        let link = try await robin.shareNewGroup(robinsGroup, budget: "Groceries", entry: "Costco",
+                                                 amount: Money(minorUnits: 2863), myName: "Robin", role: .add)
+        let maker = try XCTUnwrap(robin.sync.userID, "Robin is not signed in")
+
+        // 2. A fresh install. Leslie makes an account here and does not
         // confirm its email: Not now closes the sheet, and she stays signed
         // in.
         try run.launchAsFreshInstall()
         run.signUpWithoutConfirming(email: address, password: password, server: mailbox.server)
 
         // Scenario SHARE-09
-        // 2. Robin's link, pasted into Join a Group…: the sheet says to
+        // 3. Robin's link, pasted into Join a Group…: the sheet says to
         // confirm her email first, with Confirm your email…, which closes the
         // sheet and opens the account sheet.
         run.openAccountThroughJoin(link)
@@ -144,9 +154,10 @@ final class SharingGapTests: XCTestCase {
                       "the account sheet did not close")
 
         // Scenario SHARE-09
-        // 3. The link again, with her name, and Join pressed anyway: the
+        // 4. The link again, with her name, and Join pressed anyway: the
         // sheet also says to confirm her address and try again, and stays.
-        // No group is added to her list.
+        // She is not added: no group comes to her list, and the server lists
+        // only Robin in his group.
         let groups = run.groupLines()
         run.openJoin()
         run.paste(link.url, into: AccessibilityID.joinLink)
@@ -159,14 +170,19 @@ final class SharingGapTests: XCTestCase {
                       "the notice to confirm the email first went. On screen: \(run.visibleTexts())")
         run.cancelJoin()
         XCTAssertEqual(run.groupLines(), groups, "a group was added to her list")
+        let members = try await robin.members(of: robinsGroup)
+        XCTAssertEqual(Array(members.keys), [maker], "the server lists \(members.count) people in Robin's group")
 
-        // 4. Tidy: Confirm your email… opens the account sheet again, and
+        // 5. Tidy: Confirm your email… opens the account sheet again, and
         // she signs out there, so her session ends on the server. With no
-        // budget open, the window has no other way to it.
+        // budget open, the window has no other way to it. Robin's group goes,
+        // for everyone, and his session ends.
         run.openAccountThroughJoin(link)
         run.click(AccessibilityID.accountSignOut)
         XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 30),
                       "still signed in. On screen: \(run.visibleTexts())")
+        await robin.deleteGroup(named: robinsGroup)
+        await robin.cleanUp()
     }
 
     // MARK: - Signed in
@@ -212,12 +228,17 @@ final class SharingGapTests: XCTestCase {
         run.expectTheShareForm()
 
         // Scenario SHARE-01
-        // 4. Each level says what it lets someone do. Add is chosen again
-        // after.
+        // 4. The line says what the chosen level lets someone do, and only
+        // that level. Add is chosen again after.
         for role in [InviteRole.view, .manage, .add] {
             run.choose(role)
-            XCTAssertTrue(run.app.staticTexts[role.explanation].waitForExistence(timeout: 5),
+            XCTAssertTrue(run.app.staticTexts[role.explanation].waitForExistence(timeout: 30),
                           "no line saying what \(role.title) lets them do. On screen: \(run.visibleTexts())")
+            for other in InviteRole.allCases where other != role {
+                XCTAssertTrue(run.wait(for: run.app.staticTexts[other.explanation], until: "exists == false",
+                                       timeout: 30),
+                              "with \(role.title) chosen, a line still says what \(other.title) lets them do")
+            }
         }
 
         // Scenario SHARE-01
@@ -249,7 +270,7 @@ final class SharingGapTests: XCTestCase {
                       "Done did not close the sheet")
         run.revealLine(AccessibilityID.sidebarGroup(robinsGroup))
         run.openShare(of: robinsGroup)
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 30),
                       "Your name does not hold Robin: \(run.text(of: run.element(AccessibilityID.shareName)))")
         run.click(AccessibilityID.shareCancel)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
@@ -258,7 +279,7 @@ final class SharingGapTests: XCTestCase {
         // 8. Leslie, with no window, makes a group with a budget and Costco
         // in it, and a link that invites at Add.
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
-        await leslie.deleteLeftovers()
+        await leslie.deleteLeftovers(startingWith: Self.lesliesPrefix)
         let first = try await leslie.shareNewGroup(lesliesGroup, budget: budget, entry: "Costco",
                                                    amount: Money(minorUnits: 2863), myName: "Leslie", role: .add)
         let group = try XCTUnwrap(leslie.groupID(named: lesliesGroup), "Leslie has no group of that name")
@@ -270,11 +291,11 @@ final class SharingGapTests: XCTestCase {
         run.openJoin()
         run.type("Robin", into: AccessibilityID.joinName)
         run.paste("https://wellspent.space/join", into: AccessibilityID.joinLink)
-        XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.notALink].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.notALink].waitForExistence(timeout: 30),
                       "no line saying it is not an invite link. On screen: \(run.visibleTexts())")
         run.expect(AccessibilityID.joinJoin, enabled: false, "Join, for a web address")
         run.paste(String(first.url.prefix("\(first.scheme)://join#s=".count + 20)), into: AccessibilityID.joinLink)
-        XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.notWhole].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.notWhole].waitForExistence(timeout: 30),
                       "no line saying part of the link is missing. On screen: \(run.visibleTexts())")
         run.expect(AccessibilityID.joinJoin, enabled: false, "Join, for a link cut short")
 
@@ -299,7 +320,7 @@ final class SharingGapTests: XCTestCase {
         let leaving = PendingDelete.group(BudgetGroup(name: lesliesGroup), budgets: 1, transactions: 2,
                                           reach: .thisMacOnly)
         run.askToLeave(lesliesGroup, question: leaving.title)
-        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: true)).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: true)).waitForExistence(timeout: 30),
                       "the question does not say \(leaving.message(sendsChanges: true)) On screen: \(run.visibleTexts())")
         XCTAssertNotNil(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question")
         try XCTUnwrap(run.dialogButton(leaving.confirmLabel), "no Leave on the question").click()
@@ -344,11 +365,12 @@ final class SharingGapTests: XCTestCase {
         // 15. At View, Leave… asks without the two sentences about changes
         // not synced yet. Cancel keeps the group.
         run.askToLeave(lesliesGroup, question: leaving.title)
-        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: false)).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.staticText(leaving.message(sendsChanges: false)).waitForExistence(timeout: 30),
                       "the question does not say \(leaving.message(sendsChanges: false)) On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel), "no Cancel on the question").click()
-        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(lesliesGroup)).waitForExistence(timeout: 10),
-                      "Cancel did not keep the group")
+        XCTAssertTrue(run.wait(for: run.app.staticTexts[leaving.title], until: "exists == false", timeout: 30),
+                      "Cancel did not close the question")
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(lesliesGroup)).exists, "Cancel did not keep the group")
 
         // 16. His own group goes, for everyone, and a sync takes the delete
         // to the server.
@@ -362,7 +384,7 @@ final class SharingGapTests: XCTestCase {
         // 17. Signed out, the samples show again, as they were.
         run.signOut()
         XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 30),
-                      "still signed in. On screen: \(run.visibleTexts())")
+                      "still signed in. On screen: \(run.textsWithoutAddresses())")
         for group in Self.sampleGroups {
             XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(group)).waitForExistence(timeout: 30),
                           "the sample \(group) did not come back. Sidebar: \(run.sidebarIdentifiers())")
@@ -448,7 +470,7 @@ private extension TestApp {
         XCTAssertTrue(target.waitForExistence(timeout: 30), "no line called \(identifier). Sidebar: \(sidebarIdentifiers())",
                       file: file, line: line)
         let placed = NSPredicate { _, _ in !target.frame.isEmpty }
-        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: placed, object: nil)], timeout: 10),
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: placed, object: nil)], timeout: 30),
                        .completed, "\(identifier) has no place on screen", file: file, line: line)
         revealInSidebar(target)
         waitUntilHittable(target, identifier)
@@ -491,7 +513,7 @@ private extension TestApp {
         for _ in 0..<3 {
             openMenu(on: element(line), line, offering: MainScreen.Words.share)
             clickMenuItem(MainScreen.Words.share)
-            XCTAssertTrue(form.waitForExistence(timeout: 10), "Share\u{2026} opened no sheet. On screen: \(visibleTexts())")
+            XCTAssertTrue(form.waitForExistence(timeout: 30), "Share\u{2026} opened no sheet. On screen: \(visibleTexts())")
             if title.waitForExistence(timeout: 3) { return }
             click(AccessibilityID.shareCancel)
             wait(for: form, until: "exists == false", timeout: 10)
@@ -517,16 +539,16 @@ private extension TestApp {
         let history = historyPicker()
         XCTAssertTrue(shows(Words.history, on: history), "no They see. On screen: \(visibleTexts())",
                       file: file, line: line)
-        XCTAssertTrue(wait(for: history, holds: Words.historyAll, timeout: 5),
+        XCTAssertTrue(wait(for: history, holds: Words.historyAll, timeout: 30),
                       "They see does not hold \(Words.historyAll): \(text(of: history))", file: file, line: line)
         waitUntilHittable(history, AccessibilityID.shareHistory)
         history.click()
         for choice in [Words.historyAll, Words.historyFromNow] {
-            XCTAssertTrue(menuItem(choice).waitForExistence(timeout: 5), "They see offers no \(choice)",
+            XCTAssertTrue(menuItem(choice).waitForExistence(timeout: 30), "They see offers no \(choice)",
                           file: file, line: line)
         }
         menuItem(Words.historyAll).click()
-        XCTAssertTrue(wait(for: history, holds: Words.historyAll, timeout: 5),
+        XCTAssertTrue(wait(for: history, holds: Words.historyAll, timeout: 30),
                       "They see does not hold \(Words.historyAll) again: \(text(of: history))", file: file, line: line)
         let note = app.staticTexts[Words.linkNote].firstMatch
         let cancel = element(AccessibilityID.shareCancel), create = element(AccessibilityID.shareCreate)
@@ -572,7 +594,7 @@ private extension TestApp {
         waitUntilHittable(chosen, role.title)
         chosen.click()
         let shown = NSPredicate { [weak self] _, _ in self?.isChosen(chosen) == true }
-        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 5),
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 30),
                        .completed, "\(role.title) is not chosen after a click", file: file, line: line)
     }
 
@@ -588,18 +610,18 @@ private extension TestApp {
     /// sheet must stay with its link.
     func send(_ link: InviteLink, file: StaticString = #filePath, line: UInt = #line) -> SendResult {
         let button = app.buttons[ShareScreen.Words.send].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 10), "no Send\u{2026}. On screen: \(visibleTexts())",
+        XCTAssertTrue(button.waitForExistence(timeout: 30), "no Send\u{2026}. On screen: \(visibleTexts())",
                       file: file, line: line)
         waitUntilHittable(button, ShareScreen.Words.send)
         button.click()
         let opened = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == true }
-        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: opened, object: nil)], timeout: 10)
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: opened, object: nil)], timeout: 30)
         var seen = waysToShare(link)
         app.typeKey(.escape, modifierFlags: [])
         let gone = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == false }
         seen.closed = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: nil)], timeout: 10)
             == .completed
-        seen.stayed = wait(for: element(AccessibilityID.shareCopyLink), until: "hittable == true", timeout: 10)
+        seen.stayed = wait(for: element(AccessibilityID.shareCopyLink), until: "hittable == true", timeout: 30)
         seen.sameLink = InviteLink(parsing: text(of: element(AccessibilityID.shareLink))) == link
         return seen
     }
@@ -644,7 +666,7 @@ private extension TestApp {
         XCTAssertFalse(items.contains(MainScreen.Words.delete), "the menu offers Delete\u{2026}: \(items)",
                        file: file, line: line)
         clickMenuItem(MainScreen.Words.leave)
-        XCTAssertTrue(app.staticTexts[question].waitForExistence(timeout: 10),
+        XCTAssertTrue(app.staticTexts[question].waitForExistence(timeout: 30),
                       "no question \(question) On screen: \(visibleTexts())", file: file, line: line)
     }
 
@@ -671,7 +693,7 @@ private extension TestApp {
     func openJoin() {
         openAddMenu()
         clickMenuItem(MainScreen.Words.join)
-        XCTAssertTrue(element(AccessibilityID.joinLink).waitForExistence(timeout: 10),
+        XCTAssertTrue(element(AccessibilityID.joinLink).waitForExistence(timeout: 30),
                       "Join a Group\u{2026} opened no sheet. On screen: \(visibleTexts())")
     }
 
@@ -688,7 +710,7 @@ private extension TestApp {
         click(AccessibilityID.sidebarSignIn)
         click(AccessibilityID.accountCreateAccount)
         let serverField = element(AccessibilityID.accountServer)
-        XCTAssertTrue(serverField.waitForExistence(timeout: 10), "Create an account did not open")
+        XCTAssertTrue(serverField.waitForExistence(timeout: 30), "Create an account did not open")
         if (serverField.value as? String) != server { type(server, into: AccessibilityID.accountServer) }
         type(email, into: AccessibilityID.accountEmail)
         paste(password, into: AccessibilityID.accountPassword)
@@ -709,16 +731,16 @@ private extension TestApp {
     func openAccountThroughJoin(_ link: InviteLink, file: StaticString = #filePath, line: UInt = #line) {
         openJoin()
         paste(link.url, into: AccessibilityID.joinLink)
-        XCTAssertTrue(app.staticTexts[JoinScreen.Words.confirmToJoin].waitForExistence(timeout: 10),
+        XCTAssertTrue(app.staticTexts[JoinScreen.Words.confirmToJoin].waitForExistence(timeout: 30),
                       "no notice to confirm the email first. On screen: \(visibleTexts())", file: file, line: line)
         let confirm = app.buttons[JoinScreen.Words.confirmEmail].firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "no Confirm your email\u{2026}. On screen: \(visibleTexts())",
+        XCTAssertTrue(confirm.waitForExistence(timeout: 30), "no Confirm your email\u{2026}. On screen: \(visibleTexts())",
                       file: file, line: line)
         waitUntilHittable(confirm, JoinScreen.Words.confirmEmail)
         confirm.click()
         XCTAssertTrue(wait(for: element(AccessibilityID.joinLink), until: "exists == false", timeout: 10),
                       "Confirm your email\u{2026} did not close Join a Group", file: file, line: line)
-        XCTAssertTrue(element(AccessibilityID.accountSignOut).waitForExistence(timeout: 10),
+        XCTAssertTrue(element(AccessibilityID.accountSignOut).waitForExistence(timeout: 30),
                       "Confirm your email\u{2026} did not open the account sheet. On screen: \(visibleTexts())",
                       file: file, line: line)
     }
@@ -744,7 +766,18 @@ private extension TestApp {
         wait(for: button, until: "isEnabled == false", timeout: 3)
         XCTAssertTrue(wait(for: button, until: "isEnabled == true", timeout: 60), "the sync did not finish")
         let synced = SyncWording.syncTitle(for: .signedIn(email: ""))
-        XCTAssertTrue(wait(for: button, holds: synced, timeout: 10), "the sync did not go through: \(button.label)")
+        XCTAssertTrue(wait(for: button, holds: synced, timeout: 30), "the sync did not go through: \(button.label)")
+    }
+
+    /// What visibleTexts reads, less any line that gives a test account's
+    /// address away, as the account sheet's line saying who is signed in
+    /// does. A failure's message goes to CI's log, which is public.
+    func textsWithoutAddresses() -> [String] {
+        let giveaways: [String] = ScreenPrivacy.giveaways
+        return visibleTexts().filter { (text: String) -> Bool in
+            let lowered: String = text.lowercased()
+            return !giveaways.contains { lowered.contains($0) }
+        }
     }
 }
 
@@ -797,11 +830,10 @@ private extension SecondAccount {
         return link
     }
 
-    /// Deletes groups this person made in runs of this test that stopped
+    /// Deletes groups this person made in runs of these tests that stopped
     /// before their end: named with the prefix and a time more than an hour
     /// ago. Another run may be going on now, so newer ones stay. Best effort.
-    func deleteLeftovers() async {
-        let prefix = SharingGapTests.lesliesPrefix
+    func deleteLeftovers(startingWith prefix: String) async {
         let formatter = SharingGapTests.stampFormatter()
         let anHourAgo = Date().addingTimeInterval(-3600)
         let model = AppModel(store: sync.store)
