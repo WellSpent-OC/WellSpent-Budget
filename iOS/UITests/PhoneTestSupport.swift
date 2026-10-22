@@ -217,9 +217,21 @@ final class PhoneTestApp {
         let field = element(identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
         waitUntilHittable(field, identifier)
-        field.tap()
+        focus(field, identifier)
         clear(field)
         field.typeText(text)
+    }
+
+    /// Taps a field and waits for it to hold the keyboard. On CI's starved
+    /// runners a tap once left the field without focus, and the typing after
+    /// it had nowhere to go. A person who sees no cursor taps again, so this
+    /// does too, once.
+    func focus(_ field: XCUIElement, _ identifier: String) {
+        field.tap()
+        if wait(for: field, until: "hasKeyboardFocus == true", timeout: 15) { return }
+        field.tap()
+        XCTAssertTrue(wait(for: field, until: "hasKeyboardFocus == true", timeout: 30),
+                      "\(identifier) did not take the keyboard after two taps. On screen: \(visibleTexts())")
     }
 
     /// Takes out whatever a field holds, one Delete key at a time, as a person
