@@ -19,7 +19,8 @@ public final class AutoSync {
 
     private let sync: SyncCoordinator
     private let quietPeriod: Duration
-    private let interval: Duration
+    /// Internal so a test can read it.
+    let interval: Duration
 
     /// The sync waiting for edits to stop. Each edit replaces it. Internal so a
     /// test can wait for it instead of guessing how long to sleep.

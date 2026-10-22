@@ -331,6 +331,10 @@ final class PhoneSharedEntriesTests: XCTestCase {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         run.app.launchEnvironment[UITestStatement.variable] = statement.path
+        // EDIT-14 needs Leslie's change on the server before the phone hears
+        // of it. The app's timed sync, every 2 minutes, once landed in the
+        // seconds between her change and Robin's Save. So it comes hourly.
+        run.app.launchEnvironment[Workspace.autoSyncIntervalVariable] = "3600"
         let leslie = try SecondAccount(server: accounts.server)
         let stamp = PhoneTestApp.stamp()
         let groupName = SecondAccount.phoneRunPrefix + stamp
