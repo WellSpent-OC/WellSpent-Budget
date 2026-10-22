@@ -94,10 +94,11 @@ final class PhoneTestApp {
         target.tap()
     }
 
-    /// Holds a finger on it, which opens its menu.
+    /// Holds a finger on a row of a list, which opens its menu.
     func longPress(_ identifier: String) {
         let target = find(identifier, timeout: 10)
         XCTAssertTrue(target.exists, "nothing called \(identifier) to press. On screen: \(visibleTexts())")
+        bringToMiddle(target)
         waitUntilHittable(target, identifier)
         // A press on a row the list is still moving is taken as a tap, which
         // opens the row instead of its menu.
@@ -169,15 +170,23 @@ final class PhoneTestApp {
         while !target.exists, Date() < deadline {
             if list.exists { list.swipeUp() } else { app.swipeUp() }
         }
-        // Low on the screen, a row sits against Home's foot bar, where a long
-        // press opens nothing. Drag the list until the row is mid screen.
-        let screen = app.frame
-        if target.exists, list.exists, target.frame.maxY > screen.height * 0.6 {
-            let distance = target.frame.midY - screen.height * 0.45
-            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
-        }
+        if target.exists { bringToMiddle(target) }
         return target
+    }
+
+    /// Drags the list until a row of it is mid screen, if it is near the top
+    /// or the bottom. Low on the screen, a row sits against Home's foot bar,
+    /// where a long press opens nothing. High up, it sits under the title
+    /// bar, which takes a tap meant for it.
+    func bringToMiddle(_ row: XCUIElement) {
+        let list = app.collectionViews.firstMatch
+        let screen = app.frame
+        guard list.exists, row.frame.maxY > screen.height * 0.6 || row.frame.minY < screen.height * 0.2 else { return }
+        let distance = row.frame.midY - screen.height * 0.45
+        // Up from low on the list, or down from high on it, so the drag stays
+        // on the screen.
+        let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: distance > 0 ? 0.7 : 0.3))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
     }
 
     /// Pulls the list down from near its top, which syncs.
@@ -471,6 +480,7 @@ final class PhoneTestApp {
 
     /// Opens a budget from Home.
     func openBudget(named name: String) {
+        bringToMiddle(scrollTo(AccessibilityID.sidebarBudget(name)))
         tap(AccessibilityID.sidebarBudget(name))
         XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10),
                       "\(name) did not open. On screen: \(visibleTexts())")
