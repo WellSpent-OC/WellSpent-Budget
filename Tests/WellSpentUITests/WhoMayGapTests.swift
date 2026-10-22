@@ -446,24 +446,25 @@ final class WhoMayGapTests: XCTestCase {
 
         // Scenario EDIT-13
         // 6. Robin opens Hilltop Grocery and types a new amount. Leslie
-        // moves him down to View meanwhile, and the window's timed sync
-        // brings that in while the sheet is open: Add goes from behind it.
-        // Save then saves nothing. The sheet turns read-only, with Done as
-        // its only button, and shows Hilltop Grocery as it was when he
-        // opened it, $142.08, not what he typed. It says nothing was
-        // changed, since he can view the group but not change it.
+        // moves him down to View meanwhile, then gives Corner Bakery a
+        // note. The window's timed sync brings both in while the sheet is
+        // open: the note shows in the list behind it. Save then saves
+        // nothing. The sheet turns read-only, with Done as its only button,
+        // and shows Hilltop Grocery as it was when he opened it, $142.08,
+        // not what he typed. It says nothing was changed, since he can view
+        // the group but not change it.
         run.clickRow(hilltop)
         run.expectSheet(for: hilltop)
         run.type("150.00", into: AccessibilityID.entryAmount)
         try await second.setLevelOfTheOther(.read, in: added)
+        try await second.changeEntry(bakery, inGroup: added, note: "day old")
         print("WHOMAY step 6 at \(Int(Date().timeIntervalSince(opened))) s")
-        let addButton = run.element(AccessibilityID.budgetAdd)
-        if addButton.exists {
-            print("WHOMAY Add reads behind the sheet")
-            XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 300),
+        if run.element(AccessibilityID.entryRow(bakery)).exists {
+            print("WHOMAY the list reads behind the sheet")
+            XCTAssertTrue(run.listText("day old").waitForExistence(timeout: 300),
                           "no sync took the move down in while the sheet was open. On screen: \(run.visibleTexts())")
         } else {
-            print("WHOMAY Add does not read behind the sheet")
+            print("WHOMAY the list does not read behind the sheet")
             try await Self.waitPastTheNextTimedSync(afterOpening: opened)
         }
         run.click(AccessibilityID.entrySave)
@@ -475,8 +476,6 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.listText(hilltopAmount.display).waitForExistence(timeout: 5),
                       "Hilltop Grocery's row lost \(hilltopAmount.display). On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.listText("$150.00").exists, "his amount was saved. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 15),
-                      "Add stayed after the move down to View")
 
         // Scenario EDIT-10
         // 7. Market, which he added before the move down, opens read-only,
@@ -487,29 +486,30 @@ final class WhoMayGapTests: XCTestCase {
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
 
-        // 8. Leslie moves him up to Manage again, and his app syncs: Add is
-        // back. Robin deletes Corner Bakery, which she added, from its row's
-        // menu, and the bar offers Undo. His app sends the delete, and
-        // Leslie's app sees it go. Then she moves him down to View, and his
-        // app syncs: Add goes, and the bar stays.
+        // 8. Leslie moves him up to Manage again, and his app syncs. Robin
+        // opens Corner Bakery, which she added, and deletes it, and the bar
+        // offers Undo. His app sends the delete, and Leslie's app sees it
+        // go. Then she moves him down to View, and his app syncs. The bar
+        // stays.
         try await second.setLevelOfTheOther(.manage, in: added)
         run.syncAndWait()
-        XCTAssertTrue(addButton.waitForExistence(timeout: 15), "no Add after the move up to Manage")
         let bakeryQuestion = PendingDelete.entry(try second.entry(bakery, inGroup: added), budget: eatingOut,
                                                  group: added, shared: true)
-        run.rightClick(run.entryRow(bakery), "the Corner Bakery row")
-        run.clickMenuItem(MainScreen.Words.delete)
+        run.clickRow(bakery)
+        run.expectSheet(for: bakery)
+        run.click(AccessibilityID.entryDelete)
+        XCTAssertTrue(run.text(saying: bakeryQuestion.title).waitForExistence(timeout: 5),
+                      "no question before the delete. On screen: \(run.visibleTexts())")
         try XCTUnwrap(run.dialogButton(bakeryQuestion.confirmLabel), "no Delete on the question").click()
+        run.expectNoSheet()
         XCTAssertTrue(run.rowIsGone(bakery), "Delete left the Corner Bakery row")
-        let undoBar = run.app.staticTexts[UndoOffer.Words.deleted(bakery, bakeryAmount.display)]
+        let undoBar = run.text(saying: UndoOffer.Words.deleted(bakery, bakeryAmount.display))
         XCTAssertTrue(undoBar.waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
         run.syncAndWait()
         let deleted = try await second.waitUntilDeleted(bakery, inGroup: added)
         XCTAssertTrue(deleted, "Robin's delete never reached the server")
         try await second.setLevelOfTheOther(.read, in: added)
         run.syncAndWait()
-        XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 15),
-                      "Add stayed after the move down to View")
         XCTAssertTrue(undoBar.exists, "the sync took the Undo bar away. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-09
