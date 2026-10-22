@@ -15,7 +15,9 @@ import WellSpentSync
 /// - Signed in, with links the server made. The second account, with no
 ///   window, makes a group and a link that invites at View with only what is
 ///   added from now on. The window makes a group and a link of its own. Both
-///   groups are named with the time and deleted at the end.
+///   groups are named with the time. The end of the test deletes them and
+///   ends both sessions, so a run that stops partway leaves both groups and
+///   both sessions on staging.
 /// - Signed out, with a group of its own, and links made here that no server
 ///   has heard of. The server is asked only what such an invite offers, and
 ///   its answer, that it does not know the invite, is not what those steps
@@ -38,8 +40,9 @@ final class ClickToJoinGapTests: XCTestCase {
     }
 
     /// Runs after each test, passed or halted, with no await in it. The app
-    /// is closed, and nothing of the run stays on this Mac, the clipboard
-    /// included: both runs paste.
+    /// is closed, the run's data folder goes, and the clipboard is cleared,
+    /// since both runs paste. The app's settings stay on this Mac: the runner
+    /// is sandboxed, so the wipe here clears only the runner's own copy.
     override func tearDown() {
         let app = XCUIApplication()
         if app.state != .notRunning { app.terminate() }
@@ -60,29 +63,33 @@ final class ClickToJoinGapTests: XCTestCase {
         let second = try SecondAccount(server: accounts.server)
         let stamp = Self.stamp()
         let robinsGroup = "UI Robin \(stamp)", lesliesGroup = "UI Leslie \(stamp)"
-        let robinsPage = Self.invited(by: "Robin", to: robinsGroup)
-        let lesliesPage = Self.invited(by: "Leslie", to: lesliesGroup)
 
         // 1. Signed in, Robin makes a group of his own, and a link to it that
         // invites at Add.
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.addGroup(named: robinsGroup)
+        run.scrollSidebar(toGroup: robinsGroup)
         let robinsLink = try run.share(group: robinsGroup, myName: "Robin", role: .add)
 
         // 2. The second account, with no window, makes a group with a budget
         // and an entry, and a link that invites at View, with only what is
-        // added from now on, as Leslie.
+        // added from now on, as Leslie. JoinScreen gives the line each link's
+        // page opens with, from the link alone, with no call to the server.
         try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         let lesliesLink = try await second.shareNewGroup(lesliesGroup, budget: "Bulk", entry: "Costco",
                                                          amount: Money(minorUnits: 2863), myName: "Leslie",
                                                          role: .view, history: .fromNow)
+        let robinsPage = try XCTUnwrap(JoinScreen(actions: second.sync, linkText: robinsLink.url).invitation,
+                                       "his link reads as no invite")
+        let lesliesPage = try XCTUnwrap(JoinScreen(actions: second.sync, linkText: lesliesLink.url).invitation,
+                                        "Leslie's link reads as no invite")
 
         // Scenario CLICK-10
         // 3. Robin clicks his own link, types his name and presses Join. The
         // page says he is in that group already.
         try run.click(link: robinsLink.url)
-        XCTAssertTrue(run.listText(robinsPage).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(robinsPage).waitForExistence(timeout: 30),
                       "no invitation page for his own link. On screen: \(run.visibleTexts())")
         let atAdd = JoinScreen.Words.joinsAt(MembersScreen.Words.levelTitle(InviteRole.add.level))
         XCTAssertTrue(run.listText(atAdd).waitForExistence(timeout: 30),
@@ -103,9 +110,9 @@ final class ClickToJoinGapTests: XCTestCase {
         // it. The page gives that invite's own level, what it lets him do,
         // and how much he would see: View, and only what is added from now on.
         try run.click(link: lesliesLink.url)
-        XCTAssertTrue(run.listText(lesliesPage).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(lesliesPage).waitForExistence(timeout: 30),
                       "no invitation page for Leslie's link. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.wait(for: run.listText(robinsPage), until: "exists == false", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.listText(robinsPage), until: "exists == false", timeout: 30),
                       "the last link's page stayed. On screen: \(run.visibleTexts())")
         for line in Self.terms(InviteRole.view.level, .fromNow) {
             XCTAssertTrue(run.listText(line).waitForExistence(timeout: 30),
@@ -124,7 +131,7 @@ final class ClickToJoinGapTests: XCTestCase {
         try XCTUnwrap(run.dialogButton(MembersScreen.Words.leaveButton),
                       "no \(MembersScreen.Words.leaveButton) on the question. On screen: \(run.visibleTexts())").click()
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(lesliesGroup)), until: "exists == false",
-                               timeout: 10), "the group is still in the sidebar after leaving it")
+                               timeout: 30), "the group is still in the sidebar after leaving it")
         let left = try await second.waitForMembers(1, in: lesliesGroup)
         XCTAssertTrue(left, "the server still lists Robin in Leslie's group")
 
@@ -133,7 +140,7 @@ final class ClickToJoinGapTests: XCTestCase {
         // what. It has no level or history lines, and says the invite was
         // not found.
         try run.click(link: lesliesLink.url)
-        XCTAssertTrue(run.listText(lesliesPage).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(lesliesPage).waitForExistence(timeout: 30),
                       "no invitation page for the used link. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.listText(Self.inviteNotFound).waitForExistence(timeout: 30),
                       "the page does not say \(Self.inviteNotFound) On screen: \(run.visibleTexts())")
@@ -153,13 +160,15 @@ final class ClickToJoinGapTests: XCTestCase {
 
         // 9. Tidy: Robin's group goes for everyone, and once it is gone from
         // Leslie's list, the delete is on the server. Leslie's group goes
-        // too, and both sessions end.
-        run.revealInSidebar(run.element(AccessibilityID.sidebarGroup(robinsGroup)))
+        // too, and both sessions end. Only then does a group of Robin's
+        // still on staging fail the test.
+        run.scrollSidebar(toGroup: robinsGroup)
         run.deleteGroup(named: robinsGroup)
-        _ = await second.waitUntilGone(robinsGroup)
+        let robinsGone = await second.waitUntilGone(robinsGroup)
         await second.deleteGroup(named: lesliesGroup)
         run.signOut()
         await second.cleanUp()
+        XCTAssertTrue(robinsGone, "Robin's group is still on staging")
     }
 
     // MARK: - Links no server knows
@@ -184,22 +193,25 @@ final class ClickToJoinGapTests: XCTestCase {
         // Scenario CLICK-13
         // 1. A link of the live app's type, the kind WellSpent makes, opened
         // by hand in this staging build, starts it on a page that says which
-        // app the link is for. There is no Your name and no Join.
+        // app the link is for. There is no Your name and no Join, nor the
+        // Sign in… that stands in for Join while signed out.
         try run.open(link: live.url)
-        XCTAssertTrue(run.listText(otherApp).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(otherApp).waitForExistence(timeout: 30),
                       "the page does not say \(otherApp) On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.invitationName).exists, "Your name, for the other app's link")
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, for the other app's link")
+        XCTAssertFalse(run.element(AccessibilityID.invitationSignIn).exists,
+                       "\(JoinScreen.Words.signIn), for the other app's link")
 
         // Scenario CLICK-13
         // 2. Pasted into Join a Group…, the same link gets the same words.
         run.openAddMenu()
         run.clickMenuItem(MainScreen.Words.join)
         run.paste(live.url, into: AccessibilityID.joinLink)
-        XCTAssertTrue(run.app.sheets.firstMatch.staticTexts[otherApp].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.sheets.firstMatch.staticTexts[otherApp].waitForExistence(timeout: 30),
                       "Join a Group does not say \(otherApp) On screen: \(run.visibleTexts())")
         run.click(AccessibilityID.joinCancel)
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.joinLink), until: "exists == false", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.joinLink), until: "exists == false", timeout: 30),
                       "Join a Group stayed open")
 
         // 3. A group with two budgets: $100.00 for Fuel, then $250.00 for
@@ -213,7 +225,7 @@ final class ClickToJoinGapTests: XCTestCase {
         // 4. A link of this build's type, clicked, puts up its invitation
         // page in place of Treats.
         try run.click(link: roadTrip.url)
-        XCTAssertTrue(run.listText(roadTripPage).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(roadTripPage).waitForExistence(timeout: 30),
                       "no invitation page. On screen: \(run.visibleTexts())")
 
         // Scenario CLICK-12
@@ -221,7 +233,7 @@ final class ClickToJoinGapTests: XCTestCase {
         run.openBudget(named: fuel)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: fuelToday.wheel.spokenSummary,
                    "Fuel, picked over the invitation")
-        XCTAssertTrue(run.wait(for: run.listText(roadTripPage), until: "exists == false", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.listText(roadTripPage), until: "exists == false", timeout: 30),
                       "the invitation stayed over the budget. On screen: \(run.visibleTexts())")
 
         // Scenario CLICK-12
@@ -229,7 +241,7 @@ final class ClickToJoinGapTests: XCTestCase {
         // again brings it back.
         XCTAssertFalse(run.listText(roadTripPage).waitForExistence(timeout: 3), "the invitation came back by itself")
         try run.click(link: roadTrip.url)
-        XCTAssertTrue(run.listText(roadTripPage).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.listText(roadTripPage).waitForExistence(timeout: 30),
                       "clicking the link again did not bring the invitation back. On screen: \(run.visibleTexts())")
 
         // Scenario CLICK-12
@@ -238,7 +250,7 @@ final class ClickToJoinGapTests: XCTestCase {
         run.openGroupPage(named: groupName)
         run.expect(wheel: AccessibilityID.groupWheel, reads: month.wheel.spokenSummary,
                    "the group's page, opened over the invitation")
-        XCTAssertTrue(run.wait(for: run.listText(roadTripPage), until: "exists == false", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.listText(roadTripPage), until: "exists == false", timeout: 30),
                       "the invitation stayed over the group's page. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.listText(roadTripPage).waitForExistence(timeout: 3), "the invitation came back by itself")
 
@@ -260,7 +272,10 @@ private extension ClickToJoinGapTests {
     static let alreadyAccepted = "That invite has already been accepted."
 
     /// The line at the top of a link's invitation page, as JoinScreen words
-    /// it: Robin invited you to “Household”.
+    /// it: Robin invited you to “Household”. The signed-in run takes this
+    /// line from JoinScreen, through the second account. The signed-out run
+    /// has no second account, so it types the line here, as InviteLinkTests
+    /// and PasteTests do.
     static func invited(by inviter: String, to group: String) -> String {
         "\(inviter) invited you to \u{201C}\(group)\u{201D}."
     }
@@ -275,13 +290,17 @@ private extension ClickToJoinGapTests {
     /// Every such line, for each level a link can invite at, and both
     /// histories.
     static var everyTermsLine: [String] {
-        InviteRole.allCases.flatMap { terms($0.level, .all) } + [JoinScreen.Words.sees(.fromNow)]
+        let everyLevel: [String] = InviteRole.allCases.flatMap { (role: InviteRole) -> [String] in
+            terms(role.level, .all)
+        }
+        return everyLevel + [JoinScreen.Words.sees(.fromNow)]
     }
 
     /// A whole invite link of `environment`'s type, made here with a secret
     /// of its own, so no server has heard of its invite.
     static func link(to group: String, from inviter: String, for environment: AppEnvironment) -> InviteLink {
-        let secret = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
+        let bytes: [UInt8] = (0..<32).map { (_: Int) -> UInt8 in UInt8.random(in: 0...255) }
+        let secret = Data(bytes)
         return InviteLink(secret: secret, groupName: group, inviterName: inviter, scheme: environment.inviteScheme)
     }
 
@@ -305,5 +324,26 @@ private extension SecondAccount {
             try? await Task.sleep(for: .seconds(2))
         } while Date() < deadline
         return false
+    }
+}
+
+private extension TestApp {
+    /// Scrolls the sidebar one way, then the other, until a group's line has
+    /// a place on screen, and then clear of the bar at the sidebar's foot. A
+    /// staging account can keep groups that other runs left behind, so a new
+    /// group can sit far below the window's edge. Its line exists there with
+    /// no frame yet, and revealInSidebar leaves such a line where it is.
+    func scrollSidebar(toGroup name: String) {
+        let line = element(AccessibilityID.sidebarGroup(name))
+        let list = app.outlines.containing(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'")).firstMatch
+        guard line.waitForExistence(timeout: 10), list.exists else { return }
+        for step: CGFloat in [-200, 200] {
+            var tries = 0
+            while line.frame.isEmpty, tries < 15 {
+                list.scroll(byDeltaX: 0, deltaY: step)
+                tries += 1
+            }
+        }
+        revealInSidebar(line)
     }
 }
