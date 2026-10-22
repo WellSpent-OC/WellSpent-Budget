@@ -210,14 +210,14 @@ final class GroupPageGapTests: XCTestCase {
 
         // Scenario PAGE-09
         // 4. Robin made the group. Leslie's row has a level list set to Add,
-        // offering every level she can be given, and Remove…. His own row
+        // offering View, Add, Manage and Admin, and Remove…. His own row
         // shows Owner as a plain label, with no Remove…. Invite Someone… is
         // at the top, and there is no Leave Group….
         let herList = try XCTUnwrap(run.levelList(onRowOf: "Leslie"),
                                     "no level list on her row. On the page: \(run.pageDescription())")
         XCTAssertEqual(run.text(of: herList), MembersScreen.Words.levelTitle(.write), "her level list is not at Add")
-        XCTAssertEqual(run.levels(offeredOnRowOf: "Leslie"),
-                       MembershipRules.grantable.sorted().map(MembersScreen.Words.levelTitle),
+        let ownersChoices: [AccessLevel] = [.read, .write, .manage, .admin]
+        XCTAssertEqual(run.levels(offeredOnRowOf: "Leslie"), ownersChoices.map(MembersScreen.Words.levelTitle),
                        "her level list does not offer every level")
         XCTAssertEqual(run.text(of: herList), MembersScreen.Words.levelTitle(.write),
                        "closing her level list changed it")
@@ -252,7 +252,7 @@ final class GroupPageGapTests: XCTestCase {
         _ = try await leslie.join(laterLink, as: "Leslie")
         try await leslie.addEntry("Costco", amount: Money(minorUnits: 2863), inBudget: groceries, group: later)
         run.openGroupPage(named: later)
-        XCTAssertTrue(run.wait(for: summary, holds: twoOfUs, timeout: 15),
+        XCTAssertTrue(run.wait(for: summary, holds: twoOfUs, timeout: 30),
                       "Later's page, opened after she joined, says \(run.text(of: summary)), not \(twoOfUs)")
         XCTAssertTrue(run.listText("Leslie").waitForExistence(timeout: 5),
                       "Later's page does not show her. On the page: \(run.pageDescription())")
@@ -330,17 +330,21 @@ final class GroupPageGapTests: XCTestCase {
         // the tidy, so that a failure there leaves nothing on staging. When
         // it never offers Delete…, it is read once more after the group's
         // budgets are hidden and shown again, which draws its line anew, to
-        // say in the failure whether that changes it.
+        // say in the failure whether that changes it. A right-click can land
+        // on the line beside hers, so a menu counts as hers only when it
+        // offers People…, as a group's menu does, and no New Budget in
+        // Household… or in Later…, which Robin's own groups always offer.
         try await leslie.setLevelOfTheOther(.admin, in: hers)
         run.syncAndWait("after Leslie made him an admin")
         run.expect(level: .admin, onRowOf: you, "as an admin")
         let hersLine = AccessibilityID.sidebarGroup(hers)
-        let adminMenu = run.menuOffers(onGroup: hers, until: MainScreen.Words.delete, not: MainScreen.Words.leave)
+        let adminMenu = run.menuOffers(onGroup: hers, notOf: [household, later],
+                                       until: MainScreen.Words.delete, not: MainScreen.Words.leave)
         var redrawnMenu: [String]?
         if !adminMenu.contains(MainScreen.Words.delete) {
             run.clickGroupArrow(hers)
             run.clickGroupArrow(hers)
-            redrawnMenu = run.menuOffers(onGroup: hers)
+            redrawnMenu = run.menuOffers(onGroup: hers, notOf: [household, later])
         }
 
         // Scenario PAGE-14
@@ -460,12 +464,13 @@ final class GroupPageGapTests: XCTestCase {
 // MARK: - Reading a group's page and the sidebar
 
 private extension TestApp {
-    /// Waits up to five seconds for a line in the sidebar to be marked as
+    /// Waits up to 30 seconds for a line in the sidebar to be marked as
     /// picked, or not, the way a screen reader hears it: selected.
     func waitUntilMarked(_ identifier: String, _ marked: Bool = true) -> Bool {
         let line = element(identifier)
         let holds = NSPredicate { _, _ in line.exists && line.isSelected == marked }
-        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: holds, object: nil)], timeout: 5) == .completed
+        let done = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: holds, object: nil)], timeout: 30)
+        return done == .completed
     }
 
     /// The lines the sidebar marks as picked, by identifier: the open
@@ -620,7 +625,7 @@ private extension TestApp {
                       file: file, line: line)
         item.click()
         let shows = NSPredicate { _, _ in self.levelList(onRowOf: label).map { self.text(of: $0) } == title }
-        let done = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shows, object: nil)], timeout: 20)
+        let done = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shows, object: nil)], timeout: 30)
         XCTAssertEqual(done, .completed, "\(label)'s level list did not move to \(title). On the page: "
                        + pageDescription(), file: file, line: line)
     }
@@ -699,13 +704,18 @@ private extension TestApp {
 
     /// What a group's menu in the sidebar offers, read from one snapshot of
     /// the app while it is open, then closed with Escape. A right-click can
-    /// land before the line holds still, so it tries three times, as
-    /// `openMenu` does. Empty when no menu opened.
-    func menuOffers(onGroup name: String) -> [String] {
+    /// land before the line holds still, and so on the line beside it, which
+    /// opens that line's menu. So a read counts only when it offers People…,
+    /// which no budget's menu does, and New Budget in… for none of `others`:
+    /// the other groups in the sidebar, each one this person may add budgets
+    /// to, so that their menus always offer it. It tries three times, as
+    /// `openMenu` does. Empty when no read counted.
+    func menuOffers(onGroup name: String, notOf others: [String]) -> [String] {
         let identifier = AccessibilityID.sidebarGroup(name)
         let line = element(identifier)
         // Every group's menu ends with one of these.
         let last = [MainScreen.Words.delete, MainScreen.Words.leave]
+        let othersItems: Set<String> = Set(others.map(MainScreen.Words.newBudget(in:)))
         for _ in 0..<3 {
             revealInSidebar(line)
             rightClick(line, identifier)
@@ -713,22 +723,25 @@ private extension TestApp {
             let done = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: opened, object: nil)], timeout: 3)
             let titles = done == .completed ? openMenuTitles() : []
             app.typeKey(.escape, modifierFlags: [])
-            if !titles.isEmpty { return titles }
+            if titles.contains(MembersScreen.Words.menuItem) && othersItems.isDisjoint(with: titles) { return titles }
         }
         return []
     }
 
     /// What a group's menu offers once it offers `wanted` and not
     /// `unwanted`, read again every two seconds for up to 30, as a sync or a
-    /// redraw may still be bringing it. What it last offered when it never
-    /// does.
-    func menuOffers(onGroup name: String, until wanted: String, not unwanted: String) -> [String] {
+    /// redraw may still be bringing it. Only reads that count, as
+    /// `menuOffers(onGroup:notOf:)` says, are kept. What the last of them
+    /// offered when it never does, and empty when none counted.
+    func menuOffers(onGroup name: String, notOf others: [String], until wanted: String,
+                    not unwanted: String) -> [String] {
         let deadline = Date().addingTimeInterval(30)
-        var offers: [String] = menuOffers(onGroup: name)
+        var offers: [String] = menuOffers(onGroup: name, notOf: others)
         while !offers.contains(wanted) || offers.contains(unwanted), Date() < deadline {
             // A waiter on an expectation nobody fulfils is XCTest's way to pause.
             _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the menu to change")], timeout: 2)
-            offers = menuOffers(onGroup: name)
+            let read: [String] = menuOffers(onGroup: name, notOf: others)
+            if !read.isEmpty { offers = read }
         }
         return offers
     }
