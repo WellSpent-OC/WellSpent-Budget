@@ -26,4 +26,18 @@ title: "Tour: The Share window"
 3. **Copy Link**: copy it, to paste into a message.
 4. **Done**: close the window. You can't see the link again after this.
 
+## On an iPhone
+
+**Share** on a group's menu opens this sheet.
+
+![The Share sheet on an iPhone, with numbers 1 to 7](../assets/shots/tour-iphone-share.svg)
+
+1. **Cancel**: close, and make no link. Once the link is made, it says **Done**.
+2. **Your name**: the name the group sees.
+3. **They can**: **View**, **Add** or **Manage**.
+4. The line under them: what the level you picked can do.
+5. **They see**: **Everything so far**, or **Only from now on**.
+6. **Create Link**: make the invite link. Then the button says **Send**. Tap it to send the link by text or email, or to copy it.
+7. **You get a link to send by text or email.**: the link works once, for 7 days.
+
 <!-- Scenarios: SHARE-01, SHARE-02, SHARE-03, SHARE-04, SHARE-05, SHARE-06, SHARE-13 -->

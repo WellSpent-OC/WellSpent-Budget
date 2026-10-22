@@ -41,4 +41,22 @@ The sidebar is the list on the left of the window, shown here signed in.
 1. **New Group…**: make a group. [Quest 3](../budgets/make-your-first-group.md)
 2. **Join a Group…**: join a group with an invite link. [Quest 8](../sharing/join-a-group.md)
 
+## On an iPhone: Home
+
+On an iPhone, Home takes the sidebar's place. Shown here signed in.
+
+![Home on an iPhone, with numbers 1 to 9](../assets/shots/tour-iphone-home.svg)
+
+1. The money card: this month for your first group that has a budget. The middle of the wheel says what's left, or how far over. Beside it: the day of the month, and what's spent of what's budgeted.
+2. **HOME**: a group, in capital letters. Tap it to open its page. Touch and hold it for its menu.
+3. The arrow: hides or shows the group's budgets.
+4. **Groceries**: a budget. Its row fills from the left as its money is used this month. Tap it to open its page. At the Manage level or higher, touch and hold it for **Edit** and **Delete**.
+5. **$308.00**: what's left this month. Over its limit, the row fills all the way and says how far over, like **$15.00 over**.
+6. **New Budget**: make a budget in this group. It shows at the Manage level or higher. [Quest 4](../budgets/make-your-first-budget.md)
+7. **Account**: your account, and signing out. Signed out, it's **Sign in**.
+8. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this iPhone only**. If a sync fails, it says why, in orange. Pull Home down to sync now.
+9. **+**: a menu with **Add Budget**, **New Group** and **Join a Group**.
+
+A group's menu has the same items as on a Mac, plus **Hide budgets**.
+
 <!-- Scenarios: BUDGET-01, BUDGET-02, BUDGET-03, BUDGET-06, BUDGET-08, BUDGET-11, BUDGET-13, PAGE-02, PAGE-05, WHEEL-01, WHEEL-02, WHEEL-03, SHARE-01, SHARE-07, ACCT-01 -->

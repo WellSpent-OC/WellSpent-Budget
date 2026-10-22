@@ -26,4 +26,29 @@ Click an invite link, and WellSpent opens this page.
 2. **Your name**: the name the group sees.
 3. **Join**: join the group.
 
+## On an iPhone
+
+Tap an invite link, and WellSpent opens this page.
+
+![The invitation page on an iPhone, with numbers 1 to 7](../assets/shots/tour-iphone-join-a.svg)
+
+1. The back arrow: go back to Home without joining.
+2. **Robin invited you to “Home”.**: who invited you, and to which group.
+3. **You'd join at Add.**: the level you'd have.
+4. The line under it: what that level lets you do.
+5. **You'd see everything so far.**: whether you'd see what the group already has, or only what comes after you join.
+6. **Your name**: the name the group sees.
+7. **Join**: join the group. Signed out, **Sign in** shows here instead. [Quest 8](join-a-group.md)
+
+## On an iPhone: paste a link
+
+Tap **+** at the bottom right of Home, then **Join a Group**, and this sheet opens.
+
+![The Join a Group sheet on an iPhone, with numbers 1 to 4](../assets/shots/tour-iphone-join-b.svg)
+
+1. **Cancel**: close without joining.
+2. **Join**: join the group. It stays dimmed until both fields are filled.
+3. **Invite link**: paste the link here. Then you see who invited you, and to which group.
+4. **Your name**: the name the group sees.
+
 <!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, CLICK-01, CLICK-03, CLICK-04 -->

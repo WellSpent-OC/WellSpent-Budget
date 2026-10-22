@@ -23,7 +23,7 @@ It's an early test version. Some things aren't built yet, and some things may br
 
 ## Tours: every screen, numbered
 
-- [The sidebar](getting-started/tour-the-sidebar.md)
+- [The sidebar, and Home on an iPhone](getting-started/tour-the-sidebar.md)
 - [A budget's page](budgets/tour-a-budgets-page.md)
 - [The budget window](budgets/tour-the-budget-window.md)
 - [A transaction](transactions/tour-a-transaction.md)

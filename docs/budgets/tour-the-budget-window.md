@@ -19,4 +19,8 @@ title: "Tour: The budget window"
 
 **Edit…** on a budget's menu opens the same window, called **Edit Budget**, with **Save** in place of **Add**, and no **Group**.
 
+## On an iPhone
+
+**New Budget** under a group on Home, or **Add Budget** in the **+** menu, opens the same fields in a sheet. **Cancel** is at the top left, and **Add** at the top right. **Group** shows only when you have more than one group. **Edit** on a budget opens it as **Edit Budget**, with **Save**, and a red **Delete** at the bottom.
+
 <!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-05, BUDGET-06 -->
