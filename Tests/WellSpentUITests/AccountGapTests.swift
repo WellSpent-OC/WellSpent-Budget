@@ -231,7 +231,7 @@ final class AccountGapTests: XCTestCase {
         // its window. What the bar says is what the Dock must say too.
         run.launch()
         let bar = run.element(AccessibilityID.stagingBanner)
-        let word = bar.label
+        let word = run.words(in: bar).first ?? ""
         XCTAssertFalse(word.isEmpty, "the orange bar says nothing")
 
         // Scenario ACCT-16
