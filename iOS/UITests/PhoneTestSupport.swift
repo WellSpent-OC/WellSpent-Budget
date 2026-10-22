@@ -262,6 +262,9 @@ final class PhoneTestApp {
         waitUntilHittable(field, identifier)
         // On a slow runner a Paste can land nowhere, leaving the field empty.
         // So the field is checked, and pasted into once more if it is empty.
+        // The check waits long enough for CI's slow looks: a paste that had
+        // landed once read as empty at 3 seconds, and the second paste's menu
+        // then never came.
         pasteOnce(into: field)
         if !isFilled(field) { pasteOnce(into: field) }
         XCTAssertTrue(isFilled(field), "the paste into \(identifier) did not land. On screen: \(visibleTexts())")
@@ -270,21 +273,21 @@ final class PhoneTestApp {
 
     /// Empties the field, then Paste from its own menu.
     private func pasteOnce(into field: XCUIElement) {
-        field.tap()
+        focus(field, field.identifier)
         clear(field)
         field.tap()
         let paste = app.menuItems["Paste"].firstMatch
-        if !paste.waitForExistence(timeout: 3) {
+        if !paste.waitForExistence(timeout: 5) {
             field.press(forDuration: 1.2)
         }
-        XCTAssertTrue(paste.waitForExistence(timeout: 5), "the field's menu shows no Paste. On screen: \(visibleButtons())")
+        XCTAssertTrue(paste.waitForExistence(timeout: 30), "the field's menu shows no Paste. On screen: \(visibleButtons())")
         paste.tap()
     }
 
     /// Whether the field holds something other than its prompt, within a
-    /// few seconds. A password field holds dots, which counts.
+    /// while. A password field holds dots, which counts.
     private func isFilled(_ field: XCUIElement) -> Bool {
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(15)
         repeat {
             let value = (field.value as? String) ?? ""
             if !value.isEmpty, value != field.placeholderValue { return true }
