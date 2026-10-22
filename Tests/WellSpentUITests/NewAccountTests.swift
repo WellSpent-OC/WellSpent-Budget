@@ -144,7 +144,7 @@ final class NewAccountTests: XCTestCase {
         // and she leaves it for later.
         run.click(AccessibilityID.sidebarSignIn)
         try run.createAccount(email: leslie, password: lesliesPassword, server: mailbox.server)
-        let code = try await mailbox.code(for: leslie)
+        let code = try await mailbox.code(for: leslie, timeout: 30)
         run.closeAccountSheet()
         run.expectNoBudgets("Leslie's new account")
 
@@ -161,9 +161,9 @@ final class NewAccountTests: XCTestCase {
                       "no invitation page. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.listText(JoinScreen.Words.confirmToJoin).waitForExistence(timeout: 30),
                       "the page does not ask her to confirm her email first. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.invitationConfirmEmail),
-                               holds: JoinScreen.Words.confirmEmail, timeout: 30),
-                      "no \(JoinScreen.Words.confirmEmail) on the page. On screen: \(run.visibleTexts())")
+        let confirm = run.element(AccessibilityID.invitationConfirmEmail)
+        XCTAssertTrue(run.wait(for: confirm, says: JoinScreen.Words.confirmEmail, timeout: 30),
+                      "no \(JoinScreen.Words.confirmEmail) on the page: \(confirm.exists ? confirm.title : "no button")")
         XCTAssertFalse(run.element(AccessibilityID.invitationJoin).exists, "Join, with her email not confirmed")
 
         // Scenario CLICK-06
@@ -222,7 +222,7 @@ final class NewAccountTests: XCTestCase {
         // there, and confirms her email with the code sent to it.
         run.click(AccessibilityID.invitationSignIn)
         try run.createAccount(email: leslie, password: password, server: mailbox.server)
-        run.confirmEmail(with: try await mailbox.code(for: leslie))
+        run.confirmEmail(with: try await mailbox.code(for: leslie, timeout: 30))
 
         // Scenario CLICK-07
         // 7. The invitation page is still up, with Leslie still in Your name,
@@ -477,11 +477,13 @@ private extension TestApp {
     }
 
     /// The names in the sidebar's list now: its groups' and its budgets'.
-    /// Read from one snapshot, by the identifiers the list gives them.
-    func sidebarList() -> (groups: Set<String>, budgets: Set<String>) {
+    /// Read from one snapshot, by the identifiers the list gives them. Nil
+    /// when the window cannot be read, so that is never taken for an empty
+    /// list.
+    func sidebarList() -> (groups: Set<String>, budgets: Set<String>)? {
         let groupPrefix = AccessibilityID.sidebarGroup(""), budgetPrefix = AccessibilityID.sidebarBudget("")
         var groups: Set<String> = [], budgets: Set<String> = []
-        guard let root = try? app.snapshot() else { return (groups, budgets) }
+        guard let root = try? app.snapshot() else { return nil }
         func walk(_ node: XCUIElementSnapshot) {
             if node.identifier.hasPrefix(groupPrefix) {
                 groups.insert(String(node.identifier.dropFirst(groupPrefix.count)))
@@ -498,26 +500,40 @@ private extension TestApp {
     /// budgets, and fails with what it holds when it does not.
     func expectList(groups: Set<String>, budgets: Set<String>, _ what: String,
                     file: StaticString = #filePath, line: UInt = #line) {
-        let holds = NSPredicate { _, _ in self.sidebarList() == (groups, budgets) }
+        let holds = NSPredicate { _, _ in
+            guard let shown = self.sidebarList() else { return false }
+            return shown.groups == groups && shown.budgets == budgets
+        }
         let found = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: holds, object: nil)], timeout: 30)
-        let shown = sidebarList()
-        XCTAssertEqual(found, .completed, "\(what): the list holds the groups \(shown.groups.sorted()) and the "
-                       + "budgets \(shown.budgets.sorted()), not \(groups.sorted()) and \(budgets.sorted())",
-                       file: file, line: line)
+        guard found != .completed else { return }
+        guard let shown = sidebarList() else {
+            XCTFail("\(what): the window could not be read", file: file, line: line)
+            return
+        }
+        XCTFail("\(what): the list holds the groups \(shown.groups.sorted()) and the budgets "
+                + "\(shown.budgets.sorted()), not \(groups.sorted()) and \(budgets.sorted())", file: file, line: line)
     }
 
     /// The list is empty, and the right side says there are no budgets yet
-    /// and what a budget is. The words may reach the test as a text or as
-    /// the label of the view around them, so either counts.
+    /// and what a budget is.
     func expectNoBudgets(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
         expectList(groups: [], budgets: [], what, file: file, line: line)
         for words in [MainScreen.Words.noBudgetsTitle, MainScreen.Words.noBudgetsText] {
-            let shown = app.windows.firstMatch.descendants(matching: .any)
-                .matching(NSPredicate(format: "label == %@", words)).firstMatch
-            XCTAssertTrue(shown.waitForExistence(timeout: 30),
+            XCTAssertTrue(listText(words).waitForExistence(timeout: 30),
                           "\(what): the right side does not say \(words) On screen: \(visibleTexts())",
                           file: file, line: line)
         }
+    }
+
+    /// Waits until an element shows these words. A Mac button gives its
+    /// words as its title, a text as its value, so any of the three counts.
+    func wait(for element: XCUIElement, says words: String, timeout: TimeInterval) -> Bool {
+        let says = NSPredicate { candidate, _ in
+            guard let element = candidate as? XCUIElement, element.exists else { return false }
+            return element.title == words || element.label == words || (element.value as? String) == words
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: says, object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 
     /// Rename… from a group's menu, until the sheet that opens holds this
@@ -527,16 +543,19 @@ private extension TestApp {
     func renameGroup(_ name: String, to newName: String, file: StaticString = #filePath, line: UInt = #line) {
         let groupLine = AccessibilityID.sidebarGroup(name)
         let field = element(AccessibilityID.groupEditorName)
+        var opened = false
         for _ in 0..<3 {
             openMenu(on: element(groupLine), groupLine, offering: MainScreen.Words.rename)
             clickMenuItem(MainScreen.Words.rename)
             XCTAssertTrue(field.waitForExistence(timeout: 30), "Rename\u{2026} opened no sheet", file: file, line: line)
-            if wait(for: field, holds: name, timeout: 5) { break }
+            if wait(for: field, holds: name, timeout: 5) {
+                opened = true
+                break
+            }
             click(AccessibilityID.groupEditorCancel)
             wait(for: field, until: "exists == false", timeout: 30)
         }
-        XCTAssertTrue(wait(for: field, holds: name, timeout: 1), "Rename\u{2026} never opened \(name)'s sheet",
-                      file: file, line: line)
+        XCTAssertTrue(opened, "Rename\u{2026} never opened \(name)'s sheet", file: file, line: line)
         type(newName, into: AccessibilityID.groupEditorName)
         click(AccessibilityID.groupEditorSave)
         XCTAssertTrue(element(AccessibilityID.sidebarGroup(newName)).waitForExistence(timeout: 30),
