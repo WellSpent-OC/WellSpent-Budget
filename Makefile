@@ -187,9 +187,11 @@ iphone-project:
 iphone-build: iphone-project
 	$(IPHONE_XCODEBUILD) build
 
-# Builds the iPhone app and its UI tests, without running them.
+# Builds the iPhone app and its UI tests, without running them. Built for
+# coverage, since the run (iphone-ui-test) measures it: a run on a build made
+# without it records an empty report (scripts/phone-coverage.sh).
 iphone-ui-test-build: iphone-project
-	$(IPHONE_XCODEBUILD) build-for-testing
+	$(IPHONE_XCODEBUILD) build-for-testing -enableCodeCoverage YES
 
 # The iPhone UI tests (iOS/UITests), once in light and once in dark, each on a
 # simulator made for the run and deleted after, so nothing of an earlier run
