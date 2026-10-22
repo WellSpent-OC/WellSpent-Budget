@@ -18,11 +18,12 @@ final class PhoneTestApp {
     let dataRoot: URL
 
     init() {
+        PhoneFailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-phone-ui-test-\(UUID().uuidString)", isDirectory: true)
-        // Not made here: a folder that does not exist yet tells the app this
-        // is a new run, so its settings start afresh (AccountDirectory). The
-        // test cannot reach the app's settings on a phone to wipe them.
+        // Not made here, though it needn't be: the app's first launch into it
+        // starts its settings afresh and marks the folder (AccountDirectory).
+        // The test cannot reach the app's settings on a phone to wipe them.
         app.launchEnvironment[AccountDirectory.dataRootVariable] = dataRoot.path
     }
 
@@ -54,7 +55,10 @@ final class PhoneTestApp {
 
     /// Words on screen, wherever they are.
     func text(_ words: String) -> XCUIElement {
-        app.staticTexts[words].firstMatch
+        // A query by words takes at most 128 characters. Longer ones, such as
+        // a question's message, are matched by label.
+        guard words.count > 128 else { return app.staticTexts[words].firstMatch }
+        return app.staticTexts.matching(NSPredicate(format: "label == %@", words)).firstMatch
     }
 
     /// Whether these words show on screen within the time given. A slow
@@ -84,19 +88,34 @@ final class PhoneTestApp {
     }
 
     func tap(_ identifier: String, timeout: TimeInterval = 10) {
-        let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: timeout),
-                      "nothing called \(identifier) to tap. On screen: \(visibleTexts())")
+        let target = find(identifier, timeout: timeout)
+        XCTAssertTrue(target.exists, "nothing called \(identifier) to tap. On screen: \(visibleTexts())")
         waitUntilHittable(target, identifier)
         target.tap()
     }
 
-    /// Holds a finger on it, which opens its menu.
+    /// Holds a finger on a row of a list, which opens its menu.
     func longPress(_ identifier: String) {
-        let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: 10), "nothing called \(identifier) to press")
+        let target = find(identifier, timeout: 10)
+        XCTAssertTrue(target.exists, "nothing called \(identifier) to press. On screen: \(visibleTexts())")
+        bringToMiddle(target)
         waitUntilHittable(target, identifier)
+        // A press on a row the list is still moving is taken as a tap, which
+        // opens the row instead of its menu.
+        waitUntilStill(target, identifier)
         target.press(forDuration: 1.2)
+    }
+
+    /// Waits for an element. If it has not shown, a Save Password sheet in
+    /// front is answered, and then the list is scrolled to it: a test account
+    /// keeps the groups earlier runs made, so a row just made can sit below
+    /// the bottom of Home, where the list has not drawn it.
+    private func find(_ identifier: String, timeout: TimeInterval) -> XCUIElement {
+        let target = element(identifier)
+        if target.waitForExistence(timeout: timeout) { return target }
+        if answerSavePasswordIfAsked(), target.waitForExistence(timeout: timeout) { return target }
+        scrollTo(identifier)
+        return target
     }
 
     /// An item in the menu on screen, by its title as the shared words write
@@ -151,21 +170,44 @@ final class PhoneTestApp {
         while !target.exists, Date() < deadline {
             if list.exists { list.swipeUp() } else { app.swipeUp() }
         }
-        // Low on the screen, a row sits against Home's foot bar, where a long
-        // press opens nothing. Drag the list until the row is mid screen.
-        let screen = app.frame
-        if target.exists, list.exists, target.frame.maxY > screen.height * 0.6 {
-            let distance = target.frame.midY - screen.height * 0.45
-            let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
-        }
+        if target.exists { bringToMiddle(target) }
         return target
+    }
+
+    /// Drags the list until a row of it is mid screen, if it is near the top
+    /// or the bottom. Low on the screen, a row sits against Home's foot bar,
+    /// where a long press opens nothing. High up, it sits under the title
+    /// bar, which takes a tap meant for it.
+    func bringToMiddle(_ row: XCUIElement) {
+        let list = app.collectionViews.firstMatch
+        // A row not drawn yet has no frame to read, which looks like the top.
+        guard list.exists, row.exists else { return }
+        let screen = app.frame
+        let frame = row.frame
+        // A high row comes down only just clear of the bar, to 30 percent:
+        // a list near its top would go past it into a pull, which syncs.
+        let goal: CGFloat
+        if frame.maxY > screen.height * 0.6 {
+            goal = 0.45
+        } else if frame.minY < screen.height * 0.2 {
+            goal = 0.3
+        } else {
+            return
+        }
+        let distance = frame.midY - screen.height * goal
+        // Up from low on the list, or down from high on it, so the drag stays
+        // on the screen.
+        let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: distance > 0 ? 0.7 : 0.3))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
     }
 
     /// Pulls the list down from near its top, which syncs.
     func pullDown() {
         let list = app.collectionViews.firstMatch
         XCTAssertTrue(list.waitForExistence(timeout: 10), "no list to pull down")
+        // A pull only syncs from the top of the list. Scrolled down, as after
+        // a step that scrolled to a row, the drag only scrolls back up.
+        for _ in 0..<3 { list.swipeDown() }
         let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15))
         start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 400)))
     }
@@ -240,13 +282,46 @@ final class PhoneTestApp {
     }
 
     /// Pulls Home down and waits for the sync it starts to end, so every
-    /// change made so far is on the server.
+    /// change made so far is on the server, and every change on the server
+    /// is here.
     func syncAndWait() {
+        let pulled = Date().timeIntervalSince1970
         pullDown()
-        Thread.sleep(forTimeInterval: 1)
-        let done = text(SyncWording.footer(signedIn: true, device: Self.device))
-        XCTAssertTrue(wait(for: done, until: "exists == true", timeout: 30),
-                      "the sync did not end. On screen: \(visibleTexts())")
+        waitForASync(endingAfter: pulled)
+        XCTAssertTrue(text(SyncWording.footer(signedIn: true, device: Self.device)).waitForExistence(timeout: 10),
+                      "the sync did not end well. On screen: \(visibleTexts())")
+    }
+
+    /// Waits up to 30 seconds for a sync that ends after `time`, in seconds
+    /// since 1970. The staging banner's value is when the last one ended:
+    /// the one sign of a sync that every screen has, a sheet's included.
+    func waitForASync(endingAfter time: TimeInterval) {
+        let banner = element(AccessibilityID.stagingBanner)
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            if let ended = Double((banner.value as? String) ?? ""), ended >= time { return }
+            Thread.sleep(forTimeInterval: 1)
+        }
+        XCTFail("no sync ended in the 30 seconds after asking for one. "
+                + "The banner says the last one ended at \(banner.value ?? "no time")")
+    }
+
+    /// A sync, then the budget opened to see whether it offers Add: the sign
+    /// that a move to a level has come in, since at View it does not. Back on
+    /// Home after.
+    func syncUntilTheLevel(allowsAdding: Bool, in budget: String) {
+        syncAndWait()
+        scrollTo(AccessibilityID.sidebarBudget(budget))
+        openBudget(named: budget)
+        let add = element(AccessibilityID.budgetAdd)
+        if allowsAdding {
+            XCTAssertTrue(add.waitForExistence(timeout: 30), "no Add in \(budget): the move up has not come in")
+        } else {
+            XCTAssertTrue(wait(for: add, until: "exists == false", timeout: 30),
+                          "\(budget) still offers Add: the move down to View has not come in")
+        }
+        goBack()
+        XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
     }
 
     /// Closes a menu that is open, with a tap beside it, as a person does.
@@ -286,6 +361,9 @@ final class PhoneTestApp {
             for candidate in [app.buttons["Copy"], app.cells["Copy"]] where candidate.firstMatch.exists {
                 let copy = candidate.firstMatch
                 if copy.isHittable {
+                    // The share sheet is still sliding up when Copy can first
+                    // be tapped, and a tap then misses it.
+                    waitUntilStill(copy, "Copy")
                     copy.tap()
                     return
                 }
@@ -315,14 +393,55 @@ final class PhoneTestApp {
         for _ in 0..<3 where !element(AccessibilityID.sidebarGroup(name)).exists { app.swipeDown() }
         let header = scrollTo(AccessibilityID.sidebarGroup(name))
         XCTAssertTrue(header.exists, "no group called \(name) on Home. On screen: \(visibleTexts())")
+        waitUntilStill(header, name)
         tap(AccessibilityID.sidebarGroup(name))
+        // One tap, then a long wait: on CI a look at the screen can take 9
+        // seconds. If the page never comes, the buttons say whether the tap
+        // was taken as a long press, which opens the group's menu instead.
+        XCTAssertTrue(element(AccessibilityID.groupSummary).waitForExistence(timeout: 30),
+                      "a tap on \(name) opened no page. On screen: \(visibleTexts()) \(visibleButtons())")
     }
 
     /// A control inside a sheet exists before the sheet has finished sliding
     /// in, and a tap then misses. So every tap waits for it to be hittable.
+    /// The wait is long because CI's runners are slow: one look at the screen
+    /// there took 9 seconds while a sheet slid in after a menu.
     func waitUntilHittable(_ target: XCUIElement, _ identifier: String) {
-        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 10),
-                      "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
+        var hittable = wait(for: target, until: "hittable == true", timeout: 30)
+        if !hittable, answerSavePasswordIfAsked() {
+            hittable = wait(for: target, until: "hittable == true", timeout: 30)
+        }
+        XCTAssertTrue(hittable, "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
+    }
+
+    /// After a form with a password goes away, iOS may offer to save the
+    /// password, in a sheet over the app. A person answers it, and so does a
+    /// test: Not Now. This answers only a sheet already showing, and says
+    /// whether there was one.
+    @discardableResult
+    func answerSavePasswordIfAsked() -> Bool {
+        guard app.staticTexts["Save Password?"].exists else { return false }
+        let notNow = app.buttons["Not Now"].firstMatch
+        XCTAssertTrue(notNow.waitForExistence(timeout: 10),
+                      "the Save Password sheet has no Not Now. On screen: \(visibleButtons())")
+        notNow.tap()
+        XCTAssertTrue(wait(for: notNow, until: "exists == false", timeout: 15), "the Save Password sheet stayed")
+        return true
+    }
+
+    /// A row a list is still sliding into place is hittable before it is
+    /// still, and a swipe or tap on it then lands in the wrong place. So this
+    /// waits for two looks in a row to find it in the same place.
+    func waitUntilStill(_ target: XCUIElement, _ identifier: String) {
+        let deadline = Date().addingTimeInterval(30)
+        var last = target.frame
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.5)
+            let now = target.frame
+            if now == last { return }
+            last = now
+        }
+        XCTFail("\(identifier) kept moving for 30 seconds")
     }
 
     /// Waits for a condition on an element, such as "isEnabled == true" or
@@ -351,19 +470,29 @@ final class PhoneTestApp {
 
     private func labels(of type: XCUIElement.ElementType) -> [String] {
         guard let root = try? app.snapshot() else { return [] }
+        let giveaways = ScreenPrivacy.giveaways
         var found: [String] = []
         func walk(_ node: XCUIElementSnapshot) {
-            if node.elementType == type, !node.label.isEmpty { found.append(node.label) }
+            if node.elementType == type, !node.label.isEmpty { found.append(masked(node.label, giveaways)) }
             node.children.forEach(walk)
         }
         walk(root)
         return found
     }
 
+    /// A label with a test account's address, or the part before its @, out
+    /// of sight: failure messages go to CI's log, which is public.
+    private func masked(_ label: String, _ giveaways: [String]) -> String {
+        giveaways.reduce(label) { text, giveaway in
+            text.replacingOccurrences(of: giveaway, with: "[a test address]", options: .caseInsensitive)
+        }
+    }
+
     // MARK: - The steps the tests take
 
     /// Opens a budget from Home.
     func openBudget(named name: String) {
+        bringToMiddle(scrollTo(AccessibilityID.sidebarBudget(name)))
         tap(AccessibilityID.sidebarBudget(name))
         XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10),
                       "\(name) did not open. On screen: \(visibleTexts())")

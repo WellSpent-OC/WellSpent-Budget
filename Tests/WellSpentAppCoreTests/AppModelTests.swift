@@ -924,6 +924,9 @@ struct UndoTests {
         #expect(try s.stored().isDeleted)
     }
 
+    // Scenario EDIT-09
+    // The budget-gone line, which no phone can reach: its budget's screen
+    // closes, and the Undo bar with it.
     @Test func undoIsRefusedInWordsWhenTheBudgetWasDeleted() throws {
         let s = try Household()
         s.model.deleteEntry(s.hilltop)

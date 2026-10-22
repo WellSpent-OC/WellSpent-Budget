@@ -258,6 +258,47 @@ final class PhoneImportTests: XCTestCase {
 
     // MARK: - A file that is not a statement
 
+    // MARK: - A line deleted after it was imported
+
+    @MainActor
+    func testADeletedLineStaysDeletedWhenItsStatementIsImportedAgain() throws {
+        let joes = "TRADER JOES #123", bakery = "CORNER BAKERY"
+        let statement = try statements().write([(joes, "-54.20", 0), (bakery, "-12.00", 0)])
+        let run = launched(importing: statement)
+        let counted = run.transactionCount()
+
+        // Scenario IMPORT-08
+        // 1. Both lines go into Groceries. Then Corner Bakery is deleted.
+        run.importStatement()
+        run.choose("Groceries", for: joes)
+        run.choose("Groceries", for: bakery)
+        run.tap(AccessibilityID.importConfirm)
+        run.waitForTheReviewToClose()
+        XCTAssertTrue(run.waitForTransactionCount(counted + 2), "both lines did not go in. The page says: \(run.countLine())")
+        run.openEntry("Corner Bakery")
+        run.tap(AccessibilityID.entryDelete)
+        run.answer("Delete")
+        run.expectNoSheet()
+        XCTAssertTrue(run.waitForTransactionCount(counted + 1), "Corner Bakery was not deleted. The page says: \(run.countLine())")
+
+        // Scenario IMPORT-08
+        // 2. The same statement again: both lines say Already imported, and
+        // Import finishes with no error. Corner Bakery stays deleted.
+        run.importStatement()
+        XCTAssertEqual([run.status(of: joes), run.status(of: bakery)], [Words.alreadyImported, Words.alreadyImported])
+        run.tap(AccessibilityID.importConfirm)
+        run.waitForTheReviewToClose()
+        XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3),
+                       "the import ended in an error. On screen: \(run.visibleTexts())")
+        // The count is already right before anything could change it, so
+        // the check is that it does not go up in the next 5 seconds.
+        XCTAssertFalse(run.waitForTransactionCount(counted + 2, timeout: 5),
+                       "Corner Bakery came back. The page says: \(run.countLine())")
+        XCTAssertTrue(run.waitForTransactionCount(counted + 1, timeout: 1), "the count changed. The page says: \(run.countLine())")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 5),
+                       "Corner Bakery is listed again")
+    }
+
     @MainActor
     func testAFileThatIsNotAStatementIsExplained() throws {
         let folder = try statements()
@@ -333,30 +374,19 @@ final class PhoneImportTests: XCTestCase {
         let file = try Self.save("Date,Description,Amount\n\(today),\"TRADER JOES #123\",-54.20",
                                  as: "picked.csv", in: folder)
         defer { try? FileManager.default.removeItem(at: file) }
-        // Files lists a file written into its folder while the picker is open
-        // a moment before it will hand it over. So the picker closes, and
-        // opens again with the file already there.
+        // Files is slow to hand over a file written into its folder while
+        // the picker is open. So the picker closes and opens again with the
+        // file already there, as a person's file would be, and the file is
+        // picked once it is ready.
         let cancel = run.app.buttons["Cancel"].firstMatch
         cancel.tap()
-        XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 10), "the Files picker did not close")
+        XCTAssertTrue(run.wait(for: cancel, until: "exists == false", timeout: 15), "the Files picker did not close")
         run.openFilesPicker()
-        let browse = run.app.tabBars.buttons["Browse"].firstMatch
-        XCTAssertTrue(browse.waitForExistence(timeout: 10), "no Browse in the Files picker. On screen: \(run.visibleButtons())")
-        browse.tap()
-        let onMyIPhone = run.app.staticTexts["On My iPhone"].firstMatch
-        XCTAssertTrue(onMyIPhone.waitForExistence(timeout: 10), "no On My iPhone. On screen: \(run.visibleTexts())")
-        onMyIPhone.tap()
-        let picked = run.app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", "picked")).firstMatch
-        XCTAssertTrue(picked.waitForExistence(timeout: 15), "picked.csv is not in On My iPhone. On screen: \(run.visibleTexts())")
-        // On a slow runner the list is still settling when the file shows, and
-        // a tap then picks nothing. So the tap waits for the file to take one,
-        // and taps once more if the picker is still up.
-        run.waitUntilHittable(picked, "picked.csv")
-        picked.tap()
+        let picked = run.pickInOnMyIPhone("picked")
         let review = run.element(AccessibilityID.importConfirm)
-        if !review.waitForExistence(timeout: 8), picked.exists, picked.isHittable { picked.tap() }
-        XCTAssertTrue(review.waitForExistence(timeout: 15),
-                      "the review did not open after a pick. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(review.waitForExistence(timeout: 30),
+                      "the review did not open after the pick. The file's row was "
+                      + "\(!picked.exists ? "gone" : picked.isEnabled ? "enabled" : "dimmed"). On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(Words.title(into: "Household")), "no heading. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("picked.csv"), "the file's name does not show. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.status(of: "TRADER JOES #123"), Words.needsBudget)
@@ -402,9 +432,11 @@ final class PhoneImportTests: XCTestCase {
 
 // MARK: - The steps these tests take
 
-/// Here, not in PhoneTestSupport.swift, so this file stands on its own.
+/// Here, not in PhoneTestSupport.swift, so this file stands on its own. Not
+/// private: the two-person tests import statements too
+/// (PhoneSharedEntriesTests.swift).
 @MainActor
-private extension PhoneTestApp {
+extension PhoneTestApp {
     /// Launches on Groceries, with Import statement reading this file in
     /// place of showing the Files picker. A different file needs a new launch.
     func launch(importing statement: URL) {
@@ -429,6 +461,26 @@ private extension PhoneTestApp {
         tapMenuItem(BudgetScreen.Words.importStatement)
         XCTAssertTrue(app.buttons["Cancel"].firstMatch.waitForExistence(timeout: 15),
                       "the Files picker did not open. On screen: \(visibleTexts())")
+    }
+
+    /// In the open Files picker: Browse, On My iPhone, then the file whose
+    /// name starts with `name`, once it is ready to be picked. Returns its row.
+    func pickInOnMyIPhone(_ name: String) -> XCUIElement {
+        let browse = app.tabBars.buttons["Browse"].firstMatch
+        XCTAssertTrue(browse.waitForExistence(timeout: 15), "no Browse in the Files picker. On screen: \(visibleButtons())")
+        browse.tap()
+        let onMyIPhone = app.staticTexts["On My iPhone"].firstMatch
+        XCTAssertTrue(onMyIPhone.waitForExistence(timeout: 15), "no On My iPhone. On screen: \(visibleTexts())")
+        onMyIPhone.tap()
+        let row = app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), "\(name) is not in On My iPhone. On screen: \(visibleTexts())")
+        // A file Files has not finished reading yet is listed dimmed, and a
+        // tap on it picks nothing.
+        XCTAssertTrue(wait(for: row, until: "enabled == true", timeout: 30), "\(name) stayed dimmed in On My iPhone")
+        waitUntilHittable(row, name)
+        waitUntilStill(row, name)
+        row.tap()
+        return row
     }
 
     func waitForTheReviewToClose() {
@@ -527,6 +579,18 @@ private extension PhoneTestApp {
         let line = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", " since ")).firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 5), "no count line. On screen: \(visibleTexts())")
         return line.label
+    }
+
+    /// Waits until the count line says the period holds this many
+    /// transactions. A row can be below the bottom of the screen, where a
+    /// list draws nothing to count, but the count line counts every one.
+    func waitForTransactionCount(_ count: Int, timeout: TimeInterval = 10) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if transactionCount() == count { return true }
+            Thread.sleep(forTimeInterval: 0.5)
+        } while Date() < deadline
+        return false
     }
 
     /// How many transactions the count line says the period holds: 3 in "3

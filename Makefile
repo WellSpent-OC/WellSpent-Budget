@@ -187,9 +187,11 @@ iphone-project:
 iphone-build: iphone-project
 	$(IPHONE_XCODEBUILD) build
 
-# Builds the iPhone app and its UI tests, without running them.
+# Builds the iPhone app and its UI tests, without running them. Built for
+# coverage, since the run (iphone-ui-test) measures it: a run on a build made
+# without it records an empty report (scripts/phone-coverage.sh).
 iphone-ui-test-build: iphone-project
-	$(IPHONE_XCODEBUILD) build-for-testing
+	$(IPHONE_XCODEBUILD) build-for-testing -enableCodeCoverage YES
 
 # The iPhone UI tests (iOS/UITests), once in light and once in dark, each on a
 # simulator made for the run and deleted after, so nothing of an earlier run
@@ -204,7 +206,9 @@ iphone-ui-test-build: iphone-project
 # IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17". IPHONE_UI_TEST_ONLY
 # runs one test class or test, such as WellSpentPhoneUITests/PhoneSignInSyncTests.
 # IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
-# UI_TEST_SHARD does for the Mac.
+# UI_TEST_SHARD does for the Mac. Each look's result bundle,
+# .build/xcode-iphone/ui-test-<look>.xcresult, holds the code coverage of the
+# run, the iPhone's own screens included, which no Mac test can reach.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
@@ -237,9 +241,14 @@ iphone-ui-test: iphone-ui-test-build
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
+			-enableCodeCoverage YES \
 			$$only \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
-				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharedEntriesTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneLevelsAndLinksTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneAccountTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneNewAccountTests; fi) \
 			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \
