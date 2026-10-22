@@ -3,6 +3,7 @@ import GtkBackend
 import Observation
 import SwiftCrossUI
 import WellSpentAppCore
+import WellSpentLinuxNative
 
 /// The Linux app. It starts up exactly as the Mac app does, through
 /// `Workspace.launch`, with Linux's own folder, settings and keyring
@@ -25,6 +26,7 @@ struct WellSpentLinuxApp: App {
         OpenedLinks.handOver(appIdentifier: LinuxSetup.environment.linuxAppIdentifier) { [workspace] link in
             Task { await workspace.open(link) }
         }
+        wellspent_quit_on_terminate()
         return backend
     }
 

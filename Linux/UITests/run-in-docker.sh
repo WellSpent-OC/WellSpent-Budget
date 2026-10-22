@@ -14,6 +14,9 @@
 #                   never on the command line, for the tests that make an
 #                   account
 # WELLSPENT_UI_NO_SKIPS  passed in when set: "true" fails the run on a skip
+# UITEST_COVERAGE   when set, builds the app with coverage (in its own build
+#                   folder) and ends with how much of the Linux app's own code
+#                   the tests ran (coverage.sh), even when a test failed
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 NAME="${UITEST_CONTAINER:-wsr-linux-uitest}"
@@ -34,8 +37,22 @@ docker run --rm --name "$NAME" \
     --cap-add=SYS_PTRACE \
     ${WELLSPENT_UI_TEST_MAILBOX_TOKEN:+-e WELLSPENT_UI_TEST_MAILBOX_TOKEN} \
     ${WELLSPENT_UI_NO_SKIPS:+-e WELLSPENT_UI_NO_SKIPS} \
+    ${UITEST_COVERAGE:+-e UITEST_COVERAGE} \
     "$IMAGE" setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
         --inh-caps=+sys_ptrace --ambient-caps=+sys_ptrace sh -c '
-        swift build --package-path /src/Linux --scratch-path /b/linux &&
-        WELLSPENT_APP=/b/linux/debug/WellSpentLinux /src/Linux/UITests/run.sh "$@"
+        if [ -z "${UITEST_COVERAGE:-}" ]; then
+            swift build --package-path /src/Linux --scratch-path /b/linux &&
+            WELLSPENT_APP=/b/linux/debug/WellSpentLinux /src/Linux/UITests/run.sh "$@"
+            exit
+        fi
+        # Each copy of the app writes its counts as it quits, one file each.
+        rm -rf /b/coverage && mkdir -p /b/coverage
+        # SwiftPM counts Swift only, so the C helpers get the C compiler flags too.
+        swift build --package-path /src/Linux --scratch-path /b/linux-coverage --enable-code-coverage \
+            -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping || exit
+        status=0
+        LLVM_PROFILE_FILE=/b/coverage/%p.profraw WELLSPENT_APP=/b/linux-coverage/debug/WellSpentLinux \
+            /src/Linux/UITests/run.sh "$@" || status=$?
+        /src/Linux/UITests/coverage.sh /b/linux-coverage/debug/WellSpentLinux /b/coverage
+        exit $status
     ' sh "$@"

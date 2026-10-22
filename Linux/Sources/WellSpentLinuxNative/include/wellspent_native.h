@@ -1,8 +1,8 @@
 // What the Linux app needs from C: the desktop keyring (Secret Service, through
 // libsecret, whose calls are variadic and so not callable from Swift), the GTK
-// clipboard, handing a clicked link to the copy of the app already running, and
+// clipboard, handing a clicked link to the copy of the app already running,
 // what a screen reader says about a widget (GTK's accessibility calls are
-// variadic too).
+// variadic too), and quitting cleanly when the system asks.
 #pragma once
 
 /// Stores `value` under (service, item) in the default keyring. 1 on success.
@@ -44,3 +44,8 @@ void wellspent_accessible_set_description(void *widget, const char *description)
 /// Whether a screen reader hears the widget as the one picked, such as the
 /// open budget's row. 1 for picked, 0 for not.
 void wellspent_accessible_set_selected(void *widget, int selected);
+
+/// Quits the way the app's own last window would when the system asks it to
+/// stop (SIGTERM), as a desktop does at log out, instead of the process just
+/// ending. Call once, after the app's GtkApplication is made.
+void wellspent_quit_on_terminate(void);
