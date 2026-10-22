@@ -103,3 +103,4 @@ Platforms: Mac
 - And under the amount it says "That amount can't be read clearly. Type it like 12.50."
 - When he types "12.50" instead
 - Then the line goes, and "Add" lights
+- And where a comma marks decimals, such as in Germany, "1,250" is refused the same way, with "Type it like 12,50.", since a dollar has only two decimals. It is never read as $1250.00

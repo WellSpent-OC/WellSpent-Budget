@@ -79,8 +79,11 @@ public enum PaletteValues {
     public static let track = ColorPair(light: line.light, dark: RGB(hex: 0x1F1D19))
     /// The bar's fill, the first budget colour, and a matched import line.
     public static let accent = ColorPair(light: RGB(red: 0.122, green: 0.373, blue: 0.294), dark: RGB(hex: 0x66B89A))
-    /// Over budget, a failure, and the last budget colour.
-    public static let warning = ColorPair(light: RGB(red: 0.706, green: 0.325, blue: 0.165), dark: RGB(hex: 0xE38D66))
+    /// Over budget, a failure, and the last budget colour. The light one is
+    /// #A84D27, a little darker than the first #B4532A, so the Over figure
+    /// reads in a group's MONEY well too: 4.72 to 1 on the well, where it was
+    /// 4.20.
+    public static let warning = ColorPair(light: RGB(red: 0.657, green: 0.302, blue: 0.153), dark: RGB(hex: 0xE38D66))
     /// The second budget colour, and an import line to add.
     public static let blue = ColorPair(light: RGB(red: 0.169, green: 0.361, blue: 0.494), dark: RGB(hex: 0x7FB2D9))
     /// The third budget colour.

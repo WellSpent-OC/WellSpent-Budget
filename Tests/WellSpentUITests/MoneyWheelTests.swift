@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import XCTest
 import WellSpentAppCore
@@ -172,11 +173,23 @@ final class MoneyWheelTests: XCTestCase {
         run.deleteGroup(named: groupName)
     }
 
-    /// Edit Budget… beside the pace words opens the budget's Edit Budget
-    /// sheet, and Cancel closes it.
+    /// Edit Budget… beside the pace words shows its whole name, opens the
+    /// budget's Edit Budget sheet, and Cancel closes it.
     @MainActor
     private func expectEditBudgetOpens(_ budget: String, in run: TestApp,
                                        file: StaticString = #filePath, line: UInt = #line) {
+        // The whole name shows: the button is at least as wide as its words
+        // in the system font, which a bordered button of the usual size uses.
+        // Cut short, it read "E…" beside long pace words.
+        let button = run.element(AccessibilityID.budgetPaceEdit)
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "no Edit Budget\u{2026} beside the pace words",
+                      file: file, line: line)
+        let words = BudgetPace.Words.editBudget(onPhone: false)
+        let wordsWidth = (words as NSString)
+            .size(withAttributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)]).width
+        XCTAssertGreaterThanOrEqual(button.frame.width, wordsWidth,
+                                    "\(words) is cut short: it is \(button.frame.width) points wide, "
+                                    + "and its words need \(wordsWidth)", file: file, line: line)
         run.click(AccessibilityID.budgetPaceEdit)
         let name = run.element(AccessibilityID.budgetEditorName)
         XCTAssertTrue(run.wait(for: name, holds: budget, timeout: 10),

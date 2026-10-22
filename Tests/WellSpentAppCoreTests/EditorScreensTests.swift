@@ -2,9 +2,11 @@ import Testing
 import Foundation
 @testable import WellSpentAppCore
 import WellSpentCrypto
+import WellSpentKeyStore
 import WellSpentModel
 import WellSpentImport
 import WellSpentStore
+import WellSpentSync
 
 @MainActor
 private func emptyModel() throws -> AppModel {
@@ -158,6 +160,49 @@ struct EditorScreensTests {
         let over = BudgetScreen(summary: try #require(model.summary(for: id)), model: model, me: nil)
         #expect(over.isOverspent && over.standing == "$15.00 over")
         #expect(over.countLine.hasPrefix("2 transactions since "))
+    }
+
+    // Scenario PAGE-17
+    // Leslie added Costco, then Robin removed her, so nobody else is in the
+    // group. Her entry still says she added it: the column shows while any
+    // entry was added by someone else, not only while the group is shared.
+    // Robin's own entries alone, as before, show none.
+    @Test func entriesSomeoneRemovedAddedStillSayWhoAddedThem() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await signedUp("robin@example.com", on: server)
+        let robinsModel = AppModel(store: robin.store)
+        robinsModel.me = { robin.userID }
+        let group = try #require(robinsModel.addGroup(named: "Household"))
+        let groceries = try #require(robinsModel.addBudget(named: "Groceries", limit: .dollars(500), in: group))
+        robinsModel.selectedBudget = groceries
+        robinsModel.addTransaction(merchant: "Hilltop Grocery", amount: .dollars(40), date: Date(), note: "")
+        await robin.syncAll()
+        let alone = BudgetScreen(summary: try #require(robinsModel.summary(for: groceries)), model: robinsModel,
+                                 me: robin.userID)
+        #expect(!alone.showsAddedBy, "Robin's own entries alone show no Added by")
+
+        let link = try await robin.share(group: group, groupName: "Household", level: .write, historyAccess: .all,
+                                         myName: "Robin")
+        let leslie = try await signedUp("leslie@example.com", on: server)
+        _ = try await leslie.join(link, myName: "Leslie")
+        await leslie.syncAll()
+        let lesliesModel = AppModel(store: leslie.store)
+        lesliesModel.selectedBudget = groceries
+        lesliesModel.addTransaction(merchant: "Costco", amount: .dollars(99), date: Date(), note: "")
+        await leslie.syncAll()
+        await robin.syncAll()
+        let leslieID = try #require(leslie.userID)
+        try await robin.remove(leslieID, from: group)
+        await robin.syncAll()
+
+        robinsModel.reload()
+        robinsModel.selectedBudget = groceries
+        #expect(!robinsModel.isShared(group), "Robin is the only one left")
+        let after = BudgetScreen(summary: try #require(robinsModel.summary(for: groceries)), model: robinsModel,
+                                 me: robin.userID)
+        #expect(after.showsAddedBy, "the column went with the last other person")
+        #expect(after.rows.first { $0.merchant == "Costco" }?.addedBy == "Leslie", "her name went with her")
+        #expect(after.rows.first { $0.merchant == "Hilltop Grocery" }?.addedBy == "You")
     }
 
     // MARK: - Import review
@@ -707,4 +752,17 @@ struct BudgetWheelScreenTests {
         #expect(screen.pace == nil)
         #expect(screen.wheel.figures.map(\.label) == ["Spent", "Left"])
     }
+}
+
+/// One person's device on a shared in-memory server, signed up with the
+/// email confirmed.
+@MainActor
+private func signedUp(_ email: String, on server: InMemoryReadableServer) async throws -> SyncCoordinator {
+    let store = Store(database: try WellSpentDatabase.inMemory())
+    let transport = StubReadableTransport(server: server)
+    let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                               makeTransport: { _ in transport })
+    try await sync.signUp(email: email, password: "a-long-password")
+    try await sync.verifyEmail(code: try #require(server.lastCode(for: email, purpose: .verify)))
+    return sync
 }

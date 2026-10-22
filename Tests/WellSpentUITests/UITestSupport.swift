@@ -826,6 +826,8 @@ final class TestApp {
 
     /// The settings the host reads, wiped so a run starts signed out with no
     /// server address remembered, and wiped again after so nothing is left.
+    /// A sandboxed runner reaches only its own copy, so the app also starts
+    /// afresh on a run's first launch (`AccountDirectory.testing(at:)`).
     nonisolated static func wipeSettings() {
         UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName)?
             .removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)

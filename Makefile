@@ -120,6 +120,9 @@ app:
 #
 # UI_TEST_ONLY runs one test class or test, such as
 # WellSpentUITests/MoneyWheelTests, as IPHONE_UI_TEST_ONLY does for the iPhone.
+# UI_TEST_SHARD=2/3 runs the second of three parts of the test classes, as CI
+# does to run the parts at once. scripts/ui-test-shard.sh picks each part's
+# classes from the test files, so every class is in exactly one part.
 #
 # Xcode/project.yml is the source; the .xcodeproj it generates is ignored.
 # Everything xcodebuild writes stays under .build/, including the result bundle
@@ -153,14 +156,18 @@ ui-test: ui-test-project
 		fi; \
 	done
 	rm -rf .build/xcode/ui-test.xcresult
+	only="$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))"; \
+	if [ -n "$(UI_TEST_SHARD)" ]; then \
+		only=$$(scripts/ui-test-shard.sh Tests/WellSpentUITests WellSpentUITests "$(UI_TEST_SHARD)") || exit 1; \
+		echo "This part's classes:" $$only; \
+	fi; \
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
-	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult \
-		$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))
+	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult $$only
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
 # Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
@@ -193,14 +200,20 @@ iphone-ui-test-build: iphone-project
 # light only: the local tests already draw every screen in dark, and every
 # sign-in counts against staging's limits. The rest need no account and no
 # server. If anything stops the run, Control-C included, the simulator is still
-# deleted. The simulator is the
-# newest numbered iPhone the machine has, unless IPHONE_UI_TEST_DEVICE names
-# one, such as "iPhone 17". IPHONE_UI_TEST_ONLY runs one test class or test,
-# such as WellSpentPhoneUITests/PhoneSignInSyncTests.
+# deleted. The simulator is the newest numbered iPhone the machine has, unless
+# IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17". IPHONE_UI_TEST_ONLY
+# runs one test class or test, such as WellSpentPhoneUITests/PhoneSignInSyncTests.
+# IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
+# UI_TEST_SHARD does for the Mac.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
+	only="$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY))"; \
+	if [ -n "$(IPHONE_UI_TEST_SHARD)" ]; then \
+		only=$$(scripts/ui-test-shard.sh iOS/UITests WellSpentPhoneUITests "$(IPHONE_UI_TEST_SHARD)") || exit 1; \
+		echo "This part's classes:" $$only; \
+	fi; \
 	runtime=$$($(IPHONE_SIMCTL) list runtimes available | grep '^iOS ' | tail -1 | awk '{print $$NF}'); \
 	device="$(IPHONE_UI_TEST_DEVICE)"; \
 	if [ -z "$$device" ]; then \
@@ -224,7 +237,7 @@ iphone-ui-test: iphone-ui-test-build
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
-			$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY)) \
+			$$only \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
 			|| status=$$?; \

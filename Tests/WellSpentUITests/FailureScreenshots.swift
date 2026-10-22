@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// Keeps a picture of the screen whenever a Mac UI test records a failure,
@@ -22,8 +23,14 @@ final class FailureScreenshots: NSObject, @preconcurrency XCTestObservation {
         }
     }
 
-    /// The apps a Mac UI test drives: the test host, and the release twin.
-    private static let appsUnderTest = [TestApp.hostBundleIdentifier, "app.wellspent.mac.twin"]
+    /// The apps a Mac UI test drives: the test host, and the release twin
+    /// where this Mac has it. XCUITest stops the whole run when it is asked
+    /// for an app that isn't installed, so the twin is named only when it is.
+    private static var appsUnderTest: [String] {
+        let twin = "app.wellspent.mac.twin"
+        let hasTwin = NSWorkspace.shared.urlForApplication(withBundleIdentifier: twin) != nil
+        return [TestApp.hostBundleIdentifier] + (hasTwin ? [twin] : [])
+    }
 
     func testCase(_ testCase: XCTestCase, didRecord issue: XCTIssue) {
         // No picture while a test account's address is on screen, such as on
