@@ -219,9 +219,10 @@ final class AccountGapTests: XCTestCase {
     /// keeps for each running app, so the test asks macOS for it, with
     /// lsappinfo, as the Dock does.
     ///
-    /// The note's own words are not in the shared code, only in the bar's
-    /// view, so the test checks the note comes up with words in it, not
-    /// which words.
+    /// The note over the bar is checked to come up, not for its words. They
+    /// are not in the shared code, only in the bar's view. And XCUITest reads
+    /// none in a note: they show on screen, but the note's label, title and
+    /// value are empty.
     @MainActor
     func testTheDockAndTheBarSayStaging() throws {
         let run = try TestApp()
@@ -247,14 +248,11 @@ final class AccountGapTests: XCTestCase {
 
         // Scenario ACCT-16
         // 3. The pointer, moved onto the orange bar and held there, brings up
-        // a note with words in it.
+        // a note.
         run.app.staticTexts[SyncWording.footer(signedIn: false)].hover()
         bar.hover()
-        let note = run.app.helpTags.firstMatch
-        XCTAssertTrue(note.waitForExistence(timeout: 30),
-                      "no note came up over the orange bar. The app's top level: \(run.topLevelTypes()). "
-                      + "On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.words(in: note).isEmpty, "the note over the orange bar has no words")
+        XCTAssertTrue(run.app.helpTags.firstMatch.waitForExistence(timeout: 30),
+                      "no note came up over the orange bar. On screen: \(run.visibleTexts())")
     }
 }
 
@@ -455,12 +453,5 @@ private extension TestApp {
             waiting.append(contentsOf: node.children)
         }
         return found
-    }
-
-    /// The types of what sits at the app's top level, such as its windows,
-    /// by their raw numbers, for a failure message.
-    func topLevelTypes() -> [UInt] {
-        guard let root = try? app.snapshot() else { return [] }
-        return root.children.map { $0.elementType.rawValue }
     }
 }
