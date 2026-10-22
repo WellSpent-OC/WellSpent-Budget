@@ -11,7 +11,7 @@ import WellSpentSync
 /// window: she makes the groups and their links, adds, changes, deletes and
 /// imports, and moves Robin up and down, as in EntryEditingTests.
 ///
-/// Three tests, each signed in once on each side, so a failure in one
+/// Four tests, each signed in once on each side, so a failure in one
 /// leaves the others to run:
 /// - Leslie's group with a link at Manage: a change of Robin's that lost to
 ///   hers, an entry she deleted while he had it open, his menus and the
@@ -21,10 +21,11 @@ import WellSpentSync
 /// - Leslie's group with a link at View: what he sees, what he is not
 ///   offered, and an entry opened read-only. Then her group with a link
 ///   that shows only what comes after it.
-/// - Leslie's group with a link at Add: his menus and the Share sheet at
-///   Add, the same once she moves him up to Manage, an entry open while she
-///   moves him down to View, an entry of his own at View, an Undo she moves
-///   him down under, and leaving the group.
+/// - Leslie's group with a link at Add: the Share sheet at Add, an entry
+///   open while she moves him down to View from Manage, an entry of his own
+///   at View, an Undo she moves him down under, and leaving the group.
+/// - Leslie's group with a link at Add: his menus at Add, and once she
+///   moves him up to Manage.
 ///
 /// The window syncs on its own two minutes after it opens, and two minutes
 /// after each of those syncs ends. The first test keeps Leslie's change
@@ -385,8 +386,7 @@ final class WhoMayGapTests: XCTestCase {
         let stamp = Self.stamp()
         let added = "\(Self.prefix)Add \(stamp)", eatingOut = "Eating out \(stamp)"
         let hilltop = "Hilltop Grocery", bakery = "Corner Bakery", market = "Market"
-        let share = MainScreen.Words.share, people = MembersScreen.Words.menuItem
-        let rename = MainScreen.Words.rename, leave = MainScreen.Words.leave, cancel = MainScreen.Words.cancel
+        let leave = MainScreen.Words.leave, cancel = MainScreen.Words.cancel
         let hilltopAmount = Money(minorUnits: 14208), bakeryAmount = Money(minorUnits: 1200)
 
         // 1. Leslie, with no window, signs in and deletes any groups an
@@ -410,14 +410,8 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.entryRow(bakery).waitForExistence(timeout: 60),
                       "Corner Bakery did not arrive. On screen: \(run.visibleTexts())")
 
-        // Scenario BUDGET-07
-        // 3. At Add, the budget's row offers no Edit… and no Delete…, and
-        // the group's menu offers only Share…, People… and Leave….
-        run.expectBudgetMenu(eatingOut, offersChanges: false)
-        run.expectGroupMenu(added, offers: [share, people, leave], last: leave)
-
         // Scenario SHARE-05
-        // 4. Share… says only a manager or admin can invite people to the
+        // 3. Share… says only a manager or admin can invite people to the
         // group, offers no level to choose, and Create Link stays dimmed
         // with his name in.
         run.openShare(added)
@@ -431,7 +425,7 @@ final class WhoMayGapTests: XCTestCase {
                       "the Share sheet did not close")
 
         // Scenario BUDGET-13
-        // 5. Leave… asks first, with Leave and Cancel, and says he leaves
+        // 4. Leave… asks first, with Leave and Cancel, and says he leaves
         // the group with its 1 budget and 2 transactions, and what becomes
         // of changes not synced yet. Cancel keeps the group.
         let leaveAtAdd = PendingDelete.group(BudgetGroup(name: added), budgets: 1, transactions: 2,
@@ -443,23 +437,15 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(added)).waitForExistence(timeout: 5),
                       "Cancel did not keep the group")
 
-        // 6. Robin adds Market. Leslie moves him up to Manage, and his app
+        // 5. Robin adds Market. Leslie moves him up to Manage, and his app
         // syncs.
         run.openBudget(named: eatingOut)
         run.addEntry(merchant: market, amount: "9.50")
         try await second.setLevelOfTheOther(.manage, in: added)
         run.syncAndWait()
 
-        // Scenario BUDGET-07
-        // 7. At Manage, the budget's row offers Edit… and Delete…, and the
-        // group's menu New Budget in it and Rename…, with Leave… still in
-        // place of Delete….
-        run.expectBudgetMenu(eatingOut, offersChanges: true)
-        run.expectGroupMenu(added, offers: [share, people, MainScreen.Words.newBudget(in: added), rename, leave],
-                            last: leave)
-
         // Scenario EDIT-13
-        // 8. Robin opens Hilltop Grocery and types a new amount. Leslie
+        // 6. Robin opens Hilltop Grocery and types a new amount. Leslie
         // moves him down to View meanwhile, and the window's timed sync
         // brings that in while the sheet is open: Add goes from behind it.
         // Save then saves nothing. The sheet turns read-only, with Done as
@@ -470,7 +456,7 @@ final class WhoMayGapTests: XCTestCase {
         run.expectSheet(for: hilltop)
         run.type("150.00", into: AccessibilityID.entryAmount)
         try await second.setLevelOfTheOther(.read, in: added)
-        print("WHOMAY step 8 at \(Int(Date().timeIntervalSince(opened))) s")
+        print("WHOMAY step 6 at \(Int(Date().timeIntervalSince(opened))) s")
         let addButton = run.element(AccessibilityID.budgetAdd)
         if addButton.exists {
             print("WHOMAY Add reads behind the sheet")
@@ -493,7 +479,7 @@ final class WhoMayGapTests: XCTestCase {
                       "Add stayed after the move down to View")
 
         // Scenario EDIT-10
-        // 9. Market, which he added before the move down, opens read-only,
+        // 7. Market, which he added before the move down, opens read-only,
         // saying he can only view the group now, so he can't change what he
         // added. Done is the only button.
         run.clickRow(market)
@@ -501,7 +487,7 @@ final class WhoMayGapTests: XCTestCase {
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
 
-        // 10. Leslie moves him up to Manage again, and his app syncs: Add is
+        // 8. Leslie moves him up to Manage again, and his app syncs: Add is
         // back. Robin deletes Corner Bakery, which she added, from its row's
         // menu, and the bar offers Undo. His app sends the delete, and
         // Leslie's app sees it go. Then she moves him down to View, and his
@@ -527,7 +513,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(undoBar.exists, "the sync took the Undo bar away. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-09
-        // 11. Undo brings nothing back. The bar goes, and the app says this
+        // 9. Undo brings nothing back. The bar goes, and the app says this
         // can't be undone now, since he can view the group but not change
         // it. OK closes that, and Corner Bakery stays deleted.
         run.click(AccessibilityID.undoButton)
@@ -539,7 +525,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.rowIsGone(bakery, timeout: 5), "Undo brought Corner Bakery back")
 
         // Scenario BUDGET-13
-        // 12. At View, Leave… asks without the two sentences about changes
+        // 10. At View, Leave… asks without the two sentences about changes
         // not synced yet. Leave takes the group from his list, and Leslie
         // keeps it, with Hilltop Grocery and Market.
         let leaveAtView = PendingDelete.group(BudgetGroup(name: added), budgets: 1, transactions: 2,
@@ -556,10 +542,70 @@ final class WhoMayGapTests: XCTestCase {
             XCTAssertNoThrow(try second.entry(merchant, inGroup: added), "Leslie lost \(merchant)")
         }
 
-        // 13. Tidy: Robin's session ends. Then Leslie deletes her group for
+        // 11. Tidy: Robin's session ends. Then Leslie deletes her group for
         // everyone, and her session ends.
         run.signOut()
         await second.deleteGroup(named: added)
+        await second.cleanUp()
+    }
+
+    // MARK: - Moved up from Add to Manage
+
+    @MainActor
+    func testMovedUpFromAddToManage() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
+        let stamp = Self.stamp()
+        let moved = "\(Self.prefix)Up \(stamp)", lunch = "Lunch \(stamp)"
+        let hilltop = "Hilltop Grocery"
+        let share = MainScreen.Words.share, people = MembersScreen.Words.menuItem
+        let rename = MainScreen.Words.rename, leave = MainScreen.Words.leave
+
+        // 1. Leslie, with no window, signs in and deletes any groups an
+        // earlier run left on her account. Then she makes a group with
+        // Hilltop Grocery, and a link that invites at Add.
+        try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await second.deleteLeftovers(startingWith: Self.prefix)
+        let addLink = try await second.shareNewGroup(moved, budget: lunch, entry: hilltop,
+                                                     amount: Money(minorUnits: 14208), myName: "Leslie", role: .add)
+
+        // 2. The window, signed in as Robin, joins with the link and opens
+        // the budget.
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.join(addLink.url, as: "Robin")
+        run.openBudget(named: lunch)
+        XCTAssertTrue(run.entryRow(hilltop).waitForExistence(timeout: 60),
+                      "Hilltop Grocery did not arrive. On screen: \(run.visibleTexts())")
+
+        // Scenario BUDGET-07
+        // 3. At Add, the budget's row offers no Edit… and no Delete…, and
+        // the group's menu offers only Share…, People… and Leave….
+        run.expectBudgetMenu(lunch, offersChanges: false)
+        run.expectGroupMenu(moved, offers: [share, people, leave], last: leave)
+
+        // 4. Leslie moves him up to Manage, and his app syncs.
+        try await second.setLevelOfTheOther(.manage, in: moved)
+        run.openBudget(named: lunch)
+        run.syncAndWait()
+
+        // Scenario BUDGET-07
+        // 5. At Manage, the group's menu offers New Budget in it and
+        // Rename…, with Leave… still in place of Delete….
+        run.expectGroupMenu(moved, offers: [share, people, MainScreen.Words.newBudget(in: moved), rename, leave],
+                            last: leave)
+
+        // Scenario BUDGET-07
+        // 6. The budget's row offers Edit… and Delete….
+        run.expectBudgetMenu(lunch, offersChanges: true)
+
+        // 7. Tidy: Robin's session ends. Then Leslie deletes her group for
+        // everyone, and her session ends.
+        run.signOut()
+        await second.deleteGroup(named: moved)
         await second.cleanUp()
     }
 
