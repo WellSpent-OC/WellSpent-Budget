@@ -327,19 +327,31 @@ extension PhoneTestApp {
     func swipeLeft(onEntry merchant: String) {
         let row = element(AccessibilityID.entryRow(merchant))
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no \(merchant) to swipe")
+        bringToMiddle(row)
         waitUntilHittable(row, merchant)
         // Just after Undo puts a row back, the list is still sliding it into
         // place, and a swipe then is lost.
         waitUntilStill(row, merchant)
-        row.swipeLeft()
+        // A measured drag rather than swipeLeft(): that one is a few quick
+        // touch events, which CI's starved runners lost, so the row never
+        // opened. From near the row's right edge to its middle, slowly, held
+        // a moment before letting go: far enough to open its buttons, short
+        // of a full swipe, which would act on its own.
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let end = row.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
     }
 
-    /// Swipes an entry's row to the left, then waits for its Delete. The wait
-    /// is long because on CI one look at the screen can take 9 seconds.
+    /// Swipes an entry's row to the left until its Delete shows. A swipe that
+    /// opens nothing gets another, as a person would give it, three at most,
+    /// and never while the buttons are out.
     func swipeOpen(entry merchant: String) {
-        swipeLeft(onEntry: merchant)
-        XCTAssertTrue(app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch.waitForExistence(timeout: 30),
-                      "the swipe offers no Delete. On screen: \(visibleButtons())")
+        let delete = app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch
+        for _ in 0..<3 where !delete.exists {
+            swipeLeft(onEntry: merchant)
+            _ = delete.waitForExistence(timeout: 15)
+        }
+        XCTAssertTrue(delete.exists, "three swipes offered no Delete. On screen: \(visibleButtons())")
     }
 
     /// Taps a button on the question a delete asks. The question is its own
