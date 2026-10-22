@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import Observation
 @testable import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentKeyStore
@@ -160,6 +161,41 @@ struct EditorScreensTests {
         let over = BudgetScreen(summary: try #require(model.summary(for: id)), model: model, me: nil)
         #expect(over.isOverspent && over.standing == "$15.00 over")
         #expect(over.countLine.hasPrefix("2 transactions since "))
+    }
+
+    // Scenario PAGE-14
+    // A group's menu, and a budget's, are drawn from this person's level. When
+    // a sync moves Robin up to Admin, a screen that drew them is told to draw
+    // them again, though nothing else it shows changed. Before, the sidebar
+    // kept offering Leave… with no Delete… until it was redrawn for some
+    // other reason.
+    @Test func aSyncThatChangesTheLevelTellsTheMenusToRedraw() async throws {
+        let server = InMemoryReadableServer()
+        let leslie = try await signedUp("leslie@example.com", on: server)
+        let group = try #require(AppModel(store: leslie.store).addGroup(named: "Household"))
+        await leslie.syncAll()
+        let link = try await leslie.share(group: group, groupName: "Household", level: .write, historyAccess: .all,
+                                          myName: "Leslie")
+        let robin = try await signedUp("robin@example.com", on: server)
+        _ = try await robin.join(link, myName: "Robin")
+        await robin.syncAll()
+        #expect(!robin.mayManageBudgets(in: group), "at Add, Robin may not manage budgets")
+        #expect(robin.deleteReach(of: group) == .thisMacOnly, "at Add, Robin leaves rather than deletes")
+
+        // The sidebar asks these while it draws the group's menu.
+        let told = Told()
+        withObservationTracking {
+            _ = robin.mayManageBudgets(in: group)
+            _ = robin.deleteReach(of: group)
+        } onChange: {
+            told.set()
+        }
+        try await leslie.setLevel(.admin, of: try #require(robin.userID), in: group)
+        await robin.syncAll()
+
+        #expect(robin.mayManageBudgets(in: group) && robin.deleteReach(of: group) == .everyone,
+                "the sync brought the new level")
+        #expect(told.value, "a screen that drew the menus is told to draw them again")
     }
 
     // Scenario PAGE-17
@@ -765,4 +801,12 @@ private func signedUp(_ email: String, on server: InMemoryReadableServer) async 
     try await sync.signUp(email: email, password: "a-long-password")
     try await sync.verifyEmail(code: try #require(server.lastCode(for: email, purpose: .verify)))
     return sync
+}
+
+/// Whether an observation's change was heard, for a test to read after.
+private final class Told: @unchecked Sendable {
+    private let lock = NSLock()
+    private var heard = false
+    func set() { lock.lock(); heard = true; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return heard }
 }
