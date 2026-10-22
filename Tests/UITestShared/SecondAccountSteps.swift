@@ -120,7 +120,7 @@ extension SecondAccount {
         guard others.count == 1, let other = others.first else {
             throw UITestError("the second account expected one other person in \(group), and found \(others.count)")
         }
-        try await sync.setLevel(level, of: other, in: id)
+        try await retryingDrops { try await self.sync.setLevel(level, of: other, in: id) }
     }
 
     /// The names of the devices signed in to an account, as the server lists
