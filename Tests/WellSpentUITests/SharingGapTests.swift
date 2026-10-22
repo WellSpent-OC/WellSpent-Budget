@@ -8,12 +8,18 @@ import WellSpentSync
 
 /// Sharing in the real window, for the scenarios the other Mac tests leave
 /// out: what the Share sheet asks, Send…, Share… and Join a Group… while
-/// signed out, links that are not whole or already used, leaving a group
-/// someone else made, and the samples staying on this Mac through a sign-in.
+/// signed out or before the email is confirmed, links that are not whole or
+/// already used, leaving a group someone else made, and the samples staying
+/// on this Mac through a sign-in.
 ///
-/// Two tests, each launched as a fresh install, with the samples:
+/// Three tests, each launched as a fresh install, with the samples:
 /// - Signed out: Share… on the sample Household makes no link, and Join a
 ///   Group… joins nothing. No account is needed.
+/// - Not confirmed: Leslie makes an account in the window and does not
+///   confirm its email. Join a Group… sends her to confirm it, and Join
+///   pressed anyway adds nothing. It needs the mailbox token, as every test
+///   that makes an account does, and skips without it. The account stays on
+///   staging, unconfirmed, at an example.com address.
 /// - Signed in: the Share sheet for a group of Robin's own, and Send…. Then a
 ///   group of Leslie's, joined, left, refused with its used link, and joined
 ///   again with a new one. The samples are gone while he is signed in, and
@@ -26,7 +32,8 @@ import WellSpentSync
 /// UITestSupport.swift) and skips without them. Both accounts must exist on
 /// staging with their addresses confirmed. Its groups are named with the time
 /// and deleted at the end, for everyone. A halted run can leave them on
-/// staging. The next run deletes Leslie's once they are an hour old.
+/// staging. The next run with the same accounts deletes them once they are
+/// an hour old.
 final class SharingGapTests: XCTestCase {
     /// The run's data folder, for tearDown.
     nonisolated(unsafe) private static var dataRootPath: String?
@@ -103,6 +110,63 @@ final class SharingGapTests: XCTestCase {
         run.type("Leslie", into: AccessibilityID.joinName)
         run.expect(AccessibilityID.joinJoin, enabled: false, "Join, signed out with a name typed")
         run.cancelJoin()
+    }
+
+    // MARK: - Signed in, the email not confirmed
+
+    @MainActor
+    func testJoiningBeforeTheEmailIsConfirmedAddsNothing() throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let address = StagingMailbox.freshAddress("mac", for: "leslie")
+        let password = UUID().uuidString + "Aa1!"
+        // Robin's link, made here. Pressing Join asks the server only whether
+        // her address is confirmed, so no invite on the server is needed.
+        let secret = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
+        let link = InviteLink(secret: secret, groupName: "Household", inviterName: "Robin",
+                              scheme: AppEnvironment.staging.inviteScheme)
+        let refused = AccountWording.words(for: SyncCoordinator.Failure.emailNotConfirmed)
+
+        // 1. A fresh install. Leslie makes an account here and does not
+        // confirm its email: Not now closes the sheet, and she stays signed
+        // in.
+        try run.launchAsFreshInstall()
+        run.signUpWithoutConfirming(email: address, password: password, server: mailbox.server)
+
+        // Scenario SHARE-09
+        // 2. Robin's link, pasted into Join a Group…: the sheet says to
+        // confirm her email first, with Confirm your email…, which closes the
+        // sheet and opens the account sheet.
+        run.openAccountThroughJoin(link)
+        run.click(AccessibilityID.accountClose)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 10),
+                      "the account sheet did not close")
+
+        // Scenario SHARE-09
+        // 3. The link again, with her name, and Join pressed anyway: the
+        // sheet also says to confirm her address and try again, and stays.
+        // No group is added to her list.
+        let groups = run.groupLines()
+        run.openJoin()
+        run.paste(link.url, into: AccessibilityID.joinLink)
+        run.type("Leslie", into: AccessibilityID.joinName)
+        run.expect(AccessibilityID.joinJoin, enabled: true, "Join, with the link and her name")
+        run.click(AccessibilityID.joinJoin)
+        XCTAssertTrue(run.app.staticTexts[refused].waitForExistence(timeout: 30),
+                      "the sheet does not say \(refused) On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.app.staticTexts[JoinScreen.Words.confirmToJoin].exists,
+                      "the notice to confirm the email first went. On screen: \(run.visibleTexts())")
+        run.cancelJoin()
+        XCTAssertEqual(run.groupLines(), groups, "a group was added to her list")
+
+        // 4. Tidy: Confirm your email… opens the account sheet again, and
+        // she signs out there, so her session ends on the server. With no
+        // budget open, the window has no other way to it.
+        run.openAccountThroughJoin(link)
+        run.click(AccessibilityID.accountSignOut)
+        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 15),
+                      "still signed in. On screen: \(run.visibleTexts())")
     }
 
     // MARK: - Signed in
@@ -605,6 +669,54 @@ private extension TestApp {
         clickMenuItem(MainScreen.Words.join)
         XCTAssertTrue(element(AccessibilityID.joinLink).waitForExistence(timeout: 10),
                       "Join a Group\u{2026} opened no sheet. On screen: \(visibleTexts())")
+    }
+
+    /// Sign in…, then Create an account, with an address nobody confirms.
+    /// The sheet moves on to confirming the email, signed in, and Not now
+    /// closes it.
+    func signUpWithoutConfirming(email: String, password: String, server: String) {
+        click(AccessibilityID.sidebarSignIn)
+        click(AccessibilityID.accountCreateAccount)
+        let serverField = element(AccessibilityID.accountServer)
+        XCTAssertTrue(serverField.waitForExistence(timeout: 10), "Create an account did not open")
+        if (serverField.value as? String) != server { type(server, into: AccessibilityID.accountServer) }
+        type(email, into: AccessibilityID.accountEmail)
+        paste(password, into: AccessibilityID.accountPassword)
+        paste(password, into: AccessibilityID.accountConfirmation)
+        click(AccessibilityID.accountSubmit)
+        XCTAssertTrue(element(AccessibilityID.accountCode).waitForExistence(timeout: 30),
+                      "Create account did not move on to confirming the email. On screen: \(visibleTexts())")
+        XCTAssertTrue(app.staticTexts[SyncWording.footer(signedIn: true)].waitForExistence(timeout: 30),
+                      "not signed in after Create account. On screen: \(visibleTexts())")
+        click(AccessibilityID.accountClose)
+        XCTAssertTrue(wait(for: element(AccessibilityID.accountCode), until: "exists == false", timeout: 10),
+                      "Not now did not close the account sheet")
+    }
+
+    /// Join a Group…, with a link pasted, signed in with an address not
+    /// confirmed yet: the sheet says to confirm it first, and Confirm your
+    /// email… closes the sheet and opens the account sheet.
+    func openAccountThroughJoin(_ link: InviteLink, file: StaticString = #filePath, line: UInt = #line) {
+        openJoin()
+        paste(link.url, into: AccessibilityID.joinLink)
+        XCTAssertTrue(app.staticTexts[JoinScreen.Words.confirmToJoin].waitForExistence(timeout: 10),
+                      "no notice to confirm the email first. On screen: \(visibleTexts())", file: file, line: line)
+        let confirm = app.buttons[JoinScreen.Words.confirmEmail].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "no Confirm your email\u{2026}. On screen: \(visibleTexts())",
+                      file: file, line: line)
+        waitUntilHittable(confirm, JoinScreen.Words.confirmEmail)
+        confirm.click()
+        XCTAssertTrue(wait(for: element(AccessibilityID.joinLink), until: "exists == false", timeout: 10),
+                      "Confirm your email\u{2026} did not close Join a Group", file: file, line: line)
+        XCTAssertTrue(element(AccessibilityID.accountSignOut).waitForExistence(timeout: 10),
+                      "Confirm your email\u{2026} did not open the account sheet. On screen: \(visibleTexts())",
+                      file: file, line: line)
+    }
+
+    /// The group lines in the sidebar, by identifier.
+    func groupLines() -> Set<String> {
+        Set(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.group.'"))
+            .allElementsBoundByIndex.map(\.identifier))
     }
 
     /// Cancel, in Join a Group, and the sheet goes.
