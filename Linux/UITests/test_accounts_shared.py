@@ -31,6 +31,7 @@ class AccountsOnTwoComputers(unittest.TestCase):
         self.done(laptop)
         group = unique("Twohomes")
         laptop.new_group(group)
+        self.addCleanup(laptop.remove_group, group)
         laptop.new_budget("Books", "100", group=group)
         laptop.sync()
 
@@ -65,7 +66,6 @@ class AccountsOnTwoComputers(unittest.TestCase):
         laptop.wait_for_window(1, "the sign-in sheet to close")
         laptop.until(lambda: laptop.has_budget("Books"), "the account's budget to come back")
         self.foot(laptop, SYNCED)
-        laptop.remove_group(group)
 
 
 if __name__ == "__main__":

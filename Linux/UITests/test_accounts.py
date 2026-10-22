@@ -280,6 +280,7 @@ class Accounts(unittest.TestCase):
         # email… leading back to the code.
         group = unique("Later")
         app.new_group(group)
+        self.addCleanup(app.remove_group, group)
         app.new_budget("Books", "100", group=group)
         sheet = self.open_sheet(app)
         app.wait_shows(CONFIRM_REASON, within=sheet)
@@ -288,7 +289,6 @@ class Accounts(unittest.TestCase):
         app.field("Code", app.front)
         app.button("Not now", within=app.front).press()
         app.wait_for_window(1, "the account sheet to close")
-        app.remove_group(group)
 
     def test_sign_in_brings_the_accounts_budgets_and_keeps_them_signed_in(self):
         needs_accounts(self)
@@ -298,6 +298,7 @@ class Accounts(unittest.TestCase):
         self.done(first)
         group = unique("Signin")
         first.new_group(group)
+        self.addCleanup(first.remove_group, group)
         first.new_budget("Books", "100", group=group)
         first.sync()
 
@@ -319,7 +320,6 @@ class Accounts(unittest.TestCase):
         app.restart()
         self.foot(app, SYNCED)
         app.until(lambda: app.has_budget("Books"), "the account's budget after a restart")
-        first.remove_group(group)
 
     def test_a_wrong_password(self):
         needs_accounts(self)
@@ -413,6 +413,7 @@ class Accounts(unittest.TestCase):
         self.done(app)
         group = unique("Signout")
         app.new_group(group)
+        self.addCleanup(app.remove_group, group)
         app.new_budget("Books", "100", group=group)
         app.sync()
 
@@ -434,7 +435,6 @@ class Accounts(unittest.TestCase):
         self.sign_in(app, address, password)
         app.wait_for_window(1, "the account sheet to close")
         app.until(lambda: app.has_budget("Books"), "the account's budget to come back")
-        app.remove_group(group)
 
     def test_sign_out_everywhere_asks_first(self):
         needs_accounts(self)
