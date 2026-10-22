@@ -326,13 +326,22 @@ final class GroupPageGapTests: XCTestCase {
         // 14. Leslie makes Robin an admin. After his next sync his own row
         // says Admin, and the group's menu should offer him Delete…, which
         // deletes it for everyone, in place of Leave…. What the menu offers
-        // is read here, and checked in step 21, after the tidy, so that a
-        // failure there leaves nothing on staging.
+        // is read here, for up to 30 seconds, and checked in step 21, after
+        // the tidy, so that a failure there leaves nothing on staging. When
+        // it never offers Delete…, it is read once more after the group's
+        // budgets are hidden and shown again, which draws its line anew, to
+        // say in the failure whether that changes it.
         try await leslie.setLevelOfTheOther(.admin, in: hers)
         run.syncAndWait("after Leslie made him an admin")
         run.expect(level: .admin, onRowOf: you, "as an admin")
         let hersLine = AccessibilityID.sidebarGroup(hers)
-        let adminMenu = run.menuOffers(onGroup: hers)
+        let adminMenu = run.menuOffers(onGroup: hers, until: MainScreen.Words.delete, not: MainScreen.Words.leave)
+        var redrawnMenu: [String]?
+        if !adminMenu.contains(MainScreen.Words.delete) {
+            run.clickGroupArrow(hers)
+            run.clickGroupArrow(hers)
+            redrawnMenu = run.menuOffers(onGroup: hers)
+        }
 
         // Scenario PAGE-14
         // 15. Leave Group… on the page asks first, "Leave “…”?", with Leave
@@ -423,7 +432,10 @@ final class GroupPageGapTests: XCTestCase {
         // said Leslie. One check reports both.
         var wrong: [String] = []
         if !adminMenu.contains(MainScreen.Words.delete) || adminMenu.contains(MainScreen.Words.leave) {
-            wrong.append("once Robin was an admin of Leslie's group, its menu offered \(adminMenu), not Delete\u{2026}")
+            let redrawn: String = redrawnMenu
+                .map { ". Once its budgets were hidden and shown again, it offered \($0)" } ?? ""
+            wrong.append("once Robin was an admin of Leslie's group, its menu offered \(adminMenu) for 30 seconds, "
+                         + "not Delete\u{2026}" + redrawn)
         }
         if !addedByAfterRemoval {
             wrong.append("after the removal and a sync, the Added by column did not say Leslie for Costco. "
@@ -704,6 +716,21 @@ private extension TestApp {
             if !titles.isEmpty { return titles }
         }
         return []
+    }
+
+    /// What a group's menu offers once it offers `wanted` and not
+    /// `unwanted`, read again every two seconds for up to 30, as a sync or a
+    /// redraw may still be bringing it. What it last offered when it never
+    /// does.
+    func menuOffers(onGroup name: String, until wanted: String, not unwanted: String) -> [String] {
+        let deadline = Date().addingTimeInterval(30)
+        var offers: [String] = menuOffers(onGroup: name)
+        while !offers.contains(wanted) || offers.contains(unwanted), Date() < deadline {
+            // A waiter on an expectation nobody fulfils is XCTest's way to pause.
+            _ = XCTWaiter().wait(for: [XCTestExpectation(description: "the menu to change")], timeout: 2)
+            offers = menuOffers(onGroup: name)
+        }
+        return offers
     }
 
     /// The items of the menus open on screen, from one snapshot of the app.
