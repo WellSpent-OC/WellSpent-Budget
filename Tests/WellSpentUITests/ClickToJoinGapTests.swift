@@ -80,10 +80,10 @@ final class ClickToJoinGapTests: XCTestCase {
         let lesliesLink = try await second.shareNewGroup(lesliesGroup, budget: "Bulk", entry: "Costco",
                                                          amount: Money(minorUnits: 2863), myName: "Leslie",
                                                          role: .view, history: .fromNow)
-        let robinsPage = try XCTUnwrap(JoinScreen(actions: second.sync, linkText: robinsLink.url).invitation,
-                                       "his link reads as no invite")
-        let lesliesPage = try XCTUnwrap(JoinScreen(actions: second.sync, linkText: lesliesLink.url).invitation,
-                                        "Leslie's link reads as no invite")
+        // Written out here, not taken from the app's own code, so a page that
+        // named the wrong inviter or group would not match.
+        let robinsPage = Self.invited(by: "Robin", to: robinsGroup)
+        let lesliesPage = Self.invited(by: "Leslie", to: lesliesGroup)
 
         // Scenario CLICK-10
         // 3. Robin clicks his own link, types his name and presses Join. The
