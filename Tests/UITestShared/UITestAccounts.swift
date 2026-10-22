@@ -112,22 +112,23 @@ final class SecondAccount {
     }
 
     /// Runs a step against staging again when it failed only because the
-    /// network dropped: three tries in all, five seconds apart. A CI runner's
-    /// network, or the server's, can drop for a few seconds, and the app then
-    /// fails the call in its own words for that, as it should. Any other
-    /// failure ends the test at once. `doneAfterDrop` names a failure that, on
-    /// a try after a drop, means the lost try went through after all.
+    /// network dropped, every five seconds until a minute has passed since the
+    /// first drop. A CI runner's network, or the server's, can drop for a few
+    /// seconds, and the server's Wi-Fi once went quiet for about forty. The
+    /// app then fails the call in its own words for that, as it should. Any
+    /// other failure ends the test at once. `doneAfterDrop` names a failure
+    /// that, on a try after a drop, means the lost try went through after all.
     func retryingDrops(_ step: () async throws -> Void,
                        doneAfterDrop: (any Error) -> Bool = { _ in false }) async throws {
-        var dropped = false
-        for attempt in 1...3 {
+        var firstDrop: Date?
+        while true {
             do {
                 try await step()
                 return
-            } catch let error where dropped && doneAfterDrop(error) {
+            } catch let error where firstDrop != nil && doneAfterDrop(error) {
                 return
-            } catch let error where attempt < 3 && Self.isDrop(error) {
-                dropped = true
+            } catch let error where Self.isDrop(error) && Date().timeIntervalSince(firstDrop ?? Date()) < 60 {
+                if firstDrop == nil { firstDrop = Date() }
                 try await Task.sleep(for: .seconds(5))
             }
         }
