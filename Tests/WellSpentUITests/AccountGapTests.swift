@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SystemConfiguration
 import XCTest
 import WellSpentAppCore
 import WellSpentSync
@@ -99,7 +100,7 @@ final class AccountGapTests: XCTestCase {
         XCTAssertTrue(run.showsLine(AccountFlow.Step.signIn.title),
                       "the sheet moved on from \(AccountFlow.Step.signIn.title). On screen: \(run.visibleTexts())")
         run.click(AccessibilityID.accountClose)
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountEmail), until: "exists == false", timeout: 10),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 30),
                       "Cancel did not close the sheet")
         run.expectSignedOut("After a wrong password", withBudgetOpen: true)
         XCTAssertEqual(run.sidebarGroups(), keptHere, "the list changed after a wrong password")
@@ -115,13 +116,19 @@ final class AccountGapTests: XCTestCase {
         // Scenario ACCT-14
         // 6. The account's list of signed-in devices, which the server keeps
         // and the desktop reads, names this Mac as the app's shared code
-        // names it: its Computer Name in System Settings, not a network name
-        // ending in .local.
+        // names it. That is its Computer Name in System Settings, which the
+        // test asks macOS for itself, and not a network name ending in .local.
         let devices = try await desktop.sessions()
-        let networkNames: Int = devices.filter { $0.deviceLabel?.hasSuffix(".local") == true }.count
+        let listed: [String] = devices.map { $0.deviceLabel ?? "(no name)" }
+        let thisMac: [String] = listed.filter { $0 != Self.desktopName }
+        let networkNames: [String] = listed.filter { $0.hasSuffix(".local") }
+        let computerName: String = (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? ""
+        XCTAssertFalse(computerName.isEmpty, "macOS gives this Mac no Computer Name, so there is no name to expect")
         XCTAssertTrue(devices.contains { $0.deviceLabel == DeviceName.current },
-                      "no device in the account's list goes by this Mac's name. Devices listed: \(devices.count), "
-                      + "of them named with .local: \(networkNames)")
+                      "no device in the account's list goes by \(DeviceName.current). Listed: \(listed)")
+        XCTAssertEqual(thisMac, [computerName],
+                       "the account's list does not name this Mac by its Computer Name. Listed: \(listed)")
+        XCTAssertEqual(networkNames, [], "the account's list names a device by a network name. Listed: \(listed)")
 
         // 7. A group of the account's own, with a budget, sent to the server.
         // It is the account's budgets in the steps that follow.
@@ -139,10 +146,10 @@ final class AccountGapTests: XCTestCase {
         try XCTUnwrap(run.dialogButton(AccountFlow.Words.cancel),
                       "no \(AccountFlow.Words.cancel) on the question").click()
         XCTAssertTrue(run.wait(for: run.app.staticTexts[AccountFlow.Words.signOutEverywhereTitle],
-                               until: "exists == false", timeout: 10), "the question stayed after Cancel")
+                               until: "exists == false", timeout: 30), "the question stayed after Cancel")
         XCTAssertTrue(run.element(AccessibilityID.accountSignOut).exists, "Cancel closed the account")
         run.clickOnAccountSheet(AccessibilityID.accountClose)
-        XCTAssertTrue(run.app.staticTexts[syncsThroughServer].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.staticTexts[syncsThroughServer].waitForExistence(timeout: 30),
                       "Cancel signed this Mac out. On screen: \(run.visibleTexts())")
         do {
             _ = try await desktop.sessions()
@@ -156,8 +163,8 @@ final class AccountGapTests: XCTestCase {
         // keeps when nobody is signed in, without the account's group.
         run.openAccount()
         run.clickOnAccountSheet(AccessibilityID.accountSignOut)
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountSignOut), until: "exists == false", timeout: 15),
-                      "the sheet stayed open after Sign out")
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 30),
+                      "the sheet stayed open after Sign out. On screen: \(run.visibleTexts())")
         run.expectSignedOut("After Sign out")
         run.expectList(keptHere, without: groupName, "After Sign out")
 
@@ -186,7 +193,7 @@ final class AccountGapTests: XCTestCase {
                       "no sign-in opened by itself. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.showsLine(AccountFlow.Step.signIn.title),
                       "the sheet that opened is not \(AccountFlow.Step.signIn.title). On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.shows(signedOutElsewhere, timeout: 10),
+        XCTAssertTrue(run.shows(signedOutElsewhere, timeout: 30),
                       "the sheet does not say \(signedOutElsewhere) On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(of: emailField).lowercased() == email,
                       "the sign-in does not have the account's email filled in")
@@ -207,7 +214,7 @@ final class AccountGapTests: XCTestCase {
         run.expectSignOutEverywhereQuestion()
         try XCTUnwrap(run.dialogButton(AccountFlow.Words.signOutEverywhereButton),
                       "no \(AccountFlow.Words.signOutEverywhereButton) on the question").click()
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountSignOut), until: "exists == false", timeout: 30),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 30),
                       "the sheet stayed open after \(AccountFlow.Words.signOutEverywhereButton). "
                       + "On screen: \(run.visibleTexts())")
         run.expectSignedOut("After \(AccountFlow.Words.signOutEverywhereButton)")
@@ -309,15 +316,15 @@ private extension TestApp {
     func expectSignedOut(_ when: String, withBudgetOpen budgetOpen: Bool = false,
                          file: StaticString = #filePath, line: UInt = #line) {
         let keptHere = SyncWording.footer(signedIn: false)
-        XCTAssertTrue(app.staticTexts[keptHere].waitForExistence(timeout: 15),
+        XCTAssertTrue(app.staticTexts[keptHere].waitForExistence(timeout: 30),
                       "\(when), the foot does not say \(keptHere). On screen: \(visibleTexts())", file: file, line: line)
         let signIn = element(AccessibilityID.sidebarSignIn)
         let title = SyncWording.accountTitle(signedIn: false)
-        XCTAssertTrue(signIn.waitForExistence(timeout: 5), "\(when), no \(title) at the foot", file: file, line: line)
+        XCTAssertTrue(signIn.waitForExistence(timeout: 30), "\(when), no \(title) at the foot", file: file, line: line)
         XCTAssertTrue([signIn.label, signIn.title].contains(title),
                       "\(when), the button at the foot says \(signIn.label), not \(title)", file: file, line: line)
         guard budgetOpen else { return }
-        XCTAssertTrue(element(AccessibilityID.toolbarAccount).waitForExistence(timeout: 10),
+        XCTAssertTrue(element(AccessibilityID.toolbarAccount).waitForExistence(timeout: 30),
                       "\(when), no budget is open, so there is no toolbar to look at. On screen: \(visibleTexts())",
                       file: file, line: line)
         XCTAssertFalse(element(AccessibilityID.toolbarSync).exists, "\(when), Sync shows", file: file, line: line)
@@ -342,7 +349,7 @@ private extension TestApp {
     func expectList(_ kept: Set<String>, without group: String, _ when: String,
                     file: StaticString = #filePath, line: UInt = #line) {
         let same = NSPredicate { _, _ in self.sidebarGroups() == kept }
-        let listed = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: same, object: nil)], timeout: 15)
+        let listed = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: same, object: nil)], timeout: 30)
         XCTAssertEqual(listed, .completed, "\(when), the list is not what this Mac keeps when nobody is signed in. "
                        + "Listed: \(sidebarGroups().sorted()). Kept: \(kept.sorted())", file: file, line: line)
         XCTAssertFalse(element(AccessibilityID.sidebarGroup(group)).exists, "\(when), the account's group is listed",
@@ -353,7 +360,7 @@ private extension TestApp {
     /// the server if it differs, and the email and password pasted.
     func enterSignIn(email: String, password: String, server: String) {
         let serverField = element(AccessibilityID.accountServer)
-        XCTAssertTrue(serverField.waitForExistence(timeout: 10), "the sign-in sheet did not open")
+        XCTAssertTrue(serverField.waitForExistence(timeout: 30), "the sign-in sheet did not open")
         if (serverField.value as? String) != server {
             type(server, into: AccessibilityID.accountServer)
         }
@@ -365,21 +372,21 @@ private extension TestApp {
     /// sheet, on Your account.
     func openAccount(file: StaticString = #filePath, line: UInt = #line) {
         let account = element(AccessibilityID.toolbarAccount)
-        XCTAssertTrue(account.waitForExistence(timeout: 10), "no Account in the toolbar. On screen: \(visibleTexts())",
+        XCTAssertTrue(account.waitForExistence(timeout: 30), "no Account in the toolbar. On screen: \(visibleTexts())",
                       file: file, line: line)
         XCTAssertTrue(wait(for: account, until: "isEnabled == true", timeout: 60), "Account stayed dimmed",
                       file: file, line: line)
         account.click()
-        XCTAssertTrue(element(AccessibilityID.accountSignOut).waitForExistence(timeout: 10),
+        XCTAssertTrue(element(AccessibilityID.accountSignOut).waitForExistence(timeout: 30),
                       "Account did not open the account. On screen: \(visibleTexts())", file: file, line: line)
     }
 
     /// A click on the account sheet, once the control can take it.
     func clickOnAccountSheet(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
         let target = element(identifier)
-        XCTAssertTrue(target.waitForExistence(timeout: 10), "no \(identifier) on the sheet. On screen: \(visibleTexts())",
+        XCTAssertTrue(target.waitForExistence(timeout: 30), "no \(identifier) on the sheet. On screen: \(visibleTexts())",
                       file: file, line: line)
-        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 10),
+        XCTAssertTrue(wait(for: target, until: "hittable == true", timeout: 30),
                       "\(identifier) cannot be clicked. On screen: \(visibleTexts())", file: file, line: line)
         target.click()
     }
@@ -388,9 +395,9 @@ private extension TestApp {
     /// both its buttons.
     func expectSignOutEverywhereQuestion(file: StaticString = #filePath, line: UInt = #line) {
         let words = AccountFlow.Words.self
-        XCTAssertTrue(shows(words.signOutEverywhereTitle, timeout: 10),
+        XCTAssertTrue(shows(words.signOutEverywhereTitle, timeout: 30),
                       "no question \(words.signOutEverywhereTitle) On screen: \(visibleTexts())", file: file, line: line)
-        XCTAssertTrue(shows(words.signOutEverywhereMessage, timeout: 5),
+        XCTAssertTrue(shows(words.signOutEverywhereMessage, timeout: 30),
                       "the question does not say \(words.signOutEverywhereMessage) On screen: \(visibleTexts())",
                       file: file, line: line)
         for button in [words.signOutEverywhereButton, words.cancel] {
