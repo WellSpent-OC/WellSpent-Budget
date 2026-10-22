@@ -167,7 +167,7 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
-	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 \
+	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
 		-resultBundlePath .build/xcode/ui-test.xcresult $$only
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
@@ -245,7 +245,7 @@ iphone-ui-test: iphone-ui-test-build
 		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
-			-retry-tests-on-failure -test-iterations 2 \
+			-retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
