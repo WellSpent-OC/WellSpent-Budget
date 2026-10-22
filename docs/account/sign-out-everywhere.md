@@ -32,7 +32,7 @@ This signs out every device signed in to your account, this one too. Each device
 
 ## If it doesn't work
 
-- **"This computer is not connected to the internet.":** signing out everywhere needs the internet. You stay signed in until it works. Connect, and try again.
+- **"This computer is not connected to the internet."** (on an iPhone, **"This iPhone is not connected to the internet."**): signing out everywhere needs the internet. You stay signed in until it works. Connect, and try again.
 
 ## Related
 

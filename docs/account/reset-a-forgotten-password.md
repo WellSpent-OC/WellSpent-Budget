@@ -64,6 +64,8 @@ Then sign in again on your other devices. Your budgets stay.
 7. ![A thumb taps Set password](../assets/shots/reset-a-forgotten-password-iphone-7.svg)
    Tap **Set password**.
 
+   > You see "Your password is changed, and you are signed in. Every other device was signed out." Tap **Done** to go back to Home.
+
 ## If it doesn't work
 
 - **No code email:** check your spam or junk folder. A code goes only to an email that has an account and was confirmed. If yours was never confirmed, write to **dev@wellspent.space**.
