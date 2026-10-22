@@ -14,33 +14,48 @@ import WellSpentSync
 /// Each test starts on a fresh install and makes its accounts at new
 /// example.com addresses (StagingMailbox.freshAddress), with a password made
 /// in the run and never printed. Staging has no way to delete an account, so
-/// each one stays there, and example.com is nobody's. The code staging emails
-/// at sign-up is read back from its test mailbox when a step needs it, and no
-/// test asks for another one. The second test account is only signed in to:
+/// each one stays there, and example.com is nobody's. Its groups do not stay.
+/// The code staging emails at sign-up is read back from its test mailbox when
+/// a step needs it, and no test asks for another one. The second test account
+/// is only signed in to:
 /// it makes the group and the link Robin sends. Someone's "other device" is a
 /// coordinator with no window, signed in to the new account, the way
-/// SecondAccount stands in for the second person.
+/// SecondAccount stands in for the second person. tearDown deletes the new
+/// account's groups through it, once the window has signed out. A device the
+/// test never signed in signs in then.
 ///
 /// SAMP-03 and SAMP-04 share one sign-up. SAMP-05 has one of its own, since
 /// it checks that Household stays out when nobody changed it.
 ///
 /// One run of the class makes 4 accounts, so staging sends 4 code emails, and
-/// 2 of the codes are typed. It signs in 4 times with no window: twice to a
-/// new account, and twice to the second test account. The window signs up
-/// but never signs in.
+/// 2 of the codes are typed. It signs in 5 times with no window: three times
+/// to a new account, and twice to the second test account. The window signs
+/// up but never signs in.
 ///
 /// Needs WELLSPENT_UI_TEST_MAILBOX_TOKEN, and skips without it. The two tests
 /// with a link need the four WELLSPENT_UI_TEST_ variables too. tearDown signs
-/// out of everything the test signed in to, deletes the link's group, closes
-/// the app and removes the run's folder, whether the test passed or halted.
+/// out of everything the test signed in to, deletes the new accounts' groups
+/// and the link's group, closes the app and removes the run's folder, whether
+/// the test passed or halted.
 final class NewAccountTests: XCTestCase {
     /// What tearDown tidies, set as the test goes: the run's data folder, the
-    /// window, everyone signed in with no window, and the second test
-    /// account's group, if it made one.
+    /// window, everyone signed in with no window, each new account's groups,
+    /// and the second test account's group, if it made one.
     nonisolated(unsafe) private static var dataRootPath: String?
     nonisolated(unsafe) private static var window: TestApp?
     nonisolated(unsafe) private static var windowless: [SecondAccount] = []
+    nonisolated(unsafe) private static var newAccountGroups: [NewAccountGroups] = []
     nonisolated(unsafe) private static var sharedGroup: (owner: SecondAccount, name: String)?
+
+    /// A new account's groups, and its other device, which deletes them in
+    /// tearDown. The device signs in first, with the account's email and
+    /// password, if the test did not sign it in.
+    private struct NewAccountGroups {
+        let device: SecondAccount
+        let email: String
+        let password: String
+        let names: [String]
+    }
 
     /// Where a new account's other device keeps its settings, apart from the
     /// second test account's, since both can be signed in at once.
@@ -103,6 +118,8 @@ final class NewAccountTests: XCTestCase {
         run.click(AccessibilityID.sidebarSignIn)
         try run.createAccount(email: robin, password: robinsPassword, server: mailbox.server)
         run.closeAccountSheet()
+        let robinsOtherDevice = try Self.otherDevice(server: mailbox.server, email: robin, password: robinsPassword,
+                                                     deleting: ["Holiday"])
 
         // Scenario SAMP-02
         // 4. His account starts with no groups: the list is empty, and the
@@ -116,7 +133,6 @@ final class NewAccountTests: XCTestCase {
         // Scenario SAMP-02
         // 6. His other device, signed in to the account, gets Holiday, so it
         // has what the window sent after signing up. It has no sample group.
-        let robinsOtherDevice = try Self.otherDevice(server: mailbox.server)
         try await robinsOtherDevice.signIn(email: robin, password: robinsPassword)
         let held = try await robinsOtherDevice.waitForHoldings { (held: SecondAccount.Holdings) -> Bool in
             held["Holiday"]?["Flights"] != nil
@@ -222,6 +238,8 @@ final class NewAccountTests: XCTestCase {
         // there, and confirms her email with the code sent to it.
         run.click(AccessibilityID.invitationSignIn)
         try run.createAccount(email: leslie, password: password, server: mailbox.server)
+        let otherDevice = try Self.otherDevice(server: mailbox.server, email: leslie, password: password,
+                                               deleting: ["Road trip", "Household"])
         run.confirmEmail(with: try await mailbox.code(for: leslie, timeout: 30))
 
         // Scenario CLICK-07
@@ -272,7 +290,6 @@ final class NewAccountTests: XCTestCase {
         // Scenario SAMP-03, SAMP-04
         // 12. Both sync to her account: her other device gets Road trip and
         // Household, each with every budget and entry, and no Side Business.
-        let otherDevice = try Self.otherDevice(server: mailbox.server)
         try await otherDevice.signIn(email: leslie, password: password)
         let held = try await otherDevice.waitForHoldings { (held: SecondAccount.Holdings) -> Bool in
             let roadTrip: Bool = held["Road trip"]?["Fuel"]?.contains("Gas station") == true
@@ -293,6 +310,8 @@ final class NewAccountTests: XCTestCase {
     func testARenamedSampleComesAlongUnderItsNewName() throws {
         let mailbox = try StagingMailbox.fromEnvironment()
         let run = try start()
+        let robin = StagingMailbox.freshAddress("mac", for: "robin")
+        let password = Self.newPassword()
 
         // 1. A fresh install, with the two sample groups.
         run.expectTheSamples()
@@ -300,11 +319,12 @@ final class NewAccountTests: XCTestCase {
         // 2. Robin renames Side Business to Pottery.
         run.renameGroup("Side Business", to: "Pottery")
 
-        // 3. He creates an account, and leaves the code for later.
+        // 3. He creates an account, and leaves the code for later. His other
+        // device signs in only in tearDown, to delete Pottery.
         run.click(AccessibilityID.sidebarSignIn)
-        try run.createAccount(email: StagingMailbox.freshAddress("mac", for: "robin"), password: Self.newPassword(),
-                              server: mailbox.server)
+        try run.createAccount(email: robin, password: password, server: mailbox.server)
         run.closeAccountSheet()
+        try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Pottery"])
 
         // Scenario SAMP-05
         // 4. The list holds Pottery, with its budget Materials. Household,
@@ -332,11 +352,15 @@ final class NewAccountTests: XCTestCase {
     }
 
     /// A new account's other device, with no window, not signed in yet.
-    /// tearDown signs it out.
+    /// tearDown deletes `groups` through it, signing it in first if the test
+    /// did not, then signs it out.
     @MainActor
-    private static func otherDevice(server: String) throws -> SecondAccount {
+    @discardableResult
+    private static func otherDevice(server: String, email: String, password: String,
+                                    deleting groups: [String]) throws -> SecondAccount {
         let device = try SecondAccount(server: server, settingsSuite: otherDeviceSuite)
         windowless.append(device)
+        newAccountGroups.append(NewAccountGroups(device: device, email: email, password: password, names: groups))
         return device
     }
 
@@ -358,9 +382,12 @@ final class NewAccountTests: XCTestCase {
         return (link, invited)
     }
 
-    /// Signs the window out through its Account button, then deletes the
-    /// second test account's group and signs out every session with no
-    /// window. Best effort, and bounded, so a slow server cannot hold the run.
+    /// Signs the window out through its Account button, then deletes the new
+    /// accounts' groups and the second test account's group, and signs out
+    /// every session with no window. The window goes first: its Account
+    /// button is in a budget's toolbar, so it must sign out while its
+    /// budgets are still there. Best effort, and bounded, so a slow server
+    /// cannot hold the run.
     @MainActor
     private static func signOutOfEverything() {
         if let run = window, run.app.state == .runningForeground {
@@ -369,17 +396,24 @@ final class NewAccountTests: XCTestCase {
             run.signOut()
         }
         window = nil
-        let group = sharedGroup, devices = windowless
+        let group = sharedGroup, devices = windowless, made = newAccountGroups
         sharedGroup = nil
         windowless = []
+        newAccountGroups = []
         guard group != nil || !devices.isEmpty else { return }
         let done = XCTestExpectation(description: "the sessions with no window end")
         Task { @MainActor in
+            for own in made {
+                if own.device.sync.account == nil {
+                    try? await own.device.signIn(email: own.email, password: own.password)
+                }
+                for name in own.names { await own.device.deleteGroup(named: name) }
+            }
             if let group { await group.owner.deleteGroup(named: group.name) }
             for device in devices { await device.cleanUp() }
             done.fulfill()
         }
-        _ = XCTWaiter().wait(for: [done], timeout: 60)
+        _ = XCTWaiter().wait(for: [done], timeout: 120)
     }
 
     /// Part of the group's name, so runs never share one.
@@ -405,13 +439,16 @@ private extension TestApp {
 
     /// Looks at the samples and changes nothing: opens each of their
     /// budgets, and hides and shows each group's budgets with the arrow at
-    /// the end of its line. A budget's line counts as more than one element,
-    /// so the counts are compared with the count before the arrow.
+    /// the end of its line. A budget opens by itself at launch, so each one
+    /// clicked counts as open once its line is the one picked in the list. A
+    /// budget's line counts as more than one element, so the counts are
+    /// compared with the count before the arrow.
     func lookAtTheSamples(file: StaticString = #filePath, line: UInt = #line) {
         for budget in ["Groceries", "Eating out", "Utilities", "Materials"] {
             openBudget(named: budget)
-            XCTAssertTrue(element(AccessibilityID.budgetAdd).waitForExistence(timeout: 30),
-                          "\(budget) did not open. On screen: \(visibleTexts())", file: file, line: line)
+            XCTAssertTrue(wait(for: element(AccessibilityID.sidebarBudget(budget)), until: "isSelected == true",
+                               timeout: 30),
+                          "\(budget) did not open. The list: \(sidebarIdentifiers())", file: file, line: line)
         }
         for (group, budget) in [("Household", "Groceries"), ("Side Business", "Materials")] {
             let shown: Int = sidebarBudgetCount(budget)
