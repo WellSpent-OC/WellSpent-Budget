@@ -37,7 +37,7 @@ title: "Tour: The Share window"
 3. **They can**: **View**, **Add** or **Manage**.
 4. The line under them: what the level you picked can do.
 5. **They see**: **Everything so far**, or **Only from now on**.
-6. **Create Link**: make the invite link. Then the button says **Send**. Tap it to send the link by text or email, or to copy it.
-7. **You get a link to send by text or email.**: the link works once, for 7 days.
+6. **Create Link**: make the invite link, and open the iPhone's share options with it, to send it by text or email, or to copy it. If you close them without sending, the button says **Send**. Tap it to open them again.
+7. **You get a link to send by text or email.**: how the link travels. Once the link is made, this line says it works once and expires in 7 days.
 
 <!-- Scenarios: SHARE-01, SHARE-02, SHARE-03, SHARE-04, SHARE-05, SHARE-06, SHARE-13 -->

@@ -39,7 +39,7 @@ A budget is an amount to spend each month. It starts again on the 1st.
 4. ![A thumb taps Add](../assets/shots/make-your-first-budget-iphone-4.svg)
    Tap **Add**.
 
-   > You see **Groceries** under **HOME**, with what's left beside it.
+   > You see Groceries' page, with its wheel full. Tap the back arrow, and you see **Groceries** under **HOME**, with what's left beside it.
 
 ## If it doesn't work
 

@@ -30,7 +30,7 @@ Tap a transaction on a budget's page, and it opens like this.
 ![A transaction opened on an iPhone, with numbers 1 to 8](../assets/shots/tour-iphone-transaction-a.svg)
 
 1. **Cancel**: close without saving.
-2. **Save**: save your changes.
+2. **Save**: save your changes. It stays dimmed until something changes.
 3. **Merchant**: who you paid.
 4. **Amount**: how much. Type it as a number.
 5. **Date**: when. Tap the date to pick another day.

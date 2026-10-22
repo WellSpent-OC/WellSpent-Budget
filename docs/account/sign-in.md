@@ -45,7 +45,7 @@ Budgets made on this computer while signed out stay hidden while you're signed i
 - **"That email or password is wrong.":** check both, and try again. Forgot your password? [Side quest: Reset a forgotten password](reset-a-forgotten-password.md)
 - **"Too many attempts. Try again in a few minutes.":** wait a few minutes, and try again.
 - **"You were signed out on this device. Sign in again. Your budgets are still here.":** you signed out everywhere, or changed your password, on another device. Sign in again.
-- **Confirm your email shows:** your email isn't confirmed yet. Press **Send a code**, and type the code WellSpent emails you. Or press **Not now**, and confirm it later.
+- **Confirm your email shows:** your email isn't confirmed yet. Press **Send a code**, type the code WellSpent emails you in **Code**, then press **Confirm** (on an iPhone, at the top right). Or press **Not now**, and confirm it later.
 
 ## Related
 

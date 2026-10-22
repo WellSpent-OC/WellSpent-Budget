@@ -36,7 +36,7 @@ Click the link in the message, even with WellSpent closed. WellSpent opens to th
 
 ## On an iPhone
 
-Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**.
+Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**. Paste the link into **Invite link**, type your name in **Your name**, and tap **Join** at the top right. The group shows on Home.
 
 1. ![A thumb taps an invite link in a message](../assets/shots/join-a-group-iphone-1.svg)
    Tap the invite link in the message.
@@ -49,7 +49,7 @@ Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**.
 3. ![A thumb taps Join](../assets/shots/join-a-group-iphone-3.svg)
    Tap **Join**.
 
-   > You see the group on Home.
+   > You see the group's page, with its people. Tap the back arrow to go to Home, where the group now is.
 
 ## If it doesn't work
 

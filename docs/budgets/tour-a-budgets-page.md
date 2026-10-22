@@ -45,7 +45,7 @@ Tap a budget on Home, and its page opens.
 8. **Left**: what's left.
 9. **Expected left by today**: what would be left today, at an even pace.
 10. **3 transactions since Oct 1**: how many transactions count this month.
-11. The pace words: when the money runs out at this pace. They show when you spend faster than an even pace.
+11. The pace words: when the money runs out at this pace. They show when you spend faster than an even pace. In the month's last week, with more left than expected, they ask whether to lower the budget. That question shows only at the Manage level or higher.
 12. **Edit Budget**: change the budget's amount. It shows at the Manage level or higher. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
 13. **Add**: add a transaction. It shows at the Add level or higher. [Quest 5](../transactions/add-your-first-transaction.md)
 

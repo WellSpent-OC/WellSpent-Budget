@@ -59,8 +59,12 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 6. ![A thumb taps Create Link](../assets/shots/share-a-group-iphone-6.svg)
    Tap **Create Link**.
 
-7. ![A thumb taps Send](../assets/shots/share-a-group-iphone-7.svg)
-   Tap **Send**, and pick how to send it, such as a message or an email.
+   > The iPhone's share options open, with the link in them.
+
+7. ![A thumb picks how to send the link](../assets/shots/share-a-group-iphone-7.svg)
+   Pick how to send it, such as Messages or Mail, or tap **Copy**.
+
+   > Once it's sent or copied, the Share sheet closes. If you close the share options without sending, tap **Send** to open them again.
 
 ## If it doesn't work
 
