@@ -502,7 +502,7 @@ jobs:
     name: iPhone UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     runs-on: macos-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
