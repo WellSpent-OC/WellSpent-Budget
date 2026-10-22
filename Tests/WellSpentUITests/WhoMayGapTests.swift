@@ -11,32 +11,35 @@ import WellSpentSync
 /// window: she makes the groups and their links, adds, changes, deletes and
 /// imports, and moves Robin up and down, as in EntryEditingTests.
 ///
-/// One run, signed in once on each side, in this order:
+/// Three tests, each signed in once on each side, so a failure in one
+/// leaves the others to run:
 /// - Leslie's group with a link at Manage: a change of Robin's that lost to
 ///   hers, an entry she deleted while he had it open, his menus and the
-///   Share sheet at Manage, and a statement she imported
-/// - a group of Robin's own: what the one who made it is offered
+///   Share sheet at Manage, and a statement she imported. Then a group of
+///   Robin's own: what the one who made it is offered, and deleting it for
+///   everyone once Leslie is in it.
 /// - Leslie's group with a link at View: what he sees, what he is not
-///   offered, and an entry opened read-only
+///   offered, and an entry opened read-only. Then her group with a link
+///   that shows only what comes after it.
 /// - Leslie's group with a link at Add: his menus and the Share sheet at
 ///   Add, the same once she moves him up to Manage, an entry open while she
 ///   moves him down to View, an entry of his own at View, an Undo she moves
-///   him down under, and leaving the group
-/// - Leslie's group with a link that shows only what comes after it
-/// - Robin's own group shared with her, then deleted for everyone
+///   him down under, and leaving the group.
 ///
-/// The window syncs on its own two minutes after it opens, and every two
-/// minutes after. Step 3 keeps clear of the first timed sync, so nothing
-/// brings Leslie's change in before Robin saves his. Steps 5 and 22 then
-/// wait for one, with a sheet open.
+/// The window syncs on its own two minutes after it opens, and two minutes
+/// after each of those syncs ends. The first test keeps Leslie's change
+/// clear of them until Robin has saved his, then waits for one with a sheet
+/// open. The third waits for one with a sheet open.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestSupport.swift) and
-/// skips without them. Each run's groups are named with the time and
-/// deleted at the end for everyone. Leslie's groups from an earlier run
+/// skips without them. Each test's groups are named with the time and
+/// deleted at its end for everyone. Leslie's groups from an earlier run
 /// that stopped part way, more than an hour old, are deleted first.
 final class WhoMayGapTests: XCTestCase {
     /// The run's data folder, for tearDown.
     nonisolated(unsafe) private static var dataRootPath: String?
+    /// Where the second person keeps their settings, for tearDown.
+    nonisolated(unsafe) private static var secondSuite: String?
     /// The start of every group's name in this test. It sorts the groups
     /// first in the sidebar, above what other tests leave on the account.
     private static let prefix = "Access "
@@ -45,10 +48,10 @@ final class WhoMayGapTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Runs after the test, passed or halted, with no await in it. The app
+    /// Runs after each test, passed or halted, with no await in it. The app
     /// is closed, and nothing of the run stays on this Mac, the clipboard
-    /// included: the Share sheet's name is pasted. The staging side is
-    /// tidied at the end of the test itself.
+    /// and the second person's settings included: the Share sheet's name is
+    /// pasted. The staging side is tidied at the end of each test itself.
     override func tearDown() {
         let app = XCUIApplication()
         if app.state != .notRunning { app.terminate() }
@@ -56,22 +59,24 @@ final class WhoMayGapTests: XCTestCase {
         if let path = Self.dataRootPath { try? FileManager.default.removeItem(atPath: path) }
         Self.dataRootPath = nil
         NSPasteboard.general.clearContents()
+        if let suite = Self.secondSuite { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        Self.secondSuite = nil
         super.tearDown()
     }
 
+    // MARK: - At Manage, and in a group of his own
+
     @MainActor
-    func testWhatEachLevelMaySeeAndDo() async throws {
+    func testAtManageAndInAGroupOfHisOwn() async throws {
         let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
         Self.dataRootPath = run.dataRoot.path
         let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
         let stamp = Self.stamp()
         let managed = "\(Self.prefix)Manage \(stamp)", bulk = "Bulk \(stamp)"
         let mine = "\(Self.prefix)Own \(stamp)", rent = "Rent \(stamp)"
-        let viewed = "\(Self.prefix)View \(stamp)", groceries = "Groceries \(stamp)"
-        let added = "\(Self.prefix)Add \(stamp)", eatingOut = "Eating out \(stamp)"
-        let fromNow = "\(Self.prefix)New \(stamp)", treats = "Treats \(stamp)"
-        let hilltop = "Hilltop Grocery", bakery = "Corner Bakery", market = "Market", costco = "Costco"
+        let hilltop = "Hilltop Grocery", bakery = "Corner Bakery", market = "Market"
         let share = MainScreen.Words.share, people = MembersScreen.Words.menuItem
         let rename = MainScreen.Words.rename, delete = MainScreen.Words.delete, leave = MainScreen.Words.leave
         let cancel = MainScreen.Words.cancel
@@ -87,9 +92,7 @@ final class WhoMayGapTests: XCTestCase {
                                                         role: .manage)
 
         // 2. The window, signed in as Robin, joins with the link and opens
-        // the budget. Its Undo bar stays ten minutes, not ten seconds, so
-        // Leslie can move him down while it is up.
-        run.app.launchEnvironment[Workspace.undoWindowVariable] = "600"
+        // the budget.
         run.launch()
         let opened = Date()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
@@ -103,18 +106,17 @@ final class WhoMayGapTests: XCTestCase {
         // Leslie's app takes in all his app sent, and she changes its note,
         // then its amount, and her app sends both. He saves before his app
         // has taken either in. Each change carries a count one past the
-        // highest its app has seen, and the higher count is the newer
-        // change. Her app has seen all of his, so her second change is newer
-        // than his. Once his app syncs, the row shows her version, with a
-        // quiet line under the merchant saying his change didn't go through.
-        // A slow sign-in can bring this step close to the window's first
-        // timed sync, which would take her change in first, so then it waits
-        // for that sync to pass.
-        print("WHOMAY step 3 at \(Int(Date().timeIntervalSince(opened))) s")
-        try await Self.waitClearOfTheFirstTimedSync(afterOpening: opened)
+        // highest its app has seen in the group, and the higher count is the
+        // newer change. Her app has seen all of his, so her second change is
+        // newer than his. Once his app syncs, the row shows her version,
+        // with a quiet line under the merchant saying his change didn't go
+        // through. One of the window's timed syncs would take her change in
+        // before he saves, so hers waits until none can come first.
         run.clickRow(hilltop)
         run.expectSheet(for: hilltop)
         run.type("150.00", into: AccessibilityID.entryAmount)
+        print("WHOMAY step 3 at \(Int(Date().timeIntervalSince(opened))) s")
+        try await Self.waitClearOfTheTimedSyncs(afterOpening: opened, for: 45)
         try await second.syncAll()
         try await second.changeEntry(hilltop, inGroup: managed, note: "two loaves")
         try await second.changeEntry(hilltop, inGroup: managed, amount: "124.08")
@@ -122,7 +124,7 @@ final class WhoMayGapTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.listText(BudgetScreen.Words.notice).waitForExistence(timeout: 60),
                       "no line saying his change didn't go through. On screen: \(run.visibleTexts())")
-        run.expectEntry(hilltop, shows: ["two loaves", BudgetScreen.Words.notice, "$124.08"])
+        run.expectEntry(hilltop, shows: ["two loaves", BudgetScreen.Words.notice, Money(minorUnits: 12408).display])
         XCTAssertFalse(run.listText("$150.00").exists, "his amount stayed. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-14
@@ -150,9 +152,10 @@ final class WhoMayGapTests: XCTestCase {
         run.expectSheet(for: hilltop)
         run.type("99.00", into: AccessibilityID.entryAmount)
         try await second.deleteEntry(hilltop, inGroup: managed)
+        print("WHOMAY step 5 at \(Int(Date().timeIntervalSince(opened))) s")
         if run.element(AccessibilityID.entryRow(hilltop)).exists {
             print("WHOMAY the list reads behind the sheet")
-            XCTAssertTrue(run.rowIsGone(hilltop, timeout: 250),
+            XCTAssertTrue(run.rowIsGone(hilltop, timeout: 300),
                           "no sync took the delete in while the sheet was open. On screen: \(run.visibleTexts())")
         } else {
             print("WHOMAY the list does not read behind the sheet")
@@ -164,10 +167,10 @@ final class WhoMayGapTests: XCTestCase {
         run.expectNoSheet()
         XCTAssertTrue(run.rowIsGone(hilltop, timeout: 5), "Hilltop Grocery came back")
 
-        print("WHOMAY step 6 at \(Int(Date().timeIntervalSince(opened))) s")
         // Scenario SHARE-12
         // 6. At Manage, the budget has Add and Import statement, and its
         // menu offers Edit… and Delete…. Edit… opens it.
+        print("WHOMAY step 6 at \(Int(Date().timeIntervalSince(opened))) s")
         XCTAssertTrue(run.element(AccessibilityID.budgetAdd).exists, "no Add, at Manage")
         XCTAssertTrue(run.element(AccessibilityID.budgetImport).exists, "no Import statement, at Manage")
         run.expectBudgetMenu(bulk, offersChanges: true)
@@ -231,17 +234,72 @@ final class WhoMayGapTests: XCTestCase {
                             last: delete)
         run.expectBudgetMenu(rent, offersChanges: true)
 
-        // 12. Leslie makes a group with Hilltop Grocery, $142.08, gives it a
-        // note, and makes a link that invites at View. Robin joins and
-        // opens its budget.
-        let viewLink = try await second.shareNewGroup(viewed, budget: groceries, entry: hilltop,
-                                                      amount: Money(minorUnits: 14208), myName: "Leslie", role: .view)
+        // 12. Robin shares his own group, and Leslie joins it. Once his app
+        // syncs, his list says who added each entry: You, for his own.
+        run.openBudget(named: rent)
+        let mineLink = try run.share(group: mine, myName: "Robin", role: .add)
+        let joined = try await second.join(mineLink, as: "Leslie")
+        let his = try second.entry(hilltop, inGroup: mine)
+        let you = joined.addedBy(his, me: his.createdBy)
+        run.syncNow()
+        XCTAssertTrue(run.listText(you).waitForExistence(timeout: 60),
+                      "the list does not say who added each entry. On screen: \(run.visibleTexts())")
+
+        // Scenario BUDGET-12
+        // 13. Delete… asks first, saying the group is deleted for everyone
+        // in it, with its 1 budget and 2 transactions. Delete takes it away,
+        // from Leslie too.
+        let forEveryone = PendingDelete.group(BudgetGroup(name: mine), budgets: 1, transactions: 2, reach: .everyone)
+        run.expectQuestion(from: mine, item: delete, title: forEveryone.title, message: forEveryone.message,
+                           buttons: [forEveryone.confirmLabel, cancel])
+        try XCTUnwrap(run.dialogButton(forEveryone.confirmLabel), "no Delete on the question").click()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(mine)), until: "exists == false",
+                               timeout: 10), "the group stayed in his list")
+        let gone = try await second.waitUntilGone(mine)
+        XCTAssertTrue(gone, "Leslie still has Robin's group")
+
+        // 14. Tidy: Robin's session ends. Then Leslie deletes her group for
+        // everyone, and her session ends.
+        run.signOut()
+        await second.deleteGroup(named: managed)
+        await second.cleanUp()
+    }
+
+    // MARK: - At View, and only from now on
+
+    @MainActor
+    func testAtViewAndOnlyFromNowOn() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
+        let stamp = Self.stamp()
+        let viewed = "\(Self.prefix)View \(stamp)", groceries = "Groceries \(stamp)"
+        let fromNow = "\(Self.prefix)New \(stamp)", treats = "Treats \(stamp)"
+        let hilltop = "Hilltop Grocery", market = "Market", costco = "Costco"
+        let share = MainScreen.Words.share, people = MembersScreen.Words.menuItem, leave = MainScreen.Words.leave
+        let hilltopAmount = Money(minorUnits: 14208)
+
+        // 1. Leslie, with no window, signs in and deletes any groups an
+        // earlier run left on her account. Then she makes a group with
+        // Hilltop Grocery, $142.08, gives it a note, and makes a link that
+        // invites at View.
+        try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await second.deleteLeftovers(startingWith: Self.prefix)
+        let viewLink = try await second.shareNewGroup(viewed, budget: groceries, entry: hilltop, amount: hilltopAmount,
+                                                      myName: "Leslie", role: .view)
         try await second.changeEntry(hilltop, inGroup: viewed, note: "weekly shop")
+
+        // 2. The window, signed in as Robin, joins with the link and opens
+        // the budget.
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.join(viewLink.url, as: "Robin")
         run.openBudget(named: groceries)
 
         // Scenario SHARE-11, ENTRY-10, IMPORT-14
-        // 13. At View he sees her entry, with Leslie under Added by, and
+        // 3. At View he sees her entry, with Leslie under Added by, and
         // there is no Add and no Import statement.
         XCTAssertTrue(run.entryRow(hilltop).waitForExistence(timeout: 60),
                       "Hilltop Grocery did not arrive. On screen: \(run.visibleTexts())")
@@ -250,41 +308,117 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.budgetImport).exists, "Import statement, at View")
 
         // Scenario EDIT-10
-        // 14. A click opens Hilltop Grocery read-only: its merchant,
+        // 4. A click opens Hilltop Grocery read-only: its merchant,
         // amount, date, note and budget as plain text, a line saying he can
         // view the group but not change it, and Done as the only button.
         run.clickRow(hilltop)
         run.expectReadOnly(saying: EntryAccess.Words.viewOnly,
-                           details: [(EntryEditor.Words.merchant, hilltop), (EntryEditor.Words.amount, "$142.08"),
+                           details: [(EntryEditor.Words.merchant, hilltop), (EntryEditor.Words.amount, hilltopAmount.display),
                                      (EntryEditor.Words.date, EntryEditor.Words.fullDate(Date())),
                                      (EntryEditor.Words.note, "weekly shop"), (EntryEditor.Words.budget, groceries)])
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
 
         // Scenario SHARE-11
-        // 15. The group's menu offers only Share…, People… and Leave…, and
+        // 5. The group's menu offers only Share…, People… and Leave…, and
         // the budget's row offers no menu to change or delete it.
         run.expectBudgetMenu(groceries, offersChanges: false)
         run.expectGroupMenu(viewed, offers: [share, people, leave], last: leave)
 
-        // 16. Leslie makes a group with Hilltop Grocery and Corner Bakery,
-        // and a link that invites at Add. Robin joins and opens its budget.
-        let addLink = try await second.shareNewGroup(added, budget: eatingOut, entry: hilltop,
-                                                     amount: Money(minorUnits: 14208), myName: "Leslie", role: .add)
-        try await second.addEntry(bakery, amount: Money(minorUnits: 1200), inBudget: eatingOut, group: added)
+        // 6. Leslie makes a group with Hilltop Grocery, $42.00, and a link
+        // that shows only what is added from now on. Robin joins and opens
+        // its budget.
+        let newLink = try await second.shareNewGroup(fromNow, budget: treats, entry: hilltop,
+                                                     amount: Money(minorUnits: 4200), myName: "Leslie", role: .add,
+                                                     history: .fromNow)
+        run.join(newLink.url, as: "Robin")
+        run.openBudget(named: treats)
+
+        // Scenario SHARE-13
+        // 7. Hilltop Grocery is not in his list, and the budget's wheel
+        // leaves it out: nothing is spent.
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: TodaysBudget(limit: 50_000, spent: 0).wheel.spokenSummary,
+                   "the budget, with what came before the link left out")
+        XCTAssertTrue(run.rowIsGone(hilltop, timeout: 3), "Hilltop Grocery shows. On screen: \(run.visibleTexts())")
+
+        // Scenario SHARE-13
+        // 8. Costco, which Leslie adds after he joined, reaches him at his
+        // next sync, and the wheel counts it.
+        try await second.addEntry(costco, amount: Money(minorUnits: 9900), inBudget: treats, group: fromNow)
+        run.syncNow()
+        XCTAssertTrue(run.entryRow(costco).waitForExistence(timeout: 60),
+                      "Costco did not arrive. On screen: \(run.visibleTexts())")
+        run.expect(wheel: AccessibilityID.budgetWheel,
+                   reads: TodaysBudget(limit: 50_000, spent: 9_900).wheel.spokenSummary, "the budget, with Costco")
+
+        // Scenario SHARE-13
+        // 9. Leslie changes Hilltop Grocery, then adds Market. Once Market
+        // reaches him, Hilltop Grocery is still not there, and the wheel
+        // counts Costco and Market only.
+        try await second.changeEntry(hilltop, inGroup: fromNow, amount: "43.00")
+        try await second.addEntry(market, amount: Money(minorUnits: 950), inBudget: treats, group: fromNow)
+        run.syncNow()
+        XCTAssertTrue(run.entryRow(market).waitForExistence(timeout: 60),
+                      "Market did not arrive. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.rowIsGone(hilltop, timeout: 3),
+                      "Hilltop Grocery showed once Leslie changed it. On screen: \(run.visibleTexts())")
+        let costcoAndMarket: Int = 9_900 + 950
+        run.expect(wheel: AccessibilityID.budgetWheel,
+                   reads: TodaysBudget(limit: 50_000, spent: costcoAndMarket).wheel.spokenSummary,
+                   "the budget, with Costco and Market")
+
+        // 10. Tidy: Robin's session ends. Then Leslie deletes her groups for
+        // everyone, and her session ends.
+        run.signOut()
+        for name in [viewed, fromNow] { await second.deleteGroup(named: name) }
+        await second.cleanUp()
+    }
+
+    // MARK: - At Add, then moved up and down
+
+    @MainActor
+    func testAtAddThenMovedUpAndDown() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
+        let stamp = Self.stamp()
+        let added = "\(Self.prefix)Add \(stamp)", eatingOut = "Eating out \(stamp)"
+        let hilltop = "Hilltop Grocery", bakery = "Corner Bakery", market = "Market"
+        let share = MainScreen.Words.share, people = MembersScreen.Words.menuItem
+        let rename = MainScreen.Words.rename, leave = MainScreen.Words.leave, cancel = MainScreen.Words.cancel
+        let hilltopAmount = Money(minorUnits: 14208), bakeryAmount = Money(minorUnits: 1200)
+
+        // 1. Leslie, with no window, signs in and deletes any groups an
+        // earlier run left on her account. Then she makes a group with
+        // Hilltop Grocery and Corner Bakery, and a link that invites at Add.
+        try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await second.deleteLeftovers(startingWith: Self.prefix)
+        let addLink = try await second.shareNewGroup(added, budget: eatingOut, entry: hilltop, amount: hilltopAmount,
+                                                     myName: "Leslie", role: .add)
+        try await second.addEntry(bakery, amount: bakeryAmount, inBudget: eatingOut, group: added)
+
+        // 2. The window, signed in as Robin, joins with the link and opens
+        // the budget. Its Undo bar stays ten minutes, not ten seconds, so
+        // Leslie can move him down while it is up.
+        run.app.launchEnvironment[Workspace.undoWindowVariable] = "600"
+        run.launch()
+        let opened = Date()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.join(addLink.url, as: "Robin")
         run.openBudget(named: eatingOut)
         XCTAssertTrue(run.entryRow(bakery).waitForExistence(timeout: 60),
                       "Corner Bakery did not arrive. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-07
-        // 17. At Add, the budget's row offers no Edit… and no Delete…, and
+        // 3. At Add, the budget's row offers no Edit… and no Delete…, and
         // the group's menu offers only Share…, People… and Leave….
         run.expectBudgetMenu(eatingOut, offersChanges: false)
         run.expectGroupMenu(added, offers: [share, people, leave], last: leave)
 
         // Scenario SHARE-05
-        // 18. Share… says only a manager or admin can invite people to the
+        // 4. Share… says only a manager or admin can invite people to the
         // group, offers no level to choose, and Create Link stays dimmed
         // with his name in.
         run.openShare(added)
@@ -298,7 +432,7 @@ final class WhoMayGapTests: XCTestCase {
                       "the Share sheet did not close")
 
         // Scenario BUDGET-13
-        // 19. Leave… asks first, with Leave and Cancel, and says he leaves
+        // 5. Leave… asks first, with Leave and Cancel, and says he leaves
         // the group with its 1 budget and 2 transactions, and what becomes
         // of changes not synced yet. Cancel keeps the group.
         let leaveAtAdd = PendingDelete.group(BudgetGroup(name: added), budgets: 1, transactions: 2,
@@ -310,7 +444,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(added)).waitForExistence(timeout: 5),
                       "Cancel did not keep the group")
 
-        // 20. Robin adds Market. Leslie moves him up to Manage, and his app
+        // 6. Robin adds Market. Leslie moves him up to Manage, and his app
         // syncs.
         run.openBudget(named: eatingOut)
         run.addEntry(merchant: market, amount: "9.50")
@@ -318,7 +452,7 @@ final class WhoMayGapTests: XCTestCase {
         run.syncAndWait()
 
         // Scenario BUDGET-07
-        // 21. At Manage, the budget's row offers Edit… and Delete…, and the
+        // 7. At Manage, the budget's row offers Edit… and Delete…, and the
         // group's menu New Budget in it and Rename…, with Leave… still in
         // place of Delete….
         run.expectBudgetMenu(eatingOut, offersChanges: true)
@@ -326,7 +460,7 @@ final class WhoMayGapTests: XCTestCase {
                             last: leave)
 
         // Scenario EDIT-13
-        // 22. Robin opens Hilltop Grocery and types a new amount. Leslie
+        // 8. Robin opens Hilltop Grocery and types a new amount. Leslie
         // moves him down to View meanwhile, and the window's timed sync
         // brings that in while the sheet is open: Add goes from behind it.
         // Save then saves nothing. The sheet turns read-only, with Done as
@@ -337,10 +471,11 @@ final class WhoMayGapTests: XCTestCase {
         run.expectSheet(for: hilltop)
         run.type("150.00", into: AccessibilityID.entryAmount)
         try await second.setLevelOfTheOther(.read, in: added)
+        print("WHOMAY step 8 at \(Int(Date().timeIntervalSince(opened))) s")
         let addButton = run.element(AccessibilityID.budgetAdd)
         if addButton.exists {
             print("WHOMAY Add reads behind the sheet")
-            XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 250),
+            XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 300),
                           "no sync took the move down in while the sheet was open. On screen: \(run.visibleTexts())")
         } else {
             print("WHOMAY Add does not read behind the sheet")
@@ -348,17 +483,18 @@ final class WhoMayGapTests: XCTestCase {
         }
         run.click(AccessibilityID.entrySave)
         run.expectReadOnly(saying: EntryEditor.Words.notAllowed(.viewOnly),
-                           details: [(EntryEditor.Words.merchant, hilltop), (EntryEditor.Words.amount, "$142.08")])
+                           details: [(EntryEditor.Words.merchant, hilltop),
+                                     (EntryEditor.Words.amount, hilltopAmount.display)])
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
-        XCTAssertTrue(run.listText("$142.08").waitForExistence(timeout: 5),
-                      "Hilltop Grocery's row lost $142.08. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText(hilltopAmount.display).waitForExistence(timeout: 5),
+                      "Hilltop Grocery's row lost \(hilltopAmount.display). On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.listText("$150.00").exists, "his amount was saved. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: addButton, until: "exists == false", timeout: 15),
                       "Add stayed after the move down to View")
 
         // Scenario EDIT-10
-        // 23. Market, which he added before the move down, opens read-only,
+        // 9. Market, which he added before the move down, opens read-only,
         // saying he can only view the group now, so he can't change what he
         // added. Done is the only button.
         run.clickRow(market)
@@ -366,7 +502,7 @@ final class WhoMayGapTests: XCTestCase {
         run.click(AccessibilityID.entryDone)
         run.expectNoSheet()
 
-        // 24. Leslie moves him up to Manage again, and his app syncs: Add is
+        // 10. Leslie moves him up to Manage again, and his app syncs: Add is
         // back. Robin deletes Corner Bakery, which she added, from its row's
         // menu, and the bar offers Undo. His app sends the delete, and
         // Leslie's app sees it go. Then she moves him down to View, and his
@@ -380,7 +516,7 @@ final class WhoMayGapTests: XCTestCase {
         run.clickMenuItem(MainScreen.Words.delete)
         try XCTUnwrap(run.dialogButton(bakeryQuestion.confirmLabel), "no Delete on the question").click()
         XCTAssertTrue(run.rowIsGone(bakery), "Delete left the Corner Bakery row")
-        let undoBar = run.app.staticTexts[UndoOffer.Words.deleted(bakery, "$12.00")]
+        let undoBar = run.app.staticTexts[UndoOffer.Words.deleted(bakery, bakeryAmount.display)]
         XCTAssertTrue(undoBar.waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
         run.syncAndWait()
         let deleted = try await second.waitUntilDeleted(bakery, inGroup: added)
@@ -392,7 +528,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(undoBar.exists, "the sync took the Undo bar away. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-09
-        // 25. Undo brings nothing back. The bar goes, and the app says this
+        // 11. Undo brings nothing back. The bar goes, and the app says this
         // can't be undone now, since he can view the group but not change
         // it. OK closes that, and Corner Bakery stays deleted.
         run.click(AccessibilityID.undoButton)
@@ -404,7 +540,7 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.rowIsGone(bakery, timeout: 5), "Undo brought Corner Bakery back")
 
         // Scenario BUDGET-13
-        // 26. At View, Leave… asks without the two sentences about changes
+        // 12. At View, Leave… asks without the two sentences about changes
         // not synced yet. Leave takes the group from his list, and Leslie
         // keeps it, with Hilltop Grocery and Market.
         let leaveAtView = PendingDelete.group(BudgetGroup(name: added), budgets: 1, transactions: 2,
@@ -421,96 +557,62 @@ final class WhoMayGapTests: XCTestCase {
             XCTAssertNoThrow(try second.entry(merchant, inGroup: added), "Leslie lost \(merchant)")
         }
 
-        // 27. Leslie makes a group with Hilltop Grocery, $42.00, and a link
-        // that shows only what is added from now on. Robin joins and opens
-        // its budget.
-        let newLink = try await second.shareNewGroup(fromNow, budget: treats, entry: hilltop,
-                                                     amount: Money(minorUnits: 4200), myName: "Leslie", role: .add,
-                                                     history: .fromNow)
-        run.join(newLink.url, as: "Robin")
-        run.openBudget(named: treats)
-
-        // Scenario SHARE-13
-        // 28. Hilltop Grocery is not in his list, and the budget's wheel
-        // leaves it out: nothing is spent.
-        run.expect(wheel: AccessibilityID.budgetWheel, reads: TodaysBudget(limit: 50_000, spent: 0).wheel.spokenSummary,
-                   "the budget, with what came before the link left out")
-        XCTAssertTrue(run.rowIsGone(hilltop, timeout: 3), "Hilltop Grocery shows. On screen: \(run.visibleTexts())")
-
-        // Scenario SHARE-13
-        // 29. Costco, which Leslie adds after he joined, reaches him at his
-        // next sync, and the wheel counts it.
-        try await second.addEntry(costco, amount: Money(minorUnits: 9900), inBudget: treats, group: fromNow)
-        run.syncNow()
-        XCTAssertTrue(run.entryRow(costco).waitForExistence(timeout: 60),
-                      "Costco did not arrive. On screen: \(run.visibleTexts())")
-        run.expect(wheel: AccessibilityID.budgetWheel,
-                   reads: TodaysBudget(limit: 50_000, spent: 9_900).wheel.spokenSummary, "the budget, with Costco")
-
-        // Scenario SHARE-13
-        // 30. Leslie changes Hilltop Grocery, then adds Market. Once Market
-        // reaches him, Hilltop Grocery is still not there, and the wheel
-        // counts Costco and Market only.
-        try await second.changeEntry(hilltop, inGroup: fromNow, amount: "43.00")
-        try await second.addEntry(market, amount: Money(minorUnits: 950), inBudget: treats, group: fromNow)
-        run.syncNow()
-        XCTAssertTrue(run.entryRow(market).waitForExistence(timeout: 60),
-                      "Market did not arrive. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.rowIsGone(hilltop, timeout: 3),
-                      "Hilltop Grocery showed once Leslie changed it. On screen: \(run.visibleTexts())")
-        run.expect(wheel: AccessibilityID.budgetWheel,
-                   reads: TodaysBudget(limit: 50_000, spent: 10_850).wheel.spokenSummary,
-                   "the budget, with Costco and Market")
-
-        // 31. Robin shares his own group, and Leslie joins it. Once his app
-        // syncs, his list says who added each entry: You, for his own.
-        run.openBudget(named: rent)
-        let mineLink = try run.share(group: mine, myName: "Robin", role: .add)
-        let joined = try await second.join(mineLink, as: "Leslie")
-        let his = try second.entry(hilltop, inGroup: mine)
-        let you = joined.addedBy(his, me: his.createdBy)
-        run.syncNow()
-        XCTAssertTrue(run.listText(you).waitForExistence(timeout: 60),
-                      "the list does not say who added each entry. On screen: \(run.visibleTexts())")
-
-        // Scenario BUDGET-12
-        // 32. Delete… asks first, saying the group is deleted for everyone
-        // in it, with its 1 budget and 2 transactions. Delete takes it away,
-        // from Leslie too.
-        let forEveryone = PendingDelete.group(BudgetGroup(name: mine), budgets: 1, transactions: 2, reach: .everyone)
-        run.expectQuestion(from: mine, item: delete, title: forEveryone.title, message: forEveryone.message,
-                           buttons: [forEveryone.confirmLabel, cancel])
-        try XCTUnwrap(run.dialogButton(forEveryone.confirmLabel), "no Delete on the question").click()
-        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.sidebarGroup(mine)), until: "exists == false",
-                               timeout: 10), "the group stayed in his list")
-        let gone = try await second.waitUntilGone(mine)
-        XCTAssertTrue(gone, "Leslie still has Robin's group")
-
-        // 33. Tidy: Robin's session ends. Then Leslie deletes her groups for
+        // 13. Tidy: Robin's session ends. Then Leslie deletes her group for
         // everyone, and her session ends.
         run.signOut()
-        for name in [managed, viewed, added, fromNow] { await second.deleteGroup(named: name) }
+        await second.deleteGroup(named: added)
         await second.cleanUp()
     }
 
-    /// Waits until the window's first timed sync, two minutes after it
-    /// opened, is at least 20 seconds away or 15 seconds past.
+    // MARK: - The window's timed syncs
+
+    /// When the window's timed sync number `tick` can start, in seconds
+    /// after `opened`, and when it is surely done. The timer starts as the
+    /// window opens, a few seconds before `opened`, and each tick comes two
+    /// minutes after the last one's sync ends. So a tick can start up to ten
+    /// seconds before its two minutes are up, and drifts later by up to five
+    /// seconds for each tick before it. Its sync takes up to fifteen seconds.
     @MainActor
-    private static func waitClearOfTheFirstTimedSync(afterOpening opened: Date) async throws {
-        let firstTimedSync = opened.addingTimeInterval(TimeInterval(AutoSync.defaultInterval.components.seconds))
-        let clear = firstTimedSync.addingTimeInterval(15)
-        guard Date() > firstTimedSync.addingTimeInterval(-20), Date() < clear else { return }
-        try await Task.sleep(for: .seconds(clear.timeIntervalSinceNow))
+    private static func timedSync(_ tick: Int) -> (soonest: TimeInterval, done: TimeInterval) {
+        let interval: TimeInterval = TimeInterval(AutoSync.defaultInterval.components.seconds)
+        let due: TimeInterval = TimeInterval(tick) * interval
+        let drift: TimeInterval = TimeInterval(tick) * 5
+        return (soonest: due - 10, done: due + drift + 15)
     }
 
-    /// Waits until 20 seconds after the window's next timed sync.
+    /// Waits while one of the window's timed syncs could be running now, or
+    /// start within the next `seconds`, until it is surely done.
+    @MainActor
+    private static func waitClearOfTheTimedSyncs(afterOpening opened: Date, for seconds: TimeInterval) async throws {
+        var tick = 1
+        while true {
+            let now: TimeInterval = Date().timeIntervalSince(opened)
+            let sync = timedSync(tick)
+            if now >= sync.done {
+                tick += 1
+            } else if now + seconds <= sync.soonest {
+                return
+            } else {
+                let wait: TimeInterval = sync.done - now
+                print("WHOMAY waiting \(Int(wait)) s for timed sync \(tick) to pass")
+                try await Task.sleep(for: .seconds(wait))
+            }
+        }
+    }
+
+    /// Waits until a timed sync of the window's that started after now is
+    /// surely done.
     @MainActor
     private static func waitPastTheNextTimedSync(afterOpening opened: Date) async throws {
-        let interval = TimeInterval(AutoSync.defaultInterval.components.seconds)
-        let ticks = (Date().timeIntervalSince(opened) / interval).rounded(.down) + 1
-        let past = opened.addingTimeInterval(ticks * interval + 20)
-        try await Task.sleep(for: .seconds(max(0, past.timeIntervalSinceNow)))
+        let now: TimeInterval = Date().timeIntervalSince(opened)
+        var tick = 1
+        while timedSync(tick).soonest <= now { tick += 1 }
+        let wait: TimeInterval = timedSync(tick).done - now
+        print("WHOMAY waiting \(Int(wait)) s for timed sync \(tick)")
+        try await Task.sleep(for: .seconds(wait))
     }
+
+    // MARK: - Names
 
     /// Part of each name, so runs never share one.
     private static func stamp() -> String {
