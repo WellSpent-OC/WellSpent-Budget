@@ -32,6 +32,21 @@ title: "Side quest: Delete a group"
 3. ![A thumb taps Delete in the question](../assets/shots/delete-a-group-iphone-3.svg)
    Tap **Delete** in the question.
 
+## On Linux
+
+1. ![Press ⋯ beside the group's name in the sidebar](../assets/shots/delete-a-group-linux-1.svg)
+   Press **⋯** beside the group's name in the sidebar.
+
+2. ![Pick Delete](../assets/shots/delete-a-group-linux-2.svg)
+   Pick **Delete…**
+
+   > You see a question that names the group, and how many budgets and transactions go with it.
+
+3. ![Press Delete in the question](../assets/shots/delete-a-group-linux-3.svg)
+   Press **Delete** in the question.
+
+   > You see the group gone from your sidebar.
+
 ## If it doesn't work
 
 - **The menu says Leave…, not Delete…:** someone else made the group. You can leave it. [Side quest: Leave a group](../sharing/leave-a-group.md)

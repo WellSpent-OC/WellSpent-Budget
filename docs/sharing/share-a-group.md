@@ -66,6 +66,37 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 
    > Once it's sent or copied, the Share sheet closes. If you close the share options without sending, tap **Send** to open them again.
 
+## On Linux
+
+1. ![Press ⋯ beside HOME in the sidebar](../assets/shots/share-a-group-linux-1.svg)
+   Press **⋯** beside **HOME** in the sidebar.
+
+2. ![Pick Share](../assets/shots/share-a-group-linux-2.svg)
+   Pick **Share…**
+
+3. ![Type your name in Your name](../assets/shots/share-a-group-linux-3.svg)
+   Type your name in **Your name**. This is the name the group sees.
+
+4. ![Under They can, pick View, Add or Manage](../assets/shots/share-a-group-linux-4.svg)
+   Under **They can**, pick **View**, **Add** or **Manage**. The line under it says what that level can do.
+
+5. ![Under They see, pick Everything so far or Only from now on](../assets/shots/share-a-group-linux-5.svg)
+   Under **They see**, pick **Everything so far** or **Only from now on**.
+
+6. ![Press Create Link](../assets/shots/share-a-group-linux-6.svg)
+   Press **Create Link**.
+
+   > You see the link, and that it works once and expires in 7 days.
+
+7. ![Press Copy Link](../assets/shots/share-a-group-linux-7.svg)
+   Press **Copy Link**.
+
+8. ![Press Done](../assets/shots/share-a-group-linux-8.svg)
+   Press **Done**.
+
+9. ![Paste the link into an email or a text to them, and send it](../assets/shots/share-a-group-linux-9.svg)
+   Paste the link into an email or a text to them, and send it.
+
 ## If it doesn't work
 
 - **"Sign in first. Sharing goes through your account.":** sign in, and try again.

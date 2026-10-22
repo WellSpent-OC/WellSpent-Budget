@@ -32,4 +32,10 @@ Email not confirmed yet? A line says why, with **Confirm your email…**
 5. **Sign out everywhere**: sign out on every device at once. It asks first, and each device keeps its budgets.
 6. How your budgets sync: "Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets. That's how it checks who may change what, and why resetting a forgotten password doesn't lose your budgets."
 
+Email not confirmed yet? A line says why, with **Confirm your email**. Tap it, then **Send a code**, type the code in **Code**, and tap **Confirm** at the top right.
+
+## On Linux
+
+The window is the same as on a Mac. **Change password…**, **Sign out** and **Sign out everywhere…** sit in one row. **Account** is at the bottom of the sidebar.
+
 <!-- Scenarios: ACCT-05, ACCT-07, ACCT-11, ACCT-12 -->

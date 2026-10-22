@@ -36,4 +36,20 @@ title: "Side quest: Rename a group"
 4. ![A thumb taps Save](../assets/shots/rename-a-group-iphone-4.svg)
    Tap **Save**.
 
+## On Linux
+
+1. ![Press ⋯ beside the group's name in the sidebar](../assets/shots/rename-a-group-linux-1.svg)
+   Press **⋯** beside the group's name in the sidebar.
+
+2. ![Pick Rename](../assets/shots/rename-a-group-linux-2.svg)
+   Pick **Rename…**
+
+3. ![Type a new name in Name](../assets/shots/rename-a-group-linux-3.svg)
+   Type a new name in **Name**.
+
+4. ![Press Save](../assets/shots/rename-a-group-linux-4.svg)
+   Press **Save**.
+
+   > You see the new name in the sidebar, in capital letters.
+
 <!-- Scenarios: BUDGET-02, BUDGET-07 -->

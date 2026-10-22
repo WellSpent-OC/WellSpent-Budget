@@ -46,6 +46,25 @@ On a Mac, Command-N opens **New transaction**, Return adds it, and Escape closes
 
    > You see your transaction in the list, and what's spent goes up.
 
+## On Linux
+
+1. ![A hand clicks Groceries in the sidebar](../assets/shots/add-your-first-transaction-linux-1.svg)
+   Click **Groceries** in the sidebar.
+
+2. ![A hand presses Add at the top of the budget's page](../assets/shots/add-your-first-transaction-linux-2.svg)
+   Press **Add** at the top of the budget's page.
+
+3. ![A hand types in Merchant](../assets/shots/add-your-first-transaction-linux-3.svg)
+   Click **Merchant**, and type where you spent the money.
+
+4. ![A hand types 12.50 in Amount](../assets/shots/add-your-first-transaction-linux-4.svg)
+   Click **Amount**, and type how much, like 12.50. Leave **Date** as today.
+
+5. ![A hand presses Add](../assets/shots/add-your-first-transaction-linux-5.svg)
+   Press **Add**.
+
+   > You see your transaction in the list, marked **Manual**. What's spent goes up.
+
 ## If it doesn't work
 
 - **Add stays dimmed:** **Merchant** and **Amount** both need something. Type the amount as a number.

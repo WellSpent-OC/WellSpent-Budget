@@ -62,4 +62,11 @@ Scroll down for the budget's transactions, newest on top.
 5. **Sam**: who added it, in a shared group.
 6. **Add**: add a transaction.
 
+## On Linux
+
+The page is the same as on a Mac, with two differences:
+
+- **Import statement**, **Add**, **Edit…** and **Delete…** are buttons with words, at the top right. **Edit…** and **Delete…** show at the Manage level or higher.
+- **Sync** and **Account** are at the bottom of the sidebar, not on the page. Signed out, it's **Sign in**.
+
 <!-- Scenarios: BUDGET-09, BUDGET-14, BUDGET-15, WHEEL-05, WHEEL-06, WHEEL-07, WHEEL-08, WHEEL-09, WHEEL-10, ENTRY-01, ENTRY-08, ENTRY-10, IMPORT-14, EDIT-01 -->

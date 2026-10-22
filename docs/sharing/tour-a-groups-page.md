@@ -44,7 +44,7 @@ Tap a group's name on Home, and its page opens. Shown here as an Admin sees it.
 4. **Robin**: a person in the group. Your own row says **(you)**.
 5. The line under a name: what that person's level lets them do.
 6. **Owner**: their level. The Owner is the person who made the group.
-7. The arrow: open that person, to change their level or remove them. It shows only on rows you may change.
+7. The arrow: open that person, to change their level or remove them. It shows only on rows you may change. An Admin's own row has one too, to change their own level.
 8. **Leave Group**: leave the group. The others keep it. The person who made a group deletes it instead.
 9. **Invite Someone**: share the group. It shows at the Manage level or higher. [Quest 7](share-a-group.md)
 
@@ -63,5 +63,9 @@ Tap the arrow on a person's row, and their page opens.
 5. **Remove**: take them out of the group. What they added stays. It asks first.
 
 You see only the levels you may give. Only the Owner or an Admin can make someone an Admin.
+
+## On Linux
+
+The page is the same as on a Mac, except **Sync** and **Account** are at the bottom of the sidebar, not on the page.
 
 <!-- Scenarios: WHEEL-11, WHEEL-12, PAGE-01, PAGE-02, PAGE-06, PAGE-08, PAGE-09, PAGE-10, PAGE-11, PAGE-12, PAGE-13, PAGE-14, SHARE-16 -->

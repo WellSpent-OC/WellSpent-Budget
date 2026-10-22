@@ -1,8 +1,8 @@
 ---
-title: "Tour: The sidebar"
+title: "Tour: The sidebar, and Home on an iPhone"
 ---
 
-# Tour: The sidebar
+# Tour: The sidebar, and Home on an iPhone
 
 > *Your map of the realm. Every group and budget lives here.*
 
@@ -58,5 +58,14 @@ On an iPhone, Home takes the sidebar's place. Shown here signed in.
 9. **+**: a menu with **Add Budget**, **New Group** and **Join a Group**.
 
 A group's menu has the same items as on a Mac, plus **Hide budgets**.
+
+## On Linux
+
+The sidebar is the same as on a Mac, with these differences:
+
+- **⋯**, beside a group's name, opens the group's menu. There's no right-click menu. Clicking the group's name opens its page.
+- A budget has no menu in the sidebar. Its **Edit…** and **Delete…** are buttons at the top of its page.
+- **More**, beside **Add Budget**, holds **New Group…** and **Join a Group…**
+- At the bottom: **Sign in**, or **Account** and **Sync** when you're signed in.
 
 <!-- Scenarios: BUDGET-01, BUDGET-02, BUDGET-03, BUDGET-06, BUDGET-08, BUDGET-11, BUDGET-13, PAGE-02, PAGE-05, WHEEL-01, WHEEL-02, WHEEL-03, SHARE-01, SHARE-07, ACCT-01 -->

@@ -44,6 +44,26 @@ On an iPhone, Home starts with your first group's wheel, with what's left of the
 4. ![A thumb taps Save](../assets/shots/change-a-budget-from-its-wheel-iphone-4.svg)
    Tap **Save**.
 
+## On Linux
+
+1. ![A hand clicks Gas in the sidebar](../assets/shots/change-a-budget-from-its-wheel-linux-1.svg)
+   Click a budget in the sidebar.
+
+   > You see the budget's wheel.
+
+2. ![A hand presses Edit Budget beside the pace words](../assets/shots/change-a-budget-from-its-wheel-linux-2.svg)
+   Press **Edit Budget…**
+
+3. ![A hand types a new amount in Each month](../assets/shots/change-a-budget-from-its-wheel-linux-3.svg)
+   Type a new amount in **Each month**.
+
+4. ![A hand presses Save](../assets/shots/change-a-budget-from-its-wheel-linux-4.svg)
+   Press **Save**.
+
+   > You see the wheel drawn again for the new amount.
+
+Any day, **Edit…** at the top of the budget's page changes it too.
+
 ## If it doesn't work
 
 - **There's no Edit Budget…:** it shows only when the wheel has something to say, and only at the Manage level or higher. Any day, **Edit…** on the budget's menu changes it too.

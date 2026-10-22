@@ -34,6 +34,19 @@ You can also swipe a transaction to the left, or touch and hold it, and tap **Ed
 3. ![A thumb taps Save](../assets/shots/change-or-move-a-transaction-iphone-3.svg)
    Tap **Save**.
 
+## On Linux
+
+1. ![A hand clicks a transaction in a budget's list](../assets/shots/change-or-move-a-transaction-linux-1.svg)
+   Click the transaction in the budget's list.
+
+2. ![A hand changes the Amount](../assets/shots/change-or-move-a-transaction-linux-2.svg)
+   Click what's wrong, and change it: **Merchant**, **Amount**, **Date** or **Note**. For **Date**, use the arrows to reach the month, then click the day. To move it, pick another budget in **Budget**.
+
+3. ![A hand presses Save](../assets/shots/change-or-move-a-transaction-linux-3.svg)
+   Press **Save**.
+
+   > You see the change in the list, and the budget's totals follow at once.
+
 ## If it doesn't work
 
 - **Save stays dimmed:** nothing has changed yet, or **Merchant** is empty, or **Amount** isn't a number.

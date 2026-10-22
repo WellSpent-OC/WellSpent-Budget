@@ -16,5 +16,9 @@ There's no bank connection. You download a statement from your bank yourself, so
 
    > You see the file in your **Downloads** folder.
 
+## On Linux
+
+On Linux, the steps are the same as on a Mac.
+
 Then bring it in: [Quest 6: Bring in your first statement](bring-in-your-first-statement.md)
 

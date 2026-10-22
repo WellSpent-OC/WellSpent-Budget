@@ -4,7 +4,7 @@ title: "Stop using WellSpent"
 
 # Stop using WellSpent
 
-These steps take WellSpent off a Mac. On an iPhone, see the end of this page. Your account stays until you ask us to delete it.
+These steps take WellSpent off a Mac. On an iPhone or Linux, see the end of this page. Your account stays until you ask us to delete it.
 
 1. ![A hand picks Leave on a group's menu](../assets/shots/stop-using-wellspent-1.svg)
    Leave each shared group first, so the others see you've gone. [Side quest: Leave a group](../sharing/leave-a-group.md)
@@ -28,5 +28,19 @@ These steps take WellSpent off a Mac. On an iPhone, see the end of this page. Yo
 Leave your shared groups and sign out first, as above. Then, in the TestFlight app, open WellSpent Budget, and tap **Stop Testing**. To remove the app, touch and hold its icon on the iPhone's Home Screen, tap **Remove App**, then **Delete App**.
 
 Budgets kept only on this iPhone are deleted with the app, for good. To keep them, make an account before you delete the app. The groups you made move into your account, and the server keeps them. [Quest 2: Make your account](../getting-started/make-your-account.md)
+
+## On Linux
+
+1. ![A hand picks Leave on a group's menu](../assets/shots/stop-using-wellspent-linux-1.svg)
+   Leave each shared group first, so the others see you've gone. [Side quest: Leave a group](../sharing/leave-a-group.md)
+
+2. ![A hand presses Sign out](../assets/shots/stop-using-wellspent-linux-2.svg)
+   Press **Account** at the bottom of the sidebar, then **Sign out**.
+
+3. In a terminal, type `cd ~/Downloads/wellspent` and press **Enter**. That's the folder you unpacked WellSpent into. Then type `./install.sh --remove` and press **Enter**.
+
+   > You see "WellSpent is removed. Your budgets are still in" and the folder they're in, usually `~/.local/share/WellSpent`.
+
+Your budgets stay in that folder. Delete it to remove them from this computer. Your account stays on WellSpent's server until you ask us to delete it, at **dev@wellspent.space**.
 
 <!-- Scenarios: SHARE-15, ACCT-11, SAMP-03 -->

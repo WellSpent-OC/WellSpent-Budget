@@ -30,6 +30,19 @@ This signs out every device signed in to your account, this one too. Each device
 3. ![A thumb taps Sign Out Everywhere in the question](../assets/shots/sign-out-everywhere-iphone-3.svg)
    Tap **Sign Out Everywhere** in the question.
 
+## On Linux
+
+1. ![A hand presses Account at the bottom of the sidebar](../assets/shots/sign-out-everywhere-linux-1.svg)
+   Press **Account** at the bottom of the sidebar.
+
+2. ![A hand presses Sign out everywhere](../assets/shots/sign-out-everywhere-linux-2.svg)
+   Press **Sign out everywhere…**
+
+3. ![A hand presses Sign Out Everywhere in the question](../assets/shots/sign-out-everywhere-linux-3.svg)
+   Press **Sign Out Everywhere** in the question.
+
+   > You see **Kept on this computer only** at the bottom of the sidebar. Every other device asks you to sign in again at its next sync.
+
 ## If it doesn't work
 
 - **"This computer is not connected to the internet."** (on an iPhone, **"This iPhone is not connected to the internet."**): signing out everywhere needs the internet. You stay signed in until it works. Connect, and try again.

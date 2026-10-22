@@ -30,4 +30,19 @@ title: "Side quest: Delete a budget"
 3. ![A thumb taps Delete in the question](../assets/shots/delete-a-budget-iphone-3.svg)
    Tap **Delete** in the question.
 
+## On Linux
+
+1. ![Click the budget in the sidebar](../assets/shots/delete-a-budget-linux-1.svg)
+   Click the budget in the sidebar.
+
+2. ![Press Delete, at the top of its page](../assets/shots/delete-a-budget-linux-2.svg)
+   Press **Delete…**, at the top of its page.
+
+   > You see a question that names the budget, and how many transactions go with it.
+
+3. ![Press Delete in the question](../assets/shots/delete-a-budget-linux-3.svg)
+   Press **Delete** in the question.
+
+   > You see the budget gone from your sidebar.
+
 <!-- Scenarios: BUDGET-07, BUDGET-08 -->

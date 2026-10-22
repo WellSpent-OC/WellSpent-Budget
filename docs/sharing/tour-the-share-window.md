@@ -40,4 +40,8 @@ title: "Tour: The Share window"
 6. **Create Link**: make the invite link, and open the iPhone's share options with it, to send it by text or email, or to copy it. If you close them without sending, the button says **Send**. Tap it to open them again.
 7. **You get a link to send by text or email.**: how the link travels. Once the link is made, this line says it works once and expires in 7 days.
 
+## On Linux
+
+The same window, with each label above its box. After **Create Link** there's no **Send…**: press **Copy Link**, and paste the link into a message.
+
 <!-- Scenarios: SHARE-01, SHARE-02, SHARE-03, SHARE-04, SHARE-05, SHARE-06, SHARE-13 -->

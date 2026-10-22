@@ -28,6 +28,16 @@ Signing out works even with no internet.
 
    > You see **Kept on this iPhone only** at the bottom of Home.
 
+## On Linux
+
+1. ![A hand presses Account at the bottom of the sidebar](../assets/shots/sign-out-linux-1.svg)
+   Press **Account** at the bottom of the sidebar.
+
+2. ![A hand presses Sign out](../assets/shots/sign-out-linux-2.svg)
+   Press **Sign out**.
+
+   > You see **Kept on this computer only** at the bottom of the sidebar. Your account's budgets are hidden until you sign in again.
+
 ## Related
 
 - [Side quest: Sign out on every device](sign-out-everywhere.md)

@@ -10,6 +10,10 @@ Sync runs on its own. It runs a moment after you make a change, and every two mi
 
 Everyone in a shared group sees each new transaction at their next sync, with the name of whoever added it.
 
+## On Linux
+
+Sync runs on its own, a moment after you make a change and every two minutes while WellSpent is open. It doesn't run when you come back to WellSpent's window. To see a change right away, press **Sync** at the bottom of the sidebar.
+
 ## Related
 
 - [Use WellSpent offline](../help/use-wellspent-offline.md)

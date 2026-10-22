@@ -20,6 +20,10 @@ WellSpent doesn't connect to your bank, so your bank login stays with you. You b
 
 WellSpent's code is open source, so anyone can read it and check what the app does.
 
+## On Linux
+
+Everything on this page is the same on Linux.
+
 ## Related
 
 - [Side quest: Share a group](../sharing/share-a-group.md)

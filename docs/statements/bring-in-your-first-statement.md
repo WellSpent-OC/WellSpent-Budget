@@ -54,6 +54,25 @@ Skip deposits, transfers and payments to your card: leave them on **Choose**.
 
    > You see the new lines in your budgets.
 
+## On Linux
+
+1. ![A hand clicks Groceries in the sidebar](../assets/shots/import-a-bank-statement-linux-1.svg)
+   Click a budget in the group the statement is for.
+
+2. ![A hand presses Import statement](../assets/shots/import-a-bank-statement-linux-2.svg)
+   Press **Import statement** at the top of the budget's page.
+
+3. ![A hand picks statement.csv and presses Open](../assets/shots/import-a-bank-statement-linux-3.svg)
+   Pick your statement file, then press **Open**. It's usually in **Downloads**.
+
+4. ![A hand picks a budget from a line's menu](../assets/shots/import-a-bank-statement-linux-4.svg)
+   For each line marked **Needs a budget**, pick a budget from its menu. To skip a line, leave it on **Choose**. If a line's budget goes back to **Choose**, pick it again before pressing **Import**.
+
+5. ![A hand presses Import](../assets/shots/import-a-bank-statement-linux-5.svg)
+   Press **Import**.
+
+   > You see the new lines in your budgets, marked **Statement**.
+
 ## If it doesn't work
 
 - **WellSpent can't read the file:** download it again from your bank as another type, and try again.

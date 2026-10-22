@@ -14,6 +14,10 @@ WellSpent reads statement files saved as CSV (comma-separated values), OFX (Open
 
 Still stuck? Write to **dev@wellspent.space** with your bank's name and the type of file you tried. Don't send the file itself, because it has your bank details.
 
+## On Linux
+
+The messages and the fixes are the same on Linux.
+
 ## Related
 
 - [Side quest: Download a statement from your bank](download-a-statement.md)

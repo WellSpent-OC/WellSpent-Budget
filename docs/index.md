@@ -10,9 +10,14 @@ WellSpent Budget is a budgeting app you share. Run the money for your home and y
 
 It's an early test version. Some things aren't built yet, and some things may break.
 
+WellSpent runs on a Mac, an iPhone or a Linux computer. Each page has the steps for all three.
+
 ## Start here: the main quests
 
-1. [Get WellSpent on your Mac or iPhone](getting-started/get-wellspent-on-a-mac.md)
+1. Get WellSpent
+   - [On a Mac](getting-started/get-wellspent.md#on-a-mac)
+   - [On an iPhone](getting-started/get-wellspent.md#on-an-iphone)
+   - [On Linux](getting-started/get-wellspent.md#on-linux)
 2. [Make your account](getting-started/make-your-account.md)
 3. [Make your first group](budgets/make-your-first-group.md)
 4. [Make your first budget](budgets/make-your-first-budget.md)

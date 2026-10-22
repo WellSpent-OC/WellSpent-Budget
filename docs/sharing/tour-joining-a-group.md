@@ -51,4 +51,8 @@ Tap **+** at the bottom right of Home, then **Join a Group**, and this sheet ope
 3. **Invite link**: paste the link here. Then you see who invited you, and to which group.
 4. **Your name**: the name the group sees.
 
+## On Linux
+
+**Join a Group…** is in the **More** menu, next to **Add Budget**. The window is the same, with each label above its box. A clicked invite link opens the same invitation page, with **Your name** beside its box.
+
 <!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, CLICK-01, CLICK-03, CLICK-04 -->

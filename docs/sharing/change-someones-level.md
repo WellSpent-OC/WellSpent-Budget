@@ -37,6 +37,27 @@ title: "Side quest: Change someone's level, or remove them"
 3. ![A thumb picks a level](../assets/shots/change-someones-level-iphone-3.svg)
    Under **Can**, pick the new level. Or tap **Remove**, then **Remove** again, to take them out of the group.
 
+## On Linux
+
+1. ![A hand clicks the group's name in the sidebar](../assets/shots/change-someones-level-linux-1.svg)
+   Click the group's name in the sidebar.
+
+   > You see the group's page, with PEOPLE.
+
+2. ![A hand picks a level in a person's level list](../assets/shots/change-someones-level-linux-2.svg)
+   To change a level, pick the new one in the person's level list.
+
+   > You see the line under their name change, to say what the new level can do.
+
+3. ![A hand presses Remove](../assets/shots/change-someones-level-linux-3.svg)
+   To take someone out of the group, press **Remove…** in their row.
+
+4. ![A hand presses Remove in the question](../assets/shots/change-someones-level-linux-4.svg)
+   Press **Remove** in the question.
+
+   > You see their row gone. What they added stays in the group.
+
+
 ## Related
 
 - [What each level can do](what-each-level-can-do.md)

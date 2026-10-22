@@ -41,4 +41,8 @@ Tap **⋯** on a budget's page, then **Import statement**, and pick your file. T
 13. **Choose**: pick a budget for a line that needs one. Leave it on **Choose** to skip the line.
 14. **Read on this iPhone. Nothing is sent until you add it.**: your iPhone reads the file. Nothing goes in until you tap **Import**.
 
+## On Linux
+
+The review is the same as on a Mac. If a line's budget goes back to **Choose**, pick it again before pressing **Import**.
+
 <!-- Scenarios: IMPORT-01, IMPORT-02, IMPORT-03, IMPORT-04, IMPORT-05, IMPORT-06, IMPORT-07, IMPORT-12 -->

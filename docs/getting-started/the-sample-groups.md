@@ -34,6 +34,19 @@ If you sign in to an account you made on another computer, the samples hide. The
 3. ![A thumb taps Delete in the question](../assets/shots/the-sample-groups-iphone-3.svg)
    Tap **Delete** in the question.
 
+## On Linux
+
+1. ![A hand presses the button beside HOUSEHOLD in the sidebar](../assets/shots/the-sample-groups-linux-1.svg)
+   Press **⋯** beside **HOUSEHOLD** in the sidebar.
+
+2. ![A hand picks Delete](../assets/shots/the-sample-groups-linux-2.svg)
+   Pick **Delete…**
+
+3. ![A hand presses Delete in the question](../assets/shots/the-sample-groups-linux-3.svg)
+   Press **Delete** in the question.
+
+   > You see HOUSEHOLD gone from the sidebar.
+
 ## If it doesn't work
 
 - **The menu has only Edit… and Delete…, and the question names a budget:** that's a budget's menu. Press **Cancel**, and right-click the group's name instead. It's in capital letters.

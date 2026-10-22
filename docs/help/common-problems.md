@@ -11,5 +11,6 @@ title: "Common problems"
 - **I typed an amount wrong:** [Side quest: Change or move a transaction](../transactions/change-or-move-a-transaction.md)
 - **A statement won't import:** [Side quest: When a statement won't import](../statements/when-a-statement-wont-import.md)
 - **Sync says it couldn't reach the server:** [Use WellSpent offline](use-wellspent-offline.md)
+- **WellSpent isn't in my app menu on Linux:** see "If it doesn't work" in [Quest 1: Get WellSpent](../getting-started/get-wellspent.md#if-it-doesnt-work).
 - **Something else:** [Report a problem](report-a-problem.md)
 

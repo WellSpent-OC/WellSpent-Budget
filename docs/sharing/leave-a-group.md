@@ -32,9 +32,22 @@ To come back, ask someone in the group for a new invite link.
 3. ![A thumb taps Leave in the question](../assets/shots/leave-a-group-iphone-3.svg)
    Tap **Leave** in the question.
 
+## On Linux
+
+1. ![Press ⋯ beside the group's name in the sidebar](../assets/shots/leave-a-group-linux-1.svg)
+   Press **⋯** beside the group's name in the sidebar.
+
+2. ![Pick Leave](../assets/shots/leave-a-group-linux-2.svg)
+   Pick **Leave…**
+
+3. ![Press Leave in the question](../assets/shots/leave-a-group-linux-3.svg)
+   Press **Leave** in the question.
+
+   > You see the group gone from your sidebar.
+
 ## If it doesn't work
 
-- **The menu says Delete…, not Leave…:** you're an Admin. To leave without deleting it, click the group's name, and press **Leave Group…** on its page.
+- **The menu says Delete…, not Leave…:** you're an Admin. To leave without deleting it, click the group's name, and press **Leave Group…** on its page. On an iPhone, tap the group's name, then **Leave Group** at the end of its page.
 - **There's no way to leave:** whoever made a group can't leave it. They can delete it for everyone.
 
 ## Related

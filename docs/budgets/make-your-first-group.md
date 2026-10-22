@@ -38,6 +38,22 @@ A group holds budgets you track together. It's also what you share with someone 
 
    > You see **HOME** on Home.
 
+## On Linux
+
+1. ![Press More, next to Add Budget at the bottom of the sidebar](../assets/shots/make-your-first-group-linux-1.svg)
+   Press **More**, next to **Add Budget** at the bottom of the sidebar.
+
+2. ![Pick New Group](../assets/shots/make-your-first-group-linux-2.svg)
+   Pick **New Group…**
+
+3. ![Type a name in Name, like Home](../assets/shots/make-your-first-group-linux-3.svg)
+   Type a name in **Name**, like Home.
+
+4. ![Press Add](../assets/shots/make-your-first-group-linux-4.svg)
+   Press **Add**.
+
+   > You see **HOME** in the sidebar.
+
 ## If it doesn't work
 
 - **A New Budget window opens:** press **Cancel**. Then click the small arrow, not the words **Add Budget**.

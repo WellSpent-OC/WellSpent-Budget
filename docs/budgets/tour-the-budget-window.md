@@ -23,4 +23,8 @@ title: "Tour: The budget window"
 
 **New Budget** under a group on Home, or **Add Budget** in the **+** menu, opens the same fields in a sheet. **Cancel** is at the top left, and **Add** at the top right. **Group** always shows for a new budget: pick from the groups you manage, with the group you started from already chosen. With no group to put it in, **Group** is a box with Personal filled in, and **Add** makes that group too. **Edit** on a budget opens it as **Edit Budget**, with **Save**, and a red **Delete** at the bottom.
 
+## On Linux
+
+The same window, with each label above its box. **Group** is a list, and shows when you can pick from more than one group. With no group of your own to put it in, **Group** is a box with Personal filled in, and **Add** makes that group too. **Edit…** at the top of a budget's page opens it as **Edit Budget**, with **Save**.
+
 <!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-05, BUDGET-06 -->

@@ -40,6 +40,22 @@ Budgets made on this computer while signed out stay hidden while you're signed i
 
    > You see your account's budgets on Home.
 
+## On Linux
+
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/sign-in-linux-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
+
+2. ![A hand clicks Email and types](../assets/shots/sign-in-linux-2.svg)
+   Click **Email**, and type your email.
+
+3. ![A hand clicks Password and types](../assets/shots/sign-in-linux-3.svg)
+   Click **Password**, and type your password.
+
+4. ![A hand presses Sign in](../assets/shots/sign-in-linux-4.svg)
+   Press **Sign in**.
+
+   > You see your account's budgets, and **Syncs through WellSpent's server** at the bottom of the sidebar.
+
 ## If it doesn't work
 
 - **"That email or password is wrong.":** check both, and try again. Forgot your password? [Side quest: Reset a forgotten password](reset-a-forgotten-password.md)

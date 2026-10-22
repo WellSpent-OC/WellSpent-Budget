@@ -33,4 +33,8 @@ title: "Tour: The Sign in window"
 7. **Forgot your password?**: set a new one, with a code WellSpent emails you.
 8. How your budgets sync: "Your budgets sync through WellSpent's server. Connections and backups are encrypted. The server can read your budgets. That's how it checks who may change what, and why resetting a forgotten password doesn't lose your budgets."
 
+## On Linux
+
+The window is the same as on a Mac. Each field's label sits above it. **Sign in** is at the bottom of the sidebar.
+
 <!-- Scenarios: ACCT-02, ACCT-08, ACCT-09, ACCT-10 -->

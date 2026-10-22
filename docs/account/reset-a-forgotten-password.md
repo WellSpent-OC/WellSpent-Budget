@@ -66,6 +66,38 @@ Then sign in again on your other devices. Your budgets stay.
 
    > You see "Your password is changed, and you are signed in. Every other device was signed out." Tap **Done** to go back to Home.
 
+## On Linux
+
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/reset-a-forgotten-password-linux-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
+
+2. ![A hand clicks Email and types](../assets/shots/reset-a-forgotten-password-linux-2.svg)
+   Click **Email**, and type your email.
+
+3. ![A hand presses Forgot your password](../assets/shots/reset-a-forgotten-password-linux-3.svg)
+   Press **Forgot your password?**
+
+4. ![A hand presses Send code](../assets/shots/reset-a-forgotten-password-linux-4.svg)
+   Press **Send code**.
+
+   > You see that a code is on its way, and that it lasts 30 minutes.
+
+5. Open the email whose subject starts with **Reset your WellSpent password**. The code follows in the subject.
+
+6. ![A hand clicks Code and types](../assets/shots/reset-a-forgotten-password-linux-6.svg)
+   Click **Code**, and type the code, or paste it with Ctrl+V.
+
+7. ![A hand clicks New password and types](../assets/shots/reset-a-forgotten-password-linux-7.svg)
+   Click **New password**, and type a new password of at least 10 characters.
+
+8. ![A hand clicks Confirm password and types](../assets/shots/reset-a-forgotten-password-linux-8.svg)
+   Click **Confirm password**, and type the same password.
+
+9. ![A hand presses Set password](../assets/shots/reset-a-forgotten-password-linux-9.svg)
+   Press **Set password**.
+
+   > You see "Your password is changed, and you are signed in. Every other device was signed out."
+
 ## If it doesn't work
 
 - **No code email:** check your spam or junk folder. A code goes only to an email that has an account and was confirmed. If yours was never confirmed, write to **dev@wellspent.space**.

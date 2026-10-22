@@ -84,12 +84,51 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 
     > You see **Syncs through WellSpent's server** at the bottom of Home.
 
+## On Linux
+
+1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/make-your-account-linux-1.svg)
+   Press **Sign in** at the bottom of the sidebar.
+
+2. ![A hand presses Create an account](../assets/shots/make-your-account-linux-2.svg)
+   Press **Create an account**.
+
+3. ![A hand types in Email](../assets/shots/make-your-account-linux-3.svg)
+   Click **Email**, and type your email.
+
+4. ![A hand types in Password](../assets/shots/make-your-account-linux-4.svg)
+   Click **Password**, and type a password of at least 10 characters.
+
+5. ![A hand types in Confirm password](../assets/shots/make-your-account-linux-5.svg)
+   Click **Confirm password**, and type the same password.
+
+6. ![A hand presses Create account](../assets/shots/make-your-account-linux-6.svg)
+   Press **Create account**.
+
+   > You see **Confirm your email**, and "Enter the code sent to" your email.
+
+7. ![An email with the subject Your WellSpent code](../assets/shots/make-your-account-linux-7.svg)
+   Open the email from WellSpent whose subject starts with **Your WellSpent code**. The code follows in the subject.
+
+8. ![A hand types the code in Code](../assets/shots/make-your-account-linux-8.svg)
+   Click **Code**, and type the code, or paste it with Ctrl+V.
+
+9. ![A hand presses Confirm](../assets/shots/make-your-account-linux-9.svg)
+   Press **Confirm**.
+
+   > You see "Your email is confirmed."
+
+10. ![A hand presses Done](../assets/shots/make-your-account-linux-10.svg)
+    Press **Done**.
+
+    > You see **Syncs through WellSpent's server** at the bottom of the sidebar.
+
 ## If it doesn't work
 
 - **"That email already has an account":** sign in with that email and its password instead.
 - **"That does not look like an email address."**, **"A password needs at least 10 characters."** or **"The two passwords are not the same.":** fix it, and press **Create account** again.
 - **No code email after two minutes:** check your spam or junk folder. Then press **Send another code**, and use the code in the newest email.
 - **"That code is wrong or has expired":** a code works for 24 hours, and for five tries. Press **Send another code**, and use the new one.
+- **"Unlock the key store first."** (on Linux): WellSpent keeps your sign-in in your desktop's keyring, and it's locked. Unlock it, and try again.
 
 ## Related
 

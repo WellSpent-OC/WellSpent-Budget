@@ -18,4 +18,8 @@ Only the Owner or an Admin can delete a group for everyone. Everyone else can le
 
 When you share a group, you pick View, Add or Manage. To change someone's level later, see [Side quest: Change someone's level, or remove them](change-someones-level.md).
 
+## On Linux
+
+The levels are the same on Linux.
+
 <!-- Scenarios: SHARE-01, SHARE-05, SHARE-06, SHARE-11, SHARE-12, BUDGET-07, PAGE-09, PAGE-10, PAGE-11 -->

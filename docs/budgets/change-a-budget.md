@@ -38,4 +38,22 @@ When the money wheel has something to say, **Edit Budget…** on the budget's pa
 4. ![A thumb taps Save](../assets/shots/change-a-budget-iphone-4.svg)
    Tap **Save**.
 
+## On Linux
+
+1. ![Click the budget in the sidebar](../assets/shots/change-a-budget-linux-1.svg)
+   Click the budget in the sidebar.
+
+   > You see the budget's page.
+
+2. ![Press Edit, at the top of the page](../assets/shots/change-a-budget-linux-2.svg)
+   Press **Edit…**, at the top of the page.
+
+3. ![Change Name, or Each month](../assets/shots/change-a-budget-linux-3.svg)
+   Change **Name**, or **Each month**.
+
+4. ![Press Save](../assets/shots/change-a-budget-linux-4.svg)
+   Press **Save**.
+
+   > You see the budget's new name or amount, and what's left follows at once.
+
 <!-- Scenarios: BUDGET-06, BUDGET-07 -->

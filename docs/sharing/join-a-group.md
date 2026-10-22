@@ -51,6 +51,32 @@ Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**.
 
    > You see the group's page, with its people. Tap the back arrow to go to Home, where the group now is.
 
+## On Linux
+
+1. ![Copy the link from their message](../assets/shots/join-a-group-linux-1.svg)
+   Copy the link from their message.
+
+2. ![Press More, next to Add Budget at the bottom of the sidebar](../assets/shots/join-a-group-linux-2.svg)
+   Press **More**, next to **Add Budget** at the bottom of the sidebar.
+
+3. ![Pick Join a Group](../assets/shots/join-a-group-linux-3.svg)
+   Pick **Join a Group…**
+
+4. ![Paste the link into Invite link, with Ctrl+V](../assets/shots/join-a-group-linux-4.svg)
+   Paste the link into **Invite link**, with Ctrl+V.
+
+   > You see who invited you, and the group's name.
+
+5. ![Type your name in Your name](../assets/shots/join-a-group-linux-5.svg)
+   Type your name in **Your name**.
+
+6. ![Press Join](../assets/shots/join-a-group-linux-6.svg)
+   Press **Join**.
+
+   > You see the group in your sidebar. Its budgets fill in a moment later.
+
+Or click the link in the message, even with WellSpent closed. WellSpent opens to the invite, as on a Mac.
+
 ## If it doesn't work
 
 - **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, press **Send a code**, and type the code WellSpent emails you. Then try again.

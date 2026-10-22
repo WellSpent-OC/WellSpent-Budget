@@ -27,7 +27,7 @@ At the View level, you can read a transaction but not change it. At Add, you can
 
 Tap a transaction on a budget's page, and it opens like this.
 
-![A transaction opened on an iPhone, with numbers 1 to 8](../assets/shots/tour-iphone-transaction-a.svg)
+![A transaction opened on an iPhone, with numbers 1 to 9](../assets/shots/tour-iphone-transaction-a.svg)
 
 1. **Cancel**: close without saving.
 2. **Save**: save your changes. It stays dimmed until something changes.
@@ -37,6 +37,7 @@ Tap a transaction on a budget's page, and it opens like this.
 6. **Note**: anything to remember. It shows in the budget's list.
 7. **Budget**: move it to another budget in the same group.
 8. **Delete**: delete it. It asks first, and then **Undo** shows.
+9. **Added by you · Manual**: how it came in, and, in a shared group, who added it.
 
 ## On an iPhone: swipe a transaction
 
@@ -47,5 +48,9 @@ Tap a transaction on a budget's page, and it opens like this.
 3. **Delete**: delete it. It asks first.
 
 **Add** on a budget's page opens a shorter sheet, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**. A transaction you can't change has no swipe and no menu. It opens with its details and **Done**.
+
+## On Linux
+
+The window is the same as on a Mac. **Delete…** is at the bottom left, with **Cancel** and **Save** at the bottom right. For **Date**, use the arrows to reach the month, then click the day. Click each field to type in it.
 
 <!-- Scenarios: ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->
