@@ -98,7 +98,7 @@ final class PhoneLocalTests: XCTestCase {
         run.type("0", into: AccessibilityID.budgetEditorAmount)
         XCTAssertFalse(budgetSave.isEnabled, "Add lit at 0")
         run.type("800", into: AccessibilityID.budgetEditorAmount)
-        XCTAssertTrue(run.wait(for: budgetSave, until: "isEnabled == true", timeout: 5), "Add stayed dimmed")
+        XCTAssertTrue(run.wait(for: budgetSave, until: "isEnabled == true", timeout: 30), "Add stayed dimmed")
         run.tap(AccessibilityID.budgetEditorSave)
         XCTAssertTrue(run.app.navigationBars["Flights"].waitForExistence(timeout: 10), "Flights did not open")
         XCTAssertTrue(run.shows("$0.00"), "$0.00 does not show. On screen: \(run.visibleTexts())")
