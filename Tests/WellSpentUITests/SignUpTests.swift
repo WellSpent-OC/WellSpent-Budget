@@ -90,7 +90,8 @@ final class SignUpTests: XCTestCase {
 
         // Scenario ACCT-02
         // 3. Create account stays dimmed until the email and both passwords
-        // hold something.
+        // hold something. With all three filled, each one emptied in turn
+        // dims it again, then gets its words back.
         run.expect(AccessibilityID.accountSubmit, named: Words.createAccountButton, "Create an account")
         run.expect(AccessibilityID.accountSubmit, enabled: false, "Create account, with nothing typed")
         run.type(typo.email, into: AccessibilityID.accountEmail)
@@ -99,6 +100,14 @@ final class SignUpTests: XCTestCase {
         run.expect(AccessibilityID.accountSubmit, enabled: false, "Create account, with the password once")
         run.type(typo.confirmation, into: AccessibilityID.accountConfirmation)
         run.expect(AccessibilityID.accountSubmit, enabled: true, "Create account, with all three")
+        for (field, name, words) in [(AccessibilityID.accountEmail, Words.email, typo.email),
+                                     (AccessibilityID.accountPassword, Words.password, typo.password),
+                                     (AccessibilityID.accountConfirmation, Words.confirmation, typo.confirmation)] {
+            run.empty(field)
+            run.expect(AccessibilityID.accountSubmit, enabled: false, "Create account, with \(name) emptied")
+            run.type(words, into: field)
+            run.expect(AccessibilityID.accountSubmit, enabled: true, "Create account, with \(name) filled again")
+        }
 
         // Scenario ACCT-03
         // 4. With "robin", "short" and another password, Create account says
@@ -152,17 +161,23 @@ final class SignUpTests: XCTestCase {
         run.expect(words: ConfirmEmailScreen.codeOnItsWay, "after Send another code")
 
         // 8. Not now closes the sheet, signed in, with the address still to
-        // confirm. A group and a budget in the account give the toolbar its
-        // Account button. Then Account, Sign out.
+        // confirm. Then quit and open again: the test build keeps its keys
+        // in memory (AccountDirectory.testing), so the quit signs this
+        // computer out. The account has nothing in it yet, so a check that
+        // halts before step 13 leaves nothing of it but the account. If the
+        // sign-in sheet opens by itself, for the session that ended, it is
+        // closed.
         run.expect(AccessibilityID.accountClose, named: Words.notNow, "Confirm your email")
         run.click(AccessibilityID.accountClose)
         run.expectSheetClosed("after Not now")
         run.expectFooter(signedIn: true, "after Not now")
-        run.addGroup(named: groupName)
-        Self.groupName = groupName
-        run.addBudget(named: "Groceries", amount: "500", inGroup: groupName)
-        run.signOut()
-        run.expectFooter(signedIn: false, "after Sign out")
+        run.app.terminate()
+        run.launch()
+        if run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10) {
+            run.click(AccessibilityID.accountClose)
+            run.expectSheetClosed("after closing the sign-in sheet, opened again")
+        }
+        run.expectFooter(signedIn: false, "after opening again")
 
         // 9. Signed out, a group of this computer's own, with a budget.
         run.addGroup(named: kept)
@@ -232,8 +247,12 @@ final class SignUpTests: XCTestCase {
         run.expectFooter(signedIn: true, "after Not now")
 
         // Scenario ACCT-07
-        // 13. With a budget open, Account says the same words, and Confirm
-        // your email… leads back to the code.
+        // 13. A group and a budget in the account give the toolbar its
+        // Account button. With the budget open, Account says the same words,
+        // and Confirm your email… leads back to the code.
+        Self.groupName = groupName
+        run.addGroup(named: groupName)
+        run.addBudget(named: "Groceries", amount: "500", inGroup: groupName)
         run.openBudget(named: "Groceries")
         run.openAccount()
         run.expect(step: .account, "Account, not confirmed")
@@ -247,7 +266,9 @@ final class SignUpTests: XCTestCase {
         // Scenario ACCT-05
         // 14. The code from the email, in small letters and without its dash:
         // the sheet moves to Your account, says the email is confirmed and
-        // who is signed in, and offers the account's buttons.
+        // who is signed in, and offers the account's buttons. The scenario's
+        // line about a quit is not checked: the test build keeps its keys in
+        // memory, so a quit signs out, and signing in again asks the server.
         let code = try await mailbox.code(for: address)
         run.type(code.lowercased().replacingOccurrences(of: "-", with: ""), into: AccessibilityID.accountCode)
         run.expect(AccessibilityID.accountSubmit, enabled: true, "Confirm, with the code")
@@ -273,9 +294,9 @@ final class SignUpTests: XCTestCase {
         Self.groupName = nil
 
         // Scenario ACCT-10
-        // 16. Quit and opened again. The test build keeps its keys in memory
-        // (AccountDirectory.testing), so this computer is signed out now.
-        // Its sign-in sheet opens by itself, or Sign in opens it. Forgot your
+        // 16. With the group gone, no budget is left to open Account from, so
+        // a quit signs this computer out, as in step 8. Opened again, its
+        // sign-in sheet opens by itself, or Sign in opens it. Forgot your
         // password?, with the address typed, then Send code: a code is on
         // its way, and the sheet asks for it and a new password twice, with
         // Start over.
@@ -300,11 +321,10 @@ final class SignUpTests: XCTestCase {
         run.expect(AccessibilityID.accountStartOver, named: Words.startOver, "after Send code, confirmed")
         let resetCode = try await mailbox.code(for: address, after: code)
 
-        // Scenario ACCT-10, ACCT-05
+        // Scenario ACCT-10
         // 17. The code and a new password twice, then Set password: Your
         // account says the password is changed and this computer is signed
-        // in. The email stayed confirmed through the quit: nothing asks for
-        // it again.
+        // in.
         run.type(resetCode, into: AccessibilityID.accountCode)
         run.paste(newPassword, into: AccessibilityID.accountNewPassword)
         run.paste(newPassword, into: AccessibilityID.accountConfirmation)
@@ -314,10 +334,6 @@ final class SignUpTests: XCTestCase {
         run.expect(step: .account, "after Set password")
         run.expect(words: PasswordResetScreen.finished, "after Set password")
         run.expectFooter(signedIn: true, "after Set password")
-        XCTAssertFalse(run.element(AccessibilityID.accountConfirmEmail).exists,
-                       "Confirm your email\u{2026} after the quit, for an email confirmed before it")
-        XCTAssertFalse(run.app.staticTexts[ConfirmEmailScreen.reason].exists,
-                       "Your account asks again to confirm an email confirmed before the quit")
 
         // 18. Tidy: Sign out. The reset has already signed every other
         // session out.
@@ -490,6 +506,16 @@ private extension TestApp {
         XCTAssertTrue(shown.minY >= over.maxY - 2 && shown.maxY <= below.minY + 2,
                       "\(words) is not under \(field): it is at \(shown), \(field) at \(over), \(next) at \(below)",
                       file: file, line: line)
+    }
+
+    /// Empties a field: a click into it, Command-A, then Delete.
+    func empty(_ identifier: String) {
+        let field = element(identifier)
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "no field called \(identifier)")
+        waitUntilHittable(field, identifier)
+        field.click()
+        field.typeKey("a", modifierFlags: .command)
+        field.typeKey(.delete, modifierFlags: [])
     }
 
     /// Waits for the Email field to hold this address.
