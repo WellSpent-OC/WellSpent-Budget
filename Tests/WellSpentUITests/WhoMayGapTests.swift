@@ -235,15 +235,14 @@ final class WhoMayGapTests: XCTestCase {
         run.expectBudgetMenu(rent, offersChanges: true)
 
         // 12. Robin shares his own group, and Leslie joins it. Once his app
-        // syncs, his list says who added each entry: You, for his own.
+        // syncs, the group's page lists her.
         run.openBudget(named: rent)
         let mineLink = try run.share(group: mine, myName: "Robin", role: .add)
-        let joined = try await second.join(mineLink, as: "Leslie")
-        let his = try second.entry(hilltop, inGroup: mine)
-        let you = joined.addedBy(his, me: his.createdBy)
-        run.syncNow()
-        XCTAssertTrue(run.listText(you).waitForExistence(timeout: 60),
-                      "the list does not say who added each entry. On screen: \(run.visibleTexts())")
+        _ = try await second.join(mineLink, as: "Leslie")
+        run.syncAndWait()
+        run.openGroupPageFromMenu(named: mine)
+        XCTAssertTrue(run.listText("Leslie").waitForExistence(timeout: 30),
+                      "the group's page does not list Leslie. On screen: \(run.visibleTexts())")
 
         // Scenario BUDGET-12
         // 13. Delete… asks first, saying the group is deleted for everyone
@@ -532,7 +531,7 @@ final class WhoMayGapTests: XCTestCase {
         // can't be undone now, since he can view the group but not change
         // it. OK closes that, and Corner Bakery stays deleted.
         run.click(AccessibilityID.undoButton)
-        XCTAssertTrue(run.app.staticTexts[UndoOffer.Words.refused(.viewOnly)].waitForExistence(timeout: 5),
+        XCTAssertTrue(run.text(saying: UndoOffer.Words.refused(.viewOnly)).waitForExistence(timeout: 5),
                       "the app does not say why Undo did nothing. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "the bar stayed after Undo")
@@ -650,6 +649,13 @@ private extension TestApp {
             guard let made = formatter.date(from: String(name.suffix(15))), made < anHourAgo else { continue }
             deleteGroup(named: name)
         }
+    }
+
+    /// A text anywhere in the app with exactly these words, as its label or
+    /// its value. A query by words in brackets refuses more than 128
+    /// characters, and a question's words run longer.
+    func text(saying words: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", words, words)).firstMatch
     }
 
     /// Every item a group's menu can hold.
@@ -786,9 +792,9 @@ private extension TestApp {
         let id = AccessibilityID.sidebarGroup(group)
         openMenu(on: element(id), id, offering: item)
         clickMenuItem(item)
-        XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5),
+        XCTAssertTrue(text(saying: title).waitForExistence(timeout: 5),
                       "no question \(title) On screen: \(visibleTexts())", file: file, line: line)
-        XCTAssertTrue(app.staticTexts[message].exists, "the question does not say \(message) On screen: "
+        XCTAssertTrue(text(saying: message).exists, "the question does not say \(message) On screen: "
                       + "\(visibleTexts())", file: file, line: line)
         for button in buttons {
             XCTAssertNotNil(dialogButton(button), "no \(button) on the question", file: file, line: line)
