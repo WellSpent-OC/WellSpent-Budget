@@ -365,7 +365,9 @@ jobs:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     runs-on: macos-latest
-    timeout-minutes: 60
+    # Every Mac scenario has a UI test now, and a part runs close to an hour
+    # on GitHub's Macs. 120 leaves room; a hung run still stops.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
