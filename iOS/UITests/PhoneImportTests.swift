@@ -290,9 +290,13 @@ final class PhoneImportTests: XCTestCase {
         run.waitForTheReviewToClose()
         XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3),
                        "the import ended in an error. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.waitForTransactionCount(counted + 1, timeout: 5),
-                      "Corner Bakery came back. The page says: \(run.countLine())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery is listed again")
+        // The count is already right before anything could change it, so
+        // the check is that it does not go up in the next 5 seconds.
+        XCTAssertFalse(run.waitForTransactionCount(counted + 2, timeout: 5),
+                       "Corner Bakery came back. The page says: \(run.countLine())")
+        XCTAssertTrue(run.waitForTransactionCount(counted + 1, timeout: 1), "the count changed. The page says: \(run.countLine())")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 5),
+                       "Corner Bakery is listed again")
     }
 
     @MainActor

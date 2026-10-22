@@ -179,6 +179,9 @@ final class PhoneNewAccountTests: XCTestCase {
         XCTAssertTrue(run.text(MainScreen.Words.noBudgetsTitle).waitForExistence(timeout: 10),
                       "the samples came back after quitting. On screen: \(run.visibleTexts())")
         run.makeAccount(StagingMailbox.freshAddress("iphone", for: "leslie"), password: Self.password, server: mailbox.server)
+        // Home was empty before, so first the sign that she is in.
+        XCTAssertTrue(run.text(SyncWording.footer(signedIn: true, device: PhoneTestApp.device)).waitForExistence(timeout: 30),
+                      "Leslie's new account is not signed in. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(MainScreen.Words.noBudgetsTitle).waitForExistence(timeout: 20),
                       "Leslie's new account does not start empty. On screen: \(run.visibleTexts())")
         run.signOut()
@@ -225,9 +228,14 @@ final class PhoneNewAccountTests: XCTestCase {
         // code confirms it. Back on the page, Join shows and is lit, her name
         // is still there, and Join takes her into the group.
         run.tap(AccessibilityID.invitationConfirmEmail)
-        if run.element(AccessibilityID.accountConfirmEmail).waitForExistence(timeout: 5) {
-            run.tap(AccessibilityID.accountConfirmEmail)
-        }
+        // The sheet opens on its confirm step, with a button that sends the
+        // code, or on the code field when one was sent already.
+        let confirmStep = run.element(AccessibilityID.accountConfirmEmail)
+        let codeField = run.element(AccessibilityID.accountCode)
+        let opened = Date().addingTimeInterval(30)
+        while !confirmStep.exists, !codeField.exists, Date() < opened { _ = codeField.waitForExistence(timeout: 1) }
+        XCTAssertTrue(confirmStep.exists || codeField.exists, "the sheet asks for no code. On screen: \(run.visibleTexts())")
+        if confirmStep.exists { run.tap(AccessibilityID.accountConfirmEmail) }
         let code = try await mailbox.code(for: address)
         run.type(code, into: AccessibilityID.accountCode)
         run.tap(AccessibilityID.accountSubmit)
@@ -255,7 +263,9 @@ final class PhoneNewAccountTests: XCTestCase {
                                               MembersScreen.Words.madeBy("Robin")])
         XCTAssertTrue(run.wait(for: summary, until: "label == '\(three)'", timeout: 30), "Sam did not show: \(summary.label)")
         for row in ["Robin", "Leslie"] {
-            XCTAssertNotEqual(run.element(AccessibilityID.groupPerson(row)).elementType, .button, "\(row)'s row opens a page")
+            XCTAssertTrue(run.element(AccessibilityID.groupPerson(row)).waitForExistence(timeout: 10), "no row for \(row)")
+            XCTAssertFalse(run.app.buttons.matching(identifier: AccessibilityID.groupPerson(row)).firstMatch.exists,
+                           "\(row)'s row opens a page")
         }
         XCTAssertTrue(run.element(AccessibilityID.groupInvite).exists, "no Invite Someone")
         XCTAssertTrue(run.element(AccessibilityID.groupLeave).exists, "no Leave Group")

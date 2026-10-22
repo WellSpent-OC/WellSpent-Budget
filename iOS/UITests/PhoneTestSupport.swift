@@ -21,9 +21,9 @@ final class PhoneTestApp {
         PhoneFailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-phone-ui-test-\(UUID().uuidString)", isDirectory: true)
-        // Not made here: a folder that does not exist yet tells the app this
-        // is a new run, so its settings start afresh (AccountDirectory). The
-        // test cannot reach the app's settings on a phone to wipe them.
+        // Not made here, though it needn't be: the app's first launch into it
+        // starts its settings afresh and marks the folder (AccountDirectory).
+        // The test cannot reach the app's settings on a phone to wipe them.
         app.launchEnvironment[AccountDirectory.dataRootVariable] = dataRoot.path
     }
 
@@ -261,15 +261,46 @@ final class PhoneTestApp {
     }
 
     /// Pulls Home down and waits for the sync it starts to end, so every
-    /// change made so far is on the server.
+    /// change made so far is on the server, and every change on the server
+    /// is here.
     func syncAndWait() {
-        let done = text(SyncWording.footer(signedIn: true, device: Self.device))
+        let pulled = Date().timeIntervalSince1970
         pullDown()
-        // The foot says Syncing while it syncs. A sync that ends within the
-        // first look is missed, which is fine: it has ended.
-        _ = wait(for: done, until: "exists == false", timeout: 3)
-        XCTAssertTrue(wait(for: done, until: "exists == true", timeout: 30),
-                      "the sync did not end. On screen: \(visibleTexts())")
+        waitForASync(endingAfter: pulled)
+        XCTAssertTrue(text(SyncWording.footer(signedIn: true, device: Self.device)).waitForExistence(timeout: 10),
+                      "the sync did not end well. On screen: \(visibleTexts())")
+    }
+
+    /// Waits up to 30 seconds for a sync that ends after `time`, in seconds
+    /// since 1970. The staging banner's value is when the last one ended:
+    /// the one sign of a sync that every screen has, a sheet's included.
+    func waitForASync(endingAfter time: TimeInterval) {
+        let banner = element(AccessibilityID.stagingBanner)
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            if let ended = Double((banner.value as? String) ?? ""), ended >= time { return }
+            Thread.sleep(forTimeInterval: 1)
+        }
+        XCTFail("no sync ended in the 30 seconds after asking for one. "
+                + "The banner says the last one ended at \(banner.value ?? "no time")")
+    }
+
+    /// A sync, then the budget opened to see whether it offers Add: the sign
+    /// that a move to a level has come in, since at View it does not. Back on
+    /// Home after.
+    func syncUntilTheLevel(allowsAdding: Bool, in budget: String) {
+        syncAndWait()
+        scrollTo(AccessibilityID.sidebarBudget(budget))
+        openBudget(named: budget)
+        let add = element(AccessibilityID.budgetAdd)
+        if allowsAdding {
+            XCTAssertTrue(add.waitForExistence(timeout: 30), "no Add in \(budget): the move up has not come in")
+        } else {
+            XCTAssertTrue(wait(for: add, until: "exists == false", timeout: 30),
+                          "\(budget) still offers Add: the move down to View has not come in")
+        }
+        goBack()
+        XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
     }
 
     /// Closes a menu that is open, with a tap beside it, as a person does.
@@ -418,13 +449,22 @@ final class PhoneTestApp {
 
     private func labels(of type: XCUIElement.ElementType) -> [String] {
         guard let root = try? app.snapshot() else { return [] }
+        let giveaways = ScreenPrivacy.giveaways
         var found: [String] = []
         func walk(_ node: XCUIElementSnapshot) {
-            if node.elementType == type, !node.label.isEmpty { found.append(node.label) }
+            if node.elementType == type, !node.label.isEmpty { found.append(masked(node.label, giveaways)) }
             node.children.forEach(walk)
         }
         walk(root)
         return found
+    }
+
+    /// A label with a test account's address, or the part before its @, out
+    /// of sight: failure messages go to CI's log, which is public.
+    private func masked(_ label: String, _ giveaways: [String]) -> String {
+        giveaways.reduce(label) { text, giveaway in
+            text.replacingOccurrences(of: giveaway, with: "[a test address]", options: .caseInsensitive)
+        }
     }
 
     // MARK: - The steps the tests take

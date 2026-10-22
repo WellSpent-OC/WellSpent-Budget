@@ -97,8 +97,11 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.goBack()
         run.openGroupPage(named: groupName)
         run.tap(AccessibilityID.groupPerson("Leslie"))
-        run.app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", MembersScreen.Words.levelTitle(.manage)))
-            .firstMatch.tap()
+        let manage = run.app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@",
+                                                          MembersScreen.Words.levelTitle(.manage))).firstMatch
+        XCTAssertTrue(manage.waitForExistence(timeout: 15), "no Manage on Leslie's page. On screen: \(run.visibleButtons())")
+        run.waitUntilHittable(manage, "Manage")
+        manage.tap()
         XCTAssertTrue(run.wait(for: run.app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@",
                                                                          MembersScreen.Words.levelTitle(.manage))).firstMatch,
                                until: "selected == true", timeout: 20), "Leslie is not at Manage")
@@ -125,7 +128,8 @@ final class PhoneSharedEntriesTests: XCTestCase {
         // note instead. Save keeps her note and takes Robin's amount.
         run.addEntry(merchant: "Bread", amount: "5.00")
         run.syncFromTheBackground()
-        try await leslie.syncAll()
+        let lesliesBreadCame = try await leslie.syncUntilEntry("Bread", inGroup: groupName)
+        XCTAssertTrue(lesliesBreadCame, "Leslie never got the phone's Bread")
         run.openEntry("Bread")
         run.clearField(AccessibilityID.entryAmount)
         run.type("7.00", into: AccessibilityID.entryAmount)
@@ -185,7 +189,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         // A long Undo bar, so the steps between a delete and its Undo fit.
-        run.app.launchEnvironment[Workspace.undoWindowVariable] = "120"
+        run.app.launchEnvironment[Workspace.undoWindowVariable] = "600"
         let leslie = try SecondAccount(server: accounts.server)
         let stamp = PhoneTestApp.stamp()
         let groupName = SecondAccount.phoneRunPrefix + stamp
@@ -273,7 +277,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         // 5. At View, Leave asks first, and leaves out the two sentences about
         // changes, since he has none to send. Cancel keeps the group.
         try await leslie.setLevelOfTheOther(.read, in: groupName)
-        run.pullDown()
+        run.syncUntilTheLevel(allowsAdding: false, in: budget)
         try await leslie.syncAll()
         let transactions = AppModel(store: leslie.sync.store).transactionCount(inGroup: try leslie.group(named: groupName).id)
         let leave = PendingDelete.group(BudgetGroup(name: groupName), budgets: 1, transactions: transactions,
@@ -281,7 +285,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.longPress(AccessibilityID.sidebarGroup(groupName))
         run.tapMenuItem(MainScreen.Words.leave)
         XCTAssertTrue(run.text(leave.title).waitForExistence(timeout: 5), "no question. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.text(leave.message(sendsChanges: false)).exists,
+        XCTAssertTrue(run.text(leave.message(sendsChanges: false)).waitForExistence(timeout: 5),
                       "at View the question still speaks of changes. On screen: \(run.visibleTexts())")
         run.cancelQuestion()
 
@@ -289,7 +293,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         // 6. At Add, the question says the whole of it, with Leave and Cancel.
         // Leave takes the group off Robin's phone, and Leslie keeps it.
         try await leslie.setLevelOfTheOther(.write, in: groupName)
-        run.pullDown()
+        run.syncUntilTheLevel(allowsAdding: true, in: budget)
         run.longPress(AccessibilityID.sidebarGroup(groupName))
         run.tapMenuItem(MainScreen.Words.leave)
         XCTAssertTrue(run.text(leave.message(sendsChanges: true)).waitForExistence(timeout: 5),
@@ -362,8 +366,9 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
         XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3), "the import ended in an error")
-        XCTAssertTrue(run.waitForTransactionCount(counted, timeout: 5), "the import added something. The page says: \(run.countLine())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery came back")
+        XCTAssertFalse(run.waitForTransactionCount(counted + 1, timeout: 5), "the import added something. The page says: \(run.countLine())")
+        XCTAssertTrue(run.waitForTransactionCount(counted, timeout: 1), "the count changed. The page says: \(run.countLine())")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 5), "Corner Bakery came back")
 
         // Scenario EDIT-14
         // 3. Robin has his Bread open, and Leslie's change to its amount
@@ -373,7 +378,8 @@ final class PhoneSharedEntriesTests: XCTestCase {
         // note. (Changes to different fields both go in, as EDIT-12 says.)
         run.addEntry(merchant: "Bread", amount: "5.00")
         run.syncFromTheBackground()
-        try await leslie.syncAll()
+        let lesliesBreadCame = try await leslie.syncUntilEntry("Bread", inGroup: groupName)
+        XCTAssertTrue(lesliesBreadCame, "Leslie never got the phone's Bread")
         run.openEntry("Bread")
         run.clearField(AccessibilityID.entryAmount)
         run.type("6.00", into: AccessibilityID.entryAmount)
@@ -390,8 +396,9 @@ final class PhoneSharedEntriesTests: XCTestCase {
         XCTAssertFalse(run.row("Bread", says: BudgetScreen.Words.notice, timeout: 2), "the row's line stayed after opening")
         try await leslie.syncAll()
         let lesliesBread = try leslie.entry("Bread", inGroup: groupName)
-        XCTAssertNil(EntryEditor(model: AppModel(store: leslie.sync.store), entry: lesliesBread.id)?.noticeLine,
-                     "Leslie sees a note")
+        let lesliesEditor = try XCTUnwrap(EntryEditor(model: AppModel(store: leslie.sync.store), entry: lesliesBread.id),
+                                          "Leslie's Bread does not open")
+        XCTAssertNil(lesliesEditor.noticeLine, "Leslie sees a note")
 
         // Scenario EDIT-14
         // 4. The server refusing his change shows the same line: Robin, at
@@ -419,13 +426,15 @@ final class PhoneSharedEntriesTests: XCTestCase {
 extension PhoneTestApp {
     /// Sends the app to the background and brings it back, which syncs, as
     /// coming to the front does on a phone, even with a sheet open. Then
-    /// waits a moment for the sync to end.
+    /// waits until a sync has ended since it came back: the staging banner's
+    /// value is when the last one ended, the only sign of it with a sheet open.
     func syncFromTheBackground() {
         XCUIDevice.shared.press(.home)
         Thread.sleep(forTimeInterval: 1)
+        let back = Date().timeIntervalSince1970
         app.activate()
         XCTAssertTrue(element(AccessibilityID.stagingBanner).waitForExistence(timeout: 15), "the app did not come back")
-        Thread.sleep(forTimeInterval: 8)
+        waitForASync(endingAfter: back)
     }
 
     /// Back to Home, a pull down, and a wait until the sync line says it has

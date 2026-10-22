@@ -85,7 +85,7 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         // Leave, the budget no Edit or Delete, and Share says only a manager
         // or admin can invite, with no level to choose and Create Link dimmed.
         try await leslie.setLevelOfTheOther(.write, in: groupName)
-        run.pullDown()
+        run.syncUntilTheLevel(allowsAdding: true, in: budget)
         run.expectGroupMenu(groupName, offers: [MainScreen.Words.share, MembersScreen.Words.menuItem, MainScreen.Words.leave],
                             not: [MainScreen.Words.newBudget(in: groupName), MainScreen.Words.rename, MainScreen.Words.delete])
         run.expectBudgetMenuIsEmpty(budget)
@@ -107,7 +107,7 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         run.syncFromTheBackground()
         try await leslie.setLevelOfTheOther(.read, in: groupName)
         run.goBack()
-        run.pullDown()
+        run.syncUntilTheLevel(allowsAdding: false, in: budget)
         run.openBudget(named: budget)
         run.openEntry("Bread")
         XCTAssertTrue(run.shows(EntryAccess.Words.viewOnlyOwn), "no line for his own at View. On screen: \(run.visibleTexts())")
@@ -121,7 +121,7 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         // Leave, not Delete. The budget offers Edit and Delete, and has Add
         // and Import statement.
         try await leslie.setLevelOfTheOther(.manage, in: groupName)
-        run.pullDown()
+        run.syncAndWait()
         run.longPress(AccessibilityID.sidebarGroup(groupName))
         run.tapMenuItem(MainScreen.Words.share)
         let roles = run.element(AccessibilityID.shareRole)
@@ -160,10 +160,14 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         try await leslie.addEntry("Costco", amount: Money(minorUnits: -9900), inBudget: laterBudget, group: laterGroup)
         try await leslie.changeEntry("Hilltop Grocery", inGroup: laterGroup, note: "changed later")
         run.goBack()
-        run.pullDown()
+        run.syncAndWait()
         run.openBudget(named: laterBudget)
         XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 20), "Costco did not reach Robin")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).exists, "Hilltop showed after it changed")
+        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).waitForExistence(timeout: 5),
+                       "Hilltop showed after it changed")
+        // With Costco in, the total proves the sync came: it counts Costco and
+        // still leaves Hilltop out.
+        XCTAssertTrue(run.figure(MoneyWheel.Words.spent, is: "$99.00"), "the total is not Costco's alone")
         run.goBack()
 
         // 7. Tidy.
@@ -202,6 +206,13 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         run.open(link: firstLink.url)
         let invited = run.text("Leslie invited you to \u{201C}\(first)\u{201D}.")
         XCTAssertTrue(invited.waitForExistence(timeout: 30), "WellSpent did not start on the invitation. On screen: \(run.visibleTexts())")
+        // A copy the system starts gets none of the test's settings, so it
+        // runs in the phone's own data. The rest runs in the test's folder:
+        // quit, start it as the test does, and tap the link again.
+        run.app.terminate()
+        run.launch()
+        run.open(link: firstLink.url)
+        XCTAssertTrue(invited.waitForExistence(timeout: 30), "the link did not open the invitation again. On screen: \(run.visibleTexts())")
 
         // Scenario CLICK-12
         // 2. Picking a budget takes the page down. So does opening a group's
