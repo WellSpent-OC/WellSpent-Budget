@@ -180,9 +180,21 @@ final class PhoneTestApp {
     /// bar, which takes a tap meant for it.
     func bringToMiddle(_ row: XCUIElement) {
         let list = app.collectionViews.firstMatch
+        // A row not drawn yet has no frame to read, which looks like the top.
+        guard list.exists, row.exists else { return }
         let screen = app.frame
-        guard list.exists, row.frame.maxY > screen.height * 0.6 || row.frame.minY < screen.height * 0.2 else { return }
-        let distance = row.frame.midY - screen.height * 0.45
+        let frame = row.frame
+        // A high row comes down only just clear of the bar, to 30 percent:
+        // a list near its top would go past it into a pull, which syncs.
+        let goal: CGFloat
+        if frame.maxY > screen.height * 0.6 {
+            goal = 0.45
+        } else if frame.minY < screen.height * 0.2 {
+            goal = 0.3
+        } else {
+            return
+        }
+        let distance = frame.midY - screen.height * goal
         // Up from low on the list, or down from high on it, so the drag stays
         // on the screen.
         let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: distance > 0 ? 0.7 : 0.3))
