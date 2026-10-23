@@ -43,6 +43,21 @@ Tap **⋯** on a budget's page, then **Import statement**, and pick your file. T
 
 ## On Linux
 
-The review is the same as on a Mac. If a line's budget goes back to **Choose**, pick it again before pressing **Import**.
+After you pick a statement file, this window shows what each line will do. Nothing is added until you press **Import**.
+
+![The import review on Linux, with numbers 1 to 12](../assets/shots/tour-linux-the-import-review.svg)
+
+1. **Import a statement into “Home”**: the group the statement goes into.
+2. The file's name.
+3. **Matched**: lines that match a transaction already typed in. They aren't added twice.
+4. **To add**: lines that will be added.
+5. **Already imported**: lines brought in before. They're skipped.
+6. **Needs a budget**: lines with no budget yet.
+7. A line: its date, a cleaned-up name, and the bank's own words under it.
+8. What will happen to it: **Will be added**, **Already imported**, **Matched to entry** or **Needs a budget**.
+9. **Choose**: pick a budget for a line that needs one. Leave it on **Choose** to skip the line. If a line's budget goes back to **Choose**, pick it again before pressing **Import**.
+10. **Read on this computer. Nothing is sent until you add it.**: your computer reads the file.
+11. **Cancel**: close, and add nothing.
+12. **Import**: add the lines. [Quest 6](bring-in-your-first-statement.md)
 
 <!-- Scenarios: IMPORT-01, IMPORT-02, IMPORT-03, IMPORT-04, IMPORT-05, IMPORT-06, IMPORT-07, IMPORT-12 -->

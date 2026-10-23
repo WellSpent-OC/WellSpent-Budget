@@ -42,6 +42,24 @@ title: "Tour: The Share window"
 
 ## On Linux
 
-The same window, with each label above its box. After **Create Link** there's no **Send…**: press **Copy Link**, and paste the link into a message.
+**Share…** in a group's **⋯** menu opens this window.
+
+![The Share window on Linux, with numbers 1 to 6](../assets/shots/tour-linux-the-share-window-a.svg)
+
+1. **Your name**: the name the group sees.
+2. **They can**: **View**, **Add** or **Manage**.
+3. **They see**: **Everything so far**, or **Only from now on**.
+4. The line under them: what the level you picked can do.
+5. **Cancel**: close, and make no link.
+6. **Create Link**: make the invite link. It stays dimmed until there's a name.
+
+## On Linux: after you press Create Link
+
+![The Share window on Linux with a link, with numbers 1 to 4](../assets/shots/tour-linux-the-share-window-b.svg)
+
+1. The link: it works once, for 7 days.
+2. The line under it: what the link is for.
+3. **Copy Link**: copy it, to paste into an email or a message. There's no **Send…** on Linux.
+4. **Done**: close the window. You can't see the link again after this.
 
 <!-- Scenarios: SHARE-01, SHARE-02, SHARE-03, SHARE-04, SHARE-05, SHARE-06, SHARE-13 -->

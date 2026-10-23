@@ -79,7 +79,7 @@ Or click the link in the message, even with WellSpent closed. WellSpent opens to
 
 ## If it doesn't work
 
-- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, press **Send a code**, and type the code WellSpent emails you. Then try again.
+- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**. In **Your account**, press **Confirm your email…** again, then **Send a code**. Type the code WellSpent emails you in **Code**, and press **Confirm**. Then try again. On an iPhone, the buttons have no dots.
 - **"Sign in first, or create an account.":** sign in, and try again. After a clicked link, the invitation stays open while you sign in or make an account. No account yet? Do [Quest 2: Make your account](../getting-started/make-your-account.md).
 - **"That invite has expired or can no longer be used.", "That invite has already been accepted." or "That invite was not found. It may have been cancelled.":** ask for a new link. A link works once, for 7 days.
 - **"Part of that invite link is missing." or "That is not a WellSpent invite link.":** the message app may have cut the link short. Ask the person who sent it to send it again, or copy the whole link, and paste it.

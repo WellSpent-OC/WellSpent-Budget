@@ -53,6 +53,27 @@ Tap **+** at the bottom right of Home, then **Join a Group**, and this sheet ope
 
 ## On Linux
 
-**Join a Group…** is in the **More** menu, next to **Add Budget**. The window is the same, with each label above its box. A clicked invite link opens the same invitation page, with **Your name** beside its box.
+**Join a Group…**, in the **More** menu beside **Add Budget**, opens this window.
+
+![The Join a Group window on Linux, with numbers 1 to 5](../assets/shots/tour-linux-joining-a-group-a.svg)
+
+1. **Invite link**: paste the link here, with Ctrl+V.
+2. **Your name**: the name the group sees.
+3. The invite line: who invited you, to which group, and at what level.
+4. **Cancel**: close without joining.
+5. **Join**: join the group. [Quest 8](join-a-group.md)
+
+## On Linux: the invitation page
+
+Click an invite link, and WellSpent opens this page.
+
+![The invitation page on Linux, with numbers 1 to 6](../assets/shots/tour-linux-joining-a-group-b.svg)
+
+1. **Robin invited you to “Home”.**: who invited you, and to which group.
+2. **You'd join at Add.**: the level you'd have.
+3. The line under it: what that level lets you do.
+4. **You'd see everything so far.**: whether you'd see what the group already has, or only what comes after you join.
+5. **Your name**: the name the group sees.
+6. **Join**: join the group. Signed out, **Sign in…** shows here instead.
 
 <!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, CLICK-01, CLICK-03, CLICK-04 -->
