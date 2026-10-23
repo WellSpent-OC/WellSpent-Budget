@@ -194,9 +194,13 @@ struct RootView: View {
 /// the real app. A live build has none.
 struct StagingBanner: View {
     static let text = "STAGING"
+    /// When the last sync ended, for the iPhone's UI tests: with a sheet open
+    /// nothing else on screen says a sync has happened. Read as the banner's
+    /// value, in seconds since 1970.
+    var syncedAt: Date?
 
     var body: some View {
-        Text(Self.text)
+        let banner = Text(Self.text)
             .font(.system(size: 11, weight: .bold))
             .tracking(1.5)
             .foregroundStyle(.white)
@@ -205,19 +209,25 @@ struct StagingBanner: View {
             .background(Color.orange)
             .help("A test build, with its own budgets. It never connects to the live server.")
             .accessibilityIdentifier(AccessibilityID.stagingBanner)
+        if let syncedAt {
+            banner.accessibilityValue(String(syncedAt.timeIntervalSince1970))
+        } else {
+            banner
+        }
     }
 }
 
 extension View {
-    /// The staging banner above this view, or this view unchanged in a live build.
+    /// The staging banner above this view, or this view unchanged in a live
+    /// build. `syncedAt` is when the last sync ended (StagingBanner).
     @ViewBuilder
-    func stagingBanner(_ environment: AppEnvironment) -> some View {
+    func stagingBanner(_ environment: AppEnvironment, syncedAt: Date? = nil) -> some View {
         switch environment {
         case .live:
             self
         case .staging:
             VStack(spacing: 0) {
-                StagingBanner()
+                StagingBanner(syncedAt: syncedAt)
                 self
             }
         }

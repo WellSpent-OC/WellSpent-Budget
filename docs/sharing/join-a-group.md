@@ -30,16 +30,59 @@ title: "Quest 8: Join a group"
 
    > You see the group in your sidebar. Its budgets fill in a moment later.
 
-## Coming in the next update: click to join
+## Faster: click the link
 
-On a Mac, click the link in the message. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
+Click the link in the message, even with WellSpent closed. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
+
+## On an iPhone
+
+Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**. Paste the link into **Invite link**, type your name in **Your name**, and tap **Join** at the top right. The group shows on Home.
+
+1. ![A thumb taps an invite link in a message](../assets/shots/join-a-group-iphone-1.svg)
+   Tap the invite link in the message.
+
+   > You see WellSpent open to the invite.
+
+2. ![A thumb types in Your name](../assets/shots/join-a-group-iphone-2.svg)
+   Type your name in **Your name**.
+
+3. ![A thumb taps Join](../assets/shots/join-a-group-iphone-3.svg)
+   Tap **Join**.
+
+   > You see the group's page, with its people. Tap the back arrow to go to Home, where the group now is.
+
+## On Linux
+
+1. ![Copy the link from their message](../assets/shots/join-a-group-linux-1.svg)
+   Copy the link from their message.
+
+2. ![Press More, next to Add Budget at the bottom of the sidebar](../assets/shots/join-a-group-linux-2.svg)
+   Press **More**, next to **Add Budget** at the bottom of the sidebar.
+
+3. ![Pick Join a Group](../assets/shots/join-a-group-linux-3.svg)
+   Pick **Join a Group…**
+
+4. ![Paste the link into Invite link, with Ctrl+V](../assets/shots/join-a-group-linux-4.svg)
+   Paste the link into **Invite link**, with Ctrl+V.
+
+   > You see who invited you, and the group's name.
+
+5. ![Type your name in Your name](../assets/shots/join-a-group-linux-5.svg)
+   Type your name in **Your name**.
+
+6. ![Press Join](../assets/shots/join-a-group-linux-6.svg)
+   Press **Join**.
+
+   > You see the group in your sidebar. Its budgets fill in a moment later.
+
+Or click the link in the message, even with WellSpent closed. WellSpent opens to the invite, as on a Mac.
 
 ## If it doesn't work
 
-- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**, press **Send a code**, and type the code WellSpent emails you. Then try again.
-- **"Sign in first, or create an account.":** sign in, and try again. No account yet? Do [Quest 2: Make your account](../getting-started/make-your-account.md).
-- **"That invite has expired or can no longer be used." or "That invite has already been accepted.":** ask for a new link. A link works once, for 7 days.
-- **"Part of that invite link is missing." or "That is not a WellSpent invite link.":** copy the whole link again, and paste it.
-- **"You are already in that group.":** you're in. Look for the group in your sidebar.
+- **"Confirm your email first. Joining a shared group needs it.":** press **Confirm your email…**. In **Your account**, press **Confirm your email…** again, then **Send a code**. Type the code WellSpent emails you in **Code**, and press **Confirm**. Then try again. On an iPhone, the buttons have no dots.
+- **"Sign in first, or create an account.":** sign in, and try again. After a clicked link, the invitation stays open while you sign in or make an account. No account yet? Do [Quest 2: Make your account](../getting-started/make-your-account.md).
+- **"That invite has expired or can no longer be used.", "That invite has already been accepted." or "That invite was not found. It may have been cancelled.":** ask for a new link. A link works once, for 7 days.
+- **"Part of that invite link is missing." or "That is not a WellSpent invite link.":** the message app may have cut the link short. Ask the person who sent it to send it again, or copy the whole link, and paste it.
+- **"You are already in that group.":** you're in. Look for the group in your sidebar. The link isn't used up, so it still works for someone else.
 
-<!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, SHARE-10, CLICK-01, CLICK-04, CLICK-05, CLICK-06 -->
+<!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, SHARE-10, CLICK-01, CLICK-02, CLICK-04, CLICK-05, CLICK-06, CLICK-07, CLICK-08, CLICK-09, CLICK-10, PASTE-03, PASTE-10 -->

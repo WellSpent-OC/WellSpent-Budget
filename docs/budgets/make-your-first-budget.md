@@ -25,14 +25,49 @@ A budget is an amount to spend each month. It starts again on the 1st.
 
    > You see **Groceries** under **HOME**, with what's left beside it.
 
+## On an iPhone
+
+1. ![A thumb taps New Budget under HOME](../assets/shots/make-your-first-budget-iphone-1.svg)
+   Under **HOME**, tap **New Budget**.
+
+2. ![A thumb types Groceries in Name](../assets/shots/make-your-first-budget-iphone-2.svg)
+   Type a name in **Name**, like Groceries.
+
+3. ![A thumb types 500 in Each month](../assets/shots/make-your-first-budget-iphone-3.svg)
+   Type how much a month in **Each month**, like 500.
+
+4. ![A thumb taps Add](../assets/shots/make-your-first-budget-iphone-4.svg)
+   Tap **Add**.
+
+   > You see Groceries' page, with its wheel full. Tap the back arrow, and you see **Groceries** under **HOME**, with what's left beside it.
+
+## On Linux
+
+1. ![Press ⋯ beside HOME in the sidebar](../assets/shots/make-your-first-budget-linux-1.svg)
+   Press **⋯** beside **HOME** in the sidebar.
+
+2. ![Pick New Budget in Home](../assets/shots/make-your-first-budget-linux-2.svg)
+   Pick **New Budget in Home…**
+
+3. ![Type a name in Name, like Groceries](../assets/shots/make-your-first-budget-linux-3.svg)
+   Type a name in **Name**, like Groceries.
+
+4. ![Type how much a month in Each month, like 500](../assets/shots/make-your-first-budget-linux-4.svg)
+   Type how much a month in **Each month**, like 500.
+
+5. ![Press Add](../assets/shots/make-your-first-budget-linux-5.svg)
+   Press **Add**.
+
+   > You see **Groceries** under **HOME**, with what's left beside it, and its page on the right.
+
 ## If it doesn't work
 
 - **The menu has only Edit… and Delete…:** that's a budget's menu. Right-click the group's name instead. It's in capital letters.
-- **Add stays dimmed:** a budget needs a name, and an amount above zero.
+- **Add stays dimmed:** a budget needs a name, and an amount above zero, written the way your region writes numbers. Where a comma marks decimals, type 500,00. The empty field shows an example.
 - **You can't see the budget:** click the small arrow at the end of the group's line. It shows or hides the group's budgets.
 
 ## Next quest
 
 [Quest 5: Add your first transaction](../transactions/add-your-first-transaction.md)
 
-<!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-14, PAGE-05 -->
+<!-- Scenarios: BUDGET-03, BUDGET-04, BUDGET-16, BUDGET-14, PAGE-05 -->

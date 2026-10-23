@@ -16,14 +16,64 @@ title: "Tour: Joining a group"
 4. **Cancel**: close without joining.
 5. **Join**: join the group. [Quest 8](join-a-group.md)
 
-## Coming in the next update: the invitation page
+## The invitation page
 
-On a Mac, click an invite link, and WellSpent opens this page.
+Click an invite link, and WellSpent opens this page.
 
 ![The invitation page, with numbers 1 to 3](../assets/shots/tour-join-a-group-b.svg)
 
 1. **You'd join at Add.**: the level you'd have, and what you'd see.
 2. **Your name**: the name the group sees.
 3. **Join**: join the group.
+
+## On an iPhone
+
+Tap an invite link, and WellSpent opens this page.
+
+![The invitation page on an iPhone, with numbers 1 to 7](../assets/shots/tour-iphone-join-a.svg)
+
+1. The back arrow: go back to Home without joining.
+2. **Robin invited you to “Home”.**: who invited you, and to which group.
+3. **You'd join at Add.**: the level you'd have.
+4. The line under it: what that level lets you do.
+5. **You'd see everything so far.**: whether you'd see what the group already has, or only what comes after you join.
+6. **Your name**: the name the group sees.
+7. **Join**: join the group. Signed out, **Sign in** shows here instead. [Quest 8](join-a-group.md)
+
+## On an iPhone: paste a link
+
+Tap **+** at the bottom right of Home, then **Join a Group**, and this sheet opens.
+
+![The Join a Group sheet on an iPhone, with numbers 1 to 4](../assets/shots/tour-iphone-join-b.svg)
+
+1. **Cancel**: close without joining.
+2. **Join**: join the group. It stays dimmed until both fields are filled.
+3. **Invite link**: paste the link here. Then you see who invited you, and to which group.
+4. **Your name**: the name the group sees.
+
+## On Linux
+
+**Join a Group…**, in the **More** menu beside **Add Budget**, opens this window.
+
+![The Join a Group window on Linux, with numbers 1 to 5](../assets/shots/tour-linux-joining-a-group-a.svg)
+
+1. **Invite link**: paste the link here, with Ctrl+V.
+2. **Your name**: the name the group sees.
+3. The invite line: who invited you, to which group, and at what level.
+4. **Cancel**: close without joining.
+5. **Join**: join the group. [Quest 8](join-a-group.md)
+
+## On Linux: the invitation page
+
+Click an invite link, and WellSpent opens this page.
+
+![The invitation page on Linux, with numbers 1 to 6](../assets/shots/tour-linux-joining-a-group-b.svg)
+
+1. **Robin invited you to “Home”.**: who invited you, and to which group.
+2. **You'd join at Add.**: the level you'd have.
+3. The line under it: what that level lets you do.
+4. **You'd see everything so far.**: whether you'd see what the group already has, or only what comes after you join.
+5. **Your name**: the name the group sees.
+6. **Join**: join the group. Signed out, **Sign in…** shows here instead.
 
 <!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, CLICK-01, CLICK-03, CLICK-04 -->

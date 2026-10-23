@@ -45,6 +45,9 @@ struct AccountRulesTests {
         #expect(!AccountRules.isWholeCode("abcd-efg"))
     }
 
+    // Scenario ACCT-09
+    // The "Too many attempts" line, which a UI test would have to spend
+    // staging's sign-ins to reach.
     @Test func theServersReasonsReadAsSentences() {
         #expect(AccountWording.words(for: ReadableTransportError.http(status: 400, reason: "that code is wrong or has expired"))
                 == "That code is wrong or has expired.")

@@ -10,8 +10,8 @@ from scratch: a Swift client and a Swift server, with sharing built in from the 
 ## Privacy
 
 Your budgets sync through WellSpent's server. Connections and backups are encrypted.
-The server can read your budgets, which is how it checks who may change what and how
-it resets a forgotten password.
+The server can read your budgets. That's how it checks who may change what, and why
+resetting a forgotten password doesn't lose your budgets.
 
 Earlier versions of WellSpent used end-to-end encryption instead. `ARCHITECTURE.md`
 keeps that design as history, marked "before readable sync".

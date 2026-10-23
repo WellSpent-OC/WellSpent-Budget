@@ -16,6 +16,11 @@ name: CI
 on:
   pull_request:
     branches: [main, 'release/**']
+  # The UI tests run once a night, not on every pull request (project
+  # rule, 2026-10-22). 09:00 UTC is 03:00 in Mountain Daylight Time.
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 # A newer push to a pull request stops its older run.
 concurrency:
@@ -185,10 +190,11 @@ jobs:
       # never needed this because `swift build --product WellSpentServer` does not
       # pull GRDB into the graph, while `swift test` builds every target in the
       # package, and the test targets reach the client's Store.
-      - name: Install the SQLite headers GRDB needs
+      # Python reads the coverage report, after the tests.
+      - name: Install the SQLite headers GRDB needs, and Python
         run: |
           apt-get update -q
-          apt-get install -y -q --no-install-recommends libsqlite3-dev
+          apt-get install -y -q --no-install-recommends libsqlite3-dev python3
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -217,7 +223,13 @@ jobs:
       # on Linux SwiftPM builds swift-testing from source.
       - name: Server tests against Postgres
         working-directory: Server
-        run: swift test --no-parallel --filter WellSpentServerTests
+        run: swift test --no-parallel --filter WellSpentServerTests --enable-code-coverage
+
+      # The server's own code, measured by the run above, held to the same
+      # floor as the app's (scripts/server-coverage.sh). coverage.sh measures
+      # the app's package only and never sees Server/.
+      - name: Server line coverage
+        run: scripts/server-coverage.sh
 
   # The Linux app shares everything below its screens with the Mac app. This
   # proves that shared code builds and passes its tests on Linux, so a change
@@ -276,6 +288,8 @@ jobs:
   # required check until its first green run.
   linux-ui-test:
     name: Linux UI test
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
@@ -358,8 +372,12 @@ jobs:
   mac-ui-test-part:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: macos-latest
-    timeout-minutes: 60
+    # Every Mac scenario has a UI test now, and a part runs close to an hour
+    # on GitHub's Macs. 120 leaves room; a hung run still stops.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -444,7 +462,7 @@ jobs:
   mac-ui-test:
     name: Mac UI test
     needs: mac-ui-test-part
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -493,8 +511,10 @@ jobs:
   iphone-ui-test-part:
     name: iPhone UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
@@ -574,7 +594,7 @@ jobs:
   iphone-ui-test:
     name: iPhone UI test
     needs: iphone-ui-test-part
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -606,7 +626,7 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test, scenario-check]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -625,7 +645,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.mac-ui-test.result != 'success' || needs.ios-build.result != 'success' || needs.iphone-ui-test.result != 'success' || needs.scenario-check.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -645,7 +665,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.mac-ui-test.result == 'success' && needs.ios-build.result == 'success' && needs.iphone-ui-test.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}

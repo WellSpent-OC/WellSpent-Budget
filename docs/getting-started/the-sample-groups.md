@@ -1,0 +1,58 @@
+---
+title: "Side quest: Clear out the sample groups"
+---
+
+# Side quest: Clear out the sample groups
+
+> *Practice dummies. Swing at them, then clear them away.*
+
+A new install starts with two made-up groups, **HOUSEHOLD** and **SIDE BUSINESS**, so you can look around. If you make an account and haven't changed them, they stay out of it. If you changed one, or added to it, it comes into your account. Delete it before you make your account.
+
+1. ![A hand right-clicks HOUSEHOLD in the sidebar](../assets/shots/the-sample-groups-1-mac.svg)
+   Right-click **HOUSEHOLD** in the sidebar.
+
+2. ![A hand picks Delete](../assets/shots/the-sample-groups-2.svg)
+   Pick **Delete…**
+
+3. ![A hand presses Delete in the question](../assets/shots/the-sample-groups-3.svg)
+   Press **Delete** in the question.
+
+   > You see HOUSEHOLD gone from the sidebar.
+
+Do the same for **SIDE BUSINESS**. With both gone, you see **No budgets yet**. Deleted samples don't come back.
+
+If you sign in to an account you made on another computer, the samples hide. They show again when you sign out.
+
+## On an iPhone
+
+1. ![A thumb holds HOUSEHOLD on Home](../assets/shots/the-sample-groups-iphone-1.svg)
+   Touch and hold **HOUSEHOLD** on Home.
+
+2. ![A thumb taps Delete](../assets/shots/the-sample-groups-iphone-2.svg)
+   Tap **Delete**.
+
+3. ![A thumb taps Delete in the question](../assets/shots/the-sample-groups-iphone-3.svg)
+   Tap **Delete** in the question.
+
+## On Linux
+
+1. ![A hand presses the button beside HOUSEHOLD in the sidebar](../assets/shots/the-sample-groups-linux-1.svg)
+   Press **⋯** beside **HOUSEHOLD** in the sidebar.
+
+2. ![A hand picks Delete](../assets/shots/the-sample-groups-linux-2.svg)
+   Pick **Delete…**
+
+3. ![A hand presses Delete in the question](../assets/shots/the-sample-groups-linux-3.svg)
+   Press **Delete** in the question.
+
+   > You see HOUSEHOLD gone from the sidebar.
+
+## If it doesn't work
+
+- **The menu has only Edit… and Delete…, and the question names a budget:** that's a budget's menu. Press **Cancel**, and right-click the group's name instead. It's in capital letters.
+
+## Related
+
+- [Quest 2: Make your account](make-your-account.md)
+
+<!-- Scenarios: SAMP-01, SAMP-02, SAMP-03, SAMP-04, SAMP-05, SAMP-06, SAMP-07, BUDGET-10, BUDGET-11 -->

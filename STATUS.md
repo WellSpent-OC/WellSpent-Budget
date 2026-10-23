@@ -5,8 +5,9 @@ specification for a finished system and is not one. Architecture describes inten
 This describes reality.
 
 > **Out of date since readable sync.** Your budgets sync through WellSpent's
-> server. Connections and backups are encrypted. The server can read your budgets,
-> which is how it checks who may change what and how it resets a forgotten password.
+> server. Connections and backups are encrypted. The server can read your budgets.
+> That's how it checks who may change what, and why resetting a forgotten password
+> doesn't lose your budgets.
 >
 > This file was last brought up to date on 2026-09-29, before that change and
 > before the alpha's screens on Mac and Linux. Its rows about keys, sealing, the

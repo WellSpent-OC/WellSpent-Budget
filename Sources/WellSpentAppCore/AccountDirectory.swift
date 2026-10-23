@@ -87,17 +87,20 @@ public final class AccountDirectory {
     /// outlives the run anyway. No keychain means no password prompt can stop
     /// a run, and a relaunch asks to sign in again.
     ///
-    /// A folder that does not exist yet is a new run, so the settings start
-    /// afresh. On a phone the test cannot reach the app's settings to wipe
-    /// them, as the Mac's test does. A folder that exists, as on a relaunch
-    /// within the same run, keeps them. The Mac's test makes its folder first,
-    /// so nothing changes there.
+    /// A run's first launch into a folder starts with fresh settings, and
+    /// marks the folder, so a relaunch within the same run keeps them. The
+    /// mark tells the two apart, not the folder: the Mac's test makes its
+    /// folder before the first launch, and neither the Mac's sandboxed runner
+    /// nor a phone's test can reach the app's settings to wipe them.
     static func testing(at root: URL) -> AccountDirectory {
         guard let defaults = UserDefaults(suiteName: testDefaultsSuiteName) else {
             preconditionFailure("could not open the \(testDefaultsSuiteName) defaults")
         }
-        if !FileManager.default.fileExists(atPath: root.path) {
+        let mark = root.appendingPathComponent(".settings-started")
+        if !FileManager.default.fileExists(atPath: mark.path) {
             defaults.removePersistentDomain(forName: testDefaultsSuiteName)
+            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: mark.path, contents: nil)
         }
         return AccountDirectory(root: root, defaults: defaults) { _ in InMemoryKeyStore() }
     }

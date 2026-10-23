@@ -194,6 +194,7 @@ public final class Workspace {
         // test pointed it at a folder. The same thing for a normal launch.
         return try launch(accounts: accounts, defaults: accounts.defaults, environment: environment,
                           undoWindow: undoWindow(for: environment, in: processEnvironment),
+                          autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
     }
@@ -212,15 +213,32 @@ public final class Workspace {
         return .seconds(seconds)
     }
 
+    /// The environment variable a UI test sets so the app's timed sync, every
+    /// 2 minutes, comes less often, in whole seconds. A test that needs the
+    /// phone not to hear of a change for a moment, such as one made elsewhere
+    /// just before a Save, can then count on it. A live build never reads it.
+    nonisolated public static let autoSyncIntervalVariable = "WELLSPENT_AUTOSYNC_SECONDS"
+
+    /// How often the app syncs while open: what the variable says, for a
+    /// staging build, and every 2 minutes otherwise (`AutoSync`).
+    public static func autoSyncInterval(for environment: AppEnvironment,
+                                        in processEnvironment: [String: String]) -> Duration {
+        guard environment == .staging, let text = processEnvironment[autoSyncIntervalVariable],
+              let seconds = Int(text), seconds > 0 else { return AutoSync.defaultInterval }
+        return .seconds(seconds)
+    }
+
     /// With no `defaults`, the environment's own. Public for the Linux app,
     /// which hands in its own folder, settings and keyring, and then starts up
     /// exactly as the Mac app does.
     /// `undoWindow` is how long the Undo bar after a delete stays.
+    /// `autoSyncInterval` is how often the app syncs while open.
     /// `pinnedDay` puts the money wheel on that day of this month.
     public static func launch(accounts: AccountDirectory, defaults: UserDefaults? = nil,
                        environment: AppEnvironment = .current,
                        makeTransport: (@Sendable (URL) -> any ReadableAccountTransport)? = nil,
                        undoWindow: Duration = AppModel.defaultUndoWindow,
+                       autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
@@ -238,6 +256,7 @@ public final class Workspace {
         // Set either way: an older install that already has budgets has had its
         // first run, and must not get samples after its data moves to an account.
         accounts.samplesSeeded = true
-        return Workspace(model: model, sync: sync, pinnedDay: pinnedDay)
+        return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
+                         pinnedDay: pinnedDay)
     }
 }

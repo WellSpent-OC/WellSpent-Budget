@@ -235,6 +235,9 @@ struct EntrySharingTests {
         #expect(deleting.readOnlyLine == "Robin deleted this while you had it open.")
     }
 
+    // Scenario EDIT-12
+    // The no-name line: Share and Join both ask for a name, so no UI test
+    // can make a deleter without one.
     @Test func savingAnEntryDeletedBySomeoneWithNoNameSaysSomeone() async throws {
         let home = try await Household(leslieAt: .manage, robinsName: "")
         let editor = try #require(EntryEditor(model: home.leslie.model, entry: home.hilltop))

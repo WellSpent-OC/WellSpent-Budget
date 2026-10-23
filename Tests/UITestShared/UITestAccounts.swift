@@ -78,28 +78,68 @@ final class SecondAccount {
 
     /// Signs in and takes in everything the account has.
     func signIn(email: String, password: String) async throws {
-        try await sync.signIn(email: email, password: password)
-        await sync.syncAll()
-        try checkSynced()
+        try await retryingDrops { try await self.sync.signIn(email: email, password: password) }
+        try await syncAll()
     }
 
     /// Joins with the link and takes the group in. The model is made after,
-    /// because signing in switched the store underneath.
+    /// because signing in switched the store underneath. When a drop lost the
+    /// server's reply, the join may have gone through anyway, and the next try
+    /// is then told the account is already in the group, or that the invite is
+    /// used. Either counts, and the sync after it and the test's own checks
+    /// show whether the group really came.
     func join(_ link: InviteLink, as name: String) async throws -> AppModel {
-        try await sync.join(link, myName: name)
-        await sync.syncAll()
-        try checkSynced()
+        try await retryingDrops({ _ = try await self.sync.join(link, myName: name) },
+                                doneAfterDrop: { error in
+                                    let words = String(describing: error)
+                                    return ["already in that group", "already been used", "can no longer be used"]
+                                        .contains { words.contains($0) }
+                                })
+        try await syncAll()
         return AppModel(store: sync.store)
     }
 
     /// Sends what was saved, and fails with the server's words if it did not go.
     func syncAll() async throws {
-        await sync.syncAll()
-        try checkSynced()
+        try await retryingDrops {
+            await self.sync.syncAll()
+            try self.checkSynced()
+        }
     }
 
     private func checkSynced() throws {
         if case .failed(let why) = sync.state { throw UITestError("the second account's sync failed: \(why)") }
+    }
+
+    /// Runs a step against staging again when it failed only because the
+    /// network dropped, every five seconds until a minute has passed since the
+    /// first drop. A CI runner's network, or the server's, can drop for a few
+    /// seconds, and the server's Wi-Fi once went quiet for about forty. The
+    /// app then fails the call in its own words for that, as it should. Any
+    /// other failure ends the test at once. `doneAfterDrop` names a failure
+    /// that, on a try after a drop, means the lost try went through after all.
+    func retryingDrops(_ step: () async throws -> Void,
+                       doneAfterDrop: (any Error) -> Bool = { _ in false }) async throws {
+        var firstDrop: Date?
+        while true {
+            do {
+                try await step()
+                return
+            } catch let error where firstDrop != nil && doneAfterDrop(error) {
+                return
+            } catch let error where Self.isDrop(error) && Date().timeIntervalSince(firstDrop ?? Date()) < 60 {
+                if firstDrop == nil { firstDrop = Date() }
+                try await Task.sleep(for: .seconds(5))
+            }
+        }
+    }
+
+    /// The app's words for a network that dropped, from AccountWording: not
+    /// connected, a server it could not reach, or a server not answering.
+    static func isDrop(_ error: any Error) -> Bool {
+        let words = String(describing: error)
+        return ["is not connected to the internet", "Could not reach the server",
+                "The server is not answering right now"].contains { words.contains($0) }
     }
 
     /// A group of the second person's own, with one budget and one entry in
@@ -115,8 +155,14 @@ final class SecondAccount {
         model.selectedBudget = budgetID
         model.addTransaction(merchant: merchant, amount: amount, date: Date(), note: "")
         if let problem = model.errorMessage { throw UITestError("the second account could not add \(merchant): \(problem)") }
-        let link = try await sync.share(group: group, groupName: name, level: role.level, historyAccess: history,
-                                        myName: myName)
+        // A share whose reply was lost leaves an unused invite behind. The next
+        // try makes another, which is harmless.
+        var shared: InviteLink?
+        try await retryingDrops {
+            shared = try await self.sync.share(group: group, groupName: name, level: role.level,
+                                               historyAccess: history, myName: myName)
+        }
+        guard let link = shared else { throw UITestError("the second account could not share \(name)") }
         try await syncAll()
         return link
     }

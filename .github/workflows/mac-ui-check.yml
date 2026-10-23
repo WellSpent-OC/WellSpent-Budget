@@ -1,0 +1,116 @@
+# A Mac UI test branch checks its own new or changed test classes on GitHub's
+# Macs, each time it is pushed: only those classes, with fresh staging accounts
+# of their own. Several branches then check at once, rather than queueing for
+# one Mac's screen, and a branch knows it passes before it joins the train.
+# The train's own pull request still runs every test (ci.yml).
+#
+# Branches only: a fork can't push here, and the run has the mailbox token
+# and nothing else.
+name: Mac UI check
+
+on:
+  push:
+    branches: ['mac/ui-**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-ui-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Mac UI check
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The classes in test files this branch adds or changes against the
+      # train, so a branch checks its own work and nothing else.
+      - name: Find this branch's classes
+        id: classes
+        run: |
+          git fetch -q origin app/0.2-train
+          files=$(git diff --name-only --diff-filter=AM origin/app/0.2-train...HEAD -- 'Tests/WellSpentUITests/*.swift')
+          classes=""
+          for f in $files; do
+            for c in $(grep -h -o -E 'class [A-Za-z0-9_]+: XCTestCase' "$f" | awk '{print $2}' | tr -d ':'); do
+              classes="$classes $c"
+            done
+          done
+          echo "Classes: ${classes:-none}"
+          echo "list=$classes" >> "$GITHUB_OUTPUT"
+
+      - name: Select the newest Xcode on the image
+        if: steps.classes.outputs.list != ''
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        if: steps.classes.outputs.list != ''
+        run: brew install xcodegen
+
+      - name: Cache SwiftPM
+        if: steps.classes.outputs.list != ''
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build the app and the UI test
+        if: steps.classes.outputs.list != ''
+        run: make ui-test-build
+
+      - name: Make this run's own two staging accounts
+        if: steps.classes.outputs.list != ''
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: python3 -I scripts/fresh-test-accounts.py "mac-check-${{ github.run_id }}" "$RUNNER_TEMP/ui-test-accounts.env"
+
+      # Each class in a run of its own, so one class's failure doesn't hide
+      # the next one's result. The step fails if any class failed.
+      - name: Run this branch's classes against staging
+        if: steps.classes.outputs.list != ''
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+          CLASSES: ${{ steps.classes.outputs.list }}
+        run: |
+          set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+          failed=""
+          for c in $CLASSES; do
+            echo "::group::$c"
+            make ui-test UI_TEST_ONLY="WellSpentUITests/$c" || failed="$failed $c"
+            mkdir -p ".build/xcode/results"
+            [ -d .build/xcode/ui-test.xcresult ] && mv .build/xcode/ui-test.xcresult ".build/xcode/results/$c.xcresult"
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then echo "::error::These classes failed:$failed"; exit 1; fi
+
+      - name: Nothing skipped
+        if: ${{ !cancelled() && steps.classes.outputs.list != '' }}
+        run: scripts/skipped-tests.sh .build/xcode/results/*.xcresult
+
+      # As in ci.yml: the result bundles never leave the runner, because they
+      # record what is typed into the sign-in fields. Only pictures are kept.
+      - name: Pull the screenshots out of a failed run
+        if: failure()
+        run: |
+          for bundle in .build/xcode/results/*.xcresult; do
+            [ -d "$bundle" ] || continue
+            name=$(basename "$bundle" .xcresult)
+            xcrun xcresulttool export attachments --path "$bundle" --output-path ".build/xcode/screenshots/$name"
+          done
+          [ -d .build/xcode/screenshots ] && scripts/keep-images.sh .build/xcode/screenshots || true
+
+      - name: Keep the screenshots when a class fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-ui-check-screenshots
+          retention-days: 3
+          path: .build/xcode/screenshots
+          if-no-files-found: ignore
