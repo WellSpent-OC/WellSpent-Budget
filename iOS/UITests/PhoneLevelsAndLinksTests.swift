@@ -381,14 +381,23 @@ extension PhoneTestApp {
     /// With no menu to show, letting go opens the budget, as a tap does, so
     /// it goes back to Home after.
     func expectBudgetMenuIsEmpty(_ budget: String) {
-        scrollTo(AccessibilityID.sidebarBudget(budget))
-        longPress(AccessibilityID.sidebarBudget(budget))
+        let row = scrollTo(AccessibilityID.sidebarBudget(budget))
+        bringToMiddle(row)
+        waitUntilHittable(row, budget)
+        waitUntilStill(row, budget)
+        // A long press on a row with no menu never resolves into one, and
+        // on CI the simulator was left with the touch hanging: every look at
+        // the screen after it stalled, and twice the job ran out of time
+        // here. So the press is a short one, long enough to count as a hold
+        // (0.6 s), and the finger is lifted by a drag of nothing.
+        row.press(forDuration: 0.6, thenDragTo: row)
         for item in [MainScreen.Words.edit, MainScreen.Words.delete] {
-            XCTAssertFalse(menuItem(item).waitForExistence(timeout: 2), "\(budget) offers \(item)")
+            XCTAssertFalse(menuItem(item).waitForExistence(timeout: 5), "\(budget) offers \(item)")
         }
-        if app.navigationBars[budget].waitForExistence(timeout: 2) {
+        // With no menu to show, letting go opens the budget, as a tap does.
+        if app.navigationBars[budget].waitForExistence(timeout: 15) {
             goBack()
-            XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
+            XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 30), "not back on Home")
         } else {
             dismissMenu()
         }
