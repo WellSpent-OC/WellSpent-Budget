@@ -4,8 +4,8 @@ import SwiftUI
 import WellSpentCrypto
 import WellSpentModel
 
-/// Home: the first group's wheel for the month, the groups and their
-/// budgets, and the bar at the foot with Account, the sync line and +. Pull
+/// Home: the groups and their budgets, and the bar at the foot with
+/// Account, the sync line and +. Pull
 /// down to sync. Draws `MainScreen`. Layout only.
 struct PhoneHomeView: View {
     let screen: MainScreen
@@ -14,10 +14,6 @@ struct PhoneHomeView: View {
 
     var body: some View {
         List {
-            // The first group's wheel for the month: PhoneHomeMoneyCard.swift.
-            if let money = screen.homeMoney() {
-                PhoneHomeMoneyCard(money: money)
-            }
             if screen.detail == .noBudgets {
                 empty
             }

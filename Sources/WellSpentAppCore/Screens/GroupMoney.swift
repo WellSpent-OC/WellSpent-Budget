@@ -2,8 +2,8 @@ import Foundation
 import WellSpentCrypto
 import WellSpentModel
 
-/// A group's money this month: the MONEY section of its page on a desktop,
-/// and Home's card on a phone. Its wheel adds up every budget in the group,
+/// A group's money this month: the MONEY section of its page on every platform,
+/// Its wheel adds up every budget in the group,
 /// hidden or not, each one's spending in its own current period. It counts
 /// budgets and what is spent from them, nothing else.
 public struct GroupMoney: Equatable, Sendable {

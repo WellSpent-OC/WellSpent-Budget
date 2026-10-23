@@ -653,31 +653,6 @@ struct MainScreenTests {
         #expect(money.wheel.middleAmount == "$750")
     }
 
-    // Scenario WHEEL-13
-    /// Home's card on a phone holds the first group on Home that holds a
-    /// budget, skipping one with none, and there is no card with no budgets.
-    @Test func homesCardIsTheFirstGroupThatHoldsABudget() async throws {
-        let device = try await Device()
-        #expect(device.screen.homeMoney() == nil, "no groups")
-        let errands = try #require(device.model.addGroup(named: "Errands"))
-        #expect(device.screen.homeMoney() == nil, "no budgets in any group")
-
-        let household = try #require(device.model.addGroup(named: "Household"))
-        device.model.addBudget(named: "Groceries", limit: .dollars(1000), in: household)
-        let side = try #require(device.model.addGroup(named: "Side Business"))
-        device.model.addBudget(named: "Materials", limit: .dollars(900), in: side)
-        #expect(device.screen.sections.map(\.id) == [errands, household, side], "Home's order")
-
-        let now = WheelCalendar.date(2026, 10, 18)
-        let card = try #require(device.screen.homeMoney(now: now, calendar: WheelCalendar.calendar))
-        #expect(card == device.screen.money(of: household, now: now, calendar: WheelCalendar.calendar))
-        #expect(card.title == "Household · October")
-        #expect(card.wheel.day?.shortLine == "Day 18 of 31")
-
-        device.screen.toggle(household)
-        #expect(device.screen.homeMoney()?.groupID == household, "hidden or not")
-    }
-
     // MARK: - Entries
 
     /// The row's menu offers Edit and Delete only where the server

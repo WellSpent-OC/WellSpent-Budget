@@ -132,7 +132,7 @@ struct WheelDayTests {
     }
 
     /// Every wheel a screen builds reads the workspace's day: a budget's
-    /// page, a group's MONEY and Home's card.
+    /// page and a group's MONEY.
     @Test func aPinnedDayPutsEveryWheelOnIt() throws {
         let (workspace, group, groceries) = try household(pinnedDay: 18)
         #expect(workspace.model.today() == Workspace.today(pinnedTo: 18))
@@ -141,6 +141,5 @@ struct WheelDayTests {
         #expect(page.wheel.day?.day == 18)
         let main = MainScreen(workspace: workspace)
         #expect(main.money(of: group)?.wheel.day?.day == 18)
-        #expect(main.homeMoney()?.wheel.day?.day == 18)
     }
 }
