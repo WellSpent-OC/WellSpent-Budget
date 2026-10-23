@@ -387,9 +387,19 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.openEntry("Bread")
         run.clearField(AccessibilityID.entryAmount)
         run.type("6.00", into: AccessibilityID.entryAmount)
+        // Her change must be newer than his, not only first to the server:
+        // both edits start from the same clock, and a tie goes to the device
+        // with the higher ID, a coin flip. Two changes of hers, each synced,
+        // put her last one a step ahead of his.
+        try await leslie.changeEntry("Bread", inGroup: groupName, amount: "50.00")
         try await leslie.changeEntry("Bread", inGroup: groupName, amount: "60.00")
+        let saved = Date().timeIntervalSince1970
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
+        // The line comes with the sync that carries his Save, 2 seconds after
+        // it. On a crawling CI runner that sync once took over 30 seconds, so
+        // it is waited for before the row is read.
+        run.waitForASync(endingAfter: saved)
         XCTAssertTrue(run.row("Bread", says: BudgetScreen.Words.notice, timeout: 30),
                       "no line saying the change didn't go through. The row says: \(run.rowLabel("Bread"))")
         XCTAssertTrue(run.row("Bread", says: "$60.00"), "the row does not show Leslie's version: \(run.rowLabel("Bread"))")
@@ -400,6 +410,8 @@ final class PhoneSharedEntriesTests: XCTestCase {
         XCTAssertFalse(run.row("Bread", says: BudgetScreen.Words.notice, timeout: 2), "the row's line stayed after opening")
         try await leslie.syncAll()
         let lesliesBread = try leslie.entry("Bread", inGroup: groupName)
+        // Her side and the server agree with the phone: her amount stands.
+        XCTAssertEqual(lesliesBread.amount, Money(minorUnits: -6000), "Leslie's Bread is not $60.00 on her side")
         let lesliesEditor = try XCTUnwrap(EntryEditor(model: AppModel(store: leslie.sync.store), entry: lesliesBread.id),
                                           "Leslie's Bread does not open")
         XCTAssertNil(lesliesEditor.noticeLine, "Leslie sees a note")
@@ -413,8 +425,10 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.clearField(AccessibilityID.entryAmount)
         run.type("80.00", into: AccessibilityID.entryAmount)
         try await leslie.setLevelOfTheOther(.write, in: groupName)
+        let refused = Date().timeIntervalSince1970
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
+        run.waitForASync(endingAfter: refused)
         XCTAssertTrue(run.row("Costco", says: BudgetScreen.Words.notice, timeout: 30),
                       "no line after the refused change. The row says: \(run.rowLabel("Costco"))")
         run.goBack()
