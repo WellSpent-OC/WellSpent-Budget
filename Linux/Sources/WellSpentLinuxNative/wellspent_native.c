@@ -120,6 +120,54 @@ void wellspent_accessible_set_selected(void *widget, int selected) {
     gtk_accessible_update_state(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_STATE_SELECTED, selected ? TRUE : FALSE, -1);
 }
 
+static GtkWidget *find_calendar(GtkWidget *widget) {
+    if (GTK_IS_CALENDAR(widget)) return widget;
+    for (GtkWidget *child = gtk_widget_get_first_child(widget); child; child = gtk_widget_get_next_sibling(child)) {
+        GtkWidget *found = find_calendar(child);
+        if (found) return found;
+    }
+    return NULL;
+}
+
+static void collect_buttons(GtkWidget *widget, GtkWidget **buttons, int *count) {
+    for (GtkWidget *child = gtk_widget_get_first_child(widget); child && *count < 4;
+         child = gtk_widget_get_next_sibling(child)) {
+        if (GTK_IS_BUTTON(child))
+            buttons[(*count)++] = child;
+        else
+            collect_buttons(child, buttons, count);
+    }
+}
+
+static void arrow_moved(GtkCalendar *calendar, gpointer data) {
+    (void)data;
+    g_signal_emit_by_name(calendar, "day-selected");
+}
+
+void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
+                               const char *previous_year, const char *next_year) {
+    if (!GTK_IS_WIDGET(widget)) return;
+    GtkWidget *calendar = find_calendar(GTK_WIDGET(widget));
+    if (!calendar) return;
+    // GTK 4 lays its calendar's header out as < month > < year >.
+    GtkWidget *buttons[4];
+    int count = 0;
+    collect_buttons(calendar, buttons, &count);
+    if (count == 4) {
+        const char *names[4] = { previous_month, next_month, previous_year, next_year };
+        for (int i = 0; i < 4; i++)
+            wellspent_accessible_set_label(buttons[i], names[i]);
+    }
+    // An arrow moves the chosen day to the next or last month or year, and
+    // shows it chosen, but GTK says "day-selected" only for a day clicked.
+    // Said here too, so what's saved is the day the calendar shows. Once.
+    if (g_object_get_data(G_OBJECT(calendar), "wellspent-arrows")) return;
+    g_object_set_data(G_OBJECT(calendar), "wellspent-arrows", GINT_TO_POINTER(1));
+    const char *moves[] = { "prev-month", "next-month", "prev-year", "next-year" };
+    for (int i = 0; i < 4; i++)
+        g_signal_connect(calendar, moves[i], G_CALLBACK(arrow_moved), NULL);
+}
+
 static gboolean quit_app(gpointer data) {
     (void)data;
     GApplication *app = g_application_get_default();

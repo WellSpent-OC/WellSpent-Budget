@@ -132,6 +132,12 @@ struct GroupPageView: View {
         }
     }
 
+    /// A person's level as the page holds it now, not as the row it was drawn
+    /// with said.
+    private func level(of person: UserID) -> AccessLevel? {
+        screen.rows.first { $0.id == person }?.level
+    }
+
     private func levelChoices(_ row: MembersScreen.Row) -> [Choice<AccessLevel>] {
         row.levelChoices.map { Choice(value: $0, description: Words.levelTitle($0)) }
     }
@@ -160,7 +166,9 @@ struct GroupPageView: View {
                     }
             } else {
                 Picker(of: levelChoices(row), selection: Binding(
-                    get: { levelChoices(row).first { $0.value == row.level } },
+                    // Read fresh, as the import review's lists are: an old row
+                    // laid out again would set the list back, and undo a change.
+                    get: { levelChoices(row).first { $0.value == level(of: row.id) } },
                     set: { choice in
                         guard let level = choice?.value else { return }
                         Task { await screen.setLevel(level, for: row.id) }

@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 68 |
+| Linux | 142 | 102 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -118,7 +118,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Linux |
 | ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | None yet |
+| ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | Linux |
 | ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -135,7 +135,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | iPhone |
+| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | Linux, iPhone |
 | EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Linux, iPhone |
@@ -172,44 +172,44 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | iPhone |
-| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | Linux, iPhone |
+| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SHARE-03 | Send… hands the link to another app | Mac, iPhone | iPhone |
-| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | iPhone |
-| SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | None yet |
-| SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | None yet |
-| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | iPhone |
-| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | iPhone |
-| SHARE-10 | A used link says it was already accepted | Mac, Linux, iPhone | None yet |
-| SHARE-11 | At View, the person who joins sees everything and changes nothing | Mac, Linux, iPhone | None yet |
-| SHARE-12 | At Manage, the person who joins can change budgets | Mac, Linux, iPhone | None yet |
-| SHARE-13 | Only from now on hides what came before | Mac, Linux, iPhone | None yet |
-| SHARE-14 | Entries reach the others after a sync, with who added them | Mac, Linux, iPhone | Mac |
-| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | iPhone |
-| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | Linux, iPhone |
+| SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | Linux |
+| SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | Linux |
+| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | Linux, iPhone |
+| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | Linux, iPhone |
+| SHARE-10 | A used link says it was already accepted | Mac, Linux, iPhone | Linux |
+| SHARE-11 | At View, the person who joins sees everything and changes nothing | Mac, Linux, iPhone | Linux |
+| SHARE-12 | At Manage, the person who joins can change budgets | Mac, Linux, iPhone | Linux |
+| SHARE-13 | Only from now on hides what came before | Mac, Linux, iPhone | Linux |
+| SHARE-14 | Entries reach the others after a sync, with who added them | Mac, Linux, iPhone | Mac, Linux |
+| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | Linux, iPhone |
+| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [GroupPage.md](GroupPage.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac |
-| PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac |
-| PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | None yet |
-| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | iPhone |
-| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | iPhone |
-| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | iPhone |
-| PAGE-11 | A manager may change and remove only people below Manage | Mac, Linux, iPhone | None yet |
-| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | iPhone |
-| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | iPhone |
-| PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | None yet |
-| PAGE-16 | The page stays open until its own group goes | Mac, Linux | None yet |
-| PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | None yet |
+| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac, Linux |
+| PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac, Linux |
+| PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | Linux |
+| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | Linux, iPhone |
+| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | Linux, iPhone |
+| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | Linux, iPhone |
+| PAGE-11 | A manager may change and remove only people below Manage | Mac, Linux, iPhone | Linux |
+| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | Linux, iPhone |
+| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | Linux, iPhone |
+| PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | Linux |
+| PAGE-16 | The page stays open until its own group goes | Mac, Linux | Linux |
+| PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | Linux |
 
 ### [ClickToJoin.md](ClickToJoin.md)
 

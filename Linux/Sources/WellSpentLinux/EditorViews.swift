@@ -231,6 +231,7 @@ struct EntryEditorView: View {
             Text(Words.date)
                 .font(.system(size: 12))
         }
+        .calendarArrows()
         if let line = editor.periodLine {
             Note(line, warning: true)
         }
