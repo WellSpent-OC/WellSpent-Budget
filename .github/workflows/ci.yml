@@ -16,6 +16,11 @@ name: CI
 on:
   pull_request:
     branches: [main, 'release/**']
+  # The UI tests run once a night, not on every pull request (project
+  # rule, 2026-10-22). 09:00 UTC is 03:00 in Mountain Daylight Time.
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 # A newer push to a pull request stops its older run.
 concurrency:
@@ -283,6 +288,8 @@ jobs:
   # required check until its first green run.
   linux-ui-test:
     name: Linux UI test
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
@@ -364,6 +371,8 @@ jobs:
   mac-ui-test-part:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: macos-latest
     # Every Mac scenario has a UI test now, and a part runs close to an hour
     # on GitHub's Macs. 120 leaves room; a hung run still stops.
@@ -452,7 +461,7 @@ jobs:
   mac-ui-test:
     name: Mac UI test
     needs: mac-ui-test-part
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -501,6 +510,8 @@ jobs:
   iphone-ui-test-part:
     name: iPhone UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
+    # Nightly and by hand only; a pull request runs the fast checks.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: macos-latest
     timeout-minutes: 120
     strategy:
@@ -582,7 +593,7 @@ jobs:
   iphone-ui-test:
     name: iPhone UI test
     needs: iphone-ui-test-part
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -614,7 +625,7 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, mac-ui-test, ios-build, iphone-ui-test, scenario-check]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
