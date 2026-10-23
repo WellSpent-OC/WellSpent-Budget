@@ -26,7 +26,7 @@ import urllib.request
 import gi
 
 gi.require_version("Atspi", "2.0")
-from gi.repository import Atspi  # noqa: E402
+from gi.repository import Atspi, GLib  # noqa: E402
 
 # How long a step waits for the screen to show what it expects. The test
 # display is about three times slower than a desktop.
@@ -137,6 +137,11 @@ class Element:
     def showing(self):
         return self._has(Atspi.StateType.SHOWING)
 
+    @property
+    def focused(self):
+        """Whether the keyboard is on it."""
+        return self._has(Atspi.StateType.FOCUSED)
+
     def all(self, role=None, words=None, starts=None):
         """Everything inside this element with that role and those words, or
         whose words start with `starts`."""
@@ -153,15 +158,26 @@ class Element:
         actions = self.node.get_action_iface()
         if not actions or actions.get_n_actions() == 0:
             raise ScreenError(f"{self!r} can't be pressed")
-        Atspi.Action.do_action(self.node, 0)
+        self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
         self.app.settle()
 
     def type(self, words):
         """Replaces what a text box holds with `words`, as selecting all and
         typing does."""
-        if not Atspi.EditableText.set_text_contents(self.node, words):
+        if not self._ask(lambda: Atspi.EditableText.set_text_contents(self.node, words), "type into"):
             raise ScreenError(f"{self!r} took no words")
         self.app.settle()
+
+    def _ask(self, call, verb):
+        """A call into the app through the tree. An app that stops answering
+        (the hang, wellspent-ops #238) makes the tree give up after its own
+        wait, with an error of its own. That is caught here, so what the app
+        was doing is kept, as a failed wait keeps it."""
+        try:
+            return call()
+        except GLib.GError as error:
+            # Not `self!r`: that asks the tree again, and gets the same error.
+            raise self.app.failure(f"the app stopped answering when asked to {verb} an element ({error})") from None
 
 
 # MARK: - The app
@@ -279,16 +295,21 @@ class App:
             except Exception as error:  # the tree changes under a step
                 last_error = error
             if time.monotonic() > deadline:
-                picture = self.picture("failed")
-                # The app's own log goes beside the picture, since its home
-                # goes when the test ends.
-                shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
-                    if os.path.exists(os.path.join(self.home, "app.log")) else None
-                self._note_process(picture.replace(".png", "-process.txt"))
-                self._note_words(picture.replace(".png", "-words.txt"))
                 cause = f" ({last_error})" if last_error else ""
-                raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
+                raise self.failure(f"waited {wait:g}s for {what}{cause}")
             time.sleep(0.2)
+
+    def failure(self, what):
+        """What a failed step leaves behind, then the error to raise: a
+        picture of the screen, the app's own log (its home goes when the test
+        ends), the process's state and stacks, and the words in its
+        windows."""
+        picture = self.picture("failed")
+        if os.path.exists(os.path.join(self.home, "app.log")):
+            shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log"))
+        self._note_process(picture.replace(".png", "-process.txt"))
+        self._note_words(picture.replace(".png", "-words.txt"))
+        return ScreenError(f"{what}. Screen: {picture}")
 
     def _note_process(self, path):
         """Whether the app was still running when a step failed, and what each
@@ -612,6 +633,15 @@ class App:
         self.settle()
         self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
 
+    def calendar(self, within):
+        """A date's calendar, the part that takes the keyboard for its days.
+        GTK 4.14 gives it no role of its own, so it's the nearest part around
+        its Previous month that can take the keyboard."""
+        node = self.button("Previous month", within=within).node.get_parent()
+        while node is not None and not node.get_state_set().contains(Atspi.StateType.FOCUSABLE):
+            node = node.get_parent()
+        return Element(self, node)
+
     # Steps many tests take, done as a person does them
 
     def new_group(self, name):
@@ -797,10 +827,21 @@ class App:
         self.sync()
 
     def sync(self):
-        """The Sync button, then waits until it's done."""
+        """The Sync button, then waits until it's done. While it runs, the
+        button says what it's doing ("Syncing…"), and a slow network can keep
+        it there past the usual wait."""
         self.button("Sync", within=self.main).press()
         time.sleep(1)
-        self.until(lambda: self.button("Sync", within=self.main).enabled, "the sync to finish")
+
+        def done():
+            for button in self.main.all("push button"):
+                if button.showing and button.words in ("Sync", "Sync failed"):
+                    if button.words == "Sync failed":
+                        raise ScreenError("the sync failed: " + " ".join(self.texts(self.main)[-3:]))
+                    return button.enabled
+            return False
+
+        self.until(done, "the sync to finish", wait=60)
         self.settle()
 
     def share(self, group, my_name, level=None):

@@ -83,6 +83,46 @@ class Entries(unittest.TestCase):
                            "Corner Bakery to show")
         self.assertEqual("birthday cake", bakery[2])
 
+    def test_the_newest_is_on_top(self):
+        app = launch_fresh(self)
+        today = datetime.date.today()
+        app.new_group("Shop")
+        app.new_budget("Food", "500", group="Shop")
+
+        # Scenario ENTRY-05
+        # 1. Corner Bakery, dated the day before by the keyboard: Tab to the
+        # calendar, then Left. (On the 1st no earlier day is in this period, so
+        # it keeps today, and only the order it was added in counts.)
+        sheet = self.open_sheet(app)
+        app.field("Merchant", sheet).type("Corner Bakery")
+        app.field("Amount", sheet).type("6.75")
+        if today.day > 1:
+            calendar = app.calendar(sheet)
+            for _ in range(15):
+                if calendar.focused:
+                    break
+                app.key("Tab")
+            self.assertTrue(calendar.focused, "Tab never reached the calendar")
+            app.key("Left")
+        app.button("Add", within=sheet).press()
+        app.wait_for_window(1, "the sheet to close")
+
+        # Scenario ENTRY-05
+        # 2. Then Hilltop and Market at today: Market is on top, then
+        # Hilltop, then Corner Bakery, dated the day before. (The tree lists
+        # rows in the order they were made, not the order they're drawn in,
+        # until the list is drawn anew. So the order is read after opening
+        # the app again.)
+        app.add_entry("Hilltop", "42.00")
+        app.add_entry("Market", "9.50")
+        app.until(lambda: len(app.entries()) == 3, "three transactions")
+        app.restart()
+        app.budget("Food").press()
+        rows = app.until(lambda: app.entries() if len(app.entries()) == 3 else None, "three transactions")
+        self.assertEqual(["Market", "Hilltop", "Corner Bakery"], [row[1] for row in rows])
+        if today.day > 1:
+            self.assertEqual(short_date(today - datetime.timedelta(days=1)), rows[2][0])
+
     def test_a_date_before_this_period(self):
         app = launch_fresh(self)
         today = datetime.date.today()

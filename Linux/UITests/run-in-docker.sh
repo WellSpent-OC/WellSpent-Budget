@@ -47,7 +47,9 @@ docker run --rm --name "$NAME" \
         fi
         # Each copy of the app writes its counts as it quits, one file each.
         rm -rf /b/coverage && mkdir -p /b/coverage
-        swift build --package-path /src/Linux --scratch-path /b/linux-coverage --enable-code-coverage || exit
+        # SwiftPM counts Swift only, so the C helpers get the C compiler flags too.
+        swift build --package-path /src/Linux --scratch-path /b/linux-coverage --enable-code-coverage \
+            -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping || exit
         status=0
         LLVM_PROFILE_FILE=/b/coverage/%p.profraw WELLSPENT_APP=/b/linux-coverage/debug/WellSpentLinux \
             /src/Linux/UITests/run.sh "$@" || status=$?

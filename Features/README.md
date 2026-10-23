@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 149 | 54 |
-| Linux | 142 | 102 |
+| Linux | 142 | 103 |
 | iPhone | 141 | 80 |
 
 ### [Accounts.md](Accounts.md)
@@ -117,7 +117,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Linux |
 | ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Linux, iPhone |
-| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
+| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | Linux |
 | ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | Linux, iPhone |
 | ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, Linux, iPhone |
