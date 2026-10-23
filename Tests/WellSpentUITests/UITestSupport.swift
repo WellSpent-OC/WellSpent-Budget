@@ -17,6 +17,7 @@ final class TestApp {
     let app = XCUIApplication()
     /// Where this run's databases go. Removed at the end.
     let dataRoot: URL
+    private var signedInAccount: UITestSignedInAccount?
 
     init() throws {
         FailureScreenshots.registerOnce()
@@ -304,6 +305,7 @@ final class TestApp {
             }
             throw UITestError("signing in did not finish. On screen: \(visibleTexts())")
         }
+        signedInAccount = UITestSignedInAccount(server: server, email: email, password: password)
     }
 
     /// Opens the menu on the Add Budget control. The common action is the
@@ -369,55 +371,18 @@ final class TestApp {
         XCTAssertTrue(app.staticTexts[merchant].waitForExistence(timeout: 10), "\(merchant) is not in the table")
     }
 
-    /// Share… from the group's menu: a name, the role, Create Link, and the
-    /// link read off the sheet. The link is read from the screen, not the
-    /// clipboard: reading the clipboard from another process brings up a
-    /// system prompt on recent macOS, which would stop the run.
-    func share(group: String, myName: String, role: InviteRole) throws -> InviteLink {
-        openShareSheet(for: group)
-        pasteAndCheck(myName, into: AccessibilityID.shareName)
-        choose(role: role)
-        click(AccessibilityID.shareCreate)
-        XCTAssertTrue(element(AccessibilityID.shareCopyLink).waitForExistence(timeout: 30),
-                      "no link was made. On screen: \(visibleTexts())")
-        let shown = element(AccessibilityID.shareLink)
-        let text = (shown.value as? String) ?? shown.label
-        guard let link = InviteLink(parsing: text) else {
-            throw UITestError("the sheet shows no invite link: \(text)")
-        }
-        click(AccessibilityID.shareDone)
+    /// A fixture for a link sent by an earlier app. Email form scenarios
+    /// drive the visible form instead of using this setup.
+    func legacyInvite(group: String, myName: String, role: InviteRole) async throws -> InviteLink {
+        guard let signedInAccount else { throw UITestError("the fixture needs a signed-in test account") }
+        // A fresh account with only an empty group has no budget toolbar.
+        // The group's page has the same production Sync button.
+        if !element(AccessibilityID.toolbarSync).exists { openGroupPage(named: group) }
+        syncNow()
+        let link = try await LegacyInviteFixture.make(account: signedInAccount, groupName: group,
+                                                       myName: myName, role: role)
+        syncNow()
         return link
-    }
-
-    /// Share… from the group's menu, until the sheet that opens is titled
-    /// with this group. A right-click that lands on the line beside it opens
-    /// another group's menu, which offers Share… too, and the link then names
-    /// that group (seen in CI on 2026-10-19). Such a sheet is cancelled and
-    /// the menu tried again, twice.
-    private func openShareSheet(for group: String) {
-        let line = AccessibilityID.sidebarGroup(group)
-        let form = element(AccessibilityID.shareName)
-        let title = app.staticTexts[ShareScreen.Words.shareTitle(group)].firstMatch
-        for _ in 0..<3 {
-            openMenu(on: element(line), line, offering: MainScreen.Words.share)
-            clickMenuItem(MainScreen.Words.share)
-            XCTAssertTrue(form.waitForExistence(timeout: 10), "Share\u{2026} opened no sheet. On screen: \(visibleTexts())")
-            if title.waitForExistence(timeout: 3) { return }
-            click(AccessibilityID.shareCancel)
-            wait(for: form, until: "exists == false", timeout: 10)
-        }
-        XCTFail("Share\u{2026} never opened the sheet for \(group). On screen: \(visibleTexts())")
-    }
-
-    /// The role segment, when the picker shows one by that name. The owner's
-    /// default is Add already, so a picker drawn another way is left alone.
-    private func choose(role: InviteRole) {
-        let picker = element(AccessibilityID.shareRole)
-        for candidate in [picker.radioButtons[role.title], picker.buttons[role.title],
-                          app.radioButtons[role.title]] where candidate.exists {
-            candidate.click()
-            return
-        }
     }
 
     /// Sync, in the toolbar, once it is ready.

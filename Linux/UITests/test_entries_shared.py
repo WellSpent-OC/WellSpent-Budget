@@ -39,7 +39,7 @@ class EntriesShared(unittest.TestCase):
 
         # 2. Robin shares Home as Robin, and Leslie joins as Leslie.
         robin.sync()
-        leslie.join(robin.share(home, "Robin"), "Leslie")
+        leslie.join(robin.legacy_invite(home, "Robin"), "Leslie")
 
         # Scenario ENTRY-09
         # 3. Leslie adds Corner Bakery, 99.00. At Robin's next sync it shows in
@@ -72,7 +72,7 @@ class EntriesShared(unittest.TestCase):
         self.addCleanup(leslie.remove_group, club)
         leslie.new_budget("Snacks", "100", group=club)
         leslie.sync()
-        robin.join(leslie.share(club, "Leslie", level="View"), "Robin")
+        robin.join(leslie.legacy_invite(club, "Leslie", level="View"), "Robin")
 
         # Scenario ENTRY-10
         # 2. Robin opens Snacks: no Add and no Import statement. Leslie, who

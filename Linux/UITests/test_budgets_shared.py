@@ -66,7 +66,7 @@ class BudgetsShared(unittest.TestCase):
         # 2. Shared with Robin at Add: the group offers him only Share…,
         # People… and Leave…, and Food no Edit… or Delete….
         leslie.sync()
-        robin.join(leslie.share(home, "Leslie"), "Robin")
+        robin.join(leslie.legacy_invite(home, "Leslie"), "Robin")
         self.assertEqual(["Share…", "People…", "Leave…"], self.menu_of(robin, home))
         robin.budget("Food").press()
         robin.wait_shows("Food", within=robin.main, role="label")
@@ -104,7 +104,7 @@ class BudgetsShared(unittest.TestCase):
         leslie.sign_in_as("Leslie")
         flat = unique("Flat")
         self.group_with_spending(robin, flat)
-        leslie.join(robin.share(flat, "Robin"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin"), "Leslie")
         robin.sync()
 
         # Scenario BUDGET-12
@@ -126,7 +126,7 @@ class BudgetsShared(unittest.TestCase):
         leslie.sign_in_as("Leslie")
         flat = unique("Flat")
         self.group_with_spending(leslie, flat)
-        robin.join(leslie.share(flat, "Leslie"), "Robin")
+        robin.join(leslie.legacy_invite(flat, "Leslie"), "Robin")
 
         # Scenario BUDGET-13
         # 1. At Add, Robin is asked to leave, never to delete, in these words.
@@ -146,7 +146,7 @@ class BudgetsShared(unittest.TestCase):
         # has none to send.
         club = unique("Club")
         self.group_with_spending(leslie, club)
-        robin.join(leslie.share(club, "Leslie", level="View"), "Robin")
+        robin.join(leslie.legacy_invite(club, "Leslie", level="View"), "Robin")
         robin.pick("Leave…", robin.group_menu(club))
         self.assertEqual(f"Leave “{club}”? " + LEAVE + ONLY, robin.question())
         robin.answer("Cancel")

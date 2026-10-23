@@ -200,7 +200,7 @@ struct RootView: View {
         case .renameGroup(let group):
             GroupEditorView(editor: GroupEditor(model: model, renaming: group), close: closeSheet)
         case .share(let group):
-            ShareView(screen: ShareScreen(actions: sync, group: group.id, groupName: group.name), close: closeSheet)
+            ShareView(screen: EmailInviteScreen(actions: sync, group: group.id, groupName: group.name), close: closeSheet)
         case .join:
             JoinView(screen: JoinScreen(actions: sync), close: closeSheet, openAccount: {
                 // One sheet at a time: the join closes, then the account opens.
@@ -280,6 +280,9 @@ struct SidebarView: View {
             // The rows at the top and the footer at the bottom, as on the Mac.
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
+                    ForEach(screen.incomingInvitations) { invitation in
+                        IncomingInvitationRow(invitation: invitation, main: screen)
+                    }
                     ForEach(rows) { row in
                         rowView(row)
                     }

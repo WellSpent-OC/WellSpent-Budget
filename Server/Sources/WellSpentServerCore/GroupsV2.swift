@@ -51,13 +51,16 @@ struct CreateInviteV2Request: Content {
     let historyAccess: String
     /// One to `InviteRules.maxDays`; `InviteRules.defaultDays` when left out.
     let expiresInDays: Int?
+    let email: String?
+    let inviteeName: String?
+    let inviterName: String?
 }
 
 struct InviteCreatedResponse: Content {
     let id: UUID
     /// Shown once. Only its hash is stored, so a read of the database cannot
     /// accept an invite.
-    let token: String
+    let token: String?
     let expiresAt: Date
 }
 
@@ -67,6 +70,10 @@ struct InviteInfo: Content {
     let historyAccess: String
     let expiresAt: Date
     let inviterUserID: UUID
+    let email: String?
+    let inviteeName: String?
+    let inviterName: String?
+    let status: String
 }
 
 struct InvitePreviewRequest: Content {
@@ -78,6 +85,8 @@ struct InvitePreview: Content {
     let level: Int
     let historyAccess: String
     let expiresAt: Date
+    let invitationID: UUID?
+    let inviteeName: String?
 }
 
 struct AcceptInviteV2Request: Content {
@@ -158,16 +167,29 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         let token = try request.content.decode(InvitePreviewRequest.self).token
         guard let invite = try await InviteRow.query(on: request.db)
             .filter(\.$inviteHash == inviteTokenHash(token)).first(),
-              invite.acceptedAt == nil else { throw ServerError.inviteNotFound }
+              invite.acceptedAt == nil, invite.rejectedAt == nil,
+              invite.cancelledAt == nil, invite.closedAt == nil else { throw ServerError.inviteNotFound }
         guard invite.expiresAt > Date() else { throw ServerError.inviteExpired }
         guard !InviteRules.outlivesLimit(invite.expiresAt) else {
             throw Abort(.gone, reason: InviteRules.noLongerValid)
         }
+        guard let group = try await GroupRow.find(invite.groupID, on: request.db), group.deletedAt == nil else {
+            throw ServerError.inviteNotFound
+        }
+        guard let inviter = try await MembershipRow.query(on: request.db)
+            .filter(\.$groupID == invite.groupID).filter(\.$userID == invite.inviterUserID).first(),
+              let level = AccessLevel(rawValue: invite.level), let inviterLevel = AccessLevel(rawValue: inviter.level),
+              MembershipRules.invite(at: level, holding: inviterLevel) == nil else {
+            throw Abort(.gone, reason: InviteRules.noLongerValid)
+        }
         return InvitePreview(groupID: invite.groupID, level: invite.level,
-                             historyAccess: invite.historyAccess, expiresAt: invite.expiresAt)
+                             historyAccess: invite.historyAccess, expiresAt: invite.expiresAt,
+                             invitationID: invite.inviteeEmail == nil ? nil : try invite.requireID(),
+                             inviteeName: invite.inviteeEmail == nil ? nil : invite.inviteeName)
     }
 
     let authed = routes.grouped(SessionAuthenticator(), AuthenticatedUser.guardMiddleware())
+    registerIncomingInvitationRoutes(authed)
 
     /// Creates a group with the caller as its founder. Sending the same group
     /// again, after a lost reply, answers as the first time did.
@@ -254,24 +276,27 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
               MembershipRules.grantable.contains(new) else {
             throw Abort(.badRequest, reason: "that is not a level a member can be given")
         }
-        let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .manage, on: request.db)
-        guard subject != group.founderID else {
-            throw Abort(.forbidden, reason: "the founder's level cannot change")
+        return try await request.db.transaction { database in
+            try await holdGroup(groupID, on: database)
+            let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .manage, on: database)
+            guard subject != group.founderID else {
+                throw Abort(.forbidden, reason: "the founder's level cannot change")
+            }
+            guard let theirs = try await MembershipRow.query(on: database)
+                .filter(\.$groupID == groupID).filter(\.$userID == subject).first(),
+                  let old = AccessLevel(rawValue: theirs.level), old != .none else {
+                throw Abort(.notFound, reason: "they are not a member")
+            }
+            let myLevel = AccessLevel(rawValue: mine.level) ?? .none
+            // The whole decision, from the one copy the apps use too.
+            if let refusal = MembershipRules.changeLevel(from: old, to: new, ofFounder: subject == group.founderID,
+                                                         holding: myLevel) {
+                throw refusal.answer(founder: "the founder's level cannot change")
+            }
+            theirs.level = new.rawValue
+            try await theirs.save(on: database)
+            return .noContent
         }
-        guard let theirs = try await MembershipRow.query(on: request.db)
-            .filter(\.$groupID == groupID).filter(\.$userID == subject).first(),
-              let old = AccessLevel(rawValue: theirs.level), old != .none else {
-            throw Abort(.notFound, reason: "they are not a member")
-        }
-        let myLevel = AccessLevel(rawValue: mine.level) ?? .none
-        // The whole decision, from the one copy the apps use too.
-        if let refusal = MembershipRules.changeLevel(from: old, to: new, ofFounder: subject == group.founderID,
-                                                     holding: myLevel) {
-            throw refusal.answer(founder: "the founder's level cannot change")
-        }
-        theirs.level = new.rawValue
-        try await theirs.save(on: request.db)
-        return .noContent
     }
 
     /// Removes a member, or, for the caller's own membership, leaves. The
@@ -281,12 +306,13 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         let groupID = try request.parameters.require("groupID", as: UUID.self)
         let subject = try request.parameters.require("userID", as: UUID.self)
         return try await request.db.transaction { database in
-            try await WarTableHost.lockGroup(groupID, on: database)
+            try await holdGroup(groupID, on: database)
             let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .read, on: database)
             guard subject != group.founderID else {
                 throw Abort(.forbidden, reason: "the founder cannot leave or be removed; delete the group instead")
             }
             if subject == user.id {
+                try await closeAddressedInvitations(groupID: groupID, userID: subject, on: database)
                 try await mine.delete(on: database)
                 try await WarTableHost.memberRemoved(subject, group: groupID, on: database)
                 return .noContent
@@ -300,6 +326,7 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
                                                     holding: AccessLevel(rawValue: mine.level) ?? .none) {
                 throw refusal.answer(founder: "the founder cannot leave or be removed; delete the group instead")
             }
+            try await closeAddressedInvitations(groupID: groupID, userID: subject, on: database)
             try await theirs.delete(on: database)
             try await WarTableHost.memberRemoved(subject, group: groupID, on: database)
             return .noContent
@@ -310,28 +337,7 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         let user = try request.auth.require(AuthenticatedUser.self)
         let groupID = try request.parameters.require("groupID", as: UUID.self)
         let body = try request.content.decode(CreateInviteV2Request.self)
-        guard let level = AccessLevel(rawValue: body.level), MembershipRules.grantable.contains(level) else {
-            throw Abort(.badRequest, reason: "that is not a level a member can be given")
-        }
-        guard HistoryAccess(rawValue: body.historyAccess) != nil else {
-            throw Abort(.badRequest, reason: "history must be \"all\" or \"fromNow\"")
-        }
-        let days = body.expiresInDays ?? InviteRules.defaultDays
-        guard (1 ... InviteRules.maxDays).contains(days) else {
-            throw Abort(.badRequest, reason: "an invite lasts 1 to \(InviteRules.maxDays) days")
-        }
-        let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .manage, on: request.db)
-        guard group.deletedAt == nil else { throw ServerError.notAMember }
-        let myLevel = AccessLevel(rawValue: mine.level) ?? .none
-        if let refusal = MembershipRules.invite(at: level, holding: myLevel) {
-            throw refusal.answer(founder: "the founder cannot be invited")
-        }
-        let token = urlSafeToken()
-        let expiresAt = Date().addingTimeInterval(TimeInterval(days) * 86_400)
-        let invite = InviteRow(inviteHash: inviteTokenHash(token), groupID: groupID, inviterUserID: user.id,
-                               level: level.rawValue, historyAccess: body.historyAccess, expiresAt: expiresAt)
-        try await invite.create(on: request.db)
-        return try await InviteCreatedResponse(id: try invite.requireID(), token: token, expiresAt: expiresAt)
+        return try await createInvitation(body, groupID: groupID, user: user, request: request)
             .encodeResponse(status: .created, for: request)
     }
 
@@ -343,10 +349,14 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         return try await InviteRow.query(on: request.db)
             .filter(\.$groupID == groupID)
             .filter(\.$acceptedAt == nil)
+            .filter(\.$cancelledAt == nil)
+            .filter(\.$closedAt == nil)
             .filter(\.$expiresAt > Date())
             .all()
             .map { InviteInfo(id: try $0.requireID(), level: $0.level, historyAccess: $0.historyAccess,
-                              expiresAt: $0.expiresAt, inviterUserID: $0.inviterUserID) }
+                              expiresAt: $0.expiresAt, inviterUserID: $0.inviterUserID,
+                              email: $0.inviteeEmail, inviteeName: $0.inviteeName, inviterName: $0.inviterName,
+                              status: $0.rejectedAt == nil ? "pending" : "rejected") }
     }
 
     /// Cancelled by whoever made it, or by any manager.
@@ -354,17 +364,27 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         let user = try request.auth.require(AuthenticatedUser.self)
         let groupID = try request.parameters.require("groupID", as: UUID.self)
         let inviteID = try request.parameters.require("inviteID", as: UUID.self)
-        let (_, mine) = try await requireMembership(groupID, user: user.id, needed: .read, on: request.db)
-        guard let invite = try await InviteRow.query(on: request.db)
-            .filter(\.$id == inviteID).filter(\.$groupID == groupID).first() else {
-            throw ServerError.inviteNotFound
+        return try await request.db.transaction { database in
+            try await holdGroup(groupID, on: database)
+            let (_, mine) = try await requireMembership(groupID, user: user.id, needed: .read, on: database)
+            guard let invite = try await InviteRow.query(on: database)
+                .filter(\.$id == inviteID).filter(\.$groupID == groupID).first() else {
+                throw ServerError.inviteNotFound
+            }
+            guard invite.inviterUserID == user.id
+                  || (AccessLevel(rawValue: mine.level) ?? .none).allows(.manage) else {
+                throw ServerError.insufficientLevel(needed: .manage)
+            }
+            guard invite.acceptedAt == nil, invite.rejectedAt == nil else {
+                throw Abort(.conflict, reason: "that invitation has already been answered")
+            }
+            if invite.cancelledAt != nil { return .noContent }
+            guard invite.closedAt == nil else { throw ServerError.inviteNotFound }
+            guard invite.expiresAt > Date() else { throw ServerError.inviteExpired }
+            invite.cancelledAt = Date()
+            try await invite.save(on: database)
+            return .noContent
         }
-        guard invite.inviterUserID == user.id
-              || (AccessLevel(rawValue: mine.level) ?? .none).allows(.manage) else {
-            throw ServerError.insufficientLevel(needed: .manage)
-        }
-        try await invite.delete(on: request.db)
-        return .noContent
     }
 
     /// Joins the group an invite is for. One invite adds one person, once:
@@ -382,54 +402,6 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
             .filter(\.$inviteHash == inviteTokenHash(token)).first() else {
             throw ServerError.inviteNotFound
         }
-        guard invite.acceptedAt == nil else { throw ServerError.inviteAlreadyAccepted }
-        guard invite.expiresAt > Date() else { throw ServerError.inviteExpired }
-        guard !InviteRules.outlivesLimit(invite.expiresAt) else {
-            throw Abort(.gone, reason: InviteRules.noLongerValid)
-        }
-        guard let group = try await GroupRow.find(invite.groupID, on: request.db),
-              group.deletedAt == nil else { throw ServerError.inviteNotFound }
-        let existing = try await MembershipRow.query(on: request.db)
-            .filter(\.$groupID == invite.groupID).filter(\.$userID == user.id).first()
-        if let existing, (AccessLevel(rawValue: existing.level) ?? .none) != .none {
-            throw Abort(.conflict, reason: "you are already in that group")
-        }
-        // An invite speaks for whoever made it, as they are now, not as they
-        // were. Removed, or no longer able to give that level, their invites
-        // are void: a removed admin could otherwise let herself back in at Admin.
-        guard let level = AccessLevel(rawValue: invite.level),
-              let inviter = try await MembershipRow.query(on: request.db)
-                .filter(\.$groupID == invite.groupID).filter(\.$userID == invite.inviterUserID).first(),
-              let inviterLevel = AccessLevel(rawValue: inviter.level),
-              MembershipRules.invite(at: level, holding: inviterLevel) == nil else {
-            throw Abort(.gone, reason: InviteRules.noLongerValid)
-        }
-        // Nobody gives more history than they have: an "everything" invite from
-        // a member who joined "from now on" starts where they did.
-        let fromInvite = HistoryAccess(rawValue: invite.historyAccess) == .fromNow ? group.lastSeq : 0
-        let floor = max(fromInvite, inviter.joinedAtSequence)
-        let inviteID = try invite.requireID()
-
-        let membership: MembershipRow = try await request.db.transaction { database in
-            guard let sql = database as? any SQLDatabase else {
-                throw Abort(.internalServerError, reason: "invites need a SQL database")
-            }
-            let taken = try await sql.update(InviteRow.schema)
-                .set("accepted_at", to: SQLBind(Date()))
-                .set("accepted_by_user_id", to: SQLBind(user.id))
-                .where("id", .equal, SQLBind(inviteID))
-                .where("accepted_at", .is, SQLLiteral.null)
-                .returning("id")
-                .first()
-            guard taken != nil else { throw ServerError.inviteAlreadyAccepted }
-            // A row left at "none" by an earlier removal is reused, so the
-            // unique pair (group, person) still holds.
-            if let existing { try await existing.delete(on: database) }
-            let membership = MembershipRow(groupID: invite.groupID, userID: user.id,
-                                           level: invite.level, joinedAtSequence: floor)
-            try await membership.create(on: database)
-            return membership
-        }
-        return try groupResponse(group, membership: membership)
+        return try await acceptInvitation(id: invite.requireID(), userID: user.id, on: request.db)
     }
 }

@@ -43,6 +43,8 @@ struct RouteGuardTests {
         "POST /api/v2/signout",
         "POST /api/v2/signout/everywhere",
         "POST /api/v2/email/verify/resend",
+        "POST /api/v2/invitations/:inviteID/accept",
+        "POST /api/v2/invitations/:inviteID/reject",
     ]
 
     /// Every route of /api/v2 that isn't open refuses no sign-in, a token that

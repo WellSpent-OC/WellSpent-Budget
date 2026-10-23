@@ -3,22 +3,21 @@ import Observation
 import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentCrypto
-import WellSpentLinuxNative
 import WellSpentModel
 import WellSpentSync
 
-// Sharing on Linux: the shared ShareScreen and JoinScreen, drawn with GTK.
+// Sharing on Linux: the shared email invitation and legacy join screens.
 // A group's people are on its page (GroupPageView). What each holds, checks
 // and says is the Mac's; this is layout only.
 
 // MARK: - Share
 
 struct ShareView: View {
-    @State var screen: ShareScreen
+    @State var screen: EmailInviteScreen
     var close: () -> Void
-    private typealias Words = ShareScreen.Words
+    private typealias Words = EmailInviteScreen.Words
 
-    init(screen: ShareScreen, close: @escaping () -> Void) {
+    init(screen: EmailInviteScreen, close: @escaping () -> Void) {
         _screen = State(wrappedValue: screen)
         self.close = close
     }
@@ -34,10 +33,10 @@ struct ShareView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(screen.title)
                 .font(.system(size: 17, weight: .semibold))
-            if let link = screen.link {
-                created(link)
+            if let message = screen.sentMessage {
+                sent(message)
             } else {
-                form
+                form.disabled(screen.isWorking)
             }
         }
         .padding(20)
@@ -48,6 +47,10 @@ struct ShareView: View {
 
     @ViewBuilder
     private var form: some View {
+        Field(label: Words.email, prompt: Words.emailPrompt,
+              text: Binding(get: { screen.email }, set: { screen.email = $0 }))
+        Field(label: Words.inviteeName, prompt: Words.inviteeNamePrompt,
+              text: Binding(get: { screen.inviteeName }, set: { screen.inviteeName = $0 }))
         Field(label: Words.name, prompt: Words.namePrompt,
               text: Binding(get: { screen.myName }, set: { screen.myName = $0 }))
         if !screen.roles.isEmpty {
@@ -68,26 +71,25 @@ struct ShareView: View {
         } else if let failure = screen.failure {
             Note(failure, warning: true)
         }
+        Note(screen.note)
+            .fixedSize(horizontal: false, vertical: true)
         HStack {
-            Note(screen.note)
             Spacer()
             Button(Words.cancel) { close() }
-            Button(screen.createLabel) { Task { await screen.create() } }
+            Button(screen.sendLabel) { Task { await screen.send() } }
                 .defaultAction()
-                .disabled(!screen.canCreate)
+                .disabled(!screen.canSend)
         }
     }
 
     @ViewBuilder
-    private func created(_ link: InviteLink) -> some View {
-        Text(link.url)
-            .font(.system(size: 11))
-            .textSelectionEnabled()
-        Note(screen.note)
+    private func sent(_ message: String) -> some View {
+        Text(message)
+            .fixedSize(horizontal: false, vertical: true)
         HStack {
-            Button(Words.copyLink) { wellspent_clipboard_set_text(link.url) }
             Spacer()
             Button(Words.done) { close() }
+                .defaultAction()
         }
     }
 }
@@ -115,6 +117,7 @@ struct JoinView: View {
                   text: Binding(get: { screen.linkText }, set: { screen.linkText = $0 }))
             Field(label: Words.name, prompt: Words.namePrompt,
                   text: Binding(get: { screen.myName }, set: { screen.myName = $0 }))
+                .disabled(screen.isAddressedInvitation)
             if let invitation = screen.invitation {
                 Text(invitation)
             } else if let problem = screen.linkProblem {
@@ -143,5 +146,6 @@ struct JoinView: View {
         .frame(width: 480)
         .foregroundColor(Palette.ink)
         .background(Palette.surface)
+        .task(id: screen.linkText) { await screen.lookUp() }
     }
 }

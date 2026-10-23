@@ -80,10 +80,10 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         run.expectNoSheet()
         run.goBack()
 
-        // Scenario SHARE-05, BUDGET-07
+        // Scenario SHARE-05, BUDGET-07, EMAIL-06
         // 3. Moved up to Add: the menu still offers only Share, People and
         // Leave, the budget no Edit or Delete, and Share says only a manager
-        // or admin can invite, with no level to choose and Create Link dimmed.
+        // or admin can invite, with no level to choose and Send Invite dimmed.
         try await leslie.setLevelOfTheOther(.write, in: groupName)
         run.syncUntilTheLevel(allowsAdding: true, in: budget)
         run.expectGroupMenu(groupName, offers: [MainScreen.Words.share, MembersScreen.Words.menuItem, MainScreen.Words.leave],
@@ -95,7 +95,9 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
                       "Share does not say who may invite. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.shareRole).exists, "Share offers a level at Add")
         run.type("Robin", into: AccessibilityID.shareName)
-        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Create Link lit at Add")
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.type("person@example.com", into: AccessibilityID.shareEmail)
+        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Send Invite lit at Add")
         run.tap(AccessibilityID.shareCancel)
 
         // Scenario EDIT-10
@@ -287,7 +289,7 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         // Scenario CLICK-10
         // 2. Robin taps his own group's link and presses Join: the page says
         // he is in that group already, and the link is not used up.
-        let link = try run.shareAndCopyLink(groupName, as: "Robin")
+        let link = try await run.legacyInvite(groupName, as: "Robin")
         run.open(link: link.url)
         XCTAssertTrue(run.text("Robin invited you to \u{201C}\(groupName)\u{201D}.").waitForExistence(timeout: 15), "no invitation")
         run.type("Robin", into: AccessibilityID.invitationName)

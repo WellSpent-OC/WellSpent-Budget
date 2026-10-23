@@ -6,126 +6,109 @@ import WellSpentCrypto
 import WellSpentModel
 import WellSpentSync
 
-/// Share: your name, what they can do, what they see, and Create Link, which
-/// opens the iPhone's own share sheet with the link in it. No extra screen
-/// with the link. Closed without sending, the sheet stays, says the link
-/// works once, and Send… opens the share sheet again for the same link.
-/// Draws `ShareScreen`. Layout only.
+/// The email invitation form, using the same rules as the desktop apps.
 struct PhoneShareSheet: View {
-    @State private var screen: ShareScreen
+    @State private var screen: EmailInviteScreen
     @Environment(\.dismiss) private var dismiss
-    private typealias Words = ShareScreen.Words
+    private typealias Words = EmailInviteScreen.Words
 
     init(sync: SyncCoordinator, group: BudgetGroup) {
-        _screen = State(initialValue: ShareScreen(actions: sync, group: group.id, groupName: group.name))
+        _screen = State(initialValue: EmailInviteScreen(actions: sync, group: group.id,
+                                                       groupName: group.name))
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    PhoneField(Words.name) {
-                        TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
-                            .textInputAutocapitalization(.words)
-                            .accessibilityIdentifier(AccessibilityID.shareName)
-                    }
-                    .disabled(screen.link != nil)
-                }
-                .listRowBackground(Palette.surface)
-                if !screen.roles.isEmpty {
+                if screen.sent != nil {
                     Section {
-                        PhoneField(Words.role) {
+                        Text(screen.sentMessage ?? screen.note)
+                    }
+                    .listRowBackground(Palette.surface)
+                } else {
+                    Section {
+                        PhoneField(Words.email) {
+                            TextField(Words.email, text: Bindable(screen).email,
+                                      prompt: Text(Words.emailPrompt))
+                                .keyboardType(.emailAddress)
+                                .textContentType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .accessibilityIdentifier(AccessibilityID.shareEmail)
+                        }
+                        PhoneField(Words.inviteeName) {
+                            TextField(Words.inviteeName, text: Bindable(screen).inviteeName,
+                                      prompt: Text(Words.inviteeNamePrompt))
+                                .textInputAutocapitalization(.words)
+                                .accessibilityIdentifier(AccessibilityID.shareInviteeName)
+                        }
+                        PhoneField(Words.name) {
+                            TextField(Words.name, text: Bindable(screen).myName,
+                                      prompt: Text(Words.namePrompt))
+                                .textInputAutocapitalization(.words)
+                                .accessibilityIdentifier(AccessibilityID.shareName)
+                        }
+                    }
+                    .disabled(screen.isWorking)
+                    .listRowBackground(Palette.surface)
+                    if !screen.roles.isEmpty {
+                        Section {
                             Picker(Words.role, selection: Bindable(screen).role) {
                                 ForEach(screen.roles) { Text($0.title).tag($0) }
                             }
                             .pickerStyle(.segmented)
                             .accessibilityIdentifier(AccessibilityID.shareRole)
+                        } footer: {
+                            Text(screen.role.explanation)
                         }
-                        .disabled(screen.link != nil)
-                    } footer: {
-                        Text(screen.role.explanation)
+                        .disabled(screen.isWorking)
+                        .listRowBackground(Palette.surface)
                     }
-                    .listRowBackground(Palette.surface)
-                }
-                Section {
-                    Picker(Words.history, selection: Bindable(screen).history) {
-                        Text(Words.historyAll).tag(HistoryAccess.all)
-                        Text(Words.historyFromNow).tag(HistoryAccess.fromNow)
-                    }
-                    .pickerStyle(.menu)
-                    .disabled(screen.link != nil)
-                    .accessibilityIdentifier(AccessibilityID.shareHistory)
-                }
-                .listRowBackground(Palette.surface)
-                if let notice = screen.notice ?? screen.failure {
                     Section {
-                        PhoneNote(notice)
+                        Picker(Words.history, selection: Bindable(screen).history) {
+                            Text(Words.historyAll).tag(HistoryAccess.all)
+                            Text(Words.historyFromNow).tag(HistoryAccess.fromNow)
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier(AccessibilityID.shareHistory)
+                    }
+                    .disabled(screen.isWorking)
+                    .listRowBackground(Palette.surface)
+                    if let notice = screen.notice ?? screen.failure {
+                        Section { PhoneNote(notice) }
+                            .listRowBackground(Color.clear)
+                    }
+                    Section {
+                        Button {
+                            Task { await screen.send() }
+                        } label: {
+                            Text(screen.sendLabel)
+                                .font(.headline)
+                                .foregroundStyle(Palette.ground)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!screen.canSend)
+                        .accessibilityIdentifier(AccessibilityID.shareCreate)
+                    } footer: {
+                        Text(screen.note)
                     }
                     .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 }
-                Section {
-                    Button(action: createOrSend) {
-                        Text(screen.link == nil ? screen.createLabel : PhoneWording.button(Words.send))
-                            .font(.headline)
-                            // White would not read on the dark mode green.
-                            .foregroundStyle(Palette.ground)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(screen.link == nil && !screen.canCreate)
-                    .accessibilityIdentifier(AccessibilityID.shareCreate)
-                } footer: {
-                    Text(screen.note)
-                }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
             }
             .phoneSheet(title: screen.title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(screen.link == nil ? Words.cancel : Words.done) { dismiss() }
+                    Button(screen.sent == nil ? Words.cancel : Words.done) { dismiss() }
                         .disabled(screen.isWorking)
-                        .accessibilityIdentifier(AccessibilityID.shareCancel)
+                        .accessibilityIdentifier(screen.sent == nil ? AccessibilityID.shareCancel
+                                                                   : AccessibilityID.shareDone)
                 }
             }
         }
-        // While the link is being made, the sheet stays: the share sheet
-        // opens over it once the link is there, and never over what is left.
         .interactiveDismissDisabled(screen.isWorking)
-    }
-
-    /// Makes the link the first time, then hands it to the share sheet.
-    private func createOrSend() {
-        Task {
-            if screen.link == nil {
-                guard await screen.create() else { return }
-            }
-            guard let link = screen.link else { return }
-            PhoneSystemShare.present(link.url) { sent in
-                if sent { dismiss() }
-            }
-        }
-    }
-}
-
-/// The iPhone's own share sheet: Messages, Mail, Copy and the rest. It goes
-/// over whatever shows, here the Share sheet, so it is presented by UIKit:
-/// SwiftUI has no way to open it without a link made beforehand.
-@MainActor
-enum PhoneSystemShare {
-    /// `finished` hears whether the link went somewhere, after the share
-    /// sheet has closed.
-    static func present(_ text: String, finished: @escaping (Bool) -> Void) {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow),
-              var top = window.rootViewController else { return }
-        while let presented = top.presentedViewController, !presented.isBeingDismissed { top = presented }
-        let controller = UIActivityViewController(activityItems: [text], applicationActivities: nil)
-        controller.completionWithItemsHandler = { _, completed, _, _ in
-            DispatchQueue.main.async { finished(completed) }
-        }
-        top.present(controller, animated: true)
     }
 }
 
@@ -158,6 +141,7 @@ struct PhoneJoinSheet: View {
                         TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
                             .textInputAutocapitalization(.words)
                             .accessibilityIdentifier(AccessibilityID.joinName)
+                            .disabled(screen.isAddressedInvitation)
                     }
                 }
                 .listRowBackground(Palette.surface)
@@ -191,6 +175,7 @@ struct PhoneJoinSheet: View {
                 }
             }
             .phoneSheet(title: screen.title)
+            .task(id: screen.linkText) { await screen.lookUp() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(Words.cancel) { dismiss() }
@@ -233,6 +218,7 @@ struct PhoneInvitationView: View {
                         TextField(Words.name, text: $screen.myName, prompt: Text(Words.namePrompt))
                             .textInputAutocapitalization(.words)
                             .accessibilityIdentifier(AccessibilityID.invitationName)
+                            .disabled(screen.isAddressedInvitation)
                     }
                 }
                 .listRowBackground(Palette.surface)

@@ -158,29 +158,79 @@ public struct InviteTerms: Sendable, Equatable {
     public let level: AccessLevel
     public let history: HistoryAccess
     public let expiresAt: Date
+    public let invitationID: UUID?
+    public let inviteeName: String?
 
-    public init(groupID: GroupID, level: AccessLevel, history: HistoryAccess, expiresAt: Date) {
+    public init(groupID: GroupID, level: AccessLevel, history: HistoryAccess, expiresAt: Date,
+                invitationID: UUID? = nil, inviteeName: String? = nil) {
         self.groupID = groupID
         self.level = level
         self.history = history
         self.expiresAt = expiresAt
+        self.invitationID = invitationID
+        self.inviteeName = inviteeName
     }
 }
 
 /// An invite not yet accepted. Matches `InviteInfo`.
-public struct ServerInvite: Sendable, Equatable {
+public struct ServerInvite: Identifiable, Sendable, Equatable {
     public let id: UUID
     public let level: AccessLevel
     public let history: HistoryAccess
     public let expiresAt: Date
     public let inviterID: UserID
+    public let email: String?
+    public let inviteeName: String?
+    public let inviterName: String?
+    public let status: String
 
-    public init(id: UUID, level: AccessLevel, history: HistoryAccess, expiresAt: Date, inviterID: UserID) {
+    public init(id: UUID, level: AccessLevel, history: HistoryAccess, expiresAt: Date, inviterID: UserID,
+                email: String? = nil, inviteeName: String? = nil, inviterName: String? = nil,
+                status: String = "pending") {
         self.id = id
         self.level = level
         self.history = history
         self.expiresAt = expiresAt
         self.inviterID = inviterID
+        self.email = email
+        self.inviteeName = inviteeName
+        self.inviterName = inviterName
+        self.status = status
+    }
+}
+
+/// A sent email invitation. Its bearer token is never returned to the sender.
+public struct SentEmailInvite: Sendable, Equatable {
+    public let id: UUID
+    public let expiresAt: Date
+
+    public init(id: UUID, expiresAt: Date) {
+        self.id = id
+        self.expiresAt = expiresAt
+    }
+}
+
+/// An invitation addressed to the signed-in account, before membership exists.
+public struct IncomingInvitation: Identifiable, Sendable, Equatable {
+    public let id: UUID
+    public let groupID: GroupID
+    public let groupName: String
+    public let inviterName: String
+    public let inviteeName: String
+    public let level: AccessLevel
+    public let history: HistoryAccess
+    public let expiresAt: Date
+
+    public init(id: UUID, groupID: GroupID, groupName: String, inviterName: String,
+                inviteeName: String, level: AccessLevel, history: HistoryAccess, expiresAt: Date) {
+        self.id = id
+        self.groupID = groupID
+        self.groupName = groupName
+        self.inviterName = inviterName
+        self.inviteeName = inviteeName
+        self.level = level
+        self.history = history
+        self.expiresAt = expiresAt
     }
 }
 
@@ -196,6 +246,8 @@ public enum ReadableTransportError: Error, Equatable, Sendable {
     case wrongCurrentPassword
     /// The server has no readable sync yet.
     case serverNotUpdated
+    /// A legacy server created a link instead of delivering an email.
+    case emailInvitationsNotSupported
     case http(status: Int, reason: String)
     case malformed(String)
 }

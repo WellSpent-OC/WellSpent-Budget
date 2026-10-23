@@ -122,7 +122,7 @@ final class GroupPageGapTests: XCTestCase {
         // 5. Invite Someone… opens the Share sheet, which says to sign in
         // first. Cancel closes it, and the page stays.
         run.click(AccessibilityID.groupInvite)
-        XCTAssertTrue(run.app.staticTexts[ShareScreen.Words.shareTitle(household)].waitForExistence(timeout: 10),
+        XCTAssertTrue(run.app.staticTexts["Invite someone to “\(household)”"].waitForExistence(timeout: 10),
                       "Invite Someone\u{2026} opened no Share sheet. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.app.staticTexts[ShareScreen.Words.signInToShare].exists,
                       "the Share sheet does not say to sign in first. On screen: \(run.visibleTexts())")
@@ -189,8 +189,8 @@ final class GroupPageGapTests: XCTestCase {
         run.addBudget(named: groceries, amount: "500", inGroup: later)
         run.addGroup(named: household)
         run.addBudget(named: bills, amount: "200", inGroup: household)
-        let laterLink = try run.share(group: later, myName: "Robin", role: .add)
-        let link = try run.share(group: household, myName: "Robin", role: .add)
+        let laterLink = try await run.legacyInvite(group: later, myName: "Robin", role: .add)
+        let link = try await run.legacyInvite(group: household, myName: "Robin", role: .add)
 
         // 2. Household's page, open before anyone joins: nobody else is in it.
         run.openGroupPage(named: household)

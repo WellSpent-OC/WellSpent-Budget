@@ -1,47 +1,29 @@
 # Sharing a group
 
-Sharing lets two or more people keep one budget group together. The person who shares a group makes an invite link. They choose what the other person can do there: View, Add or Manage. They also choose whether that person sees everything so far, or only what is added from now on. The other person pastes the link into "Join a Group…", or clicks it (see ClickToJoin.md). After that, each person's entries reach the others at their next sync, marked with who added them. A member can leave a group, and someone who manages it can remove a member.
+Sharing lets two or more people keep one budget group together. The person who shares enters the recipient's email and name. They choose what that person can do: View, Add or Manage, and whether they see everything so far or only what is added from now on. WellSpent sends the invitation, which the recipient can accept or reject from their group list. See [EmailInvitations.md](EmailInvitations.md). Links sent by earlier versions still work through "Join a Group…" or a click (see ClickToJoin.md). After joining, each person's entries reach the others at their next sync, marked with who added them. Members can leave, and managers can remove members.
+
+The former SHARE-02 (Create Link) and SHARE-03 (system Send) scenarios are retired. Their identifiers remain reserved. Email invitation scenarios describe the replacement.
 
 ## SHARE-01 Share… asks for your name, what they can do and what they see
 
 - Given Robin is signed in, and made Household
 - When he opens Household's menu and picks "Share…"
-- Then a sheet titled "Share “Household”" opens
+- Then a sheet titled "Invite someone to “Household”" opens
 - And it asks for "Your name", with "How the group will see you" in the empty field
 - And "They can" offers "View", "Add" and "Manage", with "Add" chosen
 - And "They see" offers "Everything so far" and "Only from now on", with "Everything so far" chosen
 - And a line says what the chosen level lets someone do: "Sees every budget and transaction. Changes nothing." for View, "Adds transactions, and edits or deletes their own." for Add, and "Edits budgets, edits or deletes anyone's transactions, and invites other people." for Manage
-- And "You get a link to send by text or email." sits beside "Cancel" and "Create Link"
-- And "Create Link" stays dimmed until he types a name
+- And it asks for "Their email" and "Their name"
+- And "WellSpent emails the invitation. They can accept or reject it in their group list." sits beside "Cancel" and "Send Invite"
+- And "Send Invite" stays dimmed until he enters a valid email and both names
 - And the next time he shares Household, "Your name" already holds the name he used for it
 
-## SHARE-02 Create Link makes a link that works once
-
-- Given Robin is signed in, and the Share sheet for Household holds "Robin" as his name, with "Add" chosen
-- When he presses "Create Link"
-- Then the button says "Creating…" while it works
-- And then the sheet shows the link, which starts "wellspent://join"
-- And under it, "Send this to the person you are inviting. It works once and expires in 7 days."
-- And it offers "Copy Link" and "Done"
-- When he presses "Copy Link"
-- Then the link is on the clipboard, ready to paste into a message
-- When he presses "Done"
-- Then the sheet closes
-
-## SHARE-03 Send… hands the link to another app
-
-Platforms: Mac, iPhone
-
-- Given Robin made a link in the Share sheet
-- When he presses "Send…"
-- Then the system's ways to share open, with the link ready to send
-
-## SHARE-04 Signed out, Share… makes no link
+## SHARE-04 Signed out, Share… cannot send an invitation
 
 - Given Robin is signed out, with Household kept on this computer only
 - When he opens Household's menu and picks "Share…"
 - Then the sheet says "Sign in first. Sharing goes through your account."
-- And "Create Link" stays dimmed, even with a name typed
+- And "Send Invite" stays dimmed, even with a name typed
 
 ## SHARE-05 Someone at Add cannot invite anyone
 
@@ -49,7 +31,7 @@ Platforms: Mac, iPhone
 - When she opens Household's menu and picks "Share…"
 - Then the sheet says "Only a manager or admin can invite people to this group."
 - And it offers no level to choose
-- And "Create Link" stays dimmed
+- And "Send Invite" stays dimmed
 
 ## SHARE-06 A manager can invite at View or Add, not Manage
 

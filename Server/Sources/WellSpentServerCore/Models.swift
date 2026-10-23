@@ -242,6 +242,21 @@ final class InviteRow: Model, @unchecked Sendable {
     @OptionalField(key: "accepted_at") var acceptedAt: Date?
     /// Who accepted it. Readable invites are accepted by a signed-in account.
     @OptionalField(key: "accepted_by_user_id") var acceptedByUserID: UUID?
+    @OptionalField(key: "invitee_email") var inviteeEmail: String?
+    @OptionalField(key: "invitee_name") var inviteeName: String?
+    @OptionalField(key: "inviter_name") var inviterName: String?
+    @OptionalField(key: "created_at") var createdAt: Date?
+    @OptionalField(key: "rejected_at") var rejectedAt: Date?
+    @OptionalField(key: "cancelled_at") var cancelledAt: Date?
+    /// A membership change retires older addressed invitations, so leaving
+    /// cannot make an old invitation grant access again.
+    @OptionalField(key: "closed_at") var closedAt: Date?
+    @OptionalField(key: "mail_attempts") var mailAttempts: Int?
+    @OptionalField(key: "mail_next_attempt_at") var mailNextAttemptAt: Date?
+    @OptionalField(key: "mail_claimed_until") var mailClaimedUntil: Date?
+    @OptionalField(key: "mail_sent_at") var mailSentAt: Date?
+    @OptionalField(key: "mail_stopped_at") var mailStoppedAt: Date?
+    @OptionalField(key: "mail_stop_hash") var mailStopHash: Data?
 
     init() {}
     init(id: UUID = UUID(), inviteHash: Data, groupID: UUID, inviterUserID: UUID,

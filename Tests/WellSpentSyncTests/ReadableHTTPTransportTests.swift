@@ -116,6 +116,77 @@ struct ReadableHTTPTransportTests {
         await #expect(throws: ReadableTransportError.self) { try await transport().extensionRequest(request) }
         #expect(ReadableStub.requests.isEmpty)
     }
+
+    @Test func emailInvitationsUseAuthenticatedInboxRoutesAndNeverReturnABearerLink() async throws {
+        let group = GroupID(), invitation = UUID(), founder = UserID()
+        ReadableStub.reset { request in
+            switch (request.httpMethod, request.url?.path) {
+            case ("POST", "/api/v2/groups/\(group.uuid.uuidString)/invites"):
+                return (201, #"{"id":"\#(invitation)","expiresAt":"2027-01-01T00:00:00Z"}"#)
+            case ("GET", "/api/v2/invitations"):
+                return (200, """
+                [{"id":"\(invitation)","groupID":"\(group)","groupName":"Household",
+                  "inviterName":"Robin","inviteeName":"Leslie","level":5,
+                  "historyAccess":"all","expiresAt":"2027-01-01T00:00:00Z"}]
+                """)
+            case ("POST", "/api/v2/invitations/\(invitation.uuidString)/accept"):
+                return (200, """
+                {"id":"\(group)","founderID":"\(founder)","level":5,"importKey":"",
+                 "historyFloor":0,"deleted":false}
+                """)
+            default: return (204, "")
+            }
+        }
+        let client = transport(session: signedIn)
+        let sent = try await client.createEmailInvite(group: group, email: "leslie@example.com", inviteeName: "Leslie",
+            inviterName: "Robin", level: .write, history: .all, days: nil)
+        #expect(sent.id == invitation)
+        let inbox = try await client.incomingInvitations()
+        #expect(inbox.count == 1)
+        #expect(inbox.first?.groupName == "Household" && inbox.first?.inviteeName == "Leslie")
+        #expect(try await client.acceptInvitation(invitation).id == group)
+        try await client.rejectInvitation(invitation)
+        let requests = ReadableStub.requests
+        let body = try object(requests[0].body)
+        #expect(body["email"] as? String == "leslie@example.com")
+        #expect(body["inviteeName"] as? String == "Leslie" && body["inviterName"] as? String == "Robin")
+        #expect(body["level"] as? Int == 5 && body["historyAccess"] as? String == "all")
+        #expect(body["token"] == nil)
+        #expect(requests.allSatisfy { $0.request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token" })
+        #expect(requests.last?.request.url?.path == "/api/v2/invitations/\(invitation.uuidString)/reject")
+        #expect(requests.allSatisfy { $0.request.url?.query == nil })
+    }
+
+    @Test func outgoingEmailStatusAndLegacyInvitesDecodeTogether() async throws {
+        let group = GroupID(), first = UUID(), second = UUID(), inviter = UserID()
+        ReadableStub.reset { _ in
+            (200, """
+            [{"id":"\(first)","level":5,"historyAccess":"all","expiresAt":"2027-01-01T00:00:00Z",
+              "inviterUserID":"\(inviter)","email":"leslie@example.com","inviteeName":"Leslie",
+              "inviterName":"Robin","status":"rejected"},
+             {"id":"\(second)","level":3,"historyAccess":"fromNow","expiresAt":"2027-01-01T00:00:00Z",
+              "inviterUserID":"\(inviter)"}]
+            """)
+        }
+        let invitations = try await transport(session: signedIn).invites(in: group)
+        #expect(invitations.first?.status == "rejected" && invitations.first?.email == "leslie@example.com")
+        #expect(invitations.last?.status == "pending" && invitations.last?.email == nil)
+    }
+
+    @Test func aLegacyLinkResponseCannotBeReportedAsAnEmailedInvitation() async throws {
+        let group = GroupID(), invitation = UUID()
+        ReadableStub.reset { _ in
+            (201, #"{"id":"\#(invitation)","token":"legacy-token-must-not-be-shown","expiresAt":"2027-01-01T00:00:00Z"}"#)
+        }
+        do {
+            _ = try await transport(session: signedIn).createEmailInvite(group: group, email: "leslie@example.com",
+                inviteeName: "Leslie", inviterName: "Robin", level: .write, history: .all, days: nil)
+            Issue.record("an old server's bearer link was called an email invitation")
+        } catch let error as ReadableTransportError {
+            #expect(error == .emailInvitationsNotSupported)
+        }
+        #expect(ReadableStub.requests.count == 1)
+    }
     /// Calls go under /api/v2 whatever base URL the app holds, and the
     /// health check stays at the server's root.
     @Test func callsGoUnderAPIV2AndHealthStaysAtTheRoot() async throws {
@@ -316,6 +387,16 @@ struct ReadableHTTPTransportTests {
         #expect(request.url?.absoluteString.contains("secret-invite-token") == false)
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil, "a preview needs no session")
         #expect(try object(sent)["token"] as? String == "secret-invite-token")
+    }
+
+    @Test func anAddressedPreviewIncludesItsIDAndSuppliedName() async throws {
+        let group = GroupID(), invitation = UUID()
+        ReadableStub.reset { _ in
+            (200, #"{"groupID":"\#(group)","level":3,"historyAccess":"fromNow","expiresAt":"2027-01-01T00:00:00Z","invitationID":"\#(invitation)","inviteeName":"Leslie"}"#)
+        }
+        let terms = try await transport().previewInvite(token: "emailed-token")
+        #expect(terms.invitationID == invitation && terms.inviteeName == "Leslie")
+        #expect(terms.groupID == group && terms.history == .fromNow && terms.level == .read)
     }
 
     @Test func invitesAndMembersGoWhereTheServerExpects() async throws {

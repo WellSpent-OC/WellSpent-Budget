@@ -24,6 +24,9 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     var refuseSignUp: ReadableTransportError?
     /// Makes listing groups fail, which fails a whole sync round.
     var failSync: ReadableTransportError?
+    var failIncomingInvitations: ReadableTransportError?
+    var failNextPull: URLError?
+    var failNextPush: URLError?
     /// Groups left out of the next listing only, as a server restored from an
     /// older backup would.
     var leaveOutOfNextListing: Set<GroupID> = []
@@ -37,6 +40,10 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     /// Runs once the server has taken an invite, before the group is handed
     /// back.
     var whileAccepting: (@Sendable () async -> Void)?
+    var whileListingInvitations: (@Sendable () async -> Void)?
+    var whileListingOutgoingInvitations: (@Sendable () async -> Void)?
+    var whileAcceptingEmailInvitation: (@Sendable () async -> Void)?
+    var whileRejectingEmailInvitation: (@Sendable () async -> Void)?
     /// Makes signing out everywhere fail before it reaches the server.
     var failSignOutEverywhere: URLError?
     /// The saved session a resume used, if one did.
@@ -140,7 +147,34 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
                       days: Int?) async throws -> CreatedInvite {
         try await client.createInvite(group: group, level: level, history: history, days: days)
     }
-    func invites(in group: GroupID) async throws -> [ServerInvite] { try await client.invites(in: group) }
+    func invites(in group: GroupID) async throws -> [ServerInvite] {
+        let result = try await client.invites(in: group)
+        if let hook = whileListingOutgoingInvitations { whileListingOutgoingInvitations = nil; await hook() }
+        return result
+    }
+    func createEmailInvite(group: GroupID, email: String, inviteeName: String, inviterName: String,
+                           level: AccessLevel, history: HistoryAccess, days: Int?) async throws -> SentEmailInvite {
+        try await client.createEmailInvite(group: group, email: email, inviteeName: inviteeName,
+                                           inviterName: inviterName, level: level, history: history, days: days)
+    }
+    func incomingInvitations() async throws -> [IncomingInvitation] {
+        if let failIncomingInvitations {
+            if let hook = whileListingInvitations { whileListingInvitations = nil; await hook() }
+            throw failIncomingInvitations
+        }
+        let result = try await client.incomingInvitations()
+        if let hook = whileListingInvitations { whileListingInvitations = nil; await hook() }
+        return result
+    }
+    func acceptInvitation(_ id: UUID) async throws -> ServerGroup {
+        let result = try await client.acceptInvitation(id)
+        if let hook = whileAcceptingEmailInvitation { whileAcceptingEmailInvitation = nil; await hook() }
+        return result
+    }
+    func rejectInvitation(_ id: UUID) async throws {
+        try await client.rejectInvitation(id)
+        if let hook = whileRejectingEmailInvitation { whileRejectingEmailInvitation = nil; await hook() }
+    }
     func cancelInvite(_ id: UUID, in group: GroupID) async throws { try await client.cancelInvite(id, in: group) }
     func previewInvite(token: String) async throws -> InviteTerms {
         lock.withLock { previews += 1 }
@@ -153,9 +187,11 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
         return group
     }
     func push(_ records: [WireRecord], group: GroupID) async throws -> PushResult {
-        try await client.push(records, group: group)
+        if let error = failNextPush { failNextPush = nil; throw error }
+        return try await client.push(records, group: group)
     }
     func pull(group: GroupID, since: UInt64, limit: Int) async throws -> ReadablePull {
-        try await client.pull(group: group, since: since, limit: limit)
+        if let error = failNextPull { failNextPull = nil; throw error }
+        return try await client.pull(group: group, since: since, limit: limit)
     }
 }

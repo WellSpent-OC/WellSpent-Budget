@@ -56,6 +56,11 @@ public final class SyncCoordinator {
     /// Groups this account founded that the server no longer lists. Nothing
     /// is hidden or sent for them; the app says so.
     public private(set) var missingOnServer: Set<GroupID> = []
+    public private(set) var incomingInvitations: [IncomingInvitation] = []
+    public private(set) var outgoingInvitations: [GroupID: [ServerInvite]] = [:]
+    public private(set) var invitationsFailure: String?
+    /// A reply started before a local invitation change must not undo it.
+    private var invitationRevision = 0
     /// Counts each time this device takes in what the server says about a
     /// group's people or this person's level in it. Those live in the store,
     /// where a screen can't see them change, so the questions about them read
@@ -300,12 +305,14 @@ public final class SyncCoordinator {
         // readable sync makes and answers them on the server.
         try store.clearSealedInvites()
         state = .signedIn(email: email)
+        try? await refreshIncomingInvitations()
     }
 
     /// Confirms this account's address with the code emailed to it.
     public func verifyEmail(code: String) async throws {
         try await signedIn { try await $0.verifyEmail(code: AccountRules.normalisedCode(code)) }
         noteEmailVerified()
+        try? await refreshIncomingInvitations()
     }
 
     /// Remembers a confirmed address in the saved session too, so it is still
@@ -405,6 +412,7 @@ public final class SyncCoordinator {
     /// launch asks that person to sign in again, with the reason.
     private func forgetSession(keepingAccount: Bool = false) {
         sessionGeneration += 1
+        clearInvitations()
         try? keyStore.delete(.session)
         account = nil
         extensionServer = nil
@@ -431,6 +439,7 @@ public final class SyncCoordinator {
                        emailVerified: Bool, server: URL, keys: any KeyStore, clientID: DeviceID,
                        into target: Store) {
         sessionGeneration += 1
+        clearInvitations()
         keyStore = keys
         self.transport = transport
         self.userID = session.userID
@@ -514,6 +523,7 @@ public final class SyncCoordinator {
         }
         let before = state
         let generation = sessionGeneration
+        let startingInvitationRevision = invitationRevision
         state = .busy("Syncing")
         do {
             let listed = try await transport.groups()
@@ -543,6 +553,16 @@ public final class SyncCoordinator {
                 } catch {
                     firstFailure = firstFailure ?? error
                 }
+                guard generation == sessionGeneration else { return combined }
+            }
+            try await refreshIncomingInvitations()
+            guard generation == sessionGeneration else { return combined }
+            let managed = listed.filter { !$0.deleted && $0.level.allows(.manage) }
+            if startingInvitationRevision == invitationRevision {
+                outgoingInvitations = outgoingInvitations.filter { key, _ in managed.contains { $0.id == key } }
+            }
+            for group in managed {
+                try await refreshOutgoingInvitations(in: group.id)
                 guard generation == sessionGeneration else { return combined }
             }
             lastReport = combined
@@ -815,6 +835,14 @@ public final class SyncCoordinator {
     /// checked its address and the server has said it is this build's, as
     /// before a sign-in. Quiet: the sync's state stays as it was.
     public func preview(_ link: InviteLink) async throws -> InviteTerms {
+        do {
+            return try await previewForJoining(link)
+        } catch ReadableTransportError.http(let status, _) where [404, 410].contains(status) {
+            throw Failure.server(Self.inviteProblem(status))
+        }
+    }
+
+    public func previewForJoining(_ link: InviteLink) async throws -> InviteTerms {
         let server: any ReadableAccountTransport
         if let transport {
             server = transport
@@ -822,11 +850,7 @@ public final class SyncCoordinator {
             server = makeTransport(try serverURL())
             try await confirmEnvironment(of: server)
         }
-        do {
-            return try await server.previewInvite(token: link.token)
-        } catch ReadableTransportError.http(let status, _) where [404, 410].contains(status) {
-            throw Failure.server(Self.inviteProblem(status))
-        }
+        return try await server.previewInvite(token: link.token)
     }
 
     /// The group `link` invites to, when the server still lists this person
@@ -886,9 +910,15 @@ public final class SyncCoordinator {
     }
 
     public func cancelInvite(_ id: UUID, in group: GroupID) async throws {
+        let generation = sessionGeneration
         do {
             try await requireTransport().cancelInvite(id, in: group)
+            try checkSession(generation)
+            invitationRevision += 1
+            outgoingInvitations[group]?.removeAll { $0.id == id }
+            didSync?()
         } catch {
+            try checkSession(generation)
             throw report(error)
         }
     }
@@ -910,10 +940,179 @@ public final class SyncCoordinator {
     /// next sync. Quiet: if it cannot, things stay as they were, and the next
     /// sync says why.
     public func refresh(_ group: GroupID) async {
+        let generation = sessionGeneration
         guard account != nil, let info = try? store.serverGroup(group),
               info.movedAt != nil, info.removedAt == nil else { return }
         _ = try? await sync(group, level: info.level)
+        guard generation == sessionGeneration else { return }
+        if info.level.allows(.manage) {
+            try? await refreshOutgoingInvitations(in: group)
+        }
+        guard generation == sessionGeneration else { return }
         didSync?()
+    }
+
+    // MARK: - Email invitations
+
+    private func clearInvitations() {
+        invitationRevision += 1
+        incomingInvitations = []
+        outgoingInvitations = [:]
+        invitationsFailure = nil
+    }
+
+    private func checkSession(_ generation: Int) throws {
+        guard generation == sessionGeneration else { throw CancellationError() }
+    }
+
+    public func pendingInvites(in group: GroupID) -> [ServerInvite] {
+        guard myLevel(in: group).allows(.manage) else { return [] }
+        return outgoingInvitations[group] ?? []
+    }
+
+    /// Nothing in this inbox creates a local group or grants access.
+    public func refreshIncomingInvitations() async throws {
+        let generation = sessionGeneration
+        let revision = invitationRevision
+        guard account != nil, emailVerified else {
+            incomingInvitations = []
+            return
+        }
+        do {
+            let invitations = try await requireTransport().incomingInvitations()
+            try checkSession(generation)
+            guard revision == invitationRevision else { return }
+            incomingInvitations = invitations
+            invitationsFailure = nil
+        } catch ReadableTransportError.http(404, _) {
+            // A server from before email invitations can still sync budgets.
+            try checkSession(generation)
+            guard revision == invitationRevision else { return }
+            incomingInvitations = []
+        } catch {
+            try checkSession(generation)
+            if case ReadableTransportError.sessionEnded = error { throw error }
+            guard revision == invitationRevision else { return }
+            invitationsFailure = readable(error)
+            throw error
+        }
+    }
+
+    private func refreshOutgoingInvitations(in group: GroupID) async throws {
+        let generation = sessionGeneration
+        let revision = invitationRevision
+        let pending = try await requireTransport().invites(in: group)
+        try checkSession(generation)
+        guard revision == invitationRevision else { return }
+        outgoingInvitations[group] = pending.filter { $0.email != nil }
+    }
+
+    public func sendEmailInvitation(group: GroupID, groupName: String, email: String,
+                                     inviteeName: String, myName: String, level: AccessLevel,
+                                     history: HistoryAccess) async throws -> SentEmailInvite {
+        let generation = sessionGeneration
+        do {
+            guard let userID else { throw Failure.notSignedIn }
+            let transport = try requireTransport()
+            guard let sender = EmailInviteScreen.validName(myName),
+                  let recipient = EmailInviteScreen.validName(inviteeName) else {
+                throw Failure.server(EmailInviteScreen.Words.nameProblem)
+            }
+            guard AccountRules.normalisedEmail(Self.normalised(email: email)) != nil else {
+                throw Failure.server("Enter their email and both names.")
+            }
+            if try displayName(in: group) != sender {
+                try store.save(MemberProfile(groupID: group, userID: userID, displayName: sender))
+            }
+            let info = try await onServer(group)
+            try checkSession(generation)
+            _ = try await engine().sync(group: group, level: info.level)
+            try checkSession(generation)
+            let address = Self.normalised(email: email)
+            let sent = try await transport.createEmailInvite(group: group, email: address,
+                inviteeName: recipient, inviterName: sender, level: level, history: history, days: nil)
+            try checkSession(generation)
+            invitationRevision += 1
+            outgoingInvitations[group]?.removeAll { $0.id == sent.id || ($0.email == address && $0.status == "rejected") }
+            outgoingInvitations[group, default: []].append(ServerInvite(id: sent.id, level: level,
+                history: history, expiresAt: sent.expiresAt, inviterID: userID, email: address,
+                inviteeName: recipient, inviterName: sender))
+            didSync?()
+            return sent
+        } catch {
+            try checkSession(generation)
+            throw report(error)
+        }
+    }
+
+    /// The server binds this ID to the confirmed recipient and creates their
+    /// member profile. Even a View member receives that profile on pull.
+    public func acceptInvitation(_ invitation: IncomingInvitation) async throws -> GroupID {
+        let generation = sessionGeneration
+        var acceptedGroup: GroupID?
+        do {
+            let transport = try requireTransport()
+            let joined = try await transport.acceptInvitation(invitation.id)
+            try checkSession(generation)
+            acceptedGroup = joined.id
+            invitationRevision += 1
+            incomingInvitations.removeAll { $0.id == invitation.id }
+            try saveServerGroup(ServerGroupInfo(joined))
+            let hidden = try store.group(joined.id)?.isDeleted == true
+            try store.placeholderGroup(joined.id, name: invitation.groupName)
+            if hidden, var group = try store.group(joined.id) {
+                // Keep the rejoin marker until queued edits are sent. If
+                // that send fails, normal Sync resumes this restoration.
+                try markRemoved(joined.id)
+                group.isDeleted = false
+                try store.save(group, queue: false)
+            }
+            didSync?()
+            if hidden {
+                if try store.outboxCount(in: joined.id) > 0 {
+                    _ = try await engine().pushWithoutPulling(group: joined.id, level: joined.level)
+                    try checkSession(generation)
+                }
+                try store.forgetPulls(in: joined.id)
+                try store.resetPullCursor(in: joined.id)
+            }
+            try store.markListedAgain(joined.id)
+            try store.markMoved(joined.id)
+            didSync?()
+            _ = try await engine().sync(group: joined.id, level: joined.level)
+            try checkSession(generation)
+            let members = try await transport.members(of: joined.id)
+            try checkSession(generation)
+            try replaceMembers(Dictionary(uniqueKeysWithValues: members.map { ($0.userID, $0.level) }), in: joined.id)
+            didSync?()
+            return joined.id
+        } catch {
+            try checkSession(generation)
+            let failure = report(error)
+            // Membership is already accepted. A failed download is a sync
+            // failure, not a failed invitation: open the group and let Sync
+            // retry, with the normal visible error. An ended session still
+            // must not navigate within the new account's workspace.
+            if let acceptedGroup, generation == sessionGeneration {
+                didSync?()
+                return acceptedGroup
+            }
+            throw failure
+        }
+    }
+
+    public func rejectInvitation(_ invitation: IncomingInvitation) async throws {
+        let generation = sessionGeneration
+        do {
+            try await requireTransport().rejectInvitation(invitation.id)
+            try checkSession(generation)
+            invitationRevision += 1
+            incomingInvitations.removeAll { $0.id == invitation.id }
+            didSync?()
+        } catch {
+            try checkSession(generation)
+            throw report(error)
+        }
     }
 
     /// Who made `group`, once the server lists it; nil for a group still only
@@ -1020,6 +1219,7 @@ public final class SyncCoordinator {
 extension SyncCoordinator: AccountActions {}
 
 extension SyncCoordinator: SharingActions {}
+extension SyncCoordinator: EmailInvitationActions {}
 
 extension ServerGroupInfo {
     /// What the server said about a group, as of now. When this Mac moved

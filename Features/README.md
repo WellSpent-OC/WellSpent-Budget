@@ -52,9 +52,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 151 | 149 |
-| Linux | 154 | 114 |
-| iPhone | 144 | 142 |
+| Mac | 157 | 153 |
+| Linux | 161 | 121 |
+| iPhone | 150 | 147 |
 | Server | 9 | 9 |
 | Connector | 4 | 4 |
 
@@ -176,9 +176,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
 | SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| SHARE-03 | Send… hands the link to another app | Mac, iPhone | Mac, iPhone |
-| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-04 | Signed out, Share… cannot send an invitation | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -291,3 +289,16 @@ They do not count as UI scenario coverage in this table.
 | WARTABLE-10 | Ownership and group access stay current | Linux, Server | Linux, Server |
 | WARTABLE-11 | Retention expires message bodies | Server | Server |
 | WARTABLE-12 | Publication uses the authorized repository and revision | Connector | Connector |
+
+### [EmailInvitations.md](EmailInvitations.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| EMAIL-01 | Send an invitation by email and see Pending | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-02 | An invitation appears beside the recipient's groups | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-03 | Accept adds the recipient and the group's budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-04 | Reject ends the invitation and requires a fresh one | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-05 | The sender can cancel a pending invitation | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-06 | Invitations enforce account and group permissions | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-07 | Pending invitations survive reopening and failed requests | Mac, Linux, iPhone | Linux |
+| EMAIL-08 | Email delivery and existing invitation links | Mac, Linux, iPhone | Linux, iPhone |

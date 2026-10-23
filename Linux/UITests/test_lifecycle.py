@@ -19,7 +19,7 @@ class Lifecycle(unittest.TestCase):
         self.addCleanup(robin.remove_group, home)
         robin.new_budget("Food", "500", group=home)
         robin.sync()
-        leslie.join(robin.share(home, "Robin"), "Leslie")
+        leslie.join(robin.legacy_invite(home, "Robin"), "Leslie")
         robin.budget("Food").press()
         robin.sync()
 

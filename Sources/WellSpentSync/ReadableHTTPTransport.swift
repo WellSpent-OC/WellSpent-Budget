@@ -217,6 +217,10 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         let historyAccess: String
         let expiresAt: Date
         let inviterUserID: UUID
+        let email: String?
+        let inviteeName: String?
+        let inviterName: String?
+        let status: String?
     }
 
     private struct PreviewBody: Decodable {
@@ -224,6 +228,8 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         let level: Int
         let historyAccess: String
         let expiresAt: Date
+        let invitationID: UUID?
+        let inviteeName: String?
     }
 
     private struct Token: Encodable { let token: String }
@@ -268,7 +274,9 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         return invites.map {
             ServerInvite(id: $0.id, level: AccessLevel(serverValue: $0.level),
                          history: HistoryAccess(serverValue: $0.historyAccess),
-                         expiresAt: $0.expiresAt, inviterID: UserID($0.inviterUserID))
+                         expiresAt: $0.expiresAt, inviterID: UserID($0.inviterUserID),
+                         email: $0.email, inviteeName: $0.inviteeName, inviterName: $0.inviterName,
+                         status: $0.status ?? "pending")
         }
     }
 
@@ -282,12 +290,71 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         let terms: PreviewBody = try await send(.post, "invites/preview", body: Token(token: token),
                                                 as: .anonymous, oldServerIfMissing: true)
         return InviteTerms(groupID: GroupID(terms.groupID), level: AccessLevel(serverValue: terms.level),
-                           history: HistoryAccess(serverValue: terms.historyAccess), expiresAt: terms.expiresAt)
+                           history: HistoryAccess(serverValue: terms.historyAccess), expiresAt: terms.expiresAt,
+                           invitationID: terms.invitationID, inviteeName: terms.inviteeName)
     }
 
     public func acceptInvite(token: String) async throws -> ServerGroup {
         let group: GroupBody = try await send(.post, "invites/accept", body: Token(token: token), as: .signedIn)
         return group.model
+    }
+
+    private struct NewEmailInvite: Encodable {
+        let email: String
+        let inviteeName: String
+        let inviterName: String
+        let level: Int
+        let historyAccess: String
+        let expiresInDays: Int?
+    }
+
+    private struct SentEmailInviteBody: Decodable {
+        let id: UUID
+        let expiresAt: Date
+        let token: String?
+    }
+
+    private struct IncomingInvitationBody: Decodable {
+        let id: UUID
+        let groupID: UUID
+        let groupName: String
+        let inviterName: String
+        let inviteeName: String
+        let level: Int
+        let historyAccess: String
+        let expiresAt: Date
+    }
+
+    public func createEmailInvite(group: GroupID, email: String, inviteeName: String, inviterName: String,
+                                  level: AccessLevel, history: HistoryAccess, days: Int?) async throws -> SentEmailInvite {
+        let made: SentEmailInviteBody = try await send(.post, "groups/\(group.uuid.uuidString)/invites",
+            body: NewEmailInvite(email: email, inviteeName: inviteeName, inviterName: inviterName,
+                                 level: level.rawValue, historyAccess: history.rawValue, expiresInDays: days),
+            as: .signedIn)
+        // Older servers ignore the email fields and create a bearer link.
+        // Never call that delivered or expose its token. The unused legacy
+        // invitation stays on that server until its normal expiry.
+        guard made.token == nil else { throw ReadableTransportError.emailInvitationsNotSupported }
+        return SentEmailInvite(id: made.id, expiresAt: made.expiresAt)
+    }
+
+    public func incomingInvitations() async throws -> [IncomingInvitation] {
+        let invitations: [IncomingInvitationBody] = try await send(.get, "invitations", as: .signedIn)
+        return invitations.map {
+            IncomingInvitation(id: $0.id, groupID: GroupID($0.groupID), groupName: $0.groupName,
+                               inviterName: $0.inviterName, inviteeName: $0.inviteeName,
+                               level: AccessLevel(serverValue: $0.level),
+                               history: HistoryAccess(serverValue: $0.historyAccess), expiresAt: $0.expiresAt)
+        }
+    }
+
+    public func acceptInvitation(_ id: UUID) async throws -> ServerGroup {
+        let group: GroupBody = try await send(.post, "invitations/\(id.uuidString)/accept", as: .signedIn)
+        return group.model
+    }
+
+    public func rejectInvitation(_ id: UUID) async throws {
+        try await sendIgnoringReply(.post, "invitations/\(id.uuidString)/reject", as: .signedIn)
     }
 
     // MARK: - Sync

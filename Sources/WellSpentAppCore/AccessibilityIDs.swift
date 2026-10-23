@@ -1,6 +1,7 @@
 // The Mac screens. SwiftUI exists only on Apple systems; the Linux app draws
 // the same shared logic with its own screens.
 #if canImport(SwiftUI)
+import Foundation
 
 /// The names the UI test finds the Mac screens' controls by.
 ///
@@ -9,6 +10,13 @@
 /// twice. Menu items, context menu items and dialog buttons have none: the
 /// test finds those by title, from the screens' `Words`.
 public enum AccessibilityID {
+    public static let shareEmail = "share.email"
+    public static let shareInviteeName = "share.inviteeName"
+    public static func incomingInvitation(_ id: UUID) -> String { "invitation.incoming.\(id.uuidString)" }
+    public static func acceptInvitation(_ id: UUID) -> String { "invitation.accept.\(id.uuidString)" }
+    public static func rejectInvitation(_ id: UUID) -> String { "invitation.reject.\(id.uuidString)" }
+    public static func outgoingInvitation(_ id: UUID) -> String { "invitation.outgoing.\(id.uuidString)" }
+    public static func cancelInvitation(_ id: UUID) -> String { "invitation.cancel.\(id.uuidString)" }
     // MARK: The main window
 
     /// Across the top of a staging window. A live build has none, so a test

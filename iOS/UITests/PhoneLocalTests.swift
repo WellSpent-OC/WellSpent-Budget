@@ -219,16 +219,18 @@ final class PhoneLocalTests: XCTestCase {
 
         // Scenario PAGE-13, SHARE-04
         // 3. Invite Someone opens the Share sheet, which says to sign in
-        // first, and Create Link stays dimmed even with a name typed. Cancel
+        // first, and Send Invite stays dimmed with all fields filled. Cancel
         // goes back to the page.
         run.tap(AccessibilityID.groupInvite)
-        XCTAssertTrue(run.text(ShareScreen.Words.shareTitle("Household")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.text("Invite someone to “Household”").waitForExistence(timeout: 10),
                       "no Share sheet. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(ShareScreen.Words.signInToShare).exists, "no sign-in notice")
         run.type("Robin", into: AccessibilityID.shareName)
-        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Create Link is not dimmed")
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.type("person@example.com", into: AccessibilityID.shareEmail)
+        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Send Invite is not dimmed")
         run.tap(AccessibilityID.shareCancel)
-        XCTAssertTrue(run.wait(for: run.text(ShareScreen.Words.shareTitle("Household")), until: "exists == false",
+        XCTAssertTrue(run.wait(for: run.text("Invite someone to “Household”"), until: "exists == false",
                                timeout: 10), "the Share sheet did not close")
         XCTAssertTrue(summary.exists, "the page closed with the sheet")
 

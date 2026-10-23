@@ -68,6 +68,14 @@ struct PhoneGroupView: View {
                 }
                 .listRowBackground(Palette.surface)
             }
+            if !screen.pendingInvites.isEmpty {
+                Section(EmailInvitationWords.incomingTitle) {
+                    ForEach(screen.pendingInvites, id: \.id) { invitation in
+                        OutgoingInvitationRow(screen: screen, invitation: invitation)
+                    }
+                }
+                .listRowBackground(Palette.surface)
+            }
             if let failure = screen.failure {
                 Section {
                     PhoneNote(failure)

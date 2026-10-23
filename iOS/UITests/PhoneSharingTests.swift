@@ -6,11 +6,9 @@ import WellSpentCrypto
 import WellSpentModel
 import WellSpentSync
 
-/// Sharing on a phone, signed in: Robin shares a group through the iPhone's
-/// share sheet, joins one of Leslie's through Join a Group, and manages who
-/// is in his own. Then Robin taps a link Leslie sent, joins her group, and
-/// leaves it. Leslie has no window: she is a coordinator inside this process,
-/// against the same staging server.
+/// Sending and responding to email invitations on a phone, plus legacy
+/// received links and management of joined people. The second account uses
+/// the production sync API against the same test server, without a window.
 ///
 /// Needs the four WELLSPENT_UI_TEST_ variables (see UITestAccounts.swift)
 /// and skips without them. Both accounts must exist on staging with their
@@ -39,7 +37,7 @@ final class PhoneSharingTests: XCTestCase {
     }
 
     @MainActor
-    func testShareThroughTheShareSheetAndManagePeople() async throws {
+    func testEmailInvitationAndManagePeople() async throws {
         let accounts = try TestAccounts.fromEnvironment()
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
@@ -53,60 +51,72 @@ final class PhoneSharingTests: XCTestCase {
         run.addGroup(named: groupName)
         run.scrollTo(AccessibilityID.sidebarGroup(groupName))
 
-        // Scenario SHARE-01
-        // 1. Share in the group's menu asks for a name, what they can do,
-        // with Add chosen, and what they see. Create Link stays dimmed until
-        // there is a name.
+        // Scenario SHARE-01, EMAIL-01
+        // 1. The addressed form keeps Add and full history as its defaults.
         run.longPress(AccessibilityID.sidebarGroup(groupName))
         run.tapMenuItem(MainScreen.Words.share)
-        XCTAssertTrue(run.text(ShareScreen.Words.shareTitle(groupName)).waitForExistence(timeout: 10),
-                      "no Share sheet. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.text("Invite someone to “\(groupName)”").waitForExistence(timeout: 10),
+                      "no email invitation sheet")
+        for id in [AccessibilityID.shareEmail, AccessibilityID.shareInviteeName, AccessibilityID.shareName] {
+            XCTAssertTrue(run.element(id).exists, "a required invitation field is missing")
+        }
         let roles = run.element(AccessibilityID.shareRole)
         for role in InviteRole.allCases {
             XCTAssertTrue(roles.buttons[role.title].exists, "They can offers no \(role.title)")
         }
         XCTAssertTrue(roles.buttons[InviteRole.add.title].isSelected, "Add is not chosen")
-        XCTAssertTrue(run.text(InviteRole.add.explanation).exists, "no line about what Add lets them do")
-        XCTAssertTrue(run.text(ShareScreen.Words.linkNote).exists)
-        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "Create Link is not dimmed")
-
-        // Scenario SHARE-02
-        // 2. Create Link makes the link and opens the iPhone's share sheet
-        // with it. Closed without sending, the Share sheet stays and says the
-        // link works once and expires in 7 days.
+        XCTAssertTrue(run.text(InviteRole.add.explanation).exists)
+        XCTAssertTrue(run.text(EmailInviteScreen.Words.note).exists)
+        let history = run.element(AccessibilityID.shareHistory)
+        XCTAssertTrue(history.label.contains(EmailInviteScreen.Words.historyAll)
+                      || (history.value as? String ?? "").contains(EmailInviteScreen.Words.historyAll),
+                      "Everything so far is not selected")
+        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "an empty form can send")
         run.type("Robin", into: AccessibilityID.shareName)
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.type("not-an-address", into: AccessibilityID.shareEmail)
+        XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "an invalid email can send")
+        run.paste(accounts.secondEmail, into: AccessibilityID.shareEmail)
         run.tap(AccessibilityID.shareCreate)
-        run.closeShareSheetWithoutSending()
-        XCTAssertTrue(run.text(SyncWording.inviteNote).waitForExistence(timeout: 10),
-                      "the sheet does not say the link works once. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.element(AccessibilityID.shareDone).waitForExistence(timeout: 30),
+                      "sending did not finish")
+        XCTAssertFalse(run.element(AccessibilityID.shareCopyLink).exists, "Copy Link is still offered")
+        run.tap(AccessibilityID.shareDone)
 
-        // Scenario SHARE-03
-        // 3. Send opens the share sheet again for the same link. Copy puts it
-        // on the pasteboard, and the Share sheet closes with the share sheet.
-        let send = run.button(AccessibilityID.shareCreate)
-        XCTAssertEqual(send.label, PhoneWording.button(ShareScreen.Words.send))
-        send.tap()
-        run.copyInShareSheet()
-        XCTAssertTrue(run.wait(for: run.text(ShareScreen.Words.shareTitle(groupName)), until: "exists == false",
-                               timeout: 10), "the Share sheet stayed after Copy")
+        // 2. The sender sees Pending; the invitation does not count as a member.
+        run.openGroupPage(named: groupName)
+        XCTAssertTrue(run.text(EmailInvitationWords.pending).waitForExistence(timeout: 15))
+        XCTAssertFalse(run.element(AccessibilityID.groupPerson("Leslie")).exists)
+        let pendingSummary = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.madeByYou])
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary),
+                               until: "label == '\(pendingSummary)'", timeout: 15))
 
-        // Scenario PASTE-03
-        // 4. Pasted into Join a Group, the field holds the whole link, and
-        // the sheet says who invited whom to what. Leslie joins with it.
-        run.openAddMenu()
-        run.tapMenuItem(MainScreen.Words.join)
-        run.pasteCopied(into: AccessibilityID.joinLink)
-        let pasted = (run.element(AccessibilityID.joinLink).value as? String) ?? ""
-        let link = try XCTUnwrap(InviteLink(parsing: pasted), "the copied text is not a whole invite link")
-        XCTAssertEqual(link.scheme, InviteLink.stagingScheme)
-        XCTAssertTrue(run.text("Robin invited you to \u{201C}\(groupName)\u{201D}.").waitForExistence(timeout: 10),
-                      "the pasted link does not say who invited whom. On screen: \(run.visibleTexts())")
-        run.tap(AccessibilityID.joinCancel)
+        // Scenario EMAIL-05
+        run.app.buttons[EmailInvitationWords.cancelInvite].firstMatch.tap()
+        run.cancelQuestion()
+        XCTAssertTrue(run.text(EmailInvitationWords.pending).exists)
+        run.app.buttons[EmailInvitationWords.cancelInvite].firstMatch.tap()
+        try XCTUnwrap(run.questionButton(EmailInvitationWords.cancelInvite)).tap()
+        XCTAssertTrue(run.wait(for: run.text(EmailInvitationWords.pending), until: "exists == false", timeout: 20))
+        run.tap(AccessibilityID.groupInvite)
+        XCTAssertTrue(run.element(AccessibilityID.shareEmail).waitForExistence(timeout: 10))
+        XCTAssertTrue(run.element(AccessibilityID.shareName).value as? String == "Robin",
+                      "Your name was not remembered")
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.paste(accounts.secondEmail, into: AccessibilityID.shareEmail)
+        run.tap(AccessibilityID.shareCreate)
+        XCTAssertTrue(run.element(AccessibilityID.shareDone).waitForExistence(timeout: 30))
+        run.tap(AccessibilityID.shareDone)
+        XCTAssertTrue(run.text(EmailInvitationWords.pending).waitForExistence(timeout: 15))
+        run.goBack()
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await leslie.deleteLeftoverRuns()
-        _ = try await leslie.join(link, as: "Leslie")
+        let addressed = try XCTUnwrap(leslie.sync.incomingInvitations.first { $0.groupName == groupName },
+                                       "the recipient has no addressed invitation")
+        _ = try await leslie.sync.acceptInvitation(addressed)
+        try await leslie.syncAll()
 
-        // Scenario SHARE-07
+        // Scenario SHARE-07, PASTE-03, EMAIL-08
         // 5. A link Leslie sent, pasted into Join a Group with a name, joins
         // her group: the sheet closes and the group is on Home.
         let lesliesLink = try await leslie.shareNewGroup(lesliesGroup, budget: "Costs \(stamp)", entry: "Costco",
@@ -114,6 +124,9 @@ final class PhoneSharingTests: XCTestCase {
         run.openAddMenu()
         run.tapMenuItem(MainScreen.Words.join)
         run.paste(lesliesLink.url, into: AccessibilityID.joinLink)
+        let pasted = (run.element(AccessibilityID.joinLink).value as? String) ?? ""
+        XCTAssertTrue(InviteLink(parsing: pasted) == lesliesLink, "Paste changed the legacy invitation")
+        XCTAssertEqual(lesliesLink.scheme, InviteLink.stagingScheme)
         XCTAssertTrue(run.text("Leslie invited you to \u{201C}\(lesliesGroup)\u{201D}.").waitForExistence(timeout: 10),
                       "the pasted link does not say who invited whom. On screen: \(run.visibleTexts())")
         run.type("Robin", into: AccessibilityID.joinName)
@@ -191,6 +204,66 @@ final class PhoneSharingTests: XCTestCase {
         run.signOut()
         await leslie.deleteGroup(named: lesliesGroup)
         await leslie.cleanUp()
+    }
+
+    @MainActor
+    func testEmailInboxRejectAndAcceptAFreshInvitation() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let sender = try SecondAccount(server: accounts.server)
+        try await sender.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        let stamp = PhoneTestApp.stamp()
+        let groupName = SecondAccount.phoneRunPrefix + stamp + " Inbox"
+        let budgets = ["Food " + stamp, "Travel " + stamp]
+        let group = try await EmailInvitationFixture.makeGroup(sender: sender, named: groupName, budgets: budgets)
+        let first = try await EmailInvitationFixture.send(sender: sender, group: group,
+                                                           groupName: groupName, to: accounts.email)
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+
+        // Scenario EMAIL-02
+        XCTAssertTrue(run.element(AccessibilityID.incomingInvitation(first.id)).waitForExistence(timeout: 20))
+        XCTAssertTrue(run.text(EmailInvitationWords.invited).exists)
+        XCTAssertTrue(run.text(EmailInvitationWords.from("Leslie")).exists)
+        XCTAssertTrue(run.text(InviteRole.add.title + " · " + JoinScreen.Words.sees(.all)).exists)
+        XCTAssertFalse(run.element(AccessibilityID.sidebarGroup(groupName)).exists)
+        for budget in budgets { XCTAssertFalse(run.element(AccessibilityID.sidebarBudget(budget)).exists) }
+
+        // Scenario EMAIL-04
+        run.tap(AccessibilityID.rejectInvitation(first.id))
+        run.cancelQuestion()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(first.id)).exists)
+        run.tap(AccessibilityID.rejectInvitation(first.id))
+        try XCTUnwrap(run.questionButton(EmailInvitationWords.reject)).tap()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.incomingInvitation(first.id)),
+                               until: "exists == false", timeout: 20))
+        let rejected = try await sender.sync.invites(in: group)
+        XCTAssertEqual(rejected.first { $0.id == first.id }?.status, "rejected")
+        run.syncAndWait()
+        XCTAssertFalse(run.element(AccessibilityID.incomingInvitation(first.id)).exists)
+
+        let fresh = try await EmailInvitationFixture.send(sender: sender, group: group,
+                                                           groupName: groupName, to: accounts.email)
+        XCTAssertNotEqual(fresh.id, first.id)
+        run.syncAndWait()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(fresh.id)).waitForExistence(timeout: 20))
+
+        // Scenario EMAIL-03
+        run.tap(AccessibilityID.acceptInvitation(fresh.id))
+        XCTAssertTrue(run.element(AccessibilityID.groupSummary).waitForExistence(timeout: 20))
+        XCTAssertFalse(run.element(AccessibilityID.invitationName).exists, "Accept asked for a name")
+        XCTAssertTrue(run.element(AccessibilityID.groupPerson("Robin")).waitForExistence(timeout: 15),
+                      "the accepted member did not receive their invited name")
+        run.goBack()
+        XCTAssertFalse(run.element(AccessibilityID.incomingInvitation(fresh.id)).exists)
+        for budget in budgets { XCTAssertTrue(run.scrollTo(AccessibilityID.sidebarBudget(budget)).exists) }
+        run.openBudget(named: budgets[0])
+        XCTAssertTrue(run.element(AccessibilityID.entryRow("Existing purchase")).waitForExistence(timeout: 15))
+        run.goBack()
+        run.signOut()
+        await sender.deleteGroup(named: groupName)
+        await sender.cleanUp()
     }
 
     @MainActor

@@ -65,9 +65,8 @@ final class SignInBudgetShareSyncTests: XCTestCase {
         run.addEntry(merchant: "Hilltop", amount: "42.00")
         run.addEntry(merchant: "Market", amount: "9.50")
 
-        // Scenario SHARE-02
-        // 6. Shared, with a link that reads back.
-        let link = try run.share(group: groupName, myName: "Robin", role: .add)
+        // Legacy fixture setup for the shared-data assertions below.
+        let link = try await run.legacyInvite(group: groupName, myName: "Robin", role: .add)
         XCTAssertEqual(link.groupName, groupName)
         XCTAssertEqual(link.inviterName, "Robin")
 

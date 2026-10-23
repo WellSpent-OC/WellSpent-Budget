@@ -20,6 +20,8 @@ public enum AccountWording {
             case .badCredentials: return "That email or password is wrong."
             case .wrongCurrentPassword: return "Your current password is wrong."
             case .serverNotUpdated: return "This server does not have the new sync yet."
+            case .emailInvitationsNotSupported:
+                return "Update this WellSpent server before sending email invitations. No email was sent."
             case .http(409, "that email already has an account"):
                 return "That email already has an account. Sign in, or reset its password."
             case .http(let status, let reason) where [400, 403, 404, 409, 410, 429].contains(status)

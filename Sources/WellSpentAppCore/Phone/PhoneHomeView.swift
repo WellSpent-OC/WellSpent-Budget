@@ -14,6 +14,14 @@ struct PhoneHomeView: View {
 
     var body: some View {
         List {
+            if !screen.incomingInvitations.isEmpty {
+                Section(EmailInvitationWords.incomingTitle) {
+                    ForEach(screen.incomingInvitations, id: \.id) { invitation in
+                        IncomingInvitationRow(screen: screen, invitation: invitation)
+                    }
+                }
+                .listRowBackground(Palette.surface)
+            }
             if screen.detail == .noBudgets {
                 empty
             }

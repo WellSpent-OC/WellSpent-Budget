@@ -57,6 +57,11 @@ public protocol ReadableAccountTransport: ReadableSyncTransport {
     /// Needs no session: anyone holding the link may see what it is for.
     func previewInvite(token: String) async throws -> InviteTerms
     func acceptInvite(token: String) async throws -> ServerGroup
+    func createEmailInvite(group: GroupID, email: String, inviteeName: String, inviterName: String,
+                           level: AccessLevel, history: HistoryAccess, days: Int?) async throws -> SentEmailInvite
+    func incomingInvitations() async throws -> [IncomingInvitation]
+    func acceptInvitation(_ id: UUID) async throws -> ServerGroup
+    func rejectInvitation(_ id: UUID) async throws
 
     /// The same server, with a session saved earlier.
     func resuming(with session: ServerSession) -> any ReadableAccountTransport

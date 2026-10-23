@@ -114,22 +114,25 @@ struct SheetTests {
     @Test func shareAsksWhatTheyCanDoAndWhatTheySee() throws {
         let (model, group, _) = try model()
         let shown = try texts(ShareSheet(sync: sync(model), group: group))
-        #expect(shown.contains("Share \u{201C}Household\u{201D}"))
-        for word in ["View", "Add", "Manage", "Everything so far", "Only from now on", "Create Link"] {
+        #expect(shown.contains("Invite someone to \u{201C}Household\u{201D}"))
+        for word in ["Their email", "Their name", "Your name", "View", "Add", "Manage", "Everything so far", "Only from now on", "Send Invite"] {
             #expect(shown.contains(word), "missing \(word) in \(shown)")
         }
         #expect(shown.contains(InviteRole.add.explanation), "Add is the default")
         #expect(shown.contains { $0.contains("Sign in first") }, "nobody is signed in here")
     }
 
-    @Test func aCreatedLinkIsShownWithWhatToDoWithIt() throws {
-        let (model, group, _) = try model()
-        let link = InviteLink(secret: Data(repeating: 3, count: 32), groupName: "Household",
-                              inviterName: "Robin", scheme: AppEnvironment.current.inviteScheme)
-        let shown = try texts(ShareSheet(sync: sync(model), group: group, created: link))
-        #expect(shown.contains(link.url))
-        #expect(shown.contains { $0.contains("works once and expires in 7 days") })
-        #expect(shown.contains("Copy Link"))
+    @Test func aSentInvitationShowsItsRecipientAndPendingState() async throws {
+        let side = try await Side("robin@example.com", on: InMemoryReadableServer())
+        let group = try #require(side.model.addGroup(named: "Household"))
+        let screen = EmailInviteScreen(actions: side.sync, group: group, groupName: "Household")
+        screen.email = "leslie@example.com"
+        screen.inviteeName = "Leslie"
+        screen.myName = "Robin"
+        #expect(await screen.send())
+        let shown = try texts(ShareSheet(screen: screen))
+        #expect(shown.contains { $0.contains("leslie@example.com") && $0.contains("Pending") })
+        #expect(!shown.contains("Copy Link"))
         #expect(shown.contains("Done"))
     }
 

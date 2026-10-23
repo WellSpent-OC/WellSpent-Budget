@@ -61,6 +61,12 @@ public final class InMemoryReadableServer: @unchecked Sendable {
         let history: HistoryAccess
         let expiresAt: Date
         var accepted = false
+        var email: String? = nil
+        var inviteeName: String? = nil
+        var inviterName: String? = nil
+        var rejected = false
+        var cancelled = false
+        var closed = false
     }
 
     private var accounts: [UserID: Account] = [:]
@@ -119,6 +125,11 @@ public final class InMemoryReadableServer: @unchecked Sendable {
     /// The last code the server would have emailed to `email`.
     public func lastCode(for email: String, purpose: CodePurpose) -> String? {
         lock.withLock { codes["\(purpose)|\(email.lowercased())"] }
+    }
+
+    /// The token delivered by email, for tests opening the emailed app link.
+    public func emailedInvitationToken(for id: UUID) -> String? {
+        lock.withLock { invitesByToken.first { $0.value.id == id && $0.value.email != nil }?.key }
     }
 
     public enum CodePurpose: String, Sendable { case verify, reset }
@@ -445,6 +456,7 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             }
             if subject == user.id {
                 memberships[group]?[subject] = nil
+                closeInvitations(to: user.email, in: group)
                 return
             }
             guard let theirs = memberships[group]?[subject], theirs.level != .none else {
@@ -453,11 +465,13 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             let needed = Self.neededToRemove(theirs.level)
             guard mine.level.allows(needed) else { throw Self.fail(403, "that needs \(needed)") }
             memberships[group]?[subject] = nil
+            if let email = accounts[subject]?.email { closeInvitations(to: email, in: group) }
         }
     }
 
     func createInvite(group: GroupID, level: AccessLevel, history: HistoryAccess, days: Int?,
-                      _ token: String?) throws -> CreatedInvite {
+                      _ token: String?, email: String? = nil, inviteeName: String? = nil,
+                      inviterName: String? = nil) throws -> CreatedInvite {
         try lock.withLock {
             let (user, _) = try caller(token)
             guard Self.grantable.contains(level) else { throw Self.fail(400, "that is not a level a member can be given") }
@@ -469,9 +483,33 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             guard mine.level.allows(needed), Self.mayGrant(level, holding: mine.level) else {
                 throw Self.fail(403, "that needs \(max(needed, level))")
             }
+            let address = email.map(Self.normalisedEmail)
+            if let address {
+                guard user.verified else { throw Self.fail(403, "Confirm your email before inviting someone.") }
+                guard address.contains("@"), !address.contains(where: \.isWhitespace),
+                      Self.validInvitationName(inviteeName), Self.validInvitationName(inviterName) else {
+                    throw Self.fail(400, "Enter their email and both names.")
+                }
+                guard !invitesByToken.values.contains(where: {
+                    $0.group == group && $0.email == address && !$0.accepted && !$0.rejected && !$0.cancelled && !$0.closed && $0.expiresAt > Date()
+                }) else { throw Self.fail(409, "That person already has a pending invitation.") }
+                if let recipient = accounts.values.first(where: { $0.email == address }),
+                   memberships[group]?[recipient.id]?.level != nil {
+                    throw Self.fail(409, "That person is already in the group.")
+                }
+                for key in Array(invitesByToken.keys) {
+                    if let prior = invitesByToken[key], prior.group == group,
+                       prior.email == address, prior.rejected {
+                        invitesByToken[key]?.closed = true
+                    }
+                }
+            }
             let token = Self.token()
-            let invite = Invite(id: UUID(), group: group, inviter: user.id, level: level, history: history,
+            var invite = Invite(id: UUID(), group: group, inviter: user.id, level: level, history: history,
                                 expiresAt: Date().addingTimeInterval(TimeInterval(days) * 86_400))
+            invite.email = address
+            invite.inviteeName = inviteeName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            invite.inviterName = inviterName?.trimmingCharacters(in: .whitespacesAndNewlines)
             invitesByToken[token] = invite
             return CreatedInvite(id: invite.id, token: token, expiresAt: invite.expiresAt)
         }
@@ -481,9 +519,10 @@ public final class InMemoryReadableServer: @unchecked Sendable {
         try lock.withLock {
             let (user, _) = try caller(token)
             _ = try requireMembership(group, user: user.id, needed: .manage)
-            return invitesByToken.values.filter { $0.group == group && !$0.accepted && $0.expiresAt > Date() }
+            return invitesByToken.values.filter { $0.group == group && !$0.accepted && !$0.cancelled && !$0.closed && $0.expiresAt > Date() }
                 .map { ServerInvite(id: $0.id, level: $0.level, history: $0.history, expiresAt: $0.expiresAt,
-                                    inviterID: $0.inviter) }
+                                    inviterID: $0.inviter, email: $0.email, inviteeName: $0.inviteeName,
+                                    inviterName: $0.inviterName, status: $0.rejected ? "rejected" : "pending") }
         }
     }
 
@@ -497,16 +536,24 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             guard match.value.inviter == user.id || mine.level.allows(.manage) else {
                 throw Self.fail(403, "that needs manage")
             }
-            invitesByToken[match.key] = nil
+            guard !match.value.accepted, !match.value.rejected else {
+                throw Self.fail(409, "That invitation is closed.")
+            }
+            if match.value.cancelled { return }
+            guard !match.value.closed else { throw Self.fail(404, "no such invite") }
+            guard match.value.expiresAt > Date() else { throw Self.fail(410, "That invitation has expired.") }
+            invitesByToken[match.key]?.cancelled = true
         }
     }
 
     func preview(token inviteToken: String) throws -> InviteTerms {
         try lock.withLock {
-            guard let invite = invitesByToken[inviteToken], !invite.accepted else { throw Self.fail(404, "no such invite") }
+            guard let invite = invitesByToken[inviteToken], !invite.accepted, !invite.rejected,
+                  !invite.cancelled, !invite.closed else { throw Self.fail(404, "no such invite") }
             guard invite.expiresAt > Date() else { throw Self.fail(410, "that invite has expired") }
             return InviteTerms(groupID: invite.group, level: invite.level, history: invite.history,
-                               expiresAt: invite.expiresAt)
+                               expiresAt: invite.expiresAt, invitationID: invite.email == nil ? nil : invite.id,
+                               inviteeName: invite.email == nil ? nil : invite.inviteeName)
         }
     }
 
@@ -515,9 +562,12 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             let (user, _) = try caller(token)
             guard user.verified else { throw Self.fail(403, "confirm your email address before joining a group") }
             guard var invite = invitesByToken[inviteToken] else { throw Self.fail(404, "no such invite") }
+            if let email = invite.email, email != user.email { throw Self.fail(404, "no such invite") }
             guard !invite.accepted else { throw Self.fail(409, "that invite has already been accepted") }
+            guard !invite.rejected else { throw Self.fail(409, "that invite has already been rejected") }
+            guard !invite.cancelled, !invite.closed else { throw Self.fail(404, "no such invite") }
             guard invite.expiresAt > Date() else { throw Self.fail(410, "that invite has expired") }
-            guard let group = groups[invite.group], !group.deleted else { throw Self.fail(404, "no such invite") }
+            guard var group = groups[invite.group], !group.deleted else { throw Self.fail(404, "no such invite") }
             if let existing = memberships[invite.group]?[user.id], existing.level != .none {
                 throw Self.fail(409, "you are already in that group")
             }
@@ -530,9 +580,94 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             let floor = max(invite.history == .fromNow ? group.lastSeq : 0, inviter.floor)
             invite.accepted = true
             invitesByToken[inviteToken] = invite
+            closeInvitations(to: user.email, in: invite.group, except: invite.id)
             let membership = Membership(level: invite.level, floor: floor)
             memberships[invite.group, default: [:]][user.id] = membership
+            if let name = invite.inviteeName {
+                let profile = MemberProfile(groupID: invite.group, userID: user.id, displayName: name)
+                let data = try RecordCodec.encoder.encode(profile)
+                group.lastSeq += 1
+                group.maxLamport += 1
+                let record = WireRecord(id: profile.id, type: .memberProfile, budgetID: nil,
+                                        lamport: group.maxLamport, clientID: DeviceID(), isDeleted: false,
+                                        body: String(decoding: data, as: UTF8.self), createdBy: user.id,
+                                        updatedBy: user.id, serverSeq: group.lastSeq)
+                records[profile.id] = Stored(record: record, group: invite.group, owner: user.id,
+                                             updatedBy: user.id, firstSeq: group.lastSeq)
+                groups[invite.group] = group
+            }
             return serverGroup(group, membership)
+        }
+    }
+
+    private static func normalisedEmail(_ typed: String) -> String {
+        var email = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        if email.lowercased().hasPrefix("mailto:") { email = String(email.dropFirst(7)) }
+        return email.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping.lowercased()
+    }
+
+    private static func validInvitationName(_ raw: String?) -> Bool {
+        let name = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return !name.isEmpty && name.count <= 50 && !name.unicodeScalars.contains {
+            $0.properties.generalCategory == .control || $0.properties.generalCategory == .format
+        }
+    }
+
+    func incomingInvitations(_ token: String?) throws -> [IncomingInvitation] {
+        try lock.withLock {
+            let (user, _) = try caller(token)
+            guard user.verified else { throw Self.fail(403, "Confirm your email first.") }
+            return invitesByToken.values.filter { invitation in
+                guard invitation.email == user.email, !invitation.accepted, !invitation.rejected,
+                      !invitation.cancelled, !invitation.closed, invitation.expiresAt > Date(),
+                      groups[invitation.group]?.deleted == false,
+                      let inviter = memberships[invitation.group]?[invitation.inviter] else { return false }
+                return inviter.level.allows(Self.neededToSet(from: nil, to: invitation.level))
+                    && Self.mayGrant(invitation.level, holding: inviter.level)
+            }.map { invite in
+                let name = records[RecordID(invite.group.uuid)].flatMap {
+                    try? RecordCodec.decoder.decode(BudgetGroup.self, from: Data($0.record.body.utf8)).name
+                } ?? "Group"
+                return IncomingInvitation(id: invite.id, groupID: invite.group, groupName: name,
+                                          inviterName: invite.inviterName ?? "", inviteeName: invite.inviteeName ?? "",
+                                          level: invite.level, history: invite.history, expiresAt: invite.expiresAt)
+            }.sorted { $0.id.uuidString < $1.id.uuidString }
+        }
+    }
+
+    func acceptInvitation(_ id: UUID, _ token: String?) throws -> ServerGroup {
+        let key: String = try lock.withLock {
+            let (user, _) = try caller(token)
+            guard let match = invitesByToken.first(where: { $0.value.id == id && $0.value.email == user.email }) else {
+                throw Self.fail(404, "no such invite")
+            }
+            return match.key
+        }
+        return try accept(token: key, token)
+    }
+
+    func rejectInvitation(_ id: UUID, _ token: String?) throws {
+        try lock.withLock {
+            let (user, _) = try caller(token)
+            guard user.verified else { throw Self.fail(403, "Confirm your email first.") }
+            guard let match = invitesByToken.first(where: { $0.value.id == id && $0.value.email == user.email }) else {
+                throw Self.fail(404, "no such invite")
+            }
+            guard !match.value.accepted, !match.value.rejected else { throw Self.fail(409, "That invitation is closed.") }
+            guard !match.value.cancelled, !match.value.closed else { throw Self.fail(404, "no such invite") }
+            guard match.value.expiresAt > Date() else { throw Self.fail(410, "That invitation has expired.") }
+            invitesByToken[match.key]?.rejected = true
+        }
+    }
+
+    /// Called while holding the server lock. A membership reached another
+    /// way closes old pending offers, including after a later removal.
+    private func closeInvitations(to email: String, in group: GroupID, except id: UUID? = nil) {
+        for key in Array(invitesByToken.keys) {
+            guard let invitation = invitesByToken[key], invitation.group == group,
+                  invitation.email == email, invitation.id != id,
+                  !invitation.rejected, !invitation.accepted, !invitation.cancelled else { continue }
+            invitesByToken[key]?.closed = true
         }
     }
 
@@ -814,6 +949,25 @@ public actor InMemoryReadableSession: ReadableAccountTransport {
 
     public func acceptInvite(token inviteToken: String) async throws -> ServerGroup {
         try server.accept(token: inviteToken, token)
+    }
+
+    public func createEmailInvite(group: GroupID, email: String, inviteeName: String, inviterName: String,
+                                  level: AccessLevel, history: HistoryAccess, days: Int?) async throws -> SentEmailInvite {
+        let made = try server.createInvite(group: group, level: level, history: history, days: days,
+                                           token, email: email, inviteeName: inviteeName, inviterName: inviterName)
+        return SentEmailInvite(id: made.id, expiresAt: made.expiresAt)
+    }
+
+    public func incomingInvitations() async throws -> [IncomingInvitation] {
+        try server.incomingInvitations(token)
+    }
+
+    public func acceptInvitation(_ id: UUID) async throws -> ServerGroup {
+        try server.acceptInvitation(id, token)
+    }
+
+    public func rejectInvitation(_ id: UUID) async throws {
+        try server.rejectInvitation(id, token)
     }
 
     public func push(_ records: [WireRecord], group: GroupID) async throws -> PushResult {

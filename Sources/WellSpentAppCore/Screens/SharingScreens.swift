@@ -26,6 +26,8 @@ public protocol SharingActions: AnyObject {
     /// What an invite offers, before joining: the level, and how much of the
     /// group's past. Anyone holding the link may ask, signed in or not.
     func preview(_ link: InviteLink) async throws -> InviteTerms
+    /// Keeps transport status codes when deciding how a pasted link joins.
+    func previewForJoining(_ link: InviteLink) async throws -> InviteTerms
     func members(of group: GroupID) -> [UserID: AccessLevel]
     func memberNames(in group: GroupID) -> [UserID: String]
     func founder(of group: GroupID) -> UserID?
@@ -34,9 +36,14 @@ public protocol SharingActions: AnyObject {
     /// Takes in one group now, members and names included.
     func refresh(_ group: GroupID) async
     func mayAddEntries(in group: GroupID) -> Bool
+    func pendingInvites(in group: GroupID) -> [ServerInvite]
+    func cancelInvite(_ id: UUID, in group: GroupID) async throws
 }
 
 extension SharingActions {
+    public func previewForJoining(_ link: InviteLink) async throws -> InviteTerms { try await preview(link) }
+    public func pendingInvites(in group: GroupID) -> [ServerInvite] { [] }
+    public func cancelInvite(_ id: UUID, in group: GroupID) async throws { throw CancellationError() }
     /// This person's level in `group`. A group the server has never listed
     /// is still only on this device, and so their own.
     func myLevel(in group: GroupID) -> AccessLevel {
@@ -144,7 +151,13 @@ public final class ShareScreen {
 @MainActor
 @Observable
 public final class JoinScreen {
-    public var linkText: String
+    public var linkText: String {
+        didSet {
+            guard oldValue != linkText else { return }
+            if terms?.invitationID != nil { myName = "" }
+            terms = nil
+        }
+    }
     public var myName = ""
     public private(set) var failure: String?
     public private(set) var isWorking = false
@@ -194,13 +207,20 @@ public final class JoinScreen {
     /// invite already used, the page says why, and Join may still be tried.
     public func lookUp() async {
         guard let invite else { return }
+        let requestedText = linkText
         failure = nil
         do {
-            terms = try await actions.preview(invite)
+            let found = try await actions.preview(invite)
+            guard !Task.isCancelled, linkText == requestedText else { return }
+            terms = found
+            if found.invitationID != nil, let name = found.inviteeName { myName = name }
         } catch {
+            guard !Task.isCancelled, linkText == requestedText else { return }
             failure = AccountWording.words(for: error)
         }
     }
+
+    public var isAddressedInvitation: Bool { terms?.invitationID != nil }
 
     /// "You'd join at Add.", once the server has said.
     public var levelLine: String? { levelTitle.map(Words.joinsAt) }
@@ -236,17 +256,48 @@ public final class JoinScreen {
                                            in: actions.environment)
     }
 
-    public var joinLabel: String { isWorking ? Words.joining : Words.join }
+    public var joinLabel: String {
+        isWorking ? Words.joining : (isAddressedInvitation ? EmailInvitationWords.accept : Words.join)
+    }
 
     /// True once joined. The group is there at once, filled by the sync that follows.
     public func join() async -> Bool {
         guard canJoin, let invite else { return false }
+        let requestedText = linkText
         failure = nil
         isWorking = true
         defer { isWorking = false }
         do {
-            joined = try await actions.join(invite, myName: myName)
+            // Pasted links can reach Join before their background lookup.
+            // Ask here as well so an addressed link never writes a different
+            // member name through the legacy acceptance path.
+            let offer: InviteTerms?
+            do {
+                offer = try await actions.previewForJoining(invite)
+            } catch ReadableTransportError.http(let status, _) where status == 404 || status == 410 {
+                // Used and expired links have no preview. Acceptance still
+                // supplies their established, more specific failure wording.
+                offer = nil
+            }
+            guard !Task.isCancelled, linkText == requestedText else { return false }
+            terms = offer
+            if let offer, let id = offer.invitationID {
+                guard let named = offer.inviteeName, let emailActions = actions as? any EmailInvitationActions else {
+                    throw SyncCoordinator.Failure.server("This invitation needs an updated WellSpent app.")
+                }
+                myName = named
+                let invitation = IncomingInvitation(id: id, groupID: offer.groupID, groupName: invite.groupName,
+                    inviterName: invite.inviterName, inviteeName: named, level: offer.level,
+                    history: offer.history, expiresAt: offer.expiresAt)
+                let group = try await emailActions.acceptInvitation(invitation)
+                joined = PendingJoin(groupID: group, groupName: invite.groupName, inviterName: invite.inviterName,
+                                     displayName: named, level: offer.level)
+            } else {
+                joined = try await actions.join(invite, myName: myName)
+            }
             return true
+        } catch is CancellationError {
+            return false
         } catch {
             failure = AccountWording.words(for: error)
             return false
@@ -326,6 +377,30 @@ public final class MembersScreen {
     /// The change or removal under way, if any.
     public private(set) var pending: Task<Void, Never>?
     private let actions: any SharingActions
+    public var pendingInvites: [ServerInvite] { actions.pendingInvites(in: group) }
+
+    public func canCancelInvite(_ id: UUID) -> Bool {
+        guard !isWorking, let invitation = pendingInvites.first(where: { $0.id == id }),
+              invitation.status == "pending" else { return false }
+        return invitation.inviterID == actions.userID || mayInvite
+    }
+
+    public func mayCancelInvite(_ invitation: ServerInvite) -> Bool { canCancelInvite(invitation.id) }
+
+    public func cancelInvite(_ id: UUID) async {
+        guard canCancelInvite(id) else { return }
+        isWorking = true
+        failure = nil
+        defer { isWorking = false }
+        do {
+            try await actions.cancelInvite(id, in: group)
+        } catch is CancellationError {
+            return
+        } catch {
+            failure = AccountWording.words(for: error)
+        }
+        reload()
+    }
 
     public init(actions: any SharingActions, group: GroupID, groupName: String) {
         self.actions = actions

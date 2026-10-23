@@ -70,7 +70,7 @@ final class ClickToJoinGapTests: XCTestCase {
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.addGroup(named: robinsGroup)
         run.scrollSidebar(toGroup: robinsGroup)
-        let robinsLink = try run.share(group: robinsGroup, myName: "Robin", role: .add)
+        let robinsLink = try await run.legacyInvite(group: robinsGroup, myName: "Robin", role: .add)
 
         // 2. The second account, with no window, makes a group with a budget
         // and an entry, and a link that invites at View, with only what is

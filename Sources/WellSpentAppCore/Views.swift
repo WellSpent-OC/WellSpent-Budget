@@ -266,6 +266,13 @@ struct SidebarView: View {
 
     var body: some View {
         List {
+            if !screen.incomingInvitations.isEmpty {
+                Section(EmailInvitationWords.incomingTitle) {
+                    ForEach(screen.incomingInvitations, id: \.id) { invitation in
+                        IncomingInvitationRow(screen: screen, invitation: invitation)
+                    }
+                }
+            }
             ForEach(screen.sections) { section in
                 Section {
                     if let note = section.note {

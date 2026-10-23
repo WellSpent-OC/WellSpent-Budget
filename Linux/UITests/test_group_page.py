@@ -113,7 +113,7 @@ class GroupPage(unittest.TestCase):
         app.button("Invite Someone…", within=app.main).press()
         sheet = app.wait_for_window(2, "the Share sheet")
         texts = app.texts(sheet)
-        self.assertIn("Share “Household”", texts)
+        self.assertIn("Invite someone to “Household”", texts)
         self.assertIn("Sign in first. Sharing goes through your account.", texts)
 
         # Scenario PAGE-13

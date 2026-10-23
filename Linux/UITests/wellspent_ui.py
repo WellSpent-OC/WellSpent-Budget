@@ -114,6 +114,11 @@ class Element:
         return _text(self.node)
 
     @property
+    def height(self):
+        """The rendered height, for checks that words fit their controls."""
+        return Atspi.Component.get_extents(self.node, Atspi.CoordType.SCREEN).height
+
+    @property
     def placeholder(self):
         """The example an empty text box shows, such as "500.00"."""
         try:
@@ -867,7 +872,12 @@ class App:
         """Takes a group a test made off this person's computer and, for its
         owner, off the server: Delete… where they may, else Leave…. For a
         test's clean-up."""
-        if not self.shows(name.upper(), within=self.main):
+        # A sync can replace GTK nodes while this scan reads them. Retry a
+        # failed scan instead of turning a stale accessibility object into a
+        # cleanup failure. The tuple makes an absent group a completed scan.
+        present, = self.until(lambda: (self.shows(name.upper(), within=self.main),),
+                              f"{name!r}'s presence before cleanup")
+        if not present:
             return
         menu = self.group_menu(name)
         items = self.menu_items(menu)
@@ -900,24 +910,47 @@ class App:
         self.until(done, "the sync to finish", wait=60)
         self.settle()
 
-    def share(self, group, my_name, level=None):
-        """Share… in the group's menu: this person's name, what they can do
-        when it isn't the sheet's own choice, Create Link. Gives back the
-        link, read off the sheet, and closes it."""
+    def invite(self, group, my_name, email, their_name, level=None, history=None):
+        """Send an addressed invitation through the real email form."""
         menu = self.group_menu(group)
         self.pick("Share…", menu)
         sheet = self.wait_for_window(2, "the Share sheet")
+        self.field("Their email", sheet).type(email)
+        self.field("Their name", sheet).type(their_name)
         self.field("Your name", sheet).type(my_name)
         if level is not None:
             levels = [e for e in sheet.all("combo box") if e.showing][0]
             if levels.words != level:
                 self.choose(level, levels)
-        self.button("Create Link", within=sheet).press()
-        link = self.until(lambda: next((t for t in self.texts(self.front) if "://join" in t), None),
-                          "the link to show")
+        if history is not None:
+            self.choose(history, [e for e in sheet.all("combo box") if e.showing][1])
+        self.button("Send Invite", within=sheet).press()
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the Share sheet to close")
-        return link.replace("\n", "").replace(" ", "")
+
+    def legacy_invite(self, group, my_name, level="Add", history="all"):
+        """Fixture for an already-sent legacy link, through the public API.
+        This does not stand in for the email form's UI tests."""
+        from legacy_invite_fixture import create_legacy_invite
+        self.sync()
+        link = create_legacy_invite(STAGING, self.email, self.password, group, my_name, level, history)
+        self.sync()
+        return link
+
+    def invitation_button(self, group, action):
+        """Accept or Reject beside an invited group's muted sidebar name."""
+        return self.near("push button", action, to=self.find("label", group.upper(), within=self.main))
+
+    def accept_invitation(self, group):
+        """Accept the invited group, then wait until it is a joined group."""
+        self.invitation_button(group, "Accept").press()
+        self.group(group)
+
+    def reject_invitation(self, group):
+        """Reject the invited group and confirm the question."""
+        self.invitation_button(group, "Reject").press()
+        self.answer("Reject")
+        self.wait_gone(group.upper(), within=self.main)
 
     def set_level(self, group, person, level):
         """On the group's page, the level list on the person's row, then
@@ -1047,7 +1080,11 @@ def _accessibility_bus():
 # code staging emails them from its test mailbox. The mailbox's token comes
 # from the environment only, never a file in the repository or a command line.
 
-SERVER_OVERRIDE = os.environ.get("WELLSPENT_UI_SERVER_URL") or None
+SERVER_OVERRIDE = (os.environ.get("WELLSPENT_UI_SERVER_URL") or os.environ.get("WELLSPENT_UI_SERVER") or "").rstrip("/") or None
+if SERVER_OVERRIDE:
+    _server = urllib.parse.urlparse(SERVER_OVERRIDE)
+    if not (_server.scheme in ("http", "https") and _server.hostname in ("localhost", "127.0.0.1", "::1")):
+        raise ValueError("Server override must be a loopback test server")
 STAGING = SERVER_OVERRIDE or "https://staging.wellspent.space"
 MAILBOX_TOKEN = os.environ.get("WELLSPENT_UI_TEST_MAILBOX_TOKEN") or None
 RUN = f"{datetime.datetime.now():%m%d%H%M%S}{secrets.token_hex(2)}"

@@ -71,7 +71,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         // 2. Leslie joins at Add and adds Costco, $99.00. Pulling Home down
         // brings it in, with Leslie on its row and You on Robin's own. The
         // total counts it on both their screens.
-        let link = try run.shareAndCopyLink(groupName, as: "Robin")
+        let link = try await run.legacyInvite(groupName, as: "Robin")
         try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
         await leslie.deleteLeftoverRuns()
         _ = try await leslie.join(link, as: "Leslie")
@@ -476,25 +476,6 @@ extension PhoneTestApp {
                       "no group page after Join. On screen: \(visibleTexts())")
         goBack()
         XCTAssertTrue(element(AccessibilityID.sidebarAdd).waitForExistence(timeout: 10), "not back on Home")
-    }
-
-    /// Shares the group through the Share sheet and the iPhone's share sheet,
-    /// and reads the link back from Join a Group, where Copy put it.
-    func shareAndCopyLink(_ group: String, as name: String) throws -> InviteLink {
-        scrollTo(AccessibilityID.sidebarGroup(group))
-        longPress(AccessibilityID.sidebarGroup(group))
-        tapMenuItem(MainScreen.Words.share)
-        type(name, into: AccessibilityID.shareName)
-        tap(AccessibilityID.shareCreate)
-        copyInShareSheet()
-        XCTAssertTrue(wait(for: text(ShareScreen.Words.shareTitle(group)), until: "exists == false", timeout: 30),
-                      "the Share sheet stayed after Copy")
-        openAddMenu()
-        tapMenuItem(MainScreen.Words.join)
-        pasteCopied(into: AccessibilityID.joinLink)
-        let pasted = (element(AccessibilityID.joinLink).value as? String) ?? ""
-        tap(AccessibilityID.joinCancel)
-        return try XCTUnwrap(InviteLink(parsing: pasted), "the copied text is not an invite link")
     }
 
     /// Deletes an entry from its sheet, answering the question Delete, and

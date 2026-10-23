@@ -137,10 +137,8 @@ func registerSyncRoutesV2(_ routes: any RoutesBuilder) throws {
         guard body.records.count <= SyncRulesV2.maxRecordsPerPush else {
             throw Abort(.payloadTooLarge, reason: "at most \(SyncRulesV2.maxRecordsPerPush) records per push")
         }
-        let (_, membership) = try await requireMembership(groupID, user: user.id, needed: .write, on: request.db)
-        let level = AccessLevel(rawValue: membership.level) ?? .none
         return try await request.db.transaction { database in
-            try await applyPushV2(body.records, groupID: groupID, user: user.id, level: level, on: database)
+            try await applyPushV2(body.records, groupID: groupID, user: user.id, on: database)
         }
     }
 
@@ -193,7 +191,7 @@ private func wire(_ row: SyncRecordRow) throws -> SyncRecordV2 {
 /// commit. So pushes to one group take turns, and sequence numbers become
 /// visible in order: a device pulling never skips a lower number that was
 /// still being written.
-private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID, level: AccessLevel,
+private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
                          on database: any Database) async throws -> PushV2Response {
     guard let sql = database as? any SQLDatabase else {
         throw Abort(.internalServerError, reason: "sync needs a SQL database")
@@ -202,7 +200,10 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID, l
         .set("last_seq", to: SQLColumn("last_seq"))
         .where("id", .equal, SQLBind(groupID))
         .run()
-    guard let group = try await GroupRow.find(groupID, on: database) else { throw ServerError.notAMember }
+    // Membership edits use this lock too. Re-read authority after waiting,
+    // so an in-flight push cannot write with a removed member's old level.
+    let (group, membership) = try await requireMembership(groupID, user: user, needed: .write, on: database)
+    let level = AccessLevel(rawValue: membership.level) ?? .none
 
     var accepted: [UUID] = []
     var rejected: [String: String] = [:]

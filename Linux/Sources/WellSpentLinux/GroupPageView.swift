@@ -4,6 +4,7 @@ import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentSync
 
 // A group's page on Linux: the shared MembersScreen, drawn with GTK where a
 // budget opens. What it holds, checks and says is the Mac's; this is layout
@@ -42,12 +43,14 @@ struct GroupPageView: View {
     var sync: SyncCoordinator
     /// Opens the Share sheet for this group.
     var invite: () -> Void
+    @State private var cancellingInvite: ServerInvite?
     private typealias Words = MembersScreen.Words
 
     var body: some View {
         // A copy the alert's buttons keep: GTK closes an alert, which clears
         // its question, before the button's action runs.
         let removing = screen.removing
+        let cancelling = cancellingInvite
         VStack(alignment: .leading, spacing: 0) {
             // After a removal, a quiet line at the top, where Undo sits on a
             // budget. No pop-up.
@@ -71,7 +74,7 @@ struct GroupPageView: View {
                     if let money = main.money(of: group.id) {
                         GroupMoneySection(money: money)
                     }
-                    if !screen.rows.isEmpty {
+                    if !screen.rows.isEmpty || !screen.pendingInvites.isEmpty {
                         people
                     }
                     if let failure = screen.failure {
@@ -101,12 +104,25 @@ struct GroupPageView: View {
                 if let removing { screen.remove(removing.id) }
             }
         }
+        .alert(cancelInviteQuestion(cancelling), isPresented: Binding(get: { cancelling != nil },
+                                                                     set: { if !$0 { cancellingInvite = nil } })) {
+            Button(Words.cancel) { cancellingInvite = nil }
+            Button(EmailInvitationWords.cancelInvite) {
+                if let cancelling { Task { await screen.cancelInvite(cancelling.id) } }
+            }
+        }
     }
 
     /// GTK's alert has a title and no message, so the two go together.
     private var removeQuestion: String {
         guard let title = screen.removeQuestion, let message = screen.removeMessage else { return "" }
         return "\(title)\n\n\(message)"
+    }
+
+    private func cancelInviteQuestion(_ invitation: ServerInvite?) -> String {
+        guard let invitation else { return "" }
+        let recipient = EmailInvitationWords.recipient(invitation)
+        return "\(EmailInvitationWords.cancelQuestion(recipient))\n\n\(EmailInvitationWords.cancelMessage)"
     }
 
     /// The name, with Invite Someone… on the right, and the line under it.
@@ -135,7 +151,13 @@ struct GroupPageView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(screen.rows) { row in
                     person(row)
-                    if row.id != screen.rows.last?.id {
+                    if row.id != screen.rows.last?.id || !screen.pendingInvites.isEmpty {
+                        Palette.line.frame(height: 1)
+                    }
+                }
+                ForEach(screen.pendingInvites) { invitation in
+                    pendingInvitation(invitation)
+                    if invitation.id != screen.pendingInvites.last?.id {
                         Palette.line.frame(height: 1)
                     }
                 }
@@ -143,6 +165,32 @@ struct GroupPageView: View {
             .padding(.horizontal, 12)
             .background(RoundedRectangle(cornerRadius: 8).fill(Palette.sidebar))
         }
+    }
+
+    /// Invitations stay apart from members: pending is not membership, and
+    /// rejecting requires the sender to make a fresh invitation.
+    private func pendingInvitation(_ invitation: ServerInvite) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(EmailInvitationWords.recipient(invitation))
+                    .font(.system(size: 13))
+                    .foregroundColor(Palette.muted)
+                if let email = invitation.email {
+                    Text(email)
+                        .font(.system(size: 11))
+                        .foregroundColor(Palette.muted)
+                }
+            }
+            Spacer()
+            Text(EmailInvitationWords.status(invitation))
+                .font(.system(size: 11))
+                .foregroundColor(Palette.muted)
+            if screen.canCancelInvite(invitation.id) {
+                Button(EmailInvitationWords.cancelInvite) { cancellingInvite = invitation }
+                    .disabled(screen.isWorking)
+            }
+        }
+        .padding(.vertical, 8)
     }
 
     /// A person's level as the page holds it now, not as the row it was drawn

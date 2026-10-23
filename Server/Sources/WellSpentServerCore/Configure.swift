@@ -43,6 +43,9 @@ public func configure(_ app: Application) async throws {
     let serverEnvironment = try ServerEnvironment.resolve(
         Environment.get("WELLSPENT_ENVIRONMENT"), appEnvironment: app.environment)
     app.storage[ServerEnvironmentKey.self] = serverEnvironment
+    app.invitationPublicBaseURL = try InvitationWeb.baseURL(Environment.get("INVITATION_PUBLIC_BASE_URL"),
+                                                          environment: serverEnvironment)
+    app.middleware.use(InvitationPageLogging(), at: .beginning)
     app.logger.notice("environment: \(serverEnvironment.rawValue)")
 
     // Three ways to get a database, in order of precedence.
@@ -85,6 +88,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddGroupMaxLamport())
     app.migrations.add(AddReadableSync())
     app.migrations.add(CreateWarTable())
+    app.migrations.add(AddEmailInvitations())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
@@ -126,6 +130,8 @@ public func configure(_ app: Application) async throws {
         app.logger.warning("TEST_MAILBOX_TOKEN is set on live and ignored: live never has a test mailbox")
     }
     try app.configureEmailCodeKey()
+    app.invitationDelivery = InvitationDelivery()
+    app.lifecycle.use(InvitationDeliveryLifecycle())
     // /api/v1 is gone, so LEGACY_API no longer opens or closes anything.
     if Environment.get("LEGACY_API") != nil {
         app.logger.notice("LEGACY_API is no longer read: /api/v1 is gone and asks old apps to update")
@@ -133,6 +139,8 @@ public func configure(_ app: Application) async throws {
 
     try registerRoutes(app)
     try registerWarTableRoutes(app)
+    registerInvitationEmailStopRoutes(app)
+    registerInvitationLanding(app)
 }
 
 /// The hourly work this file used to promise and nothing did.

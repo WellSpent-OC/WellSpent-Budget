@@ -29,7 +29,7 @@ class EditEntriesShared(unittest.TestCase):
         leslie.new_budget(f"{self.home} food", "500", group=self.home)
         leslie.add_entry("Hilltop Grocery", "142.08")
         leslie.sync()
-        self.robin.join(leslie.share(self.home, "Leslie", level="Manage"), "Robin")
+        self.robin.join(leslie.legacy_invite(self.home, "Leslie", level="Manage"), "Robin")
         self.robin.sync()
         self.food = f"{self.home} food"
         self.treats = f"{self.home} treats"

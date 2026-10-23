@@ -86,6 +86,7 @@ struct InvitationPageView: View {
                     .font(.system(size: 13))
                 TextField(Words.namePrompt, text: Binding(get: { screen.myName }, set: { screen.myName = $0 }))
                     .frame(width: 260)
+                    .disabled(screen.isAddressedInvitation)
             }
             if let notice = screen.notice {
                 warning(notice)

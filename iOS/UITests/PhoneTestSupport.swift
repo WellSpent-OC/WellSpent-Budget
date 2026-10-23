@@ -8,6 +8,7 @@ import XCTest
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentSync
 
 /// The app under test: launched with its data in a folder of its own, and
 /// the ways the test reaches into it.
@@ -16,6 +17,7 @@ final class PhoneTestApp {
     let app = XCUIApplication()
     /// Where this run's databases go. Removed at the end.
     let dataRoot: URL
+    private var signedInAccount: UITestSignedInAccount?
 
     init() {
         PhoneFailureScreenshots.registerOnce()
@@ -253,7 +255,7 @@ final class PhoneTestApp {
         pasteCopied(into: identifier)
     }
 
-    /// Pastes whatever was copied, such as a link copied in the share sheet,
+    /// Pastes whatever was copied, such as a received invitation link,
     /// into an empty field with Paste from the field's own menu. The
     /// pasteboard is emptied after.
     func pasteCopied(into identifier: String) {
@@ -340,56 +342,6 @@ final class PhoneTestApp {
     func dismissMenu() {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.6)).tap()
         _ = app.collectionViews.firstMatch.waitForExistence(timeout: 2)
-    }
-
-    /// Closes the iPhone's own share sheet without sending anything: its
-    /// close button, or a swipe down on it where iOS draws none.
-    func closeShareSheetWithoutSending() {
-        let copy = app.buttons["Copy"].firstMatch
-        let copyCell = app.cells["Copy"].firstMatch
-        let deadline = Date().addingTimeInterval(30)
-        while !copy.exists, !copyCell.exists, Date() < deadline { _ = copy.waitForExistence(timeout: 0.5) }
-        XCTAssertTrue(copy.exists || copyCell.exists, "the share sheet never opened. On screen: \(visibleTexts())")
-        let close = app.buttons.matching(NSPredicate(format: "label ==[c] 'close' OR identifier ==[c] 'close'"))
-            .firstMatch
-        if close.exists, close.isHittable {
-            close.tap()
-        } else {
-            // Down from inside the share sheet, never from mid screen: the share
-            // sheet can start below the middle, and a drag there closes the
-            // app's own Share sheet behind it instead (seen on CI). From its
-            // link at the top, or else a little above Copy.
-            let link = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "wellspent")).firstMatch
-            let row = copy.exists ? copy : copyCell
-            let start = link.exists ? link.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                                    : row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -2.5))
-            start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)),
-                        withVelocity: .fast, thenHoldForDuration: 0)
-        }
-        let gone = wait(for: copy, until: "exists == false", timeout: 10)
-            && wait(for: copyCell, until: "exists == false", timeout: 5)
-        XCTAssertTrue(gone, "the share sheet stayed. Its buttons: "
-                      + app.buttons.allElementsBoundByIndex.prefix(30).map(\.label).joined(separator: ", "))
-    }
-
-    /// Copy, in the iPhone's own share sheet, once it has slid up. The
-    /// share sheet draws Copy as a button or a cell, by iOS version.
-    func copyInShareSheet() {
-        let deadline = Date().addingTimeInterval(20)
-        while Date() < deadline {
-            for candidate in [app.buttons["Copy"], app.cells["Copy"]] where candidate.firstMatch.exists {
-                let copy = candidate.firstMatch
-                if copy.isHittable {
-                    // The share sheet is still sliding up when Copy can first
-                    // be tapped, and a tap then misses it.
-                    waitUntilStill(copy, "Copy")
-                    copy.tap()
-                    return
-                }
-            }
-            _ = app.buttons["Copy"].waitForExistence(timeout: 0.5)
-        }
-        XCTFail("the share sheet shows no Copy. On screen: \(visibleButtons())")
     }
 
     /// A tap on a link, as in Messages: the system hands it to the copy of
@@ -572,6 +524,18 @@ final class PhoneTestApp {
             }
             throw UITestError("signing in did not finish. On screen: \(visibleTexts())")
         }
+        signedInAccount = UITestSignedInAccount(server: server, email: email, password: password)
+    }
+
+    /// An already-sent legacy link, made through the public sync API. It is
+    /// setup only; email invitation tests drive the actual form.
+    func legacyInvite(_ group: String, as name: String, role: InviteRole = .add) async throws -> InviteLink {
+        guard let signedInAccount else { throw UITestError("the fixture needs a signed-in test account") }
+        syncFromTheBackground()
+        let link = try await LegacyInviteFixture.make(account: signedInAccount, groupName: group,
+                                                       myName: name, role: role)
+        syncFromTheBackground()
+        return link
     }
 
     /// Sign out, from Account at the foot of Home. A step of its own, so it

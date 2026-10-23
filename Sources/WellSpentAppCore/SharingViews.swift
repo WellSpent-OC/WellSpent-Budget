@@ -10,45 +10,55 @@ import WellSpentSync
 
 // MARK: - Share
 
-/// Draws ShareScreen. What it checks and says lives there, shared with every
-/// desktop; this is layout only.
+/// Draws the shared email invitation form. The server sends the invitation.
 struct ShareSheet: View {
-    @Bindable var sync: SyncCoordinator
-    let group: BudgetGroup
-    @State private var screen: ShareScreen
+    @State private var screen: EmailInviteScreen
     @Environment(\.dismiss) private var dismiss
-    private typealias Words = ShareScreen.Words
+    @FocusState private var emailFocused: Bool
+    private typealias Words = EmailInviteScreen.Words
 
-    /// `created` opens the sheet showing a link already made, for tests.
-    init(sync: SyncCoordinator, group: BudgetGroup, created: InviteLink? = nil) {
-        self.sync = sync
-        self.group = group
-        _screen = State(initialValue: ShareScreen(actions: sync, group: group.id, groupName: group.name,
-                                                  created: created))
+    init(sync: SyncCoordinator, group: BudgetGroup) {
+        _screen = State(initialValue: EmailInviteScreen(actions: sync, group: group.id,
+                                                       groupName: group.name))
     }
 
-    static func canCreate(myName: String, signedIn: Bool) -> Bool {
-        SharingRules.canCreate(myName: myName, signedIn: signedIn)
+    init(screen: EmailInviteScreen) {
+        _screen = State(initialValue: screen)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(screen.title)
                 .font(.system(size: 17, weight: .semibold))
-
-            if let link = screen.link {
-                created(link)
+            if screen.sent != nil {
+                Text(screen.sentMessage ?? screen.note)
+                    .font(.system(size: 13))
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button(Words.done) { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier(AccessibilityID.shareDone)
+                }
             } else {
                 form
             }
         }
         .padding(20)
         .frame(width: 440)
+        .interactiveDismissDisabled(screen.isWorking)
+        .onAppear { emailFocused = true }
     }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             Form {
+                TextField(Words.email, text: Bindable(screen).email, prompt: Text(Words.emailPrompt))
+                    .focused($emailFocused)
+                    .accessibilityIdentifier(AccessibilityID.shareEmail)
+                TextField(Words.inviteeName, text: Bindable(screen).inviteeName,
+                          prompt: Text(Words.inviteeNamePrompt))
+                    .accessibilityIdentifier(AccessibilityID.shareInviteeName)
                 TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
                     .accessibilityIdentifier(AccessibilityID.shareName)
                 if !screen.roles.isEmpty {
@@ -65,61 +75,28 @@ struct ShareSheet: View {
                 .accessibilityIdentifier(AccessibilityID.shareHistory)
             }
             .formStyle(.grouped)
+            .disabled(screen.isWorking)
 
             Text(screen.role.explanation)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
-
-            if let notice = screen.notice {
+            if let notice = screen.notice ?? screen.failure {
                 note(notice, warning: true)
-            } else if let failure = screen.failure {
-                note(failure, warning: true)
             }
-
-            HStack {
-                Text(screen.note)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
-                Spacer()
-                Button(Words.cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .accessibilityIdentifier(AccessibilityID.shareCancel)
-                Button(screen.createLabel) { Task { await screen.create() } }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!screen.canCreate)
-                    .accessibilityIdentifier(AccessibilityID.shareCreate)
-            }
-        }
-    }
-
-    private func created(_ link: InviteLink) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(link.url)
-                .font(.money(11, weight: .regular))
-                .textSelection(.enabled)
-                .accessibilityIdentifier(AccessibilityID.shareLink)
-                .lineLimit(3)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
-
             Text(screen.note)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.muted)
                 .fixedSize(horizontal: false, vertical: true)
-
             HStack {
-                ShareLink(item: link.url) { Label(Words.send, systemImage: "square.and.arrow.up") }
-                Button {
-                    Clipboard.copy(link.url)
-                } label: {
-                    Label(Words.copyLink, systemImage: "doc.on.doc")
-                }
-                .accessibilityIdentifier(AccessibilityID.shareCopyLink)
                 Spacer()
-                Button(Words.done) { dismiss() }
+                Button(Words.cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(screen.isWorking)
+                    .accessibilityIdentifier(AccessibilityID.shareCancel)
+                Button(screen.sendLabel) { Task { await screen.send() } }
                     .keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier(AccessibilityID.shareDone)
+                    .disabled(!screen.canSend)
+                    .accessibilityIdentifier(AccessibilityID.shareCreate)
             }
         }
     }
@@ -154,6 +131,7 @@ struct JoinSheet: View {
                     .accessibilityIdentifier(AccessibilityID.joinLink)
                 TextField(Words.name, text: Bindable(screen).myName, prompt: Text(Words.namePrompt))
                     .accessibilityIdentifier(AccessibilityID.joinName)
+                    .disabled(screen.isAddressedInvitation)
             }
             .formStyle(.grouped)
 
@@ -189,6 +167,7 @@ struct JoinSheet: View {
         }
         .padding(20)
         .frame(width: 440)
+        .task(id: screen.linkText) { await screen.lookUp() }
     }
 }
 
@@ -275,6 +254,7 @@ struct InvitationPage: View {
                     .labelsHidden()
                     .frame(maxWidth: 260)
                     .accessibilityIdentifier(AccessibilityID.invitationName)
+                    .disabled(screen.isAddressedInvitation)
             }
             if let notice = screen.notice {
                 note(notice, warning: true)
@@ -433,6 +413,10 @@ struct GroupPage: View {
                 ForEach(screen.rows) { row in
                     person(row)
                     if row.id != screen.rows.last?.id { Divider() }
+                }
+                ForEach(screen.pendingInvites, id: \.id) { invitation in
+                    Divider()
+                    OutgoingInvitationRow(screen: screen, invitation: invitation)
                 }
             }
             .padding(.horizontal, 12)

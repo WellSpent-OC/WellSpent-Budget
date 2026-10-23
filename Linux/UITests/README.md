@@ -73,6 +73,18 @@ its place on the screen.
 
   After adding or removing a tag, update the tables in `Features/README.md`.
 
+## Email invitations and old links
+
+`test_sharing.py` and `test_email_invitations.py` use the real email form and
+the invitation rows, including Accept, Reject and Cancel Invite. Email goes
+only to the tests' example.com recipients through the server's test mailbox.
+
+`legacy_invite_fixture.py` sets up already-sent links through the retained
+public v2 API. The unrelated shared-budget, permissions and history tests use
+that setup and still join through the real UI. It does not count as testing
+the new invitation form, and it reads neither the app's database nor a test-only
+app endpoint. No UI test now expects a visible Create Link or Copy Link button.
+
 ## Test settings the app takes
 
 A staging build takes the same two settings as the Mac's, and a live build

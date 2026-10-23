@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentSync
 
 // The main window on any desktop: the groups and their budgets on the left,
 // what each one's menu offers, the question a delete or a leave asks first,
@@ -220,6 +221,50 @@ public final class MainScreen {
     }
 
     // MARK: - An invitation
+
+    public var incomingInvitations: [IncomingInvitation] { sync.incomingInvitations }
+    private var respondingInvitations: Set<UUID> = []
+    private var invitationFailures: [UUID: String] = [:]
+    public func isResponding(to id: UUID) -> Bool { respondingInvitations.contains(id) }
+    public func invitationFailure(for id: UUID) -> String? {
+        guard incomingInvitations.contains(where: { $0.id == id }) else { return nil }
+        return invitationFailures[id]
+    }
+
+    @discardableResult
+    public func acceptInvitation(_ invitation: IncomingInvitation) async -> Bool {
+        guard incomingInvitations.contains(where: { $0.id == invitation.id }),
+              respondingInvitations.insert(invitation.id).inserted else { return false }
+        invitationFailures[invitation.id] = nil
+        defer { respondingInvitations.remove(invitation.id) }
+        do {
+            let group = try await sync.acceptInvitation(invitation)
+            openPage(of: group)
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            invitationFailures[invitation.id] = AccountWording.words(for: error)
+            return false
+        }
+    }
+
+    @discardableResult
+    public func rejectInvitation(_ invitation: IncomingInvitation) async -> Bool {
+        guard incomingInvitations.contains(where: { $0.id == invitation.id }),
+              respondingInvitations.insert(invitation.id).inserted else { return false }
+        invitationFailures[invitation.id] = nil
+        defer { respondingInvitations.remove(invitation.id) }
+        do {
+            try await sync.rejectInvitation(invitation)
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            invitationFailures[invitation.id] = AccountWording.words(for: error)
+            return false
+        }
+    }
 
     /// The invitation page a clicked invite link put up
     /// (`Workspace.open(_:)`). It shows on the right in place of a budget or

@@ -6,36 +6,12 @@ import WellSpentCrypto
 import WellSpentModel
 import WellSpentSync
 
-/// Sharing in the real window, for the scenarios the other Mac tests leave
-/// out: what the Share sheet asks, Send…, Share… and Join a Group… while
-/// signed out or before the email is confirmed, links that are not whole or
-/// already used, leaving a group someone else made, and the samples staying
-/// on this Mac through a sign-in.
-///
-/// Three tests, each launched as a fresh install, with the samples:
-/// - Signed out: Share… on the sample Household makes no link, and Join a
-///   Group… joins nothing. No account is needed.
-/// - Not confirmed: Robin, with no window, makes a group and a link to it.
-///   Leslie makes an account in the window and does not confirm its email.
-///   Join a Group… sends her to confirm it, and Join pressed anyway adds
-///   nothing: the server still lists only Robin in his group. It needs the
-///   mailbox token, as every test that makes an account does, and skips
-///   without it. Her account stays on staging, unconfirmed, at an example.com
-///   address. Robin signs in once, as the second account.
-/// - Signed in: the Share sheet for a group of Robin's own, and Send…. Then a
-///   group of Leslie's, joined, left, refused with its used link, and joined
-///   again with a new one. The samples are gone while he is signed in, and
-///   back after. Leslie has no window: she is a coordinator inside this
-///   process, against the same staging server, as in EntryEditingTests.
-///   Staging allows few sign-ins from one place, so the test signs in twice
-///   in all: once in the window, and once as Leslie.
-///
-/// The last two tests need the four WELLSPENT_UI_TEST_ variables (see
-/// UITestSupport.swift) and skip without them. Both accounts must exist on
-/// staging with their addresses confirmed. Their groups are named with the
-/// time and deleted at the end, for everyone. A halted run can leave them on
-/// staging. The next run with the same accounts deletes them once they are
-/// an hour old.
+/// Email invitations in the real window, alongside legacy received links,
+/// signed-out and unconfirmed-email refusals, leaving and local samples.
+/// Each test starts with a fresh data folder. Account scenarios require the
+/// WELLSPENT_UI_TEST_ fixtures and skip without them; the unconfirmed-account
+/// scenario also needs the test mailbox token. Groups use timestamped names
+/// and are deleted after a successful run.
 final class SharingGapTests: XCTestCase {
     /// The run's data folder, for tearDown.
     nonisolated(unsafe) private static var dataRootPath: String?
@@ -81,16 +57,18 @@ final class SharingGapTests: XCTestCase {
                       "the foot does not say the budgets are kept on this computer. On screen: \(run.visibleTexts())")
 
         // Scenario SHARE-04
-        // 2. Share… in Household's menu says to sign in first. Create Link
+        // 2. Share… in Household's menu says to sign in first. Send Invite
         // stays dimmed, even with a name typed, and Cancel closes the sheet.
         run.openShare(of: "Household")
         XCTAssertTrue(run.app.staticTexts[ShareScreen.Words.signInToShare].exists,
                       "no notice to sign in first. On screen: \(run.visibleTexts())")
-        run.expect(AccessibilityID.shareCreate, enabled: false, "Create Link, signed out")
+        run.expect(AccessibilityID.shareCreate, enabled: false, "Send Invite, signed out")
         run.type("Robin", into: AccessibilityID.shareName)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 30),
                       "the name did not go in")
-        run.expect(AccessibilityID.shareCreate, enabled: false, "Create Link, signed out with a name typed")
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.type("person@example.com", into: AccessibilityID.shareEmail)
+        run.expect(AccessibilityID.shareCreate, enabled: false, "Send Invite, signed out with all fields filled")
         run.click(AccessibilityID.shareCancel)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
                       "the Share sheet did not close")
@@ -188,7 +166,7 @@ final class SharingGapTests: XCTestCase {
     // MARK: - Signed in
 
     @MainActor
-    func testTheShareSheetSendAUsedLinkLeavingAndTheSamples() async throws {
+    func testEmailInvitationFormALegacyUsedLinkLeavingAndTheSamples() async throws {
         let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
         Self.dataRootPath = run.dataRoot.path
@@ -226,8 +204,8 @@ final class SharingGapTests: XCTestCase {
         // 3. A group of his own. Share… in its menu opens a sheet titled with
         // it. It asks for his name, with the prompt in the empty field, what
         // they can do, with Add chosen, and what they see, with Everything so
-        // far chosen. Beside Cancel and Create Link, a line says how the link
-        // goes, and Create Link stays dimmed with no name.
+        // far chosen. The form explains email delivery, and Send Invite
+        // stays dimmed until all required fields are valid.
         run.addGroup(named: robinsGroup)
         run.revealLine(AccessibilityID.sidebarGroup(robinsGroup))
         run.openShare(of: robinsGroup)
@@ -247,26 +225,21 @@ final class SharingGapTests: XCTestCase {
             }
         }
 
-        // Scenario SHARE-01
-        // 5. His name lights Create Link, which makes the link.
+        // Scenario EMAIL-01
+        // 5. All three fields are required. Sending emails the invitation;
+        // the success page offers Done, without a link to copy.
         run.type("Robin", into: AccessibilityID.shareName)
-        run.expect(AccessibilityID.shareCreate, enabled: true, "Create Link, with his name typed")
+        run.expect(AccessibilityID.shareCreate, enabled: false, "Send Invite without a recipient")
+        run.type("Leslie", into: AccessibilityID.shareInviteeName)
+        run.type("not-an-address", into: AccessibilityID.shareEmail)
+        run.expect(AccessibilityID.shareCreate, enabled: false, "Send Invite with an invalid email")
+        run.paste(accounts.secondEmail, into: AccessibilityID.shareEmail)
+        run.expect(AccessibilityID.shareCreate, enabled: true, "Send Invite with all fields filled")
         run.click(AccessibilityID.shareCreate)
-        XCTAssertTrue(run.element(AccessibilityID.shareCopyLink).waitForExistence(timeout: 30),
-                      "no link was made. On screen: \(run.visibleTexts())")
-        let made = try XCTUnwrap(InviteLink(parsing: run.text(of: run.element(AccessibilityID.shareLink))),
-                                 "the sheet shows no invite link")
-
-        // Scenario SHARE-03
-        // 6. Send… opens the system's ways to share, with the link ready.
-        // Nothing is picked, since each would start another app: Escape
-        // closes them, and the sheet stays, with its link.
-        let send = run.send(made)
-        XCTAssertTrue(send.opened, "Send\u{2026} opened none of the system's ways to share. Seen: \(send.summary)")
-        XCTAssertTrue(send.showsLink, "the ways to share do not show the link. Seen: \(send.summary)")
-        XCTAssertTrue(send.closed, "Escape did not close the ways to share. Seen: \(send.summary)")
-        XCTAssertTrue(send.stayed, "the sheet did not stay after Escape. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(send.sameLink, "the sheet's link changed after Send\u{2026}")
+        XCTAssertTrue(run.element(AccessibilityID.shareDone).waitForExistence(timeout: 30),
+                      "the email invitation did not finish")
+        XCTAssertFalse(run.element(AccessibilityID.shareCopyLink).exists, "Copy Link is still offered")
+        XCTAssertFalse(run.element(AccessibilityID.shareLink).exists, "a sender sees a bearer link")
 
         // Scenario SHARE-01
         // 7. Done closes the sheet. Share… again: Your name holds the name he
@@ -274,6 +247,20 @@ final class SharingGapTests: XCTestCase {
         run.click(AccessibilityID.shareDone)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareDone), until: "exists == false", timeout: 10),
                       "Done did not close the sheet")
+        run.openGroupPage(named: robinsGroup)
+        XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.pending].waitForExistence(timeout: 15),
+                      "the sender has no Pending invitation")
+        let pendingSummary = MembersScreen.Words.line([MembersScreen.Words.notShared, MembersScreen.Words.madeByYou])
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.groupSummary), holds: pendingSummary, timeout: 15),
+                      "a pending invitation was counted as membership")
+        // Scenario EMAIL-05
+        run.app.buttons[EmailInvitationWords.cancelInvite].firstMatch.click()
+        try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel)).click()
+        XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.pending].exists)
+        run.app.buttons[EmailInvitationWords.cancelInvite].firstMatch.click()
+        try XCTUnwrap(run.dialogButton(EmailInvitationWords.cancelInvite)).click()
+        XCTAssertTrue(run.wait(for: run.app.staticTexts[EmailInvitationWords.pending],
+                               until: "exists == false", timeout: 15))
         run.revealLine(AccessibilityID.sidebarGroup(robinsGroup))
         run.openShare(of: robinsGroup)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), holds: "Robin", timeout: 30),
@@ -426,6 +413,75 @@ final class SharingGapTests: XCTestCase {
         return JoinScreen(actions: reader.sync, linkText: link.url).invitation
     }
 
+    @MainActor
+    func testEmailInboxRejectAndAcceptAFreshInvitation() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let sender = try SecondAccount(server: accounts.server)
+        try await sender.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        let stamp = Self.stamp()
+        let groupName = Self.lesliesPrefix + stamp + " Inbox"
+        let ownGroup = Self.robinsPrefix + stamp + " Inbox"
+        let budgets = ["Food " + stamp, "Travel " + stamp]
+        let group = try await EmailInvitationFixture.makeGroup(sender: sender, named: groupName, budgets: budgets)
+        let first = try await EmailInvitationFixture.send(sender: sender, group: group,
+                                                           groupName: groupName, to: accounts.email)
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.addGroup(named: ownGroup)
+        run.addBudget(named: "Local " + stamp, amount: "100", inGroup: ownGroup)
+
+        // Scenario EMAIL-02
+        XCTAssertTrue(run.element(AccessibilityID.incomingInvitation(first.id)).waitForExistence(timeout: 20))
+        XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.invited].exists)
+        XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.from("Leslie")].exists)
+        XCTAssertTrue(run.app.staticTexts[InviteRole.add.title + " · " + JoinScreen.Words.sees(.all)].exists)
+        XCTAssertFalse(run.element(AccessibilityID.sidebarGroup(groupName)).exists,
+                       "an invitation already grants membership")
+        for budget in budgets { XCTAssertFalse(run.element(AccessibilityID.sidebarBudget(budget)).exists) }
+
+        // Scenario EMAIL-04
+        run.click(AccessibilityID.rejectInvitation(first.id))
+        try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel)).click()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(first.id)).exists)
+        run.click(AccessibilityID.rejectInvitation(first.id))
+        try XCTUnwrap(run.dialogButton(EmailInvitationWords.reject)).click()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.incomingInvitation(first.id)),
+                               until: "exists == false", timeout: 20))
+        let rejected = try await sender.sync.invites(in: group)
+        XCTAssertEqual(rejected.first { $0.id == first.id }?.status, "rejected")
+        run.syncAndWait()
+        XCTAssertFalse(run.element(AccessibilityID.incomingInvitation(first.id)).exists,
+                       "rejected invitation returned at sync")
+
+        let fresh = try await EmailInvitationFixture.send(sender: sender, group: group,
+                                                           groupName: groupName, to: accounts.email)
+        XCTAssertNotEqual(fresh.id, first.id)
+        run.syncAndWait()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(fresh.id)).waitForExistence(timeout: 20))
+
+        // Scenario EMAIL-03
+        run.click(AccessibilityID.acceptInvitation(fresh.id))
+        XCTAssertTrue(run.element(AccessibilityID.groupSummary).waitForExistence(timeout: 20),
+                      "Accept did not open the group page")
+        XCTAssertFalse(run.element(AccessibilityID.invitationName).exists, "Accept asked for a name")
+        XCTAssertTrue(run.app.staticTexts[MembersScreen.Words.you("Robin")].waitForExistence(timeout: 15),
+                      "the accepted member did not receive their invited name")
+        XCTAssertFalse(run.element(AccessibilityID.incomingInvitation(fresh.id)).exists)
+        for budget in budgets {
+            XCTAssertTrue(run.element(AccessibilityID.sidebarBudget(budget)).waitForExistence(timeout: 20),
+                          "Accept did not bring every budget")
+        }
+        run.click(AccessibilityID.sidebarBudget(budgets[0]))
+        XCTAssertTrue(run.app.staticTexts["Existing purchase"].waitForExistence(timeout: 15))
+
+        run.deleteGroup(named: ownGroup)
+        run.signOut()
+        await sender.deleteGroup(named: groupName)
+        await sender.cleanUp()
+    }
+
     /// Part of each name, so runs never share one.
     private static func stamp() -> String {
         stampFormatter().string(from: Date())
@@ -441,25 +497,8 @@ final class SharingGapTests: XCTestCase {
 
 // MARK: - Helpers
 
-/// What Send… showed: whether the system's ways to share opened, and whether
-/// they named the link. Then, after Escape: whether they closed, and whether
-/// the sheet stayed with the same link.
-private struct SendResult {
-    let opened: Bool
-    let showsLink: Bool
-    var closed = false
-    var stayed = false
-    var sameLink = false
-    /// Which of the system's own ways showed, and the shape of what opened.
-    /// Never the other words in it: the list can name people this Mac knows.
-    let summary: String
-}
-
 @MainActor
 private extension TestApp {
-    /// The ways to share that macOS itself offers, by name.
-    static let systemWays: Set<String> = ["AirDrop", "Mail", "Messages", "Notes", "Reminders", "Freeform"]
-
     /// Launches as a fresh install, with the samples and no settings left by
     /// an earlier run. The app starts its settings afresh only for a data
     /// folder that does not exist yet (AccountDirectory.testing). TestApp
@@ -518,12 +557,11 @@ private extension TestApp {
     }
 
     /// Share… from a group's menu, until the sheet that opens is titled with
-    /// that group, as TestApp.share does it: a right-click that lands on the
-    /// line beside it opens another group's menu.
+    /// that group. A right-click beside the line can open a neighbor's menu.
     func openShare(of group: String) {
         let line = AccessibilityID.sidebarGroup(group)
         let form = element(AccessibilityID.shareName)
-        let title = app.staticTexts[ShareScreen.Words.shareTitle(group)].firstMatch
+        let title = app.staticTexts["Invite someone to “\(group)”"].firstMatch
         for _ in 0..<3 {
             openMenu(on: element(line), line, offering: MainScreen.Words.share)
             clickMenuItem(MainScreen.Words.share)
@@ -537,7 +575,14 @@ private extension TestApp {
 
     /// The Share sheet before anything is typed or picked, as SHARE-01 says.
     func expectTheShareForm(file: StaticString = #filePath, line: UInt = #line) {
-        typealias Words = ShareScreen.Words
+        typealias Words = EmailInviteScreen.Words
+        for (id, prompt) in [(AccessibilityID.shareEmail, Words.emailPrompt),
+                             (AccessibilityID.shareInviteeName, Words.inviteeNamePrompt)] {
+            let field = element(id)
+            XCTAssertTrue(field.exists, "a required recipient field is missing", file: file, line: line)
+            XCTAssertEqual(field.value as? String ?? "", "", file: file, line: line)
+            XCTAssertEqual(field.placeholderValue, prompt, file: file, line: line)
+        }
         let name = element(AccessibilityID.shareName)
         XCTAssertEqual(name.value as? String ?? "", "", "Your name is not empty", file: file, line: line)
         XCTAssertEqual(name.placeholderValue, Words.namePrompt, "the empty field's prompt", file: file, line: line)
@@ -564,16 +609,16 @@ private extension TestApp {
         menuItem(Words.historyAll).click()
         XCTAssertTrue(wait(for: history, holds: Words.historyAll, timeout: 30),
                       "They see does not hold \(Words.historyAll) again: \(text(of: history))", file: file, line: line)
-        let note = app.staticTexts[Words.linkNote].firstMatch
+        let note = app.staticTexts[Words.note].firstMatch
         let cancel = element(AccessibilityID.shareCancel), create = element(AccessibilityID.shareCreate)
-        XCTAssertTrue(note.exists, "no line saying how the link goes. On screen: \(visibleTexts())", file: file, line: line)
+        XCTAssertTrue(note.exists, "no line explaining email delivery. On screen: \(visibleTexts())", file: file, line: line)
         XCTAssertEqual(cancel.label, Words.cancel, file: file, line: line)
-        XCTAssertEqual(create.label, Words.createLink, file: file, line: line)
-        for button in [cancel, create] {
-            XCTAssertTrue(onOneLine(note, button), "the line is not beside \(button.label): \(note.frame), \(button.frame)",
-                          file: file, line: line)
-        }
-        XCTAssertFalse(create.isEnabled, "Create Link is not dimmed with no name", file: file, line: line)
+        XCTAssertEqual(create.label, Words.send, file: file, line: line)
+        XCTAssertTrue(onOneLine(cancel, create), "Cancel and Send Invite do not share a button row",
+                      file: file, line: line)
+        XCTAssertLessThanOrEqual(note.frame.maxY, create.frame.minY,
+                                 "the email explanation overlaps the buttons", file: file, line: line)
+        XCTAssertFalse(create.isEnabled, "Send Invite is not dimmed with no name", file: file, line: line)
     }
 
     /// Whether these words show as a control's own label or title, or as a
@@ -617,56 +662,6 @@ private extension TestApp {
         let found = element(AccessibilityID.shareHistory)
         return [app.popUpButtons[AccessibilityID.shareHistory].firstMatch, found.popUpButtons.firstMatch]
             .first { $0.exists } ?? found
-    }
-
-    /// Send… in the Share sheet, once the link is made. Nothing is picked,
-    /// since each way would start another app: Escape closes them, and the
-    /// sheet must stay with its link.
-    func send(_ link: InviteLink, file: StaticString = #filePath, line: UInt = #line) -> SendResult {
-        let button = app.buttons[ShareScreen.Words.send].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 30), "no Send\u{2026}. On screen: \(visibleTexts())",
-                      file: file, line: line)
-        waitUntilHittable(button, ShareScreen.Words.send)
-        button.click()
-        let opened = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == true }
-        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: opened, object: nil)], timeout: 30)
-        var seen = waysToShare(link)
-        app.typeKey(.escape, modifierFlags: [])
-        let gone = NSPredicate { [weak self] _, _ in self?.waysToShare(link).opened == false }
-        seen.closed = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: nil)], timeout: 10)
-            == .completed
-        seen.stayed = wait(for: element(AccessibilityID.shareCopyLink), until: "hittable == true", timeout: 30)
-        seen.sameLink = InviteLink(parsing: text(of: element(AccessibilityID.shareLink))) == link
-        return seen
-    }
-
-    /// What shows of the system's ways to share now, read from one snapshot
-    /// of what opened outside the menu bar: menus, popovers and windows
-    /// other than the main one. Whether any of the system's own ways shows,
-    /// and whether anything there names the link.
-    func waysToShare(_ link: InviteLink) -> SendResult {
-        guard let root = try? app.snapshot() else { return SendResult(opened: false, showsLink: false, summary: "none") }
-        let main = root.children.first { $0.elementType == .window }?.frame
-        var ways = Set<String>(), showsLink = false, shapes: [String] = []
-        let start = "\(link.scheme)://join"
-        func look(_ node: XCUIElementSnapshot, inside: Bool) {
-            if node.elementType == .menuBar { return }
-            let opened = node.elementType == .menu || node.elementType == .popover
-                || (node.elementType == .window && node.frame != main)
-            let here = inside || opened
-            if opened && !inside { shapes.append("\(node.elementType.rawValue)x\(node.children.count)") }
-            if here {
-                for words in [node.label, node.title, node.value as? String ?? ""] where !words.isEmpty {
-                    if Self.systemWays.contains(words) { ways.insert(words) }
-                    if words.contains(start) || link.url.hasPrefix(words) && words.count > 12 { showsLink = true }
-                }
-            }
-            node.children.forEach { look($0, inside: here) }
-        }
-        look(root, inside: false)
-        let windows = app.windows.count
-        return SendResult(opened: !ways.isEmpty, showsLink: showsLink,
-                          summary: "ways \(ways.sorted()), opened \(shapes), windows \(windows)")
     }
 
     /// Leave… from a group's menu. The menu ends with it, and offers no

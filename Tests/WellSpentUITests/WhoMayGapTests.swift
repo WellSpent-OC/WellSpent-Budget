@@ -240,7 +240,7 @@ final class WhoMayGapTests: XCTestCase {
         // 12. Robin shares his own group, and Leslie joins it. Once his app
         // syncs, the group's page lists her.
         run.openBudget(named: rent)
-        let mineLink = try run.share(group: mine, myName: "Robin", role: .add)
+        let mineLink = try await run.legacyInvite(group: mine, myName: "Robin", role: .add)
         _ = try await second.join(mineLink, as: "Leslie")
         run.syncAndWait()
         run.openGroupPageFromMenu(named: mine)
@@ -419,16 +419,18 @@ final class WhoMayGapTests: XCTestCase {
         XCTAssertTrue(run.entryRow(bakery).waitForExistence(timeout: 60),
                       "Corner Bakery did not arrive. On screen: \(run.visibleTexts())")
 
-        // Scenario SHARE-05
+        // Scenario SHARE-05, EMAIL-06
         // 3. Share… says only a manager or admin can invite people to the
-        // group, offers no level to choose, and Create Link stays dimmed
-        // with his name in.
+        // group, offers no level to choose, and Send Invite stays dimmed
+        // with all three fields filled.
         run.openShare(added)
         XCTAssertTrue(run.listText(ShareScreen.Words.cannotInvite).waitForExistence(timeout: 5),
                       "the sheet does not say who can invite. On screen: \(run.visibleTexts())")
         run.expectRoles([], chosen: nil)
         run.pasteAndCheck("Robin", into: AccessibilityID.shareName)
-        run.expect(AccessibilityID.shareCreate, enabled: false, "Create Link, at Add")
+        run.pasteAndCheck("Leslie", into: AccessibilityID.shareInviteeName)
+        run.pasteAndCheck("person@example.com", into: AccessibilityID.shareEmail)
+        run.expect(AccessibilityID.shareCreate, enabled: false, "Send Invite, at Add")
         run.click(AccessibilityID.shareCancel)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.shareName), until: "exists == false", timeout: 10),
                       "the Share sheet did not close")
@@ -790,7 +792,7 @@ private extension TestApp {
     func openShare(_ group: String, file: StaticString = #filePath, line: UInt = #line) {
         let id = AccessibilityID.sidebarGroup(group)
         let form = element(AccessibilityID.shareName)
-        let title = app.staticTexts[ShareScreen.Words.shareTitle(group)].firstMatch
+        let title = app.staticTexts["Invite someone to “\(group)”"].firstMatch
         for _ in 0..<3 {
             openMenu(on: element(id), id, offering: MainScreen.Words.share)
             clickMenuItem(MainScreen.Words.share)

@@ -68,7 +68,7 @@ class GroupPageShared(unittest.TestCase):
         # Scenario PAGE-15
         # 2. Leslie joins with Robin's link while the page is open. At his
         # next sync her row shows, and the line says so.
-        link = robin.share(flat, "Robin", "Add")
+        link = robin.legacy_invite(flat, "Robin", "Add")
         leslie.join(link, "Leslie")
         robin.sync()
         self.says(robin, flat, line("Shared", "2 people", "Made by you"))
@@ -114,7 +114,7 @@ class GroupPageShared(unittest.TestCase):
         robin, leslie = self.robin, self.leslie
         leslie.sign_in_as("Leslie")
         flat, food = self.robins_group()
-        leslie.join(robin.share(flat, "Robin", "Add"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin", "Add"), "Leslie")
         robin.sync()
         leslie.sync()
 
@@ -195,8 +195,8 @@ class GroupPageShared(unittest.TestCase):
         leslie.sign_in_as("Leslie")
         kim.sign_in_as("Kim")
         flat, food = self.robins_group()
-        leslie.join(robin.share(flat, "Robin", "Manage"), "Leslie")
-        kim.join(robin.share(flat, "Robin", "Add"), "Kim")
+        leslie.join(robin.legacy_invite(flat, "Robin", "Manage"), "Leslie")
+        kim.join(robin.legacy_invite(flat, "Robin", "Add"), "Kim")
         for app in (robin, leslie, kim):
             app.sync()
 

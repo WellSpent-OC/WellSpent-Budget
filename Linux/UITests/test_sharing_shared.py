@@ -10,7 +10,7 @@ for itself and removes it at the end."""
 import datetime
 import unittest
 
-from wellspent_ui import launch_fresh, needs_accounts, unique
+from wellspent_ui import STAGING, launch_fresh, needs_accounts, unique
 
 LEAVE = ("You leave the group, and it is removed from all your devices, with its 1 budget and 2 "
          "transactions. The others in it keep it. ")
@@ -70,7 +70,7 @@ class SharingShared(unittest.TestCase):
         robin, leslie = self.robin, self.leslie
         leslie.sign_in_as("Leslie")
         flat, food = self.robins_group()
-        leslie.join(robin.share(flat, "Robin", "Manage"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin", "Manage"), "Leslie")
         leslie.sync()
 
         # Scenario SHARE-12
@@ -98,7 +98,7 @@ class SharingShared(unittest.TestCase):
 
         # Scenario SHARE-05
         # 3. At Add, she may invite nobody: the sheet says why, offers no
-        # level, and Create Link stays dimmed with a name typed.
+        # level, and Send Invite stays dimmed even with its fields filled.
         robin.set_level(flat, "Leslie", "Add")
         leslie.sync()
         leslie.pick("Share…", leslie.group_menu(flat))
@@ -107,7 +107,9 @@ class SharingShared(unittest.TestCase):
         self.assertFalse(leslie.shows("They can", within=sheet))
         self.assertEqual(1, len([e for e in sheet.all("combo box") if e.showing]), "a level to choose")
         leslie.field("Your name", sheet).type("Leslie")
-        self.assertFalse(leslie.button("Create Link", within=sheet).enabled)
+        leslie.field("Their email", sheet).type(robin.email)
+        leslie.field("Their name", sheet).type("Robin")
+        self.assertFalse(leslie.button("Send Invite", within=sheet).enabled)
         leslie.button("Cancel", within=sheet).press()
         leslie.wait_for_window(1, "the Share sheet to close")
 
@@ -121,7 +123,7 @@ class SharingShared(unittest.TestCase):
         # Scenario SHARE-14
         # 1. With nobody else in it, Robin's list has no Added by.
         self.assertEqual(4, len(self.merchants(robin, food)["Hilltop Grocery"]), "an Added by column")
-        link = robin.share(flat, "Robin", "Add")
+        link = robin.legacy_invite(flat, "Robin", "Add")
 
         # Scenario SHARE-07
         # 2. Join a Group… asks for the link, with a hint in the empty box,
@@ -143,7 +145,7 @@ class SharingShared(unittest.TestCase):
             leslie.wait_shows(said, within=sheet)
             self.assertFalse(join.enabled)
 
-        # Scenario SHARE-07
+        # Scenario SHARE-07, EMAIL-08
         # 4. The whole link says who invited her where. Join stays dimmed until
         # she types her name. Joined, the sheet closes, and the group is hers,
         # with Robin's entry marked as his.
@@ -193,7 +195,7 @@ class SharingShared(unittest.TestCase):
         # 1. At View, Leslie sees Robin's entry, marked his, with no Add and
         # no Import statement. The group offers her only Share…, People… and
         # Leave…, and nothing offers to change the budget.
-        leslie.join(robin.share(flat, "Robin", "View"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin", "View"), "Leslie")
         leslie.sync()
         self.assertIn("Robin", self.merchants(leslie, food)["Hilltop Grocery"])
         for button in ("Add", "Import statement", "Edit…", "Delete…"):
@@ -203,14 +205,7 @@ class SharingShared(unittest.TestCase):
         # Scenario SHARE-13
         # 2. Kim joins with Only from now on: Hilltop Grocery is hidden from
         # her, and her total leaves it out.
-        robin.pick("Share…", robin.group_menu(flat))
-        sheet = robin.wait_for_window(2, "the Share sheet")
-        robin.field("Your name", sheet).type("Robin")
-        robin.choose("Only from now on", [e for e in sheet.all("combo box") if e.showing][1])
-        robin.button("Create Link", within=sheet).press()
-        link = robin.until(lambda: next((t for t in robin.texts(robin.front) if "://join" in t), None), "the link")
-        robin.button("Done", within=robin.front).press()
-        robin.wait_for_window(1, "the Share sheet to close")
+        link = robin.legacy_invite(flat, "Robin", history="fromNow")
         kim.join(link.replace("\n", "").replace(" ", ""), "Kim")
         kim.sync()
         self.assertEqual({}, self.merchants(kim, food))
@@ -233,7 +228,7 @@ class SharingShared(unittest.TestCase):
     def test_joining_needs_a_sign_in_and_a_confirmed_email(self):
         robin, leslie = self.robin, self.leslie
         flat, _ = self.robins_group()
-        link = robin.share(flat, "Robin", "Add")
+        link = robin.legacy_invite(flat, "Robin", "Add")
 
         # Scenario SHARE-09
         # 1. Signed out, the link says to sign in first, and Join stays dimmed.
@@ -273,6 +268,8 @@ class SharingShared(unittest.TestCase):
         email = f"linux-unconfirmed-{datetime.datetime.now():%m%d%H%M%S%f}@example.com"
         app.button("Sign in", within=app.main).press()
         sheet = app.wait_for_window(2, "the account sheet")
+        if STAGING != "https://staging.wellspent.space":
+            app.field("Server", sheet).type(STAGING)
         app.button("Create an account", within=sheet).press()
         app.wait_shows("Confirm password")
         password = "unconfirmed-" + email
@@ -289,7 +286,7 @@ class SharingShared(unittest.TestCase):
         robin, leslie = self.robin, self.leslie
         leslie.sign_in_as("Leslie")
         flat, food = self.robins_group(("Hilltop Grocery", "42.00"))
-        leslie.join(robin.share(flat, "Robin", "Add"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin", "Add"), "Leslie")
         leslie.sync()
         self.merchants(leslie, food)
         leslie.add_entry("Costco", "99.00")
@@ -327,7 +324,7 @@ class SharingShared(unittest.TestCase):
         # Scenario SHARE-15
         # 3. A new link brings it back to her, whole. At View, leaving asks
         # without the two sentences about changes not synced.
-        leslie.join(robin.share(flat, "Robin", "View"), "Leslie")
+        leslie.join(robin.legacy_invite(flat, "Robin", "View"), "Leslie")
         leslie.sync()
         self.assertEqual({"Hilltop Grocery", "Costco"}, set(self.merchants(leslie, food)))
         leslie.pick("Leave…", leslie.group_menu(flat))
