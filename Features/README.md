@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | - | - | - |
 | Mac | 151 | 149 |
 | Linux | 145 | 105 |
-| iPhone | 143 | 141 |
+| iPhone | 144 | 142 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -258,9 +258,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | WHEEL-08 | Spending faster than an even pace turns the wheel orange and says when the money runs out | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-09 | In the month's last week, more left than expected offers to lower the budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-10 | Over its limit, a budget's wheel is orange all the way round and says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac, Linux |
+| WHEEL-11 | A group's page opens with its money for the month | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| WHEEL-13 | Home starts with a group's wheel | iPhone | iPhone |
+| WHEEL-13 | Home shows wheels only after opening a group or budget | iPhone | iPhone |
 
 ### [Lifecycle.md](Lifecycle.md)
 
