@@ -11,8 +11,8 @@ settled question or silently reverse one.
 
 > **With readable sync, WellSpent syncs budgets its server can read.** Your budgets
 > sync through WellSpent's server. Connections and backups are encrypted. The server
-> can read your budgets, which is how it checks who may change what and how it
-> resets a forgotten password.
+> can read your budgets. That's how it checks who may change what, and why resetting
+> a forgotten password doesn't lose your budgets.
 >
 > Before that, WellSpent sealed every record on the device, and the server kept
 > budgets only as sealed records it could not open. The sections marked "before
@@ -29,8 +29,8 @@ Android comes much later as its own app. No web client, deliberately.
 
 **Local-first, readable sync.** Every device holds a full SQLite copy of its budgets.
 Your budgets sync through WellSpent's server. Connections and backups are encrypted.
-The server can read your budgets, which is how it checks who may change what and how
-it resets a forgotten password. Before readable sync this decision was end-to-end
+The server can read your budgets. That's how it checks who may change what, and why
+resetting a forgotten password doesn't lose your budgets. Before readable sync this decision was end-to-end
 encryption, and the sections marked "before readable sync" describe it.
 
 **Sharing is in v1.** Not deferred. Sharing with a spouse and with a business partner

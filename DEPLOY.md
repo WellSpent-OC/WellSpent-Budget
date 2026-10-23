@@ -5,8 +5,8 @@ Written 2026-09-29, updated 2026-10-10 for readable sync.
 ## What the server is, and is not
 
 Your budgets sync through WellSpent's server. Connections and backups are
-encrypted. The server can read your budgets, which is how it checks who may change
-what and how it resets a forgotten password.
+encrypted. The server can read your budgets. That's how it checks who may change
+what, and why resetting a forgotten password doesn't lose your budgets.
 
 It stores every group's budgets, entries and members in a form it can read, and it
 decides who may change what. That shapes everything below: a breach of this
