@@ -258,7 +258,8 @@ struct SidebarView: View {
             footer
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(minWidth: 260, maxHeight: .infinity)
+        .frame(minWidth: 240, maxHeight: .infinity)
+        .background(Palette.surface)
     }
 
     @ViewBuilder
@@ -282,7 +283,7 @@ struct SidebarView: View {
         case .note(let text):
             Text(text)
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(Palette.muted)
         }
     }
 
@@ -295,7 +296,8 @@ struct SidebarView: View {
             Button(action: { screen.openPage(of: section.id) }) {
                 HStack {
                     Text(section.title.uppercased())
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Palette.muted)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
                         .background(RoundedRectangle(cornerRadius: 4)
@@ -361,19 +363,24 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(screen.footer)
                 .font(.system(size: 11))
-                .foregroundColor(.gray)
+                .foregroundColor(Palette.muted)
             HStack {
                 Button(screen.accountTitle) { showingAccount = true }
+                    .help(screen.accountHelp)
                     .disabled(screen.isBusy)
                 if screen.showsSync {
+                    if screen.syncShowsProgress {
+                        ProgressView().frame(width: 16, height: 16)
+                    }
                     Button(screen.syncTitle) { Task { await screen.syncNow() } }
+                        .help(screen.syncHelp)
                         .disabled(screen.isBusy)
                 }
             }
             if let failure = screen.syncFailure {
                 Text(failure)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(Palette.warning)
             }
         }
         .padding(10)
@@ -397,22 +404,12 @@ struct BudgetDetailView: View {
     private typealias Words = BudgetScreen.Words
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // After a delete: what went, and Undo, the only way to undo it.
-            if let undo = screen.undo {
-                HStack(spacing: 10) {
-                    Text(undo.message)
-                        .font(.system(size: 12))
-                    Spacer()
-                    Button(undo.button) { model.undoDelete() }
-                }
-                Divider()
-            }
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(screen.title)
-                    .font(.title2)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Palette.ink)
                 Spacer()
-                // Adding takes Add, as the server decides; at View, neither shows.
                 if screen.mayAdd {
                     Button(Words.importStatement) {
                         Task {
@@ -421,39 +418,61 @@ struct BudgetDetailView: View {
                             }
                         }
                     }
-                    Button(Words.add) { addEntry() }
+                    Button(Words.add) { addEntry() }.newEntryShortcut()
                 }
-                // Edit and Delete, for someone who may change budgets here.
                 ForEach(menu.flatMap { $0 }) { item in
                     Button(item.title) { perform(item.action) }
                 }
             }
-            // The day of the period, the wheel and its figures, in place of
-            // the bar.
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            Palette.line.frame(height: 1)
+            if let undo = screen.undo {
+                HStack(spacing: 10) {
+                    Text(undo.message).font(.system(size: 12))
+                    Spacer()
+                    Button(undo.button) { model.undoDelete() }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Palette.sidebar)
+                Palette.line.frame(height: 1)
+            }
             BudgetWheelPanel(screen: screen, editBudget: { perform(.editBudget(screen.summary.budget)) })
-            Divider()
+                .padding(20)
+            Palette.line.frame(height: 1)
+            EntryColumns(showsAddedBy: screen.showsAddedBy)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+            Palette.line.frame(height: 1)
             if screen.rows.isEmpty {
                 Text(Words.empty)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Palette.muted)
+                    .padding(20)
+                Spacer()
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(screen.rows) { row in
-                            // A button, not a tap, so the keyboard and a
-                            // screen reader reach the row, as in the sidebar.
-                            // The plain style adds no padding or background.
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(screen.rows.enumerated()), id: \.element.id) { index, row in
                             Button(action: { openEntry(row.id) }) {
                                 EntryRow(row: row, showsAddedBy: screen.showsAddedBy)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
                                     .frame(maxWidth: Self.widestRow)
+                                    .background(RoundedRectangle(cornerRadius: 5)
+                                        .fill(index.isMultiple(of: 2) ? Color.clear : Palette.ground))
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                 }
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
     }
 
     /// How wide a row's button may grow. As in the sidebar, SwiftCrossUI
@@ -469,36 +488,59 @@ struct EntryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(BudgetScreen.shortDate(row.date))
-                .foregroundColor(.gray)
-                .frame(width: 70)
+                .font(.money(12, weight: .regular))
+                .foregroundColor(Palette.muted)
+                .frame(width: 70, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.merchant)
+                Text(row.merchant).font(.system(size: 13))
                 if !row.note.isEmpty {
                     Text(row.note)
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(Palette.muted)
                 }
                 // This computer's last change to it didn't go through, until
                 // it is opened.
                 if let notice = row.notice {
                     Text(notice)
                         .font(.system(size: 11))
-                        .foregroundColor(.red)
+                        .foregroundColor(Palette.warning)
                 }
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
             if showsAddedBy {
                 Text(row.addedBy)
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
-                    .frame(width: 90)
+                    .foregroundColor(Palette.muted)
+                    .frame(width: 90, alignment: .leading)
             }
             Text(row.source)
                 .font(.system(size: 11))
-                .foregroundColor(.gray)
-                .frame(width: 70)
+                .foregroundColor(Palette.muted)
+                .frame(width: 70, alignment: .leading)
             Text(row.amount)
-                .frame(width: 90)
+                .font(.money(12))
+                .frame(width: 90, alignment: .trailing)
         }
+    }
+}
+
+/// Keep headings and rows on the same fixed columns; the description takes
+/// the remaining width. The author appears only on a shared budget.
+private struct EntryColumns: View {
+    let showsAddedBy: Bool
+    private typealias Words = BudgetScreen.Words
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(Words.date).frame(width: 70, alignment: .leading)
+            Text(Words.description).frame(maxWidth: .infinity, alignment: .leading)
+            if showsAddedBy {
+                Text(Words.addedBy).frame(width: 90, alignment: .leading)
+            }
+            Text(Words.source).frame(width: 70, alignment: .leading)
+            Text(Words.amount).frame(width: 90, alignment: .trailing)
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundColor(Palette.muted)
     }
 }

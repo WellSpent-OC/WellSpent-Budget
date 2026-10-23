@@ -194,15 +194,17 @@ class App:
         self.path = path or os.environ["WELLSPENT_APP"]
         self.home = tempfile.mkdtemp(prefix="wellspent-ui-")
         self.process = None
+        self.pid = None
         self.launched_with = {}
 
     # Starting and stopping
 
-    def launch(self, *arguments, day=None, undo_seconds=None, region="en_US.UTF-8"):
+    def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
-        invite link. A staging build takes two test settings, as on the Mac:
+        invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
-        `undo_seconds` sets how long Undo stays. `region` is the computer's,
+        `undo_seconds` sets how long Undo stays. `autosync_seconds` sets the
+        periodic sync interval. `region` is the computer's,
         as a desktop names it: the scenarios' United States unless a test
         says otherwise, such as "de_DE.UTF-8"."""
         if self.process is not None:
@@ -213,11 +215,14 @@ class App:
         env.pop("LC_NUMERIC", None)
         env.pop("WELLSPENT_DAY_OF_MONTH", None)
         env.pop("WELLSPENT_UNDO_SECONDS", None)
+        env.pop("WELLSPENT_AUTOSYNC_SECONDS", None)
         if day is not None:
             env["WELLSPENT_DAY_OF_MONTH"] = str(day)
         if undo_seconds is not None:
             env["WELLSPENT_UNDO_SECONDS"] = str(undo_seconds)
-        self.launched_with = dict(day=day, undo_seconds=undo_seconds, region=region)
+        if autosync_seconds is not None:
+            env["WELLSPENT_AUTOSYNC_SECONDS"] = str(autosync_seconds)
+        self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds, region=region)
         self.env = env
         self.log = open(os.path.join(self.home, "app.log"), "ab")
         # Each copy runs on a session bus and keyring of its own, as each
@@ -233,7 +238,7 @@ class App:
              'export GNOME_KEYRING_CONTROL; exec "$0" "$@"',
              self.path, *arguments],
             env=dict(env, WELLSPENT_UI_BUS_FILE=bus_file), stdout=self.log, stderr=self.log)
-        self.pid = self.until(lambda: _child_named(self.process.pid, "WellSpentLinux"), "the app to start")
+        self.pid = self.until(lambda: _child_named(self.process.pid, os.path.basename(self.path)), "the app to start")
         self.session_bus = self.until(lambda: _read(bus_file), "the app's session bus")
         self.until(lambda: self._root() is not None and self.windows(), "the window to open")
         self.settle()
@@ -255,7 +260,10 @@ class App:
             return
         pid = self.pid
         try:
-            os.kill(pid, signal.SIGTERM)
+            if pid is None:
+                self.process.terminate()
+            else:
+                os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         try:
@@ -265,7 +273,9 @@ class App:
             self.process.wait()
         self.process = None
         self.log.close()
-        self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
+        if pid is not None:
+            self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
+        self.pid = None
 
     def restart(self):
         """Quits and opens again, with the same data and test settings."""
@@ -369,6 +379,8 @@ class App:
 
     def _roots_with(self, pid):
         desktop = Atspi.get_desktop(0)
+        # Each launch registers a new app; do not retain the prior registry children.
+        desktop.clear_cache()
         roots = []
         for i in range(desktop.get_child_count()):
             node = desktop.get_child_at_index(i)
@@ -554,7 +566,13 @@ class App:
 
     def menu_items(self, menu):
         """The words of an open menu's items, top to bottom."""
-        return [e.words for e in menu.all("menu item") if e.showing]
+        def read():
+            # Sync can redraw a menu between fetching its children and reading
+            # their labels. Retry the read on the current tree, never an action.
+            menu.node.clear_cache()
+            words = [e.words for e in menu.all("menu item") if e.showing]
+            return words if words and all(words) else None
+        return self.until(read, "the open menu's words")
 
     def question(self):
         """The words of the question in front, such as a delete's: its title
@@ -585,6 +603,11 @@ class App:
         self.find("menu item", words, within=menu).press()
 
     # Keys and lists
+
+    def bring_to_front(self):
+        """Returns to this app from another window, without pressing Sync."""
+        self._focus_front()
+        self.settle()
 
     def key(self, *keys):
         """Keys pressed in the window in front, as a person types them."""
@@ -820,9 +843,11 @@ class App:
         if "Delete…" in items:
             self.pick("Delete…", menu)
             self.answer("Delete")
-        else:
+        elif "Leave…" in items:
             self.pick("Leave…", menu)
             self.answer("Leave")
+        else:
+            raise self.failure(f"{name!r}'s menu offers neither Delete nor Leave")
         self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
         self.sync()
 

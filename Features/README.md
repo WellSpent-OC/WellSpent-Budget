@@ -51,9 +51,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 149 | 149 |
-| Linux | 142 | 103 |
-| iPhone | 141 | 141 |
+| Mac | 151 | 149 |
+| Linux | 145 | 105 |
+| iPhone | 143 | 141 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -123,7 +123,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| ENTRY-11 | The keyboard adds and cancels | Mac | Mac |
+| ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
@@ -261,3 +261,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac, Linux |
 | WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-13 | Home starts with a group's wheel | iPhone | iPhone |
+
+### [Lifecycle.md](Lifecycle.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Linux |
+| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | None yet |
+
+The lifecycle native and shared tests check focus callbacks and date handling.
+They do not count as UI scenario coverage in this table.

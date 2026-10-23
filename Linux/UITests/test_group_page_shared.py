@@ -108,6 +108,7 @@ class GroupPageShared(unittest.TestCase):
         self.assertEqual([], robin.person("Robin (you)").all("push button", "Remove…"))
         robin.button("Invite Someone…", within=robin.main)
         self.assertFalse(robin.shows("Leave Group…", within=robin.main))
+        robin.picture("desktop-shared-group")
 
     def test_levels_from_the_page_and_leaving(self):
         robin, leslie = self.robin, self.leslie

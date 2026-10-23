@@ -77,10 +77,10 @@ Add puts money spent into the budget that is open. A transaction has a merchant,
 
 ## ENTRY-11 The keyboard adds and cancels
 
-Platforms: Mac
+Platforms: Mac, Linux
 
 - Given Groceries is open
-- When Robin presses Command-N
+- When Robin presses Command-N on a Mac or Ctrl+N on Linux
 - Then the "New transaction" sheet opens
 - When he fills in Merchant and Amount and presses Return
 - Then the transaction is added, and the sheet closes

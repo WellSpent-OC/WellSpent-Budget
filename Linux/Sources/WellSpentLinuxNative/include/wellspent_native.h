@@ -33,6 +33,17 @@ typedef void (*wellspent_link_receiver)(const char *link);
 /// When none is running, the launch goes on as before.
 void wellspent_link_handoff(const char *app_id, const char *link, wellspent_link_receiver receive);
 
+/// Called on GTK's thread when the app comes to the front (1), or when its
+/// clock should be checked (0). The timer never asks for a sync.
+typedef void (*wellspent_lifecycle_receiver)(int came_to_front);
+
+/// Watches this application's windows, including transient sheets. Install
+/// after making GtkApplication and before running it. Installing again only
+/// replaces the callback. The clock interval is in seconds, at least one.
+/// The watch and its timers end with the application.
+void wellspent_watch_lifecycle(const char *app_id, unsigned int clock_seconds,
+                              wellspent_lifecycle_receiver receive);
+
 /// What a screen reader names `widget` (a GtkWidget), in place of what it
 /// shows: for a widget whose look carries its meaning, such as an arrow.
 void wellspent_accessible_set_label(void *widget, const char *label);
@@ -64,3 +75,11 @@ void wellspent_quit_on_terminate(void);
 /// lets no Tab through in SwiftCrossUI 0.10.0. Once per window is enough; more
 /// calls change nothing.
 void wellspent_tab_moves_focus(void *widget);
+
+/// Makes `widget` (a GtkButton) the default action in its window. Return in
+/// a single-line entry activates it only while it is enabled. The button
+/// waits until it is in a window, and clears the default when unrealized.
+void wellspent_default_action(void *widget);
+
+/// Ctrl+N activates this main-window Add button when it is available.
+void wellspent_new_entry_shortcut(void *widget);

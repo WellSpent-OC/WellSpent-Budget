@@ -27,6 +27,7 @@ struct WellSpentLinuxApp: App {
             Task { await workspace.open(link) }
         }
         wellspent_quit_on_terminate()
+        LinuxLifecycle.watch(workspace)
         return backend
     }
 
@@ -42,8 +43,8 @@ struct WellSpentLinuxApp: App {
         }
         _workspace = State(wrappedValue: workspace)
         workspace.autoSync.start()
-        // The launch sync. The Mac also syncs whenever its window comes to the
-        // front; here the timer and every edit cover that.
+        // The launch sync also works when the desktop starts us in the
+        // background. LinuxLifecycle handles later returns to the window.
         Task { @MainActor in await workspace.autoSync.syncIfIdle() }
         // A click on an invite link that started the app: its page is up as
         // the window opens.

@@ -28,6 +28,8 @@ public final class Workspace {
     /// The day of the month a staging UI test put the money wheel on
     /// (`pinnedDayVariable`), or nil, so the wheel reads the clock.
     public let pinnedDay: Int?
+    @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
+        [.era, .year, .month, .day], from: Date())
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
@@ -57,14 +59,14 @@ public final class Workspace {
         // syncs, so a window left open overnight would show the new day over
         // yesterday's money. So the budgets are read again when the system
         // says the day changed: at midnight, or on waking after it. The Mac
-        // and the iPhone say so. Linux does not, and a sync or an edit still
-        // reads them there. So the watch is only on Apple's systems: on Linux
+        // and the iPhone say so. Linux checks the clock through
+        // checkForNewDay instead. The watch is only on Apple's systems: on Linux
         // it would never fire, and Linux's Foundation runs a main-queue
         // watcher by waiting on the main thread, which hangs when the post
         // comes from the main thread.
         #if !os(Linux)
         _ = notifications.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.model.reload() }
+            MainActor.assumeIsolated { self?.reloadForNewDay() }
         }
         #endif
     }
@@ -111,6 +113,24 @@ public final class Workspace {
     }
 
     // MARK: - Coming to the front
+
+    /// A desktop without calendar-day notifications checks periodically and
+    /// on waking. Read again only when the local date changes, even signed
+    /// out. Compare date components so a time-zone change that moves the
+    /// calendar to another day counts too, in either direction.
+    public func checkForNewDay(now: Date = Date(), calendar: Calendar = AppLocale.calendar) {
+        let day = calendar.dateComponents([.era, .year, .month, .day], from: now)
+        guard day != lastCheckedDay else { return }
+        lastCheckedDay = day
+        reloadForNewDay()
+    }
+
+    private func reloadForNewDay() {
+        // Equal summaries do not notify observers. The wheel still needs
+        // to redraw its day, tick and pace even when no money changed.
+        model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
+        model.reload()
+    }
 
     /// The app came to the front, which happens at launch too. Signed in, it
     /// syncs, and the sync reads the budgets again when it is done. Signed
