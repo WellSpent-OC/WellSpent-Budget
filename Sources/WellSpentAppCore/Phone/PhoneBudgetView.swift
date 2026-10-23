@@ -43,6 +43,7 @@ struct PhoneBudgetView: View {
         // The opened entry's sheet and the Undo bar: PhoneEntryEditing.swift.
         .phoneEntryEditing(model: model, undo: screen.undo)
         .listStyle(.insetGrouped)
+        .refreshable { await main.syncNow() }
         .scrollContentBackground(.hidden)
         .background(Palette.ground)
         .foregroundStyle(Palette.ink)
