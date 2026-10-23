@@ -311,8 +311,13 @@ jobs:
           key: spm-linux-app-${{ hashFiles('Linux/Package.resolved', 'Package.resolved') }}
           restore-keys: spm-linux-app-
 
+      # Built counting what runs, so the tests also measure the Linux app's
+      # own code. SwiftPM counts Swift only, so the C helpers get the C
+      # compiler's flags too.
       - name: Build the app
-        run: swift build --package-path Linux
+        run: >
+          swift build --package-path Linux --enable-code-coverage
+          -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping
 
       - name: Run the UI tests
         env:
@@ -322,7 +327,17 @@ jobs:
           # With the mailbox there, nothing may be skipped to get a pass.
           WELLSPENT_UI_NO_SKIPS: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
+          # Each copy of the app writes its counts as it quits, one file each.
+          LLVM_PROFILE_FILE: ${{ github.workspace }}/.build/linux-ui-test/coverage/%p.profraw
         run: WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" Linux/UITests/run.sh
+
+      # The sign-off rule's floor on the Linux app's own code (ops #231).
+      # Advisory until the scenarios' tests are all in: the number is low
+      # until then, so it reports and does not fail the job yet.
+      - name: Line coverage of the Linux app
+        if: always()
+        continue-on-error: true
+        run: Linux/UITests/coverage.sh "$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" .build/linux-ui-test/coverage 90
 
       - name: Keep the screenshots when the test fails
         if: failure()
@@ -337,6 +352,7 @@ jobs:
           path: |
             .build/linux-ui-test/*.png
             .build/linux-ui-test/*-process.txt
+            .build/linux-ui-test/*-words.txt
           if-no-files-found: ignore
 
   # Gate enforcement, without branch protection.

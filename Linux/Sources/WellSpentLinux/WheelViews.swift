@@ -83,7 +83,7 @@ struct MoneyWheelView: View {
                     .foregroundColor(Color(PaletteValues.muted))
                     .fixedSize()
                 Text(wheel.middleAmount)
-                    .font(.system(size: Self.fitting(wheel.middleAmount, size: 28, in: g), weight: .medium))
+                    .font(.money(Self.fitting(wheel.middleAmount, size: 28, in: g), weight: .medium))
                     .foregroundColor(Color(wheel.amountColor))
                     .fixedSize()
                 Text(wheel.middleOf)
@@ -123,13 +123,16 @@ struct BudgetRow: View {
 
     var body: some View {
         let fill = RowFill(summary)
-        return HStack {
+        return HStack(spacing: 8) {
+            Circle()
+                .fill(fill.isOver ? Palette.warning : Palette.budgetColors[abs(summary.budget.colorIndex % Palette.budgetColors.count)])
+                .frame(width: 7, height: 7)
             Text(summary.budget.name)
                 .font(.system(size: 13))
                 .foregroundColor(Color(PaletteValues.rowWords))
             Spacer()
             Text(fill.amount)
-                .font(.system(size: 13, weight: fill.isOver ? Font.Weight.semibold : nil))
+                .font(.money(11, weight: fill.isOver ? .semibold : .regular))
                 .foregroundColor(Color(PaletteValues.rowAmount))
         }
         .padding(.horizontal, 8)
@@ -221,7 +224,7 @@ struct FiguresList: View {
                     // The Over figure's amount is in the warning colour, and
                     // its label says Over, so the colour is not the only sign.
                     Text(figure.amount)
-                        .font(.system(size: 13))
+                        .font(.money(13))
                         .foregroundColor(Color(figure.isWarning ? PaletteValues.warning : PaletteValues.ink))
                 }
                 .padding(.vertical, 5)

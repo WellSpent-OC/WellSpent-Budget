@@ -51,9 +51,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 149 | 149 |
-| Linux | 142 | 49 |
-| iPhone | 141 | 141 |
+| Mac | 151 | 149 |
+| Linux | 145 | 105 |
+| iPhone | 143 | 141 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -80,13 +80,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-02 | Samples nobody changed stay out of a new account | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-03 | A group made before signing up comes along, and the samples do not | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-04 | A sample given an entry comes along, all of it | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Mac, iPhone |
-| SAMP-07 | The samples come only once | Mac, Linux, iPhone | Mac, iPhone |
+| SAMP-01 | A fresh install opens with two sample groups | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-02 | Samples nobody changed stay out of a new account | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-03 | A group made before signing up comes along, and the samples do not | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-04 | A sample given an entry comes along, all of it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-07 | The samples come only once | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Budgets.md](Budgets.md)
 
@@ -117,13 +117,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, iPhone |
-| ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | Mac, iPhone |
+| ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-07 | Cancel adds nothing | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-08 | In a shared group, the list says who added each transaction | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-09 | A transaction someone else adds arrives at the next sync | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-10 | At View there is no Add | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| ENTRY-11 | The keyboard adds and cancels | Mac | Mac |
+| ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
@@ -135,7 +135,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | EDIT-02 | Save stays dimmed until something changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-03 | Save changes it, and the totals follow at once | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-04 | Move it to another budget in the same group | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-05 | A date outside this period says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-06 | Delete… asks first, naming the transaction and its amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-07 | Delete takes it out, and a bar offers Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-08 | The Undo bar goes after about 10 seconds, or at the next change | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -153,63 +153,63 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| IMPORT-01 | Import statement opens a review, and nothing is added yet | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-02 | Each line shows a cleaned-up name over the bank's own words | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-03 | A line that matches an entry typed by hand is not added again | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-04 | A merchant filed before goes to the same budget | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-05 | A new merchant needs a budget from the group's own budgets | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-06 | A line left at Choose is not added | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-07 | Importing the same statement again adds nothing twice | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-08 | A deleted line stays deleted when its statement is imported again | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-09 | A line whose budget was deleted is offered again | Mac, Linux, iPhone | Mac, iPhone |
+| IMPORT-01 | Import statement opens a review, and nothing is added yet | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-02 | Each line shows a cleaned-up name over the bank's own words | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-03 | A line that matches an entry typed by hand is not added again | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-04 | A merchant filed before goes to the same budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-05 | A new merchant needs a budget from the group's own budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-06 | A line left at Choose is not added | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-07 | Importing the same statement again adds nothing twice | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-08 | A deleted line stays deleted when its statement is imported again | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-09 | A line whose budget was deleted is offered again | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-10 | A statement one person imported counts as imported for the others | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-11 | Lines dated before this period go in, but the list shows this period only | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-12 | Cancel adds nothing | Mac, Linux, iPhone | Mac, iPhone |
-| IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Mac, iPhone |
+| IMPORT-11 | Lines dated before this period go in, but the list shows this period only | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-12 | Cancel adds nothing | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | Mac, iPhone |
 
 ### [Sharing.md](Sharing.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-01 | Share… asks for your name, what they can do and what they see | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-02 | Create Link makes a link that works once | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SHARE-03 | Send… hands the link to another app | Mac, iPhone | Mac, iPhone |
-| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-10 | A used link says it was already accepted | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-11 | At View, the person who joins sees everything and changes nothing | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-12 | At Manage, the person who joins can change budgets | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-13 | Only from now on hides what came before | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-14 | Entries reach the others after a sync, with who added them | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | Mac, iPhone |
-| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac, iPhone |
+| SHARE-04 | Signed out, Share… makes no link | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-05 | Someone at Add cannot invite anyone | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-06 | A manager can invite at View or Add, not Manage | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-07 | Pasting a link into Join a Group… joins the group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-08 | A pasted link that is not whole says what is wrong | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-09 | Joining needs a sign-in and a confirmed email | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-10 | A used link says it was already accepted | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-11 | At View, the person who joins sees everything and changes nothing | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-12 | At Manage, the person who joins can change budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-13 | Only from now on hides what came before | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-14 | Entries reach the others after a sync, with who added them | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-15 | Leave… takes the group off your devices, and the others keep it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SHARE-16 | Remove… takes a person out, and what they added stays | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [GroupPage.md](GroupPage.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | Mac |
-| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-11 | A manager may change and remove only people below Manage | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | Mac, iPhone |
-| PAGE-16 | The page stays open until its own group goes | Mac, Linux | Mac |
-| PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | Mac, iPhone |
+| PAGE-01 | A click on a group's name opens its page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | Mac, Linux |
+| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-09 | The owner may change anyone's level, remove them and invite | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-10 | Changing someone's level from their row | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-11 | A manager may change and remove only people below Manage | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-12 | At Add or View, the page shows labels only, and Leave Group… | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-13 | Invite Someone… opens the Share sheet | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-14 | Leave Group… asks first, and always leaves | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-15 | Someone who joins shows without opening the page again | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-16 | The page stays open until its own group goes | Mac, Linux | Mac, Linux |
+| PAGE-17 | Someone removed leaves what they added | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [ClickToJoin.md](ClickToJoin.md)
 
@@ -261,3 +261,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | WHEEL-11 | A group's page opens with its money for the month | Mac, Linux | Mac, Linux |
 | WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-13 | Home starts with a group's wheel | iPhone | iPhone |
+
+### [Lifecycle.md](Lifecycle.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Linux |
+| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | None yet |
+
+The lifecycle native and shared tests check focus callbacks and date handling.
+They do not count as UI scenario coverage in this table.

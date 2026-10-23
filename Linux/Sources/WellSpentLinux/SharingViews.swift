@@ -33,7 +33,7 @@ struct ShareView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(screen.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             if let link = screen.link {
                 created(link)
             } else {
@@ -42,6 +42,8 @@ struct ShareView: View {
         }
         .padding(20)
         .frame(width: 480)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
     }
 
     @ViewBuilder
@@ -71,6 +73,7 @@ struct ShareView: View {
             Spacer()
             Button(Words.cancel) { close() }
             Button(screen.createLabel) { Task { await screen.create() } }
+                .defaultAction()
                 .disabled(!screen.canCreate)
         }
     }
@@ -107,7 +110,7 @@ struct JoinView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(screen.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             Field(label: Words.link, prompt: Words.linkPrompt,
                   text: Binding(get: { screen.linkText }, set: { screen.linkText = $0 }))
             Field(label: Words.name, prompt: Words.namePrompt,
@@ -132,10 +135,13 @@ struct JoinView: View {
                 Button(screen.joinLabel) {
                     Task { if await screen.join() { close() } }
                 }
+                .defaultAction()
                 .disabled(!screen.canJoin)
             }
         }
         .padding(20)
         .frame(width: 480)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
     }
 }

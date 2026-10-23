@@ -5,6 +5,7 @@ lights, saving and moving, and deleting with its question and Undo.
 What changes with a second person, at View, Add or Manage, is in
 test_edit_entries_shared.py."""
 
+import datetime
 import unittest
 
 from wellspent_ui import Wheel, launch_fresh
@@ -97,6 +98,33 @@ class EditEntries(unittest.TestCase):
         self.assertEqual("Treats $75.92", app.budget("Treats").words)
         app.budget("Treats").press()
         app.until(lambda: [row[1] for row in app.entries()] == ["Hilltop Grocery"], "Treats to list it")
+
+    def test_a_date_outside_this_period(self):
+        app = self.app
+        today = datetime.date.today()
+        last_month = today.replace(day=1) - datetime.timedelta(days=1)
+        moved_out = "This moves it out of this period."
+
+        # Scenario EDIT-05
+        # 1. Moved to last month with the calendar's Previous month, a line
+        # under the date says so. Back to this month, it goes.
+        sheet = self.open_hilltop()
+        app.button("Previous month", within=sheet).press()
+        app.wait_shows(f"{last_month:%B}", within=sheet)
+        app.wait_shows(moved_out, within=sheet)
+        app.button("Next month", within=sheet).press()
+        app.wait_shows(f"{today:%B}", within=sheet)
+        app.wait_gone(moved_out, within=sheet)
+
+        # Scenario EDIT-05
+        # 2. Last month again, and Save: it leaves Food's list and this
+        # period's total.
+        app.button("Previous month", within=sheet).press()
+        app.wait_shows(moved_out, within=sheet)
+        app.button("Save", within=sheet).press()
+        app.wait_for_window(1, "the sheet to close")
+        app.wait_shows("Nothing spent in this budget this period.", within=app.main)
+        self.assertEqual("Food $500.00", app.budget("Food").words)
 
     def test_deleting_and_undo(self):
         app = self.app

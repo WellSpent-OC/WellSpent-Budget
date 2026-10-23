@@ -29,6 +29,11 @@ if [ -f "$ENV_FILE" ] && [ "$(tr -d '[:space:]' < "$ENV_FILE")" = live ]; then
     exit 1
 fi
 
+# The GTK lifecycle bridge has a small fixture of its own. It checks real
+# focus changes, sheets and clock callbacks without signing in or opening
+# the app, on its own virtual display.
+"$HERE/../NativeTests/run.sh"
+
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB=$!
 trap 'kill "$XVFB" 2>/dev/null || true' EXIT
