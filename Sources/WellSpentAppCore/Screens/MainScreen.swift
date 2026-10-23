@@ -219,15 +219,6 @@ public final class MainScreen {
                           calendar: calendar)
     }
 
-    // MARK: - Home on a phone
-
-    /// Home's card on a phone: the money of the first group, in Home's order,
-    /// that holds a budget, hidden or not. Nil with no budgets in any group.
-    public func homeMoney(now: Date? = nil, calendar: Calendar = AppLocale.calendar) -> GroupMoney? {
-        guard let first = model.groups.first(where: { !(model.summaries[$0.id] ?? []).isEmpty }) else { return nil }
-        return money(of: first.id, now: now, calendar: calendar)
-    }
-
     // MARK: - An invitation
 
     /// The invitation page a clicked invite link put up

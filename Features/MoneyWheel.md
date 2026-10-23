@@ -93,13 +93,12 @@ Platforms: iPhone
 
 ## WHEEL-11 A group's page opens with its money for the month
 
-Platforms: Mac, Linux
-
 - Given it is October 18, and Household holds Groceries, $1,000.00 a month with $555.36 spent, and Eating out, $300.00 with $110.60 spent
 - When Robin clicks Household's name in the sidebar
 - Then the page shows MONEY above PEOPLE
 - And Household's wheel adds up both budgets, and its middle says "Left this month", "$634" and "of $1,300"
 - And beside it, "Spent" $665.96, "Left" $634.04 and "Expected left by today" $545.16
+- And on iPhone, the figures sit below the centered wheel
 - And under them, "Day 18 of 31. Every budget in Household, added up."
 - And it has the same tick as a budget's wheel, and stays green while the group is not over
 - And a budget hidden in the sidebar still counts
@@ -111,15 +110,16 @@ Platforms: Mac, Linux
 - When Robin looks at Household's wheel
 - Then it is orange all the way round, with no tick
 - And its middle says "Over this month", "$120" and "of $1,300"
-- And on an iPhone, Home's card says "$120" and "over"
 
-## WHEEL-13 Home starts with a group's wheel
+## WHEEL-13 Home shows wheels only after opening a group or budget
 
 Platforms: iPhone
 
-- Given it is October 18, and Household is the first group on Home that holds a budget
-- And its budgets add up to $1,300.00, with $665.96 spent this month
+- Given Household holds a budget
 - When Robin opens WellSpent
-- Then Home starts with a card showing Household's wheel, with "$634" and "left" in its middle
-- And beside the wheel it says "Household · October", "Day 18 of 31" and "Spent $666 of $1,300 budgeted"
-- And with no budgets in any group, there is no card
+- Then Home shows the groups and budgets with no summary card or wheel
+- When Robin taps Household
+- Then its group wheel shows
+- When Robin returns Home and opens a budget
+- Then that budget's wheel shows
+- And returning Home shows no wheel

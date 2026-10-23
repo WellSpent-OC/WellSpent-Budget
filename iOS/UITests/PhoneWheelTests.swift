@@ -3,9 +3,9 @@ import XCTest
 import WellSpentAppCore
 import WellSpentModel
 
-/// The money wheel on a phone, with no account: the card at the top of
-/// Home, each budget's row filled as far as it is used, and a budget's own
-/// wheel with its figures and pace words. Every word and number a test
+/// The money wheel on a phone, with no account: group and budget pages,
+/// each budget's row filled as far as it is used, and a budget's own
+/// figures and pace words. Every word and number a test
 /// expects comes from the shared code, as `TodaysBudget` builds it, never
 /// typed in, and every colour from the palette for the phone's light or dark
 /// setting. Each test starts the app on a fresh data folder, with its wheels
@@ -43,58 +43,65 @@ final class PhoneWheelTests: XCTestCase {
     }
 
     @MainActor
-    func testHomeStartsWithTheFirstGroupsWheel() throws {
+    func testGroupPageAddsUpEveryBudget() throws {
         let day = Self.midMonth
         let run = launched(pinnedDay: day)
-        let card = run.element(AccessibilityID.homeMoney)
-
-        // Scenario WHEEL-13
-        // 1. A fresh install: Home starts with Household's wheel, above the
-        // groups, with its month and the day of it. What its samples hold
-        // changes neither.
-        XCTAssertTrue(card.waitForExistence(timeout: 10), "no card on Home. On screen: \(run.visibleTexts())")
-        let household = try money("Household", TodaysBudget(limit: 10_000, spent: 0, pinnedDay: day))
-        XCTAssertTrue(card.label.contains(household.title),
-                      "the card does not say \(household.title): \(card.label)")
-        let dayLine = try XCTUnwrap(household.wheel.day?.shortLine, "a group's money has a day")
-        XCTAssertTrue(card.label.contains(dayLine), "the card does not say \(dayLine): \(card.label)")
-        let householdHeader = run.element(AccessibilityID.sidebarGroup("Household"))
-        XCTAssertTrue(householdHeader.waitForExistence(timeout: 10), "no Household")
-        XCTAssertLessThan(card.frame.minY, householdHeader.frame.minY, "the card is not at the top of Home")
-
-        // Scenario WHEEL-13
-        // 2. The card shows the first group that still holds a budget, and
-        // with no budgets in any group, there is no card.
-        deleteGroup("Household", run: run)
-        let next = try money("Side Business", TodaysBudget(limit: 10_000, spent: 0, pinnedDay: day))
-        XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: next.title),
-                      "the card does not move on to Side Business: \(card.label)")
-        deleteGroup("Side Business", run: run)
-        XCTAssertTrue(run.wait(for: card, until: "exists == false", timeout: 10),
-                      "the card stayed with no budgets: \(card.label)")
-
-        // Scenario WHEEL-13
-        // 3. A new group's first budget brings the card back, with its wheel
-        // full and nothing spent of it.
-        run.addGroup(named: "Wheel")
-        run.addBudget(named: "Treats", amount: "100", inGroup: "Wheel")
+        run.addGroup(named: "Trip")
+        run.openGroupPage(named: "Trip")
+        XCTAssertFalse(run.element(AccessibilityID.groupWheel).exists, "an empty group has no wheel")
         run.goBack()
-        let fresh = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 0, pinnedDay: day))
-        XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: fresh.wheel.spokenSummary),
-                      "the card does not say \(fresh.wheel.spokenSummary): \(card.label)")
-        XCTAssertTrue(card.label.contains(fresh.title), "the card does not say \(fresh.title): \(card.label)")
-        XCTAssertTrue(card.label.contains(fresh.spentLine), "the card does not say \(fresh.spentLine): \(card.label)")
 
-        // Scenario WHEEL-12
-        // 4. Over the group's budgets, Home's card says how far over.
-        run.openBudget(named: "Treats")
-        run.addEntry(merchant: "Market", amount: "220.00")
+        run.addBudget(named: "Food", amount: "100", inGroup: "Trip")
+        run.addEntry(merchant: "Bakery", amount: "25.00")
         run.goBack()
-        let over = try money("Wheel", TodaysBudget("Treats", limit: 10_000, spent: 22_000, pinnedDay: day))
-        XCTAssertEqual(over.wheel.spokenSummary, "Over this month $120 of $100")
-        XCTAssertTrue(run.waitForLabel(AccessibilityID.homeMoney, toContain: over.wheel.spokenSummary),
-                      "the card does not say \(over.wheel.spokenSummary): \(card.label)")
-        XCTAssertTrue(card.label.contains(over.spentLine), "the card does not say \(over.spentLine): \(card.label)")
+        run.addBudget(named: "Travel", amount: "200", inGroup: "Trip")
+        run.addEntry(merchant: "Train", amount: "50.00")
+        run.goBack()
+        run.openGroupPage(named: "Trip")
+
+        // Scenario WHEEL-11: both budgets count on the group's own page.
+        let expected = try money("Trip",
+                                 TodaysBudget("Food", limit: 10_000, spent: 2_500, pinnedDay: day),
+                                 TodaysBudget("Travel", limit: 20_000, spent: 5_000, pinnedDay: day))
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.groupWheel, toBe: expected.wheel.spokenSummary))
+        expectFigures(expected.wheel, run: run)
+        XCTAssertTrue(run.shows(expected.note))
+
+        run.goBack()
+        run.openBudget(named: "Travel")
+        run.addEntry(merchant: "Hotel", amount: "300.00")
+        run.goBack()
+        run.openGroupPage(named: "Trip")
+
+        // Scenario WHEEL-12: opening again reads the updated totals.
+        let over = try money("Trip",
+                             TodaysBudget("Food", limit: 10_000, spent: 2_500, pinnedDay: day),
+                             TodaysBudget("Travel", limit: 20_000, spent: 35_000, pinnedDay: day))
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.groupWheel, toBe: over.wheel.spokenSummary))
+        expectFigures(over.wheel, run: run)
+        XCTAssertFalse(run.text(MoneyWheel.Words.expectedLeft).exists)
+    }
+
+    @MainActor
+    func testHomeShowsWheelsOnlyAfterOpeningAGroupOrBudget() throws {
+        let run = launched(pinnedDay: Self.midMonth)
+        // Scenario WHEEL-13
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Household")).waitForExistence(timeout: 10))
+        XCTAssertFalse(run.element(AccessibilityID.homeMoney).exists)
+        XCTAssertFalse(run.element(AccessibilityID.groupWheel).exists)
+        XCTAssertFalse(run.element(AccessibilityID.budgetWheel).exists)
+
+        run.openGroupPage(named: "Household")
+        XCTAssertTrue(run.element(AccessibilityID.groupWheel).waitForExistence(timeout: 10))
+        run.goBack()
+        XCTAssertFalse(run.element(AccessibilityID.groupWheel).exists)
+        XCTAssertFalse(run.element(AccessibilityID.homeMoney).exists)
+
+        run.addBudget(named: "Treats", amount: "100", inGroup: "Household")
+        XCTAssertTrue(run.element(AccessibilityID.budgetWheel).waitForExistence(timeout: 10))
+        run.goBack()
+        XCTAssertFalse(run.element(AccessibilityID.budgetWheel).exists)
+        XCTAssertFalse(run.element(AccessibilityID.homeMoney).exists)
     }
 
     @MainActor
@@ -226,8 +233,7 @@ final class PhoneWheelTests: XCTestCase {
 
     // MARK: - Checks the tests share
 
-    /// A group's money on the day the budgets count as today, as Home's card
-    /// shows it.
+    /// A group's money on the day the budgets count as today.
     private func money(_ group: String, _ budgets: TodaysBudget..., line: UInt = #line) throws -> GroupMoney {
         try XCTUnwrap(TodaysBudget.group(group, budgets), "no money for \(group)", line: line)
     }

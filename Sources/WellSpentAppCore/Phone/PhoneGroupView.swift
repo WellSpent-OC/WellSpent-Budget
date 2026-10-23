@@ -5,7 +5,7 @@ import WellSpentCrypto
 import WellSpentModel
 import WellSpentSync
 
-/// A group's page: its name, the line under it, and its people as a list,
+/// A group's page: its money for the month and its people as a list,
 /// each with their level. A tap on someone this person may change opens
 /// their page. Leave Group… is a row at the end, Invite Someone… is at the
 /// foot in thumb reach, and the group's menu is under ⋯. A tap on the
@@ -46,6 +46,9 @@ struct PhoneGroupView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
                 }
+            }
+            if let money = main.money(of: group.id) {
+                PhoneGroupMoneySections(money: money)
             }
             if !screen.rows.isEmpty {
                 Section(Words.people) {
