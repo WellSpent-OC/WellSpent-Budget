@@ -50,7 +50,7 @@ You can also swipe a transaction to the left, or touch and hold it, and tap **Ed
 ## If it doesn't work
 
 - **Save stays dimmed:** nothing has changed yet, or **Merchant** is empty, or **Amount** isn't a number.
-- **"This moves it out of this period.":** the date you picked is before this month. It's saved, but it leaves this month's page.
+- **"This moves it out of this period.":** the date you picked is not in this month. It can be before it or after it. It's saved, but it leaves this month's page.
 - **Budget offers only some budgets:** a transaction can move only to a budget in the same group.
 - **"… deleted this while you had it open.":** someone deleted it on another device first. Nothing you typed is saved. Press **Done**.
 - **"Nothing was changed.":** your level in the group changed while it was open. The message says what you can do now.

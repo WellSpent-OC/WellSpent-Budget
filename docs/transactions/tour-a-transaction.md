@@ -51,6 +51,21 @@ Tap a transaction on a budget's page, and it opens like this.
 
 ## On Linux
 
-The window is the same as on a Mac. **Delete…** is at the bottom left, with **Cancel** and **Save** at the bottom right. For **Date**, use the arrows to reach the month, then click the day. Click each field to type in it.
+Click a transaction in a budget's list, and it opens like this. Click each field to type in it.
+
+![A transaction opened on Linux, with numbers 1 to 10](../assets/shots/tour-linux-a-transaction.svg)
+
+1. **Merchant**: who you paid.
+2. **Amount**: how much. Type it as a number.
+3. **Date**: when.
+4. The arrows: move the calendar a month, or a year, at a time.
+5. The chosen day: click a day to set the date. The arrows alone don't change it.
+6. **Note**: anything to remember. It shows under the merchant.
+7. **Budget**: move it to another budget in the same group.
+8. **Delete…**: delete it. It asks first, and **Undo** shows for about 10 seconds after.
+9. **Cancel**: close without saving.
+10. **Save**: save your changes. It stays dimmed until something changes.
+
+**Add** on a budget's page opens a shorter window, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**.
 
 <!-- Scenarios: ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->

@@ -25,7 +25,7 @@ The sidebar is the list on the left of the window, shown here signed in.
 2. **People…**: see who's in the group, and what each person can do.
 3. **New Budget in Home…**: make a budget in this group.
 4. **Rename…**: change the group's name.
-5. **Delete…**: delete the group and everything in it. It asks first. Someone who joined a group sees **Leave…** here instead.
+5. **Delete…**: delete the group and everything in it. It asks first. Someone who joined a group sees **Leave…** here instead. An Admin sees **Delete…**, and it deletes the group for everyone.
 
 ## A budget's menu
 
@@ -61,11 +61,20 @@ A group's menu has the same items as on a Mac, plus **Hide budgets**.
 
 ## On Linux
 
-The sidebar is the same as on a Mac, with these differences:
+The sidebar is on the left of the window, shown here signed in. There's no right-click menu on Linux.
 
-- **⋯**, beside a group's name, opens the group's menu. There's no right-click menu. Clicking the group's name opens its page.
-- A budget has no menu in the sidebar. Its **Edit…** and **Delete…** are buttons at the top of its page.
-- **More**, beside **Add Budget**, holds **New Group…** and **Join a Group…**
-- At the bottom: **Sign in**, or **Account** and **Sync** when you're signed in.
+![The sidebar on Linux, with numbers 1 to 11](../assets/shots/tour-linux-the-sidebar.svg)
+
+1. **HOME**: a group, in capital letters. Click it to open the group's page.
+2. **⋯**: the group's menu, with **Share…**, **People…**, **New Budget in Home…**, **Rename…** and **Delete…** (or **Leave…**).
+3. The arrow: hides or shows the group's budgets.
+4. **Groceries**: a budget. Its row fills from the left as its money is used this month. Click it to open its page. Its **Edit…** and **Delete…** are at the top of that page.
+5. **$308.00**: what's left this month.
+6. **Gas**: a budget over its limit. The row fills all the way and says how far over.
+7. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
+8. **More**: a menu with **New Group…** and **Join a Group…**
+9. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**.
+10. **Account**: your account, and signing out. Signed out, it's **Sign in**.
+11. **Sync**: send and get changes now. It shows only when you're signed in.
 
 <!-- Scenarios: BUDGET-01, BUDGET-02, BUDGET-03, BUDGET-06, BUDGET-08, BUDGET-11, BUDGET-13, PAGE-02, PAGE-05, WHEEL-01, WHEEL-02, WHEEL-03, SHARE-01, SHARE-07, ACCT-01 -->

@@ -6,7 +6,7 @@ title: "Side quest: Leave a group"
 
 > *Time to leave the party. They'll keep the camp.*
 
-Leaving takes the group off all your devices. The others keep it, along with everything you added.
+Leaving takes the group off all your devices. The others keep it, along with everything you added. Changes on your other devices that haven't synced yet don't reach them.
 
 1. ![A hand right-clicks the group's name in the sidebar](../assets/shots/leave-a-group-1-mac.svg)
    Right-click the group's name in the sidebar.

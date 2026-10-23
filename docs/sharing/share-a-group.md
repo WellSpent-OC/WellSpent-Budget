@@ -6,7 +6,7 @@ title: "Quest 7: Share a group"
 
 > *Every quest is better with a party.*
 
-**Before you start:** sign in, with the Manage, Admin or Owner level in the group. The person you invite needs WellSpent on their own computer, with their own account. Don't share the sample groups.
+**Before you start:** sign in, with the Manage, Admin or Owner level in the group. The person you invite needs WellSpent on their own Mac, iPhone or Linux computer, with their own account. Don't share the sample groups.
 
 1. ![A hand right-clicks HOME in the sidebar](../assets/shots/share-a-group-1-mac.svg)
    Right-click **HOME** in the sidebar. Or hold Control and click it.
