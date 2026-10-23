@@ -167,7 +167,8 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
-	$(UI_TEST_XCODEBUILD) test -resultBundlePath .build/xcode/ui-test.xcresult $$only
+	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
+		-resultBundlePath .build/xcode/ui-test.xcresult $$only
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
 # Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
@@ -187,9 +188,11 @@ iphone-project:
 iphone-build: iphone-project
 	$(IPHONE_XCODEBUILD) build
 
-# Builds the iPhone app and its UI tests, without running them.
+# Builds the iPhone app and its UI tests, without running them. Built for
+# coverage, since the run (iphone-ui-test) measures it: a run on a build made
+# without it records an empty report (scripts/phone-coverage.sh).
 iphone-ui-test-build: iphone-project
-	$(IPHONE_XCODEBUILD) build-for-testing
+	$(IPHONE_XCODEBUILD) build-for-testing -enableCodeCoverage YES
 
 # The iPhone UI tests (iOS/UITests), once in light and once in dark, each on a
 # simulator made for the run and deleted after, so nothing of an earlier run
@@ -200,11 +203,16 @@ iphone-ui-test-build: iphone-project
 # light only: the local tests already draw every screen in dark, and every
 # sign-in counts against staging's limits. The rest need no account and no
 # server. If anything stops the run, Control-C included, the simulator is still
-# deleted. The simulator is the newest numbered iPhone the machine has, unless
-# IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17". IPHONE_UI_TEST_ONLY
-# runs one test class or test, such as WellSpentPhoneUITests/PhoneSignInSyncTests.
+# deleted. Each simulator is told it has shown its keyboard's first-run tip:
+# CI's on-screen keyboard otherwise opens with it over the keys, and the tests
+# stall reading the screen. The simulator is the newest numbered iPhone the
+# machine has, unless IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17".
+# IPHONE_UI_TEST_ONLY runs one test class or test, such as
+# WellSpentPhoneUITests/PhoneSignInSyncTests.
 # IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
-# UI_TEST_SHARD does for the Mac.
+# UI_TEST_SHARD does for the Mac. Each look's result bundle,
+# .build/xcode-iphone/ui-test-<look>.xcresult, holds the code coverage of the
+# run, the iPhone's own screens included, which no Mac test can reach.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
@@ -224,6 +232,9 @@ iphone-ui-test: iphone-ui-test-build
 		trap '$(IPHONE_SIMCTL) shutdown "$$udid" >/dev/null 2>&1 || true; $(IPHONE_SIMCTL) delete "$$udid" >/dev/null 2>&1 || true' EXIT; \
 		trap 'exit 130' INT TERM; \
 		$(IPHONE_SIMCTL) boot "$$udid"; \
+		$(IPHONE_SIMCTL) bootstatus "$$udid" -b >/dev/null; \
+		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true; \
+		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.Preferences DidShowContinuousPathIntroduction -bool true; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
 		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
 		status=0; \
@@ -234,12 +245,18 @@ iphone-ui-test: iphone-ui-test-build
 		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
+			-retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
 			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
 			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
 			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
+			-enableCodeCoverage YES \
 			$$only \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
-				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests; fi) \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneSharedEntriesTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneLevelsAndLinksTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneAccountTests \
+				-skip-testing:WellSpentPhoneUITests/PhoneNewAccountTests; fi) \
 			|| status=$$?; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \

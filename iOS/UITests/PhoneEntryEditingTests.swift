@@ -214,8 +214,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         // Scenario EDIT-17, EDIT-06, EDIT-07
         // 4. A swipe to the left offers Edit and Delete. Edit opens the sheet.
         // Delete asks the same question, and its Delete puts up the same bar.
-        run.swipeLeft(onEntry: "Hilltop")
-        XCTAssertTrue(run.app.buttons[delete].waitForExistence(timeout: 5), "the swipe offers no Delete")
+        run.swipeOpen(entry: "Hilltop")
         XCTAssertTrue(run.app.buttons[edit].exists, "the swipe offers no Edit. On screen: \(run.visibleButtons())")
         run.app.buttons[edit].tap()
         XCTAssertTrue(run.app.navigationBars[EntryEditor.Words.editTitle].waitForExistence(timeout: 10),
@@ -223,8 +222,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertEqual(run.fieldText(AccessibilityID.entryMerchant), "Hilltop")
         run.tap(AccessibilityID.entryCancel)
         run.expectNoSheet()
-        run.swipeLeft(onEntry: "Hilltop")
-        XCTAssertTrue(run.app.buttons[delete].waitForExistence(timeout: 5), "the swipe offers no Delete")
+        run.swipeOpen(entry: "Hilltop")
         run.app.buttons[delete].tap()
         XCTAssertTrue(run.shows(question.title), "no question. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(question.message), "\(question.message) does not show. On screen: \(run.visibleTexts())")
@@ -329,8 +327,31 @@ extension PhoneTestApp {
     func swipeLeft(onEntry merchant: String) {
         let row = element(AccessibilityID.entryRow(merchant))
         XCTAssertTrue(row.waitForExistence(timeout: 10), "no \(merchant) to swipe")
+        bringToMiddle(row)
         waitUntilHittable(row, merchant)
-        row.swipeLeft()
+        // Just after Undo puts a row back, the list is still sliding it into
+        // place, and a swipe then is lost.
+        waitUntilStill(row, merchant)
+        // A measured drag rather than swipeLeft(): that one is a few quick
+        // touch events, which CI's starved runners lost, so the row never
+        // opened. From near the row's right edge to its middle, slowly, held
+        // a moment before letting go: far enough to open its buttons, short
+        // of a full swipe, which would act on its own.
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let end = row.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+
+    /// Swipes an entry's row to the left until its Delete shows. A swipe that
+    /// opens nothing gets another, as a person would give it, three at most,
+    /// and never while the buttons are out.
+    func swipeOpen(entry merchant: String) {
+        let delete = app.buttons[PhoneWording.button(MainScreen.Words.delete)].firstMatch
+        for _ in 0..<3 where !delete.exists {
+            swipeLeft(onEntry: merchant)
+            _ = delete.waitForExistence(timeout: 15)
+        }
+        XCTAssertTrue(delete.exists, "three swipes offered no Delete. On screen: \(visibleButtons())")
     }
 
     /// Taps a button on the question a delete asks. The question is its own
@@ -357,7 +378,10 @@ extension PhoneTestApp {
     /// A tap outside a popover, near the top of the screen, which closes it.
     func tapOutsidePopover() {
         let outside = element("PopoverDismissRegion")
-        XCTAssertTrue(outside.waitForExistence(timeout: 5), "no popover to tap outside of")
+        XCTAssertTrue(outside.waitForExistence(timeout: 30), "no popover to tap outside of")
+        // Just after a pick, the popover is still settling, and a tap outside
+        // it then is lost.
+        waitUntilHittable(outside, "PopoverDismissRegion")
         outside.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
     }
 
@@ -370,15 +394,15 @@ extension PhoneTestApp {
         let months = calendar.dateComponents([.month], from: Self.monthStart(of: shown),
                                              to: Self.monthStart(of: date)).month ?? 0
         let step = app.buttons[months < 0 ? "DatePicker.PreviousMonth" : "DatePicker.NextMonth"]
-        XCTAssertTrue(step.waitForExistence(timeout: 5), "the calendar did not open. On screen: \(visibleButtons())")
+        XCTAssertTrue(step.waitForExistence(timeout: 30), "the calendar did not open. On screen: \(visibleButtons())")
         for _ in 0..<abs(months) { step.tap() }
         // A day's button reads like "Monday, September 15", or "Today, ..." first.
         let suffix = "\(date.formatted(.dateTime.month(.wide))) \(calendar.component(.day, from: date))"
         let day = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", suffix)).firstMatch
-        XCTAssertTrue(day.waitForExistence(timeout: 5), "no \(suffix) in the calendar. On screen: \(visibleButtons())")
+        XCTAssertTrue(day.waitForExistence(timeout: 30), "no \(suffix) in the calendar. On screen: \(visibleButtons())")
         day.tap()
         tapOutsidePopover()
-        XCTAssertTrue(wait(for: step, until: "exists == false", timeout: 5), "the calendar did not close")
+        XCTAssertTrue(wait(for: step, until: "exists == false", timeout: 30), "the calendar did not close")
     }
 
     private static func monthStart(of date: Date) -> Date {

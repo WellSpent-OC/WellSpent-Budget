@@ -279,6 +279,25 @@ struct AccountsTests {
         #expect(AccountDirectory.testing(at: root).samplesSeeded, "the same run keeps its settings")
     }
 
+    /// The Mac's test makes its folder before the first launch, and its
+    /// sandboxed runner can't reach the app's settings to wipe them. So a
+    /// folder that exists must still start afresh on its first launch, and
+    /// keep its settings only on a relaunch.
+    @Test func aFolderMadeBeforeTheFirstLaunchStillStartsAfresh() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-made-first-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(!AccountDirectory.testing(at: root).samplesSeeded, "the first launch starts afresh")
+
+        suite.set(true, forKey: AccountDirectory.samplesSeededKey)
+        #expect(AccountDirectory.testing(at: root).samplesSeeded, "a relaunch keeps its settings")
+    }
+
     /// The app itself, launched the way main.swift launches it, with the
     /// variable set: its budgets land in the folder and its settings in the
     /// test suite, with nothing asked of the keychain.
@@ -339,6 +358,40 @@ struct AccountsTests {
                                              undoWindow: .seconds(120))
         try await signingIn.sync.signUp(email: "robin@example.com", password: "a-long-password")
         #expect(signingIn.model.undoWindow == .seconds(120), "the signed-in account's budgets keep it")
+    }
+
+    // MARK: - A slower timed sync, for a UI test
+
+    /// A UI test that needs the phone not to hear of a change for a moment
+    /// stretches the timed sync. Only a staging build reads it, in whole
+    /// seconds above zero. Anything else keeps every 2 minutes.
+    @Test func onlyAStagingBuildReadsTheTimedSyncInterval() {
+        let set = [Workspace.autoSyncIntervalVariable: "3600"]
+        #expect(Workspace.autoSyncInterval(for: .staging, in: set) == .seconds(3600))
+        #expect(Workspace.autoSyncInterval(for: .live, in: set) == AutoSync.defaultInterval,
+                "no variable changes the live app")
+        for bad in ["", "soon", "0", "-5", "2.5"] {
+            #expect(Workspace.autoSyncInterval(for: .staging, in: [Workspace.autoSyncIntervalVariable: bad])
+                    == AutoSync.defaultInterval, "\(bad)")
+        }
+        #expect(Workspace.autoSyncInterval(for: .staging, in: [:]) == AutoSync.defaultInterval)
+        // The UI test sets it by this name.
+        #expect(Workspace.autoSyncIntervalVariable == "WELLSPENT_AUTOSYNC_SECONDS")
+    }
+
+    /// Launched the way main.swift launches it, the timed sync takes the
+    /// longer interval.
+    @Test func aStagingLaunchTakesTheLongerTimedSync() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-data-root-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = try #require(UserDefaults(suiteName: AccountDirectory.testDefaultsSuiteName))
+        suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
+        defer { suite.removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName) }
+
+        let app = try Workspace.launch(processEnvironment: [AccountDirectory.dataRootVariable: root.path,
+                                                            Workspace.autoSyncIntervalVariable: "3600"])
+        #expect(app.autoSync.interval == .seconds(3600))
     }
 
     // MARK: - A pinned day, for a UI test

@@ -22,6 +22,38 @@ A group holds budgets you track together. It's also what you share with someone 
 
    > You see **HOME** in the sidebar.
 
+## On an iPhone
+
+1. ![A thumb taps + at the bottom right of Home](../assets/shots/make-your-first-group-iphone-1.svg)
+   Tap **+** at the bottom right of Home.
+
+2. ![A thumb taps New Group](../assets/shots/make-your-first-group-iphone-2.svg)
+   Tap **New Group**.
+
+3. ![A thumb types Home in Name](../assets/shots/make-your-first-group-iphone-3.svg)
+   Type a name in **Name**, like Home.
+
+4. ![A thumb taps Add](../assets/shots/make-your-first-group-iphone-4.svg)
+   Tap **Add**.
+
+   > You see **HOME** on Home.
+
+## On Linux
+
+1. ![Press More, next to Add Budget at the bottom of the sidebar](../assets/shots/make-your-first-group-linux-1.svg)
+   Press **More**, next to **Add Budget** at the bottom of the sidebar.
+
+2. ![Pick New Group](../assets/shots/make-your-first-group-linux-2.svg)
+   Pick **New Group…**
+
+3. ![Type a name in Name, like Home](../assets/shots/make-your-first-group-linux-3.svg)
+   Type a name in **Name**, like Home.
+
+4. ![Press Add](../assets/shots/make-your-first-group-linux-4.svg)
+   Press **Add**.
+
+   > You see **HOME** in the sidebar.
+
 ## If it doesn't work
 
 - **A New Budget window opens:** press **Cancel**. Then click the small arrow, not the words **Add Budget**.

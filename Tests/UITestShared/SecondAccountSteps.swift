@@ -120,7 +120,19 @@ extension SecondAccount {
         guard others.count == 1, let other = others.first else {
             throw UITestError("the second account expected one other person in \(group), and found \(others.count)")
         }
-        try await sync.setLevel(level, of: other, in: id)
+        try await retryingDrops { try await self.sync.setLevel(level, of: other, in: id) }
+    }
+
+    /// The names of the devices signed in to an account, as the server lists
+    /// them. The reading takes a sign-in of its own, listed as
+    /// "UI test reader", and ends it after, so look for a name among them.
+    static func deviceLabels(server: String, email: String, password: String) async throws -> [String] {
+        guard let url = URL(string: server) else { throw UITestError("\(server) is not a server address") }
+        let transport = ReadableHTTPTransport(baseURL: url)
+        _ = try await transport.signIn(email: email, password: password, deviceLabel: "UI test reader")
+        let labels = try await transport.sessions().compactMap(\.deviceLabel)
+        try? await transport.signOut()
+        return labels
     }
 
     /// Waits until the server lists this many people in the group, such as
@@ -129,6 +141,18 @@ extension SecondAccount {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {
             if try await members(of: group).count == count { return true }
+            try await Task.sleep(for: .seconds(1))
+        } while Date() < deadline
+        return false
+    }
+
+    /// Syncs until an entry is in the group, such as one the other person
+    /// just added on their device. True when it comes in time.
+    func syncUntilEntry(_ merchant: String, inGroup group: String, timeout: TimeInterval = 30) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            try await syncAll()
+            if (try? entry(merchant, inGroup: group)) != nil { return true }
             try await Task.sleep(for: .seconds(1))
         } while Date() < deadline
         return false

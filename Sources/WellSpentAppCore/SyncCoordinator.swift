@@ -56,6 +56,12 @@ public final class SyncCoordinator {
     /// Groups this account founded that the server no longer lists. Nothing
     /// is hidden or sent for them; the app says so.
     public private(set) var missingOnServer: Set<GroupID> = []
+    /// Counts each time this device takes in what the server says about a
+    /// group's people or this person's level in it. Those live in the store,
+    /// where a screen can't see them change, so the questions about them read
+    /// this too. A screen that asked, such as the sidebar drawing a group's
+    /// menu, is then drawn again when a level changes (PAGE-14).
+    private var accessChanges = 0
 
     /// Remembered between launches.
     public var serverAddress: String {
@@ -493,7 +499,7 @@ public final class SyncCoordinator {
             guard let userID else { throw Failure.notSignedIn }
             let actions = try SyncPlan.actions(store: store, listed: listed, me: userID)
             for group in listed {
-                try store.saveServerGroup(ServerGroupInfo(group))
+                try saveServerGroup(ServerGroupInfo(group))
             }
             waitingForFounder = []
             missingOnServer = []
@@ -556,7 +562,7 @@ public final class SyncCoordinator {
             let key = try store.oldestGroupKey(group).flatMap { $0.count == 32 ? $0 : nil }
                 ?? store.localKey(for: .group(group)).rawBytes
             let made = try await requireTransport().createGroup(id: group, importKey: key)
-            try store.saveServerGroup(ServerGroupInfo(made))
+            try saveServerGroup(ServerGroupInfo(made))
             try store.markMoved(group)
             return try await sync(group, level: made.level)
         case .placeholder(let listed):
@@ -585,7 +591,7 @@ public final class SyncCoordinator {
             return try await showAgain(listed)
         case .removed(let group):
             try store.hideGroup(group)
-            try store.markRemoved(group)
+            try markRemoved(group)
             return SyncReport()
         case .missingOnServer(let group):
             missingOnServer.insert(group)
@@ -671,7 +677,7 @@ public final class SyncCoordinator {
         guard let userID else { throw Failure.notSignedIn }
         try await requireTransport().remove(userID, from: group)
         try store.clearOutbox(in: group)
-        try store.markRemoved(group)
+        try markRemoved(group)
         return report
     }
 
@@ -756,7 +762,7 @@ public final class SyncCoordinator {
                 }
                 joined = kept
             }
-            try store.saveServerGroup(ServerGroupInfo(joined))
+            try saveServerGroup(ServerGroupInfo(joined))
             let hidden = try store.group(joined.id)?.isDeleted == true
             try store.placeholderGroup(joined.id, name: link.groupName)
             let name = myName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -820,7 +826,7 @@ public final class SyncCoordinator {
             guard let userID else { throw Failure.notSignedIn }
             try await requireTransport().remove(userID, from: group)
             try store.hideGroup(group)
-            try store.markRemoved(group)
+            try markRemoved(group)
             didSync?()
         } catch {
             throw report(error)
@@ -866,7 +872,8 @@ public final class SyncCoordinator {
 
     /// Who is in `group`, as the server last said.
     public func members(of group: GroupID) -> [UserID: AccessLevel] {
-        (try? store.members(in: group)) ?? [:]
+        observeAccess()
+        return (try? store.members(in: group)) ?? [:]
     }
 
     /// The name each member gave the group, as last synced.
@@ -894,8 +901,30 @@ public final class SyncCoordinator {
 
     private func refreshMembers(of group: GroupID) async throws {
         let members = try await requireTransport().members(of: group)
-        try store.replaceMembers(Dictionary(members.map { ($0.userID, $0.level) }, uniquingKeysWith: max),
-                                 in: group)
+        try replaceMembers(Dictionary(members.map { ($0.userID, $0.level) }, uniquingKeysWith: max), in: group)
+    }
+
+    // The store's writes of levels and people, each counted in `accessChanges`.
+
+    private func saveServerGroup(_ info: ServerGroupInfo) throws {
+        try store.saveServerGroup(info)
+        accessChanges += 1
+    }
+
+    private func markRemoved(_ group: GroupID) throws {
+        try store.markRemoved(group)
+        accessChanges += 1
+    }
+
+    private func replaceMembers(_ members: [UserID: AccessLevel], in group: GroupID) throws {
+        try store.replaceMembers(members, in: group)
+        accessChanges += 1
+    }
+
+    /// Read by every question about levels and people, so a screen that asks
+    /// one is told when a sync may have changed the answer.
+    private func observeAccess() {
+        _ = accessChanges
     }
 
     /// The invite statuses, in words. Only here: 409 also means "email taken" at
@@ -919,6 +948,7 @@ public final class SyncCoordinator {
     /// What deleting `group` does beyond this Mac, for the confirmation: from
     /// who the server said is in it, as of the last sync.
     public func deleteReach(of group: GroupID) -> GroupDeleteReach {
+        observeAccess()
         let members = (try? store.members(in: group)) ?? [:]
         guard !members.isEmpty else { return SealedHistory.deleteReach(of: group, in: store, me: userID) }
         guard members.count > 1 else { return .justYou }
@@ -930,6 +960,7 @@ public final class SyncCoordinator {
     /// rename it, which takes Manage. A group the server has never listed is
     /// this person's own.
     public func mayManageBudgets(in group: GroupID) -> Bool {
+        observeAccess()
         if let info = try? store.serverGroup(group) { return info.level.allows(.manage) }
         return SealedHistory.mayManageBudgets(in: group, store: store, me: userID)
     }
@@ -939,6 +970,7 @@ public final class SyncCoordinator {
     /// this device, so nothing offers it. A group the server has never listed
     /// is this person's own.
     public func mayAddEntries(in group: GroupID) -> Bool {
+        observeAccess()
         if let info = try? store.serverGroup(group) { return info.level.allows(.write) }
         return SealedHistory.mayAddEntries(in: group, store: store, me: userID)
     }

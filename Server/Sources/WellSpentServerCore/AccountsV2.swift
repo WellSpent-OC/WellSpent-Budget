@@ -8,8 +8,7 @@ import Vapor
 //
 // No keys: a person signs in with an email and a password on any device, a
 // session renews itself while it is used, and a forgotten password is reset by
-// a code sent to a confirmed address. The /api/v1 routes are untouched until
-// the switch.
+// a code sent to a confirmed address.
 
 // MARK: - Wire types
 

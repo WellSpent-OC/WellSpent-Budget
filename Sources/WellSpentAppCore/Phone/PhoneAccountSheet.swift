@@ -66,10 +66,16 @@ struct PhoneAccountSheet: View {
     }
 
     /// Back to the step before, or else Cancel. The account step has only
-    /// Done, on the right.
+    /// Done, on the right. Asking for a code, it is Not now, which closes the
+    /// sheet signed in, as the scenarios say (ACCT-07): Your account is a tap
+    /// on Account away.
     @ViewBuilder
     private var leadingButton: some View {
-        if let back = flow.back {
+        if flow.step == .confirmEmail {
+            Button(flow.closeLabel) { flow.close() }
+                .disabled(flow.isWorking)
+                .accessibilityIdentifier(AccessibilityID.accountClose)
+        } else if let back = flow.back {
             Button(Words.back) { flow.go(to: back) }
                 .disabled(flow.isWorking)
                 .accessibilityIdentifier(AccessibilityID.accountBack)
