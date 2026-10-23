@@ -1,6 +1,8 @@
 #include "wellspent_native.h"
 #include <libsecret/secret.h>
 #include <gtk/gtk.h>
+#include <glib-unix.h>
+#include <signal.h>
 
 // One schema for every WellSpent item. "service" is the per-build, per-account
 // name the Mac app uses for its keychain (app.wellspent.keys.<account>), so the
@@ -116,4 +118,149 @@ void wellspent_accessible_set_description(void *widget, const char *description)
 void wellspent_accessible_set_selected(void *widget, int selected) {
     if (!GTK_IS_ACCESSIBLE(widget)) return;
     gtk_accessible_update_state(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_STATE_SELECTED, selected ? TRUE : FALSE, -1);
+}
+
+static GtkWidget *find_calendar(GtkWidget *widget) {
+    if (GTK_IS_CALENDAR(widget)) return widget;
+    for (GtkWidget *child = gtk_widget_get_first_child(widget); child; child = gtk_widget_get_next_sibling(child)) {
+        GtkWidget *found = find_calendar(child);
+        if (found) return found;
+    }
+    return NULL;
+}
+
+static void collect_buttons(GtkWidget *widget, GtkWidget **buttons, int *count) {
+    for (GtkWidget *child = gtk_widget_get_first_child(widget); child && *count < 4;
+         child = gtk_widget_get_next_sibling(child)) {
+        if (GTK_IS_BUTTON(child))
+            buttons[(*count)++] = child;
+        else
+            collect_buttons(child, buttons, count);
+    }
+}
+
+static void arrow_moved(GtkCalendar *calendar, gpointer data) {
+    (void)data;
+    g_signal_emit_by_name(calendar, "day-selected");
+}
+
+// The arrow keys on a calendar move its chosen day by a day or a week. GTK's
+// own move only a box drawn around a day, which nothing reads aloud, and the
+// first press jumps to the grid's last box, often in another month. With
+// Control, GTK's own: the month and the year.
+static gboolean move_day_by_key(GtkEventControllerKey *controller, guint keyval, guint keycode,
+                                GdkModifierType state, gpointer data) {
+    (void)keycode;
+    (void)data;
+    if (state & (GDK_CONTROL_MASK | GDK_ALT_MASK)) return FALSE;
+    int days;
+    switch (keyval) {
+    case GDK_KEY_Left: case GDK_KEY_KP_Left: days = -1; break;
+    case GDK_KEY_Right: case GDK_KEY_KP_Right: days = 1; break;
+    case GDK_KEY_Up: case GDK_KEY_KP_Up: days = -7; break;
+    case GDK_KEY_Down: case GDK_KEY_KP_Down: days = 7; break;
+    default: return FALSE;
+    }
+    GtkCalendar *calendar = GTK_CALENDAR(gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller)));
+    GDateTime *date = gtk_calendar_get_date(calendar);
+    GDateTime *moved = g_date_time_add_days(date, days);
+    gtk_calendar_select_day(calendar, moved);
+    g_date_time_unref(moved);
+    g_date_time_unref(date);
+    g_signal_emit_by_name(calendar, "day-selected");
+    return TRUE;
+}
+
+void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
+                               const char *previous_year, const char *next_year) {
+    if (!GTK_IS_WIDGET(widget)) return;
+    GtkWidget *calendar = find_calendar(GTK_WIDGET(widget));
+    if (!calendar) return;
+    // GTK 4 lays its calendar's header out as < month > < year >.
+    GtkWidget *buttons[4];
+    int count = 0;
+    collect_buttons(calendar, buttons, &count);
+    if (count == 4) {
+        const char *names[4] = { previous_month, next_month, previous_year, next_year };
+        for (int i = 0; i < 4; i++)
+            wellspent_accessible_set_label(buttons[i], names[i]);
+    }
+    // An arrow moves the chosen day to the next or last month or year, and
+    // shows it chosen, but GTK says "day-selected" only for a day clicked.
+    // Said here too, so what's saved is the day the calendar shows. Once.
+    if (g_object_get_data(G_OBJECT(calendar), "wellspent-arrows")) return;
+    g_object_set_data(G_OBJECT(calendar), "wellspent-arrows", GINT_TO_POINTER(1));
+    const char *moves[] = { "prev-month", "next-month", "prev-year", "next-year" };
+    for (int i = 0; i < 4; i++)
+        g_signal_connect(calendar, moves[i], G_CALLBACK(arrow_moved), NULL);
+    // Before GTK's own handling of the keys, which this replaces for the
+    // plain arrows.
+    GtkEventController *keys = gtk_event_controller_key_new();
+    gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
+    g_signal_connect(keys, "key-pressed", G_CALLBACK(move_day_by_key), NULL);
+    gtk_widget_add_controller(calendar, keys);
+}
+
+static gboolean quit_app(gpointer data) {
+    (void)data;
+    GApplication *app = g_application_get_default();
+    if (app) g_application_quit(app);
+    return G_SOURCE_REMOVE;
+}
+
+void wellspent_quit_on_terminate(void) {
+    // On GTK's loop, not in the signal itself, so the quit runs as any other
+    // event does.
+    g_unix_signal_add(SIGTERM, quit_app, NULL);
+}
+
+// Tab in a sheet. SwiftCrossUI 0.10.0 gives each sheet's window an Escape
+// listener whose key handler is declared returning nothing, where GTK's
+// "key-pressed" returns whether the key was handled. GTK reads what is left
+// in the register, so every key reaching it counts as handled, and Tab never
+// gets to GTK's own focus movement. This handler runs first, in the capture
+// phase, moves focus as GtkWindow's own Tab does, and lets every other key go
+// on.
+static gboolean move_focus_on_tab(GtkEventControllerKey *controller, guint keyval, guint keycode,
+                                  GdkModifierType state, gpointer data) {
+    (void)keycode;
+    (void)data;
+    gboolean tab = keyval == GDK_KEY_Tab || keyval == GDK_KEY_KP_Tab || keyval == GDK_KEY_ISO_Left_Tab;
+    if (!tab) return FALSE;
+    GtkDirectionType direction = (keyval == GDK_KEY_ISO_Left_Tab || (state & GDK_SHIFT_MASK))
+        ? GTK_DIR_TAB_BACKWARD : GTK_DIR_TAB_FORWARD;
+    GtkWidget *window = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller));
+    // Past the last control, round to the first, as GtkWindow does.
+    if (!gtk_widget_child_focus(window, direction)) {
+        gtk_window_set_focus(GTK_WINDOW(window), NULL);
+        gtk_widget_child_focus(window, direction);
+    }
+    return TRUE;
+}
+
+static void add_tab_handler(GtkWidget *widget) {
+    GtkRoot *root = gtk_widget_get_root(widget);
+    if (!root || !GTK_IS_WINDOW(root)) return;
+    if (g_object_get_data(G_OBJECT(root), "wellspent-tab-moves-focus")) return;
+    GtkEventController *keys = gtk_event_controller_key_new();
+    gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
+    g_signal_connect(keys, "key-pressed", G_CALLBACK(move_focus_on_tab), NULL);
+    gtk_widget_add_controller(GTK_WIDGET(root), keys);
+    g_object_set_data(G_OBJECT(root), "wellspent-tab-moves-focus", GINT_TO_POINTER(1));
+}
+
+static void add_tab_handler_on_realize(GtkWidget *widget, gpointer data) {
+    (void)data;
+    add_tab_handler(widget);
+}
+
+void wellspent_tab_moves_focus(void *widget) {
+    if (!GTK_IS_WIDGET(widget)) return;
+    // A view not yet in its window has no window to listen on, so it waits
+    // until it is.
+    if (gtk_widget_get_root(GTK_WIDGET(widget))) {
+        add_tab_handler(GTK_WIDGET(widget));
+    } else {
+        g_signal_connect(widget, "realize", G_CALLBACK(add_tab_handler_on_realize), NULL);
+    }
 }

@@ -48,13 +48,20 @@ struct GroupPageView: View {
         // A copy the alert's buttons keep: GTK closes an alert, which clears
         // its question, before the button's action runs.
         let removing = screen.removing
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             // After a removal, a quiet line at the top, where Undo sits on a
             // budget. No pop-up.
             if let removed = screen.removedNote {
-                Text(removed)
-                    .font(.system(size: 12))
-                Divider()
+                HStack {
+                    Text(removed)
+                        .font(.system(size: 12))
+                        .foregroundColor(Palette.ink)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(Palette.sidebar)
+                Palette.line.frame(height: 1)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -75,10 +82,13 @@ struct GroupPageView: View {
                             .disabled(screen.isWorking)
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
         // Whoever joined since the last sync shows as the page opens, and
         // after each sync while it stays open.
         .task(id: ObjectIdentifier(screen)) { await screen.refresh() }
@@ -102,9 +112,10 @@ struct GroupPageView: View {
     /// The name, with Invite Someone… on the right, and the line under it.
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(spacing: 10) {
                 Text(group.name)
-                    .font(.title2)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(Palette.ink)
                 Spacer()
                 if screen.mayInvite {
                     Button(Words.invite) { invite() }
@@ -112,24 +123,32 @@ struct GroupPageView: View {
             }
             Text(screen.summary)
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(Palette.muted)
         }
     }
 
     private var people: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(Words.people.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.gray)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Palette.muted)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(screen.rows) { row in
                     person(row)
                     if row.id != screen.rows.last?.id {
-                        Divider()
+                        Palette.line.frame(height: 1)
                     }
                 }
             }
+            .padding(.horizontal, 12)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Palette.sidebar))
         }
+    }
+
+    /// A person's level as the page holds it now, not as the row it was drawn
+    /// with said.
+    private func level(of person: UserID) -> AccessLevel? {
+        screen.rows.first { $0.id == person }?.level
     }
 
     private func levelChoices(_ row: MembersScreen.Row) -> [Choice<AccessLevel>] {
@@ -143,28 +162,34 @@ struct GroupPageView: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.label)
+                    .font(.system(size: 13))
+                    .foregroundColor(Palette.ink)
                 Text(Words.levelExplanation(row.level))
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if row.levelChoices.isEmpty {
                 Text(row.levelTitle)
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(Palette.muted)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .overlay {
                         RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.gray.opacity(0.4))
+                            .stroke(Palette.muted.opacity(0.4))
                     }
             } else {
                 Picker(of: levelChoices(row), selection: Binding(
-                    get: { levelChoices(row).first { $0.value == row.level } },
+                    // Read fresh, as the import review's lists are: an old row
+                    // laid out again would set the list back, and undo a change.
+                    get: { levelChoices(row).first { $0.value == level(of: row.id) } },
                     set: { choice in
                         guard let level = choice?.value else { return }
                         Task { await screen.setLevel(level, for: row.id) }
                     }))
+                    .frame(width: 110)
                     .disabled(screen.isWorking)
             }
             if row.mayRemove {

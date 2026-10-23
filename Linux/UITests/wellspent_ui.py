@@ -26,7 +26,7 @@ import urllib.request
 import gi
 
 gi.require_version("Atspi", "2.0")
-from gi.repository import Atspi  # noqa: E402
+from gi.repository import Atspi, GLib  # noqa: E402
 
 # How long a step waits for the screen to show what it expects. The test
 # display is about three times slower than a desktop.
@@ -137,6 +137,11 @@ class Element:
     def showing(self):
         return self._has(Atspi.StateType.SHOWING)
 
+    @property
+    def focused(self):
+        """Whether the keyboard is on it."""
+        return self._has(Atspi.StateType.FOCUSED)
+
     def all(self, role=None, words=None, starts=None):
         """Everything inside this element with that role and those words, or
         whose words start with `starts`."""
@@ -153,15 +158,26 @@ class Element:
         actions = self.node.get_action_iface()
         if not actions or actions.get_n_actions() == 0:
             raise ScreenError(f"{self!r} can't be pressed")
-        Atspi.Action.do_action(self.node, 0)
+        self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
         self.app.settle()
 
     def type(self, words):
         """Replaces what a text box holds with `words`, as selecting all and
         typing does."""
-        if not Atspi.EditableText.set_text_contents(self.node, words):
+        if not self._ask(lambda: Atspi.EditableText.set_text_contents(self.node, words), "type into"):
             raise ScreenError(f"{self!r} took no words")
         self.app.settle()
+
+    def _ask(self, call, verb):
+        """A call into the app through the tree. An app that stops answering
+        (the hang, wellspent-ops #238) makes the tree give up after its own
+        wait, with an error of its own. That is caught here, so what the app
+        was doing is kept, as a failed wait keeps it."""
+        try:
+            return call()
+        except GLib.GError as error:
+            # Not `self!r`: that asks the tree again, and gets the same error.
+            raise self.app.failure(f"the app stopped answering when asked to {verb} an element ({error})") from None
 
 
 # MARK: - The app
@@ -178,15 +194,17 @@ class App:
         self.path = path or os.environ["WELLSPENT_APP"]
         self.home = tempfile.mkdtemp(prefix="wellspent-ui-")
         self.process = None
+        self.pid = None
         self.launched_with = {}
 
     # Starting and stopping
 
-    def launch(self, *arguments, day=None, undo_seconds=None, region="en_US.UTF-8"):
+    def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
-        invite link. A staging build takes two test settings, as on the Mac:
+        invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
-        `undo_seconds` sets how long Undo stays. `region` is the computer's,
+        `undo_seconds` sets how long Undo stays. `autosync_seconds` sets the
+        periodic sync interval. `region` is the computer's,
         as a desktop names it: the scenarios' United States unless a test
         says otherwise, such as "de_DE.UTF-8"."""
         if self.process is not None:
@@ -197,11 +215,14 @@ class App:
         env.pop("LC_NUMERIC", None)
         env.pop("WELLSPENT_DAY_OF_MONTH", None)
         env.pop("WELLSPENT_UNDO_SECONDS", None)
+        env.pop("WELLSPENT_AUTOSYNC_SECONDS", None)
         if day is not None:
             env["WELLSPENT_DAY_OF_MONTH"] = str(day)
         if undo_seconds is not None:
             env["WELLSPENT_UNDO_SECONDS"] = str(undo_seconds)
-        self.launched_with = dict(day=day, undo_seconds=undo_seconds, region=region)
+        if autosync_seconds is not None:
+            env["WELLSPENT_AUTOSYNC_SECONDS"] = str(autosync_seconds)
+        self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds, region=region)
         self.env = env
         self.log = open(os.path.join(self.home, "app.log"), "ab")
         # Each copy runs on a session bus and keyring of its own, as each
@@ -217,7 +238,7 @@ class App:
              'export GNOME_KEYRING_CONTROL; exec "$0" "$@"',
              self.path, *arguments],
             env=dict(env, WELLSPENT_UI_BUS_FILE=bus_file), stdout=self.log, stderr=self.log)
-        self.pid = self.until(lambda: _child_named(self.process.pid, "WellSpentLinux"), "the app to start")
+        self.pid = self.until(lambda: _child_named(self.process.pid, os.path.basename(self.path)), "the app to start")
         self.session_bus = self.until(lambda: _read(bus_file), "the app's session bus")
         self.until(lambda: self._root() is not None and self.windows(), "the window to open")
         self.settle()
@@ -239,7 +260,10 @@ class App:
             return
         pid = self.pid
         try:
-            os.kill(pid, signal.SIGTERM)
+            if pid is None:
+                self.process.terminate()
+            else:
+                os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         try:
@@ -249,7 +273,9 @@ class App:
             self.process.wait()
         self.process = None
         self.log.close()
-        self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
+        if pid is not None:
+            self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
+        self.pid = None
 
     def restart(self):
         """Quits and opens again, with the same data and test settings."""
@@ -279,15 +305,21 @@ class App:
             except Exception as error:  # the tree changes under a step
                 last_error = error
             if time.monotonic() > deadline:
-                picture = self.picture("failed")
-                # The app's own log goes beside the picture, since its home
-                # goes when the test ends.
-                shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log")) \
-                    if os.path.exists(os.path.join(self.home, "app.log")) else None
-                self._note_process(picture.replace(".png", "-process.txt"))
                 cause = f" ({last_error})" if last_error else ""
-                raise ScreenError(f"waited {wait:g}s for {what}{cause}. Screen: {picture}")
+                raise self.failure(f"waited {wait:g}s for {what}{cause}")
             time.sleep(0.2)
+
+    def failure(self, what):
+        """What a failed step leaves behind, then the error to raise: a
+        picture of the screen, the app's own log (its home goes when the test
+        ends), the process's state and stacks, and the words in its
+        windows."""
+        picture = self.picture("failed")
+        if os.path.exists(os.path.join(self.home, "app.log")):
+            shutil.copyfile(os.path.join(self.home, "app.log"), picture.replace(".png", "-app.log"))
+        self._note_process(picture.replace(".png", "-process.txt"))
+        self._note_words(picture.replace(".png", "-words.txt"))
+        return ScreenError(f"{what}. Screen: {picture}")
 
     def _note_process(self, path):
         """Whether the app was still running when a step failed, and what each
@@ -321,6 +353,21 @@ class App:
                 with open(path, "a") as note:
                     note.write(f"no stacks: {error}\n")
 
+    def _note_words(self, path):
+        """The words in each of this copy's windows, front last. With several
+        people on the screen at once, the picture shows whichever window is
+        on top, which may not be this one. After the process note, so a hung
+        app's stacks are kept first."""
+        try:
+            lines = []
+            for window in self.windows():
+                lines.append(f"{window.role} {window.words!r}:")
+                lines += [f"  {words}" for words in self.texts(window)]
+        except Exception as error:  # a hung or ended app answers nothing
+            lines.append(f"no words: {error}")
+        with open(path, "w") as note:
+            note.write("\n".join(lines) + "\n")
+
     def picture(self, name):
         os.makedirs(OUT, exist_ok=True)
         path = os.path.join(OUT, f"{datetime.datetime.now():%H%M%S}-{name}.png")
@@ -332,6 +379,8 @@ class App:
 
     def _roots_with(self, pid):
         desktop = Atspi.get_desktop(0)
+        # Each launch registers a new app; do not retain the prior registry children.
+        desktop.clear_cache()
         roots = []
         for i in range(desktop.get_child_count()):
             node = desktop.get_child_at_index(i)
@@ -459,6 +508,11 @@ class App:
     def has_budget(self, name):
         return any(e.showing for e in self.main.all("push button", starts=name + " "))
 
+    def budget_open(self):
+        """Whether a budget is what shows on the right, not a group's page:
+        a budget's row in the sidebar is picked."""
+        return any(e.showing and e.selected and "$" in e.words for e in self.main.all("push button"))
+
     # A budget's transactions
 
     def entries(self):
@@ -512,7 +566,13 @@ class App:
 
     def menu_items(self, menu):
         """The words of an open menu's items, top to bottom."""
-        return [e.words for e in menu.all("menu item") if e.showing]
+        def read():
+            # Sync can redraw a menu between fetching its children and reading
+            # their labels. Retry the read on the current tree, never an action.
+            menu.node.clear_cache()
+            words = [e.words for e in menu.all("menu item") if e.showing]
+            return words if words and all(words) else None
+        return self.until(read, "the open menu's words")
 
     def question(self):
         """The words of the question in front, such as a delete's: its title
@@ -543,6 +603,11 @@ class App:
         self.find("menu item", words, within=menu).press()
 
     # Keys and lists
+
+    def bring_to_front(self):
+        """Returns to this app from another window, without pressing Sync."""
+        self._focus_front()
+        self.settle()
 
     def key(self, *keys):
         """Keys pressed in the window in front, as a person types them."""
@@ -590,6 +655,15 @@ class App:
             time.sleep(0.3)
         self.settle()
         self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
+
+    def calendar(self, within):
+        """A date's calendar, the part that takes the keyboard for its days.
+        GTK 4.14 gives it no role of its own, so it's the nearest part around
+        its Previous month that can take the keyboard."""
+        node = self.button("Previous month", within=within).node.get_parent()
+        while node is not None and not node.get_state_set().contains(Atspi.StateType.FOCUSABLE):
+            node = node.get_parent()
+        return Element(self, node)
 
     # Steps many tests take, done as a person does them
 
@@ -640,6 +714,61 @@ class App:
         self.until(lambda: len(self.windows()) == 1, "the transaction to close")
         self.until(lambda: all(row[1] != merchant for row in self.entries()), f"{merchant} to go")
 
+    # Statements
+
+    def write_file(self, name, text):
+        """A file in this copy's home, where the app may open it."""
+        path = os.path.join(self.home, name)
+        with open(path, "w") as f:
+            f.write(text)
+        return path
+
+    def pick_file(self, path):
+        """In the open file dialog: Ctrl+L for a path, the path, Open."""
+        dialog = self.until(lambda: next((w for w in self.windows() if w.role == "dialog"), None),
+                            "the file dialog")
+        self._focus_front()
+        subprocess.run(["xdotool", "key", "ctrl+l"], check=True)
+        box = self.until(lambda: next((e for e in dialog.all("text") if e.showing), None), "the path box")
+        box.type(path)
+        self.button("Open", within=dialog).press()
+        # What comes next, a review or a problem, is a window too, so the
+        # dialog is known by its Open.
+        self.until(lambda: not any(w.all("push button", "Open") for w in self.windows()), "the file dialog to close")
+
+    def open_statement(self, path):
+        """Import statement on the open budget, then the file. Gives back the
+        review's window."""
+        self.button("Import statement", within=self.main).press()
+        self.pick_file(path)
+        return self.until(lambda: next((w for w in self.windows()[1:]
+                                        if any(t.startswith("Import a statement into") for t in self.texts(w))),
+                                       None), "the review to open")
+
+    STATUSES = ("Matched to entry", "Will be added", "Already imported", "Needs a budget")
+
+    def review_rows(self, review):
+        """The review's lines: date, name, the bank's words, amount, status.
+        The counts across the top use the same words, but no date."""
+        texts = self.texts(review)
+        return [texts[i - 4:i + 1] for i, t in enumerate(texts)
+                if t in self.STATUSES and i >= 4 and _looks_like_a_date(texts[i - 4])]
+
+    def review_counts(self, review):
+        """The counts across the top: {"Matched": 1, "To add": 2, ...}."""
+        texts = self.texts(review)
+        counts = {}
+        for label in ("Matched", "To add", "Already imported", "Needs a budget"):
+            for i, t in enumerate(texts[:-1]):
+                if t == label and texts[i + 1].isdigit():
+                    counts[label] = int(texts[i + 1])
+                    break
+        return counts
+
+    def file_line(self, review, bank_words, budget):
+        """Chooses a budget for the line with the bank's words, in its list."""
+        self.choose(budget, self.near("combo box", None, to=self.find("label", bank_words, within=review)))
+
     def answer(self, button):
         """Presses `button` in the question in front, such as "Delete"."""
         count = self.until(lambda: len(self.windows()) if len(self.windows()) > 1 else None, "a question")
@@ -650,7 +779,8 @@ class App:
         """Makes a fresh account on staging for this copy, as a person does:
         Sign in, Create an account, an email and a password, then the emailed
         code. Signed in afterwards. Gives back the email."""
-        self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{name.lower()}@example.com"
+        slug = "".join(ch for ch in name.lower() if ch.isalnum())
+        self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
         self.password = secrets.token_urlsafe(18)
         self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
@@ -689,6 +819,19 @@ class App:
         self.sync()
         return self.email
 
+    def sign_out(self):
+        """Account, then Sign out. Signed out afterwards, with the sheet
+        closed."""
+        self.button("Account", within=self.main).press()
+        sheet = self.wait_for_window(2, "the account sheet")
+        self.button("Sign out", within=sheet).press()
+        self.until(lambda: len(self.windows()) == 1 or self.shows("Sign in", within=self.front, role="push button"),
+                   "signing out")
+        if len(self.windows()) > 1:
+            self.button("Cancel", within=self.front).press()
+            self.wait_for_window(1, "the account sheet to close")
+        self.button("Sign in", within=self.main)
+
     def remove_group(self, name):
         """Takes a group a test made off this person's computer and, for its
         owner, off the server: Delete… where they may, else Leave…. For a
@@ -700,17 +843,30 @@ class App:
         if "Delete…" in items:
             self.pick("Delete…", menu)
             self.answer("Delete")
-        else:
+        elif "Leave…" in items:
             self.pick("Leave…", menu)
             self.answer("Leave")
+        else:
+            raise self.failure(f"{name!r}'s menu offers neither Delete nor Leave")
         self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
         self.sync()
 
     def sync(self):
-        """The Sync button, then waits until it's done."""
+        """The Sync button, then waits until it's done. While it runs, the
+        button says what it's doing ("Syncing…"), and a slow network can keep
+        it there past the usual wait."""
         self.button("Sync", within=self.main).press()
         time.sleep(1)
-        self.until(lambda: self.button("Sync", within=self.main).enabled, "the sync to finish")
+
+        def done():
+            for button in self.main.all("push button"):
+                if button.showing and button.words in ("Sync", "Sync failed"):
+                    if button.words == "Sync failed":
+                        raise ScreenError("the sync failed: " + " ".join(self.texts(self.main)[-3:]))
+                    return button.enabled
+            return False
+
+        self.until(done, "the sync to finish", wait=60)
         self.settle()
 
     def share(self, group, my_name, level=None):
@@ -758,6 +914,55 @@ class App:
         self.pick("Delete…", menu)
         self.answer("Delete")
         self.until(lambda: not self.shows(name.upper(), within=self.main), f"{name!r} to go")
+
+    # A group's page
+
+    LEVELS = ("Owner", "Admin", "Manage", "Add", "View")
+
+    def person(self, name):
+        """A person's row on the open group's page, such as "Robin (you)": the
+        smallest part of the window holding their name and their level, a list
+        where this person may change it, else a label."""
+        def row():
+            label = next((e for e in self.main.all("label", name) if e.showing), None)
+            node = label.node.get_parent() if label else None
+            while node is not None:
+                part = Element(self, node)
+                if part.all("combo box") or any(e.words in self.LEVELS for e in part.all("label")):
+                    return part
+                node = node.get_parent()
+            return None
+        return self.until(row, f"{name}'s row on the page")
+
+    def level(self, name):
+        """A person's level on the open group's page, and whether it's a
+        list: ("Add", True) for a list set to Add, ("Owner", False) for a
+        label."""
+        row = self.person(name)
+        lists = [e for e in row.all("combo box") if e.showing]
+        if lists:
+            return lists[0].words, True
+        return next(e.words for e in row.all("label") if e.words in self.LEVELS), False
+
+    def level_list(self, name):
+        return next(e for e in self.person(name).all("combo box") if e.showing)
+
+    def offered(self, list_box):
+        """What a drop-down list offers, top to bottom, read with it open and
+        then closed again without a choice."""
+        def showing():
+            return [e for e in Element(self, self._root()).all("list") if e.showing]
+
+        before = len(showing())
+        self._focus_front()
+        list_box.all("toggle button")[0].press()
+        self.until(lambda: len(showing()) > before, "the list to open")
+        items = showing()[-1]
+        names = [" ".join(label.words for label in Element(self, items.node.get_child_at_index(i)).all("label"))
+                 for i in range(items.node.get_child_count())]
+        subprocess.run(["xdotool", "key", "Escape"], check=True)
+        self.until(lambda: len(showing()) == before, "the list to close")
+        return names
 
 
 def _read(path):

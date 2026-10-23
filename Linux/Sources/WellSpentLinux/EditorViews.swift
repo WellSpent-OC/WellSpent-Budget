@@ -30,7 +30,7 @@ struct Field: View {
             if let problem {
                 Text(problem)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(Palette.warning)
             }
         }
     }
@@ -49,7 +49,7 @@ struct Note: View {
     var body: some View {
         Text(text)
             .font(.system(size: 12))
-            .foregroundColor(warning ? .red : .gray)
+            .foregroundColor(warning ? Palette.warning : Palette.muted)
     }
 }
 
@@ -73,7 +73,7 @@ struct BudgetEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(editor.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             Field(label: Words.name, prompt: Words.namePrompt,
                   text: Binding(get: { editor.name }, set: { editor.name = $0 }))
             Field(label: Words.amount, prompt: editor.amountPrompt,
@@ -98,11 +98,14 @@ struct BudgetEditorView: View {
                 Button(editor.saveLabel) {
                     if editor.save() { close() }
                 }
+                .defaultAction()
                 .disabled(!editor.canSave)
             }
         }
         .padding(20)
         .frame(width: 420)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
     }
 }
 
@@ -122,7 +125,7 @@ struct GroupEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(editor.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             Field(label: Words.name, prompt: Words.namePrompt,
                   text: Binding(get: { editor.name }, set: { editor.name = $0 }))
             Note(Words.explanation)
@@ -132,11 +135,14 @@ struct GroupEditorView: View {
                 Button(editor.saveLabel) {
                     if editor.save() { close() }
                 }
+                .defaultAction()
                 .disabled(!editor.canSave)
             }
         }
         .padding(20)
         .frame(width: 420)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
     }
 }
 
@@ -181,6 +187,8 @@ struct EntryEditorView: View {
         }
         .padding(20)
         .frame(width: 420)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
         // The sheet asks its own delete question, so it shows over the sheet.
         .alert(question(pending), isPresented: Binding(get: { pending != nil },
                                                        set: { if !$0 { editor.cancelDelete() } })) {
@@ -201,11 +209,11 @@ struct EntryEditorView: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(editor.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             if let top = editor.topLine {
                 Text(top)
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(Palette.muted)
             }
             if let notice = editor.noticeLine {
                 Note(notice, warning: true)
@@ -231,6 +239,7 @@ struct EntryEditorView: View {
             Text(Words.date)
                 .font(.system(size: 12))
         }
+        .calendarArrows()
         if let line = editor.periodLine {
             Note(line, warning: true)
         }
@@ -252,7 +261,7 @@ struct EntryEditorView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Text(detail.label)
                         .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                        .foregroundColor(Palette.muted)
                         .frame(width: 70, alignment: .leading)
                     Text(detail.value)
                 }
@@ -276,12 +285,14 @@ struct EntryEditorView: View {
                     Button(Words.add) {
                         if editor.add() { close() }
                     }
+                    .defaultAction()
                     .disabled(!editor.canAdd)
                 } else {
                     // Refused, the sheet stays open, read-only, and says why.
                     Button(editor.saveLabel) {
                         if editor.save() { close() }
                     }
+                    .defaultAction()
                     .disabled(!editor.canSave)
                 }
             }
@@ -296,6 +307,7 @@ struct EntryEditorView: View {
 struct ImportReviewView: View {
     var model: AppModel
     private typealias Words = ImportReviewScreen.Words
+    private static let width: Double = 760
 
     private var screen: ImportReviewScreen { ImportReviewScreen(model: model) }
 
@@ -305,77 +317,124 @@ struct ImportReviewView: View {
             + screen.budgetChoices.map { Choice(value: $0.id, description: $0.name) }
     }
 
+    /// A line's budget as chosen now, read fresh, not from the row the line
+    /// was drawn with. The toolkit can lay a line out again before it draws
+    /// it again, and an old row would set its list back to Choose, which
+    /// undoes the choice.
+    private func chosenBudget(_ row: Int) -> BudgetID? {
+        screen.rows.first { $0.id == row }?.chosenBudget
+    }
+
     static func color(_ tone: ImportReviewScreen.Tone) -> Color {
-        switch tone {
-        case .matched: .green
-        case .toAdd: .blue
-        case .alreadyImported: .gray
-        case .needsBudget: .orange
-        }
+        Color(tone.color)
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            Divider()
+            list
+            Divider()
+            footer
+        }
+        .foregroundColor(Palette.ink)
+        .frame(width: Self.width, height: 560)
+        .background(Palette.surface)
+    }
+
+    private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 10) {
                 Text(screen.title)
-                    .font(.title3)
+                    .font(.system(size: 17, weight: .semibold))
                 Text(screen.filename)
-                    .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .font(.money(11, weight: .regular))
+                    .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Palette.sidebar))
+                    .help(screen.filename)
+                Spacer()
             }
-            HStack(spacing: 16) {
+            HStack(spacing: 10) {
                 ForEach(screen.tiles) { tile in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(tile.label)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(Self.color(tile.tone))
                         Text("\(tile.count)")
-                            .font(.system(size: 20))
+                            .font(.money(20))
                     }
+                    .padding(10)
+                    .frame(width: summaryWidth, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8)
+                        .fill(Self.color(tile.tone).opacity(0.08)))
                 }
-            }
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(screen.rows) { row in
-                        line(row)
-                    }
-                }
-            }
-            .frame(height: 340)
-            Divider()
-            HStack {
-                Note(screen.note)
-                Spacer()
-                Button(Words.cancel) { screen.cancel() }
-                Button(Words.importButton) { screen.commit() }
             }
         }
         .padding(18)
-        .frame(width: 760)
+    }
+
+    /// Equal cards across the fixed-width sheet, after its padding and gaps.
+    private var summaryWidth: Double {
+        let count = Double(max(screen.tiles.count, 1))
+        return (Self.width - 36 - (count - 1) * 10) / count
+    }
+
+    private var list: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(screen.rows) { row in
+                    line(row)
+                    Divider()
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private var footer: some View {
+        HStack {
+            Text(screen.note)
+                .font(.system(size: 11))
+                .foregroundColor(Palette.muted)
+            Spacer()
+            Button(Words.cancel) { screen.cancel() }
+            Button(Words.importButton) { screen.commit() }.defaultAction()
+        }
+        .padding(16)
     }
 
     private func line(_ row: ImportReviewScreen.Row) -> some View {
         HStack(spacing: 12) {
             Text(BudgetScreen.shortDate(row.date))
-                .foregroundColor(.gray)
-                .frame(width: 60)
+                .font(.money(11, weight: .regular))
+                .foregroundColor(Palette.muted)
+                .frame(width: 54, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.description)
+                    .font(.system(size: 12, weight: .medium))
                 Text(row.bankDescription)
                     .font(.system(size: 10))
-                    .foregroundColor(.gray)
+                    .foregroundColor(Palette.muted)
+                    .lineLimit(1)
             }
             Spacer()
             Text(row.amount)
-                .frame(width: 90)
-            Text(row.status)
-                .font(.system(size: 11))
-                .foregroundColor(Self.color(row.tone))
-                .frame(width: 130)
+                .font(.money(12, weight: .regular))
+                .frame(width: 84, alignment: .trailing)
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Self.color(row.tone))
+                    .frame(width: 5, height: 5)
+                Text(row.status)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Self.color(row.tone))
+            }
+            .frame(width: 140, alignment: .leading)
             if row.needsBudget {
                 Picker(of: budgetChoices, selection: Binding(
-                    get: { budgetChoices.first { $0.value == row.chosenBudget } },
+                    get: { budgetChoices.first { $0.value == chosenBudget(row.id) } },
                     set: { screen.choose($0?.value ?? nil, for: row.id) }))
                     .frame(width: 150)
             } else {
@@ -383,5 +442,7 @@ struct ImportReviewView: View {
                     .frame(width: 150)
             }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
     }
 }

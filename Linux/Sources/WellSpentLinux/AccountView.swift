@@ -28,7 +28,7 @@ struct AccountView: View {
         let askingEverywhere = flow.isAskingToSignOutEverywhere
         VStack(alignment: .leading, spacing: 12) {
             Text(flow.step.title)
-                .font(.title3)
+                .font(.system(size: 17, weight: .semibold))
             if let notice = flow.notice {
                 note(notice)
             }
@@ -36,7 +36,7 @@ struct AccountView: View {
             if let failure = flow.currentFailure {
                 Text(failure)
                     .font(.system(size: 12))
-                    .foregroundColor(.red)
+                    .foregroundColor(Palette.warning)
             }
             note(Words.privacy)
             buttons
@@ -45,6 +45,8 @@ struct AccountView: View {
         // Wider than the Mac's 440: GTK's buttons are roomier, and the account
         // step puts three in a row.
         .frame(width: 520)
+        .foregroundColor(Palette.ink)
+        .background(Palette.surface)
         .onChange(of: flow.isFinished) {
             if flow.isFinished { isPresented = false }
         }
@@ -147,6 +149,7 @@ struct AccountView: View {
                 .disabled(flow.isWorking)
             if let label = flow.submitLabel {
                 Button(label) { Task { await flow.submit() } }
+                    .defaultAction()
                     .disabled(!flow.canSubmit)
             }
         }
@@ -169,7 +172,7 @@ struct AccountView: View {
             if let problem {
                 Text(problem)
                     .font(.system(size: 11))
-                    .foregroundColor(.red)
+                    .foregroundColor(Palette.warning)
             }
         }
     }
@@ -177,6 +180,6 @@ struct AccountView: View {
     private func note(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 12))
-            .foregroundColor(.gray)
+            .foregroundColor(Palette.muted)
     }
 }
