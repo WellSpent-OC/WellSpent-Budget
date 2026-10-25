@@ -12,7 +12,7 @@ import FoundationNetworking      // URLSession lives here on Linux
 ///
 /// Dates are ISO 8601 and bytes are base64 in both directions, as the server
 /// encodes them.
-public actor ReadableHTTPTransport: ReadableAccountTransport {
+public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport {
     /// /api/v2 on the server.
     private let apiURL: URL
     /// The server itself, where `/health` lives.
@@ -42,6 +42,23 @@ public actor ReadableHTTPTransport: ReadableAccountTransport {
     }
 
     public var currentSession: ServerSession? { session }
+
+    public func extensionRequest(_ value: ExtensionRequest) async throws -> Data {
+        guard let session else { throw ReadableTransportError.sessionEnded("Sign in to use extensions.") }
+        var url = rootURL.appendingPathComponent("extensions/wartable/v1")
+        for component in value.path { url.appendPathComponent(component) }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        if !value.query.isEmpty {
+            components.queryItems = value.query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = value.method.rawValue
+        request.httpBody = value.body
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.token)", forHTTPHeaderField: "Authorization")
+        return try await perform(request, as: .signedIn)
+    }
 
     public nonisolated func resuming(with session: ServerSession) -> any ReadableAccountTransport {
         ReadableHTTPTransport(baseURL: rootURL, urlSession: urlSession, session: session,

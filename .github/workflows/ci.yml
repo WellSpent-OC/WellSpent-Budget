@@ -319,17 +319,21 @@ jobs:
           swift build --package-path Linux --enable-code-coverage
           -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping
 
+      - name: Build the matching disposable server
+        run: swift build --package-path Server --product WellSpentServer
+
       - name: Run the UI tests
         env:
-          # Staging's test mailbox, for the tests that make an account. A
-          # fork's pull request has none, and those tests are skipped.
-          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
-          # With the mailbox there, nothing may be skipped to get a pass.
-          WELLSPENT_UI_NO_SKIPS: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
           # Each copy of the app writes its counts as it quits, one file each.
           LLVM_PROFILE_FILE: ${{ github.workspace }}/.build/linux-ui-test/coverage/%p.profraw
-        run: WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" Linux/UITests/run.sh
+        # A private SQLite database and synthetic mailbox from this revision;
+        # no deployed-server version or account secret is needed for this run.
+        run: >
+          WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux"
+          python3 Server/scripts/with-ui-fixture.py
+          --server "$(swift build --package-path Server --show-bin-path)/WellSpentServer"
+          -- Linux/UITests/run.sh
 
       # The sign-off rule's floor on the Linux app's own code (ops #231).
       # Advisory until the scenarios' tests are all in: the number is low
@@ -639,9 +643,22 @@ jobs:
         shell: bash
         run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
 
+  wartable-connector:
+    name: WarTable connector tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Linux execution sandbox
+        run: sudo apt-get update -q && sudo apt-get install -y bubblewrap
+      - name: MCP, context, sandbox and provider behavior
+        env:
+          WARTABLE_REQUIRE_SANDBOX: "1"
+        run: cd Extensions/WarTable/adapter && python3 -m unittest discover -s tests
+
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check, wartable-connector]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -660,7 +677,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -680,7 +697,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}

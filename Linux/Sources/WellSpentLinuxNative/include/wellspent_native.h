@@ -83,3 +83,15 @@ void wellspent_default_action(void *widget);
 
 /// Ctrl+N activates this main-window Add button when it is available.
 void wellspent_new_entry_shortcut(void *widget);
+
+/// Names a multiline chat editor and marks it as the Ctrl+Enter target.
+void wellspent_wartable_composer(void *widget);
+void wellspent_wartable_control_label(void *widget, const char *label);
+/// Ctrl+Enter in that editor activates this visible, enabled Send button.
+void wellspent_wartable_send(void *widget);
+/// Follow appended messages only while reading the bottom. A new conversation
+/// or changed latest request explicitly scrolls to the newest message.
+void wellspent_wartable_transcript(void *widget, const char *conversation, const char *first_message,
+                                  const char *last_message, int latest_request);
+/// Opens a valid HTTPS URL with installed Google Chrome. Never substitutes Chromium.
+int wellspent_wartable_open_url(const char *url);

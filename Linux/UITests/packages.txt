@@ -16,3 +16,4 @@ xdotool
 at-spi2-core
 python3-gi
 gir1.2-atspi-2.0
+bubblewrap

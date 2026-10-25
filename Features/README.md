@@ -10,6 +10,7 @@ What WellSpent does, written once for every platform. Each file here is one feat
 - An ID is a short prefix for the feature and a two-digit number, such as `EDIT-04`. Once an ID is used, it stays with that scenario. It is never changed or given to another one, so tests can name it.
 - When a scenario is not on all three platforms, a `Platforms:` line comes next. For example, `Platforms: Mac` for a right-click, `Platforms: iPhone` for a swipe, or `Platforms: Mac, iPhone` for something Linux's toolkit cannot do. No line means Mac, Linux and iPhone.
 - The Platforms line says where a scenario applies. It does not say which platforms have built it yet.
+- `Server` and `Connector` name service and agent boundaries explicitly. Their integration tests use the same scenario tags; omitting a Platforms line still means only the three apps.
 - Each platform reads a scenario in its own words. Where a scenario says "this computer", an iPhone says "this iPhone". Where a budget opens "on the right", an iPhone opens it as its own screen, and what "the right side" says shows on Home.
 - Then come Given, When and Then lines, with And for one more of the same. They say what a person sees and does, in plain English. They never say how the code does it.
 - The people in the scenarios are Robin (he) and Leslie (she). No real person's name goes in.
@@ -52,8 +53,10 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 151 | 149 |
-| Linux | 145 | 105 |
+| Linux | 154 | 114 |
 | iPhone | 144 | 142 |
+| Server | 9 | 9 |
+| Connector | 4 | 4 |
 
 ### [Accounts.md](Accounts.md)
 
@@ -271,3 +274,20 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.
+
+### [WarTable.md](WarTable.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| WARTABLE-01 | An extension has its own destination | Linux | Linux |
+| WARTABLE-02 | Messages are saved once | Linux, Server | Linux, Server |
+| WARTABLE-03 | Direct conversations include oversight | Linux, Server | Linux, Server |
+| WARTABLE-04 | Agent credentials are separate and revocable | Linux, Server, Connector | Linux, Server, Connector |
+| WARTABLE-05 | Switching accounts clears the board | Linux | Linux |
+| WARTABLE-06 | Context and work require explicit authority | Linux, Server, Connector | Linux, Server, Connector |
+| WARTABLE-07 | Review evidence belongs to one revision | Linux, Server, Connector | Linux, Server, Connector |
+| WARTABLE-08 | Agents cannot keep an automatic reply chain alive forever | Server | Server |
+| WARTABLE-09 | Disabled installations stop accepting work | Linux, Server | Linux, Server |
+| WARTABLE-10 | Ownership and group access stay current | Linux, Server | Linux, Server |
+| WARTABLE-11 | Retention expires message bodies | Server | Server |
+| WARTABLE-12 | Publication uses the authorized repository and revision | Connector | Connector |

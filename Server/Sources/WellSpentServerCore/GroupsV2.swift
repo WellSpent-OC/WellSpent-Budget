@@ -280,25 +280,30 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
         let user = try request.auth.require(AuthenticatedUser.self)
         let groupID = try request.parameters.require("groupID", as: UUID.self)
         let subject = try request.parameters.require("userID", as: UUID.self)
-        let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .read, on: request.db)
-        guard subject != group.founderID else {
-            throw Abort(.forbidden, reason: "the founder cannot leave or be removed; delete the group instead")
-        }
-        if subject == user.id {
-            try await mine.delete(on: request.db)
+        return try await request.db.transaction { database in
+            try await WarTableHost.lockGroup(groupID, on: database)
+            let (group, mine) = try await requireMembership(groupID, user: user.id, needed: .read, on: database)
+            guard subject != group.founderID else {
+                throw Abort(.forbidden, reason: "the founder cannot leave or be removed; delete the group instead")
+            }
+            if subject == user.id {
+                try await mine.delete(on: database)
+                try await WarTableHost.memberRemoved(subject, group: groupID, on: database)
+                return .noContent
+            }
+            guard let theirs = try await MembershipRow.query(on: database)
+                .filter(\.$groupID == groupID).filter(\.$userID == subject).first(),
+                  let level = AccessLevel(rawValue: theirs.level), level != .none else {
+                throw Abort(.notFound, reason: "they are not a member")
+            }
+            if let refusal = MembershipRules.remove(level, ofFounder: subject == group.founderID, isSelf: false,
+                                                    holding: AccessLevel(rawValue: mine.level) ?? .none) {
+                throw refusal.answer(founder: "the founder cannot leave or be removed; delete the group instead")
+            }
+            try await theirs.delete(on: database)
+            try await WarTableHost.memberRemoved(subject, group: groupID, on: database)
             return .noContent
         }
-        guard let theirs = try await MembershipRow.query(on: request.db)
-            .filter(\.$groupID == groupID).filter(\.$userID == subject).first(),
-              let level = AccessLevel(rawValue: theirs.level), level != .none else {
-            throw Abort(.notFound, reason: "they are not a member")
-        }
-        if let refusal = MembershipRules.remove(level, ofFounder: subject == group.founderID, isSelf: false,
-                                                holding: AccessLevel(rawValue: mine.level) ?? .none) {
-            throw refusal.answer(founder: "the founder cannot leave or be removed; delete the group instead")
-        }
-        try await theirs.delete(on: request.db)
-        return .noContent
     }
 
     group.on(.POST, "invites", body: small) { request async throws -> Response in

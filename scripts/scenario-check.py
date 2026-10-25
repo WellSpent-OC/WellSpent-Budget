@@ -23,18 +23,21 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FEATURES = ROOT / "Features"
-PLATFORMS = ("Mac", "Linux", "iPhone")
+APP_PLATFORMS = ("Mac", "Linux", "iPhone")
+PLATFORMS = APP_PLATFORMS + ("Server", "Connector")
 # Where each platform's UI tests live, and the files that hold them.
 TESTS = {
     "Mac": [(ROOT / "Tests" / "WellSpentUITests", "*.swift")],
     "Linux": [(ROOT / "Linux" / "UITests", "*.py"), (ROOT / "Linux" / "UITests", "*.swift")],
     "iPhone": [(ROOT / "iOS" / "UITests", "*.swift")],
+    "Server": [(ROOT / "Server" / "Tests", "*.swift")],
+    "Connector": [(ROOT / "Extensions" / "WarTable" / "adapter" / "tests", "test_*.py")],
 }
 HEADING = re.compile(r"^## ([A-Z]+-\d+) (.+?)\s*$")
 TAG = re.compile(r"^\s*(?://|#)\s*Scenario\s+(.+?)\s*$")
 ID = re.compile(r"[A-Z]+-\d+")
 ROW = re.compile(r"^\|\s*([A-Z]+-\d+)\s*\|(.*)\|\s*$")
-COUNT = re.compile(r"^\|\s*(Mac|Linux|iPhone)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*$")
+COUNT = re.compile(r"^\|\s*(Mac|Linux|iPhone|Server|Connector)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*$")
 
 
 def platforms_named(text):
@@ -61,7 +64,7 @@ def read_scenarios(problems):
                     problems.append(f"{path.name}: {identifier} names an unknown platform, {name}")
                 where = names & set(PLATFORMS)
             else:
-                where = set(PLATFORMS)
+                where = set(APP_PLATFORMS)
             if identifier in scenarios:
                 problems.append(f"{path.name}: {identifier} is written twice")
             scenarios[identifier] = (title, where, path.name)

@@ -11,6 +11,7 @@ let package = Package(
     name: "WellSpentBudget",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
+        .library(name: "WellSpentExtensions", targets: ["WellSpentExtensions"]),
         .library(name: "WellSpentCrypto", targets: ["WellSpentCrypto"]),
         .library(name: "WellSpentKeyStore", targets: ["WellSpentKeyStore"]),
         .library(name: "WellSpentModel", targets: ["WellSpentModel"]),
@@ -20,6 +21,7 @@ let package = Package(
         .library(name: "WellSpentAppCore", targets: ["WellSpentAppCore"]),
     ],
     dependencies: [
+        .package(name: "WarTable", path: "Extensions/WarTable"),
         // `import Crypto` re-exports CryptoKit on Apple platforms and uses
         // swift-crypto's own implementation on Linux. One call site, both platforms.
         // A range, not `from:`, so the server package can resolve a version its
@@ -36,6 +38,8 @@ let package = Package(
         .package(url: "https://github.com/nalexn/ViewInspector.git", "0.10.0" ..< "0.10.4"),
     ],
     targets: [
+        .target(name: "WellSpentExtensions"),
+        .testTarget(name: "WellSpentExtensionsTests", dependencies: ["WellSpentExtensions"]),
         .target(
             name: "WellSpentCrypto",
             dependencies: [
@@ -86,7 +90,8 @@ let package = Package(
         .target(
             name: "WellSpentAppCore",
             dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto",
-                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore"]
+                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions",
+                           .product(name: "WarTableCore", package: "WarTable")]
         ),
         // The SwiftUI shell: views and the AppKit entry point. Deliberately thin,
         // because nothing in here can be unit tested without a UI harness.

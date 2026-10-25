@@ -16,6 +16,8 @@ WORKDIR /build
 COPY ./Package.swift ./Package.resolved ./
 COPY ./Server/Package.swift ./Server/Package.resolved ./Server/
 COPY ./Sources ./Sources
+COPY ./Extensions/WarTable/Package.swift ./Extensions/WarTable/Package.swift
+COPY ./Extensions/WarTable/Sources ./Extensions/WarTable/Sources
 
 WORKDIR /build/Server
 RUN swift package resolve

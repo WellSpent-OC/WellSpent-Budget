@@ -16,3 +16,8 @@ Server/.build/
 
 # The Linux app as packaged by Linux/scripts/package.sh.
 Linux/dist/
+
+# Local Python connector caches and package output.
+__pycache__/
+*.pyc
+*.egg-info/
