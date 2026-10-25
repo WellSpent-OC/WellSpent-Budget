@@ -9,6 +9,8 @@
 #                are kept in. Staging has its own data folder, keyring entries,
 #                settings and server, and never connects to the live server.
 # OUT            where the result goes (default Linux/dist)
+# SWIFT_SCRATCH_PATH optional external SwiftPM cache for a read-only checkout
+# SWIFT_BUILD_JOBS   optional compiler job limit
 #
 # Staging is the default because a test build mistaken for live could reach real
 # budgets, and the reverse cannot. The same rule as the Mac's make-app.sh.
@@ -43,8 +45,11 @@ case "$WELLSPENT_ENV" in
         ;;
 esac
 
-swift build --package-path Linux -c release --static-swift-stdlib
-BIN="$(swift build --package-path Linux -c release --show-bin-path)"
+set -- --package-path Linux -c release --static-swift-stdlib
+if [ -n "${SWIFT_SCRATCH_PATH:-}" ]; then set -- "$@" --scratch-path "$SWIFT_SCRATCH_PATH"; fi
+if [ -n "${SWIFT_BUILD_JOBS:-}" ]; then set -- "$@" -j "$SWIFT_BUILD_JOBS"; fi
+swift build "$@"
+BIN="$(swift build "$@" --show-bin-path)"
 
 DEST="$OUT/$SLUG"
 rm -rf "$DEST"

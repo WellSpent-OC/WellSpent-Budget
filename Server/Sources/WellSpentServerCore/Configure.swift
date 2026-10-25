@@ -84,6 +84,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateSchema())
     app.migrations.add(AddGroupMaxLamport())
     app.migrations.add(AddReadableSync())
+    app.migrations.add(CreateWarTable())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
@@ -131,6 +132,7 @@ public func configure(_ app: Application) async throws {
     }
 
     try registerRoutes(app)
+    try registerWarTableRoutes(app)
 }
 
 /// The hourly work this file used to promise and nothing did.

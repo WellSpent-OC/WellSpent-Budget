@@ -20,10 +20,18 @@ struct RootView: View {
     @State var openedEntry: EntryEditor?
     /// The people on the group's page, while one shows.
     @State var openPage = OpenGroupPage()
+    @State var warTable: WarTableScreen
+    @State var activeExtension: ActiveExtension = .budgets
+    @State var isWarTableInstalled = false
+
+    private var isWarTableActive: Bool {
+        isWarTableInstalled || (warTable.snapshot?.installation.isEnabled ?? false)
+    }
 
     init(workspace: Workspace) {
         self.workspace = workspace
         _screen = State(wrappedValue: MainScreen(workspace: workspace))
+        _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
     }
 
     private var model: AppModel { workspace.model }
@@ -44,16 +52,41 @@ struct RootView: View {
             if workspace.environment == .staging {
                 StagingBanner()
             }
-            NavigationSplitView {
-                SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
-            } detail: {
-                if let invitation {
-                    InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
-                } else if let openGroup, let people {
-                    GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
-                                  invite: { sheet = .share(openGroup) })
-                } else {
-                    detail
+            HStack(spacing: 0) {
+                ActivityRailView(
+                    active: $activeExtension,
+                    isWarTableInstalled: isWarTableActive,
+                    openAccount: { showingAccount = true }
+                )
+                Divider()
+                switch activeExtension {
+                case .budgets:
+                    NavigationSplitView {
+                        SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
+                    } detail: {
+                        if let invitation {
+                            InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
+                        } else if let openGroup, let people {
+                            GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
+                                          invite: { sheet = .share(openGroup) })
+                        } else {
+                            detail
+                        }
+                    }
+                case .warTable:
+                    WarTableView(screen: warTable, openAccount: { showingAccount = true })
+                case .catalog:
+                    ExtensionsCatalogView(
+                        isWarTableEnabled: isWarTableActive,
+                        installWarTable: {
+                            isWarTableInstalled = true
+                            activeExtension = .warTable
+                            Task { await warTable.enable() }
+                        },
+                        openWarTable: {
+                            activeExtension = .warTable
+                        }
+                    )
                 }
             }
         }
@@ -142,6 +175,7 @@ struct RootView: View {
     /// A delete or a leave asks first. People… opens the group's page, and
     /// anything else opens its sheet.
     private func perform(_ action: MainScreen.Action) {
+        activeExtension = .budgets
         if action.asksFirst {
             screen.ask(action)
         } else if case .people(let group) = action {

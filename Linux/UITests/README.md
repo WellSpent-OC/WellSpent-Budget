@@ -16,17 +16,28 @@ Linux/UITests/run-in-docker.sh                     # all of them
 Linux/UITests/run-in-docker.sh test_money_wheel    # one file
 ```
 
-The first run builds the test image and the app, which takes a few minutes. Later
+The first run builds the test image, matching server and app, which takes a few minutes. Later
 runs take seconds to build. When a step fails, it says what it waited for, and a
 picture of the screen is kept in `.build/uitest/out/`.
 
-The tests that make an account read its emailed code from staging's test mailbox.
-They need `WELLSPENT_UI_TEST_MAILBOX_TOKEN` in your environment, and without it
-they're skipped. It's passed into the container from your environment, never on a
-command line.
+The Docker runner starts the server from this checkout on loopback with a fresh
+SQLite database and synthetic test mailbox. `Server/scripts/with-ui-fixture.py`
+passes its temporary URL and mailbox token directly to the tests and removes
+the server and private state afterward. No deployed service or secret is needed.
+Skipped tests fail the run.
 
-In CI, the "Linux UI test" job runs the same tests with `run.sh`, in the same Swift
-image with the same packages (`packages.txt`).
+WarTable's review fixture uses the actual connector to edit a permitted file,
+run a networkless syntax check, and create a local Git commit. It publishes no
+branch or pull request and starts no model provider. The test container relaxes
+Docker's seccomp and AppArmor profiles so bubblewrap can create its nested
+namespace; the worker's enforced sandbox remains required. These options apply
+only to this disposable test container, whose source mount is read-only.
+
+In CI, the "Linux UI test" job runs the same tests through the disposable-server
+helper and `run.sh`, in the same Swift image with the same packages
+(`packages.txt`). For a manually prepared local server, `run.sh` accepts
+`WELLSPENT_UI_SERVER_URL` and `WELLSPENT_UI_TEST_MAILBOX_TOKEN`; do not point the
+WarTable integration fixture at a deployed service.
 
 ## How a test finds things
 

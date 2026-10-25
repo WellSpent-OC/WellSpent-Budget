@@ -10,10 +10,8 @@
 #                   wsr-*)
 # UITEST_SCRATCH    where the build and the failure pictures are kept between
 #                   runs (default .build/uitest in the repository)
-# WELLSPENT_UI_TEST_MAILBOX_TOKEN  passed in from your environment when set,
-#                   never on the command line, for the tests that make an
-#                   account
-# WELLSPENT_UI_NO_SKIPS  passed in when set: "true" fails the run on a skip
+# The runner starts a disposable server from this checkout with its own
+# synthetic mailbox. It does not need a deployed server or mailbox secret.
 # UITEST_COVERAGE   when set, builds the app with coverage (in its own build
 #                   folder) and ends with how much of the Linux app's own code
 #                   the tests ran (coverage.sh), even when a test failed
@@ -32,27 +30,31 @@ mkdir -p "$SCRATCH/home" "$SCRATCH/out"
 # your user the one capability a failed step needs to read a stuck app's
 # stacks (ptrace), then runs as you.
 docker run --rm --name "$NAME" \
+    --cpus=8 --memory=8g \
     -v "$ROOT:/src:ro" -v "$SCRATCH:/b" \
     -e HOME=/b/home -e WELLSPENT_UI_OUT=/b/out \
     --cap-add=SYS_PTRACE \
-    ${WELLSPENT_UI_TEST_MAILBOX_TOKEN:+-e WELLSPENT_UI_TEST_MAILBOX_TOKEN} \
-    ${WELLSPENT_UI_NO_SKIPS:+-e WELLSPENT_UI_NO_SKIPS} \
+    --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
     ${UITEST_COVERAGE:+-e UITEST_COVERAGE} \
     "$IMAGE" setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
         --inh-caps=+sys_ptrace --ambient-caps=+sys_ptrace sh -c '
+        swift build --package-path /src/Server --scratch-path /b/server -j 8 || exit
         if [ -z "${UITEST_COVERAGE:-}" ]; then
-            swift build --package-path /src/Linux --scratch-path /b/linux &&
-            WELLSPENT_APP=/b/linux/debug/WellSpentLinux /src/Linux/UITests/run.sh "$@"
+            swift build --package-path /src/Linux --scratch-path /b/linux -j 8 &&
+            WELLSPENT_APP=/b/linux/debug/WellSpentLinux \
+                python3 /src/Server/scripts/with-ui-fixture.py --server /b/server/debug/WellSpentServer \
+                -- /src/Linux/UITests/run.sh "$@"
             exit
         fi
         # Each copy of the app writes its counts as it quits, one file each.
         rm -rf /b/coverage && mkdir -p /b/coverage
         # SwiftPM counts Swift only, so the C helpers get the C compiler flags too.
-        swift build --package-path /src/Linux --scratch-path /b/linux-coverage --enable-code-coverage \
+        swift build --package-path /src/Linux --scratch-path /b/linux-coverage --enable-code-coverage -j 8 \
             -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping || exit
         status=0
         LLVM_PROFILE_FILE=/b/coverage/%p.profraw WELLSPENT_APP=/b/linux-coverage/debug/WellSpentLinux \
-            /src/Linux/UITests/run.sh "$@" || status=$?
+            python3 /src/Server/scripts/with-ui-fixture.py --server /b/server/debug/WellSpentServer \
+            -- /src/Linux/UITests/run.sh "$@" || status=$?
         /src/Linux/UITests/coverage.sh /b/linux-coverage/debug/WellSpentLinux /b/coverage
         exit $status
     ' sh "$@"

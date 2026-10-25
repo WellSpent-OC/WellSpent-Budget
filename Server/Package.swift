@@ -12,6 +12,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(name: "WellSpentBudget", path: ".."),
+        .package(name: "WarTable", path: "../Extensions/WarTable"),
         .package(url: "https://github.com/vapor/vapor.git", from: "4.122.0"),
         .package(url: "https://github.com/vapor/fluent.git", from: "4.13.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.13.0"),
@@ -21,6 +22,7 @@ let package = Package(
         .target(
             name: "WellSpentServerCore",
             dependencies: [
+                .product(name: "WarTableCore", package: "WarTable"),
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
                 // The record types, so the server can read and check what it stores.
                 .product(name: "WellSpentModel", package: "WellSpentBudget"),
@@ -51,6 +53,7 @@ let package = Package(
         .testTarget(
             name: "WellSpentServerTests",
             dependencies: [
+                .product(name: "WarTableCore", package: "WarTable"),
                 "WellSpentServerCore",
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
                 .product(name: "VaporTesting", package: "vapor"),

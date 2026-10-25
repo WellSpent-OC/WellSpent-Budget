@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "wellspent.wartable",
+  "name": "WarTable",
+  "version": "0.1.0",
+  "license": "MIT",
+  "platforms": ["linux"],
+  "ownedData": ["conversations", "messages", "agents", "context", "tasks", "reviews"],
+  "actions": [
+    {"name": "read_conversations", "access": "read"},
+    {"name": "send_message", "access": "write"},
+    {"name": "enroll_agent", "access": "sensitive"},
+    {"name": "approve_context", "access": "sensitive"},
+    {"name": "authorize_task", "access": "sensitive"},
+    {"name": "review_change", "access": "sensitive"}
+  ]
+}

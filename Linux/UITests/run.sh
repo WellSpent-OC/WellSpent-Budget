@@ -10,6 +10,8 @@
 #                                  screen (default /tmp/wellspent-ui)
 # WELLSPENT_UI_TEST_MAILBOX_TOKEN  staging's test mailbox, for the tests that
 #                                  make an account; without it they're skipped
+# WELLSPENT_UI_SERVER_URL         optional disposable development server;
+#                                  uses the app's existing Server field
 # WELLSPENT_UI_NO_SKIPS            "true" fails the run if any test is skipped
 #
 # Test names are unittest's, such as test_group_page or
@@ -29,9 +31,8 @@ if [ -f "$ENV_FILE" ] && [ "$(tr -d '[:space:]' < "$ENV_FILE")" = live ]; then
     exit 1
 fi
 
-# The GTK lifecycle bridge has a small fixture of its own. It checks real
-# focus changes, sheets and clock callbacks without signing in or opening
-# the app, on its own virtual display.
+# Native GTK fixtures check focus, clock callbacks, WarTable keyboard guards
+# and transcript scrolling without accounts, on their own virtual display.
 "$HERE/../NativeTests/run.sh"
 
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &

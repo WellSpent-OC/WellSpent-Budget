@@ -88,6 +88,34 @@ private func refusal(_ reason: String) -> String { #"{"error":true,"reason":"\#(
 
 @Suite("Readable HTTP transport", .serialized)
 struct ReadableHTTPTransportTests {
+    @Test func extensionsStayOnTheirOwnAuthenticatedServerRoute() async throws {
+        ReadableStub.reset { request in
+            #expect(request.url?.path == "/extensions/wartable/v1/groups/group-1/messages")
+            #expect(request.url?.query == "after=8")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token")
+            return (200, "{}")
+        }
+        let request = try ExtensionRequest(extensionID: "wellspent.wartable", method: .post,
+                                           path: ["groups", "group-1", "messages"], query: ["after": "8"], body: Data("{}".utf8))
+        _ = try await transport(base: "https://example.test/api/v2", session: signedIn).extensionRequest(request)
+        #expect(ReadableStub.requests.count == 1)
+    }
+
+    @Test func extensionCannotEscapeItsNamespaceOrSendWithoutASession() async throws {
+        for component in ["..", ".", "api/v2", "%2f", "https:", "a?b", "", "a\\b"] {
+            #expect(throws: ExtensionRequest.Invalid.invalidPath) {
+                try ExtensionRequest(extensionID: "wellspent.wartable", method: .get, path: [component])
+            }
+        }
+        #expect(throws: ExtensionRequest.Invalid.unknownExtension) {
+            try ExtensionRequest(extensionID: "unregistered", method: .get, path: [])
+        }
+        ReadableStub.reset { _ in Issue.record("A signed-out extension sent a request"); return (200, "{}") }
+        let request = try ExtensionRequest(extensionID: "wellspent.wartable", method: .get, path: [])
+        await #expect(throws: ReadableTransportError.self) { try await transport().extensionRequest(request) }
+        #expect(ReadableStub.requests.isEmpty)
+    }
     /// Calls go under /api/v2 whatever base URL the app holds, and the
     /// health check stays at the server's root.
     @Test func callsGoUnderAPIV2AndHealthStaysAtTheRoot() async throws {

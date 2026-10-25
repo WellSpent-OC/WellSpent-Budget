@@ -14,6 +14,7 @@ let package = Package(
         // Named, because a local package is otherwise named after its folder,
         // which differs from checkout to checkout.
         .package(name: "WellSpentBudget", path: ".."),
+        .package(name: "WarTable", path: "../Extensions/WarTable"),
         .package(url: "https://github.com/stackotter/swift-cross-ui.git", exact: "0.10.0"),
     ],
     targets: [
@@ -26,6 +27,7 @@ let package = Package(
             name: "WellSpentLinux",
             dependencies: [
                 "WellSpentLinuxNative",
+                .product(name: "WarTableCore", package: "WarTable"),
                 .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
                 // GTK directly: the "default backend" product also pulls in a
                 // Windows-only piece that does not build on Linux.

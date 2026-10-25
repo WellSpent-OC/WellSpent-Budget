@@ -95,7 +95,28 @@ public final class SyncCoordinator {
     /// Moves on whenever a session starts or ends. A sync round that sees it
     /// change while it waits on the network stops, and leaves the new
     /// session's state alone.
-    private var sessionGeneration = 0
+    private var sessionGeneration = 0 {
+        didSet { extensionSessionObservers.forEach { $0() } }
+    }
+    @ObservationIgnored var extensionSessionObservers: [@MainActor () -> Void] = []
+    /// Extensions use this generation to discard work from an earlier sign-in.
+    public var extensionSessionGeneration: Int { sessionGeneration }
+    @ObservationIgnored private var extensionServer: String?
+    var warTableDraftDirectory: URL? {
+        guard let root = accounts?.root, let account, let extensionServer else { return nil }
+        return root.appendingPathComponent("accounts/\(AccountDirectory.namespace(for: account))/extensions/wartable/\(AccountDirectory.namespace(for: extensionServer))", isDirectory: true)
+    }
+
+    public func extensionRequest(_ request: ExtensionRequest) async throws -> Data {
+        guard account != nil, let client = transport as? any ExtensionTransport else {
+            throw ReadableTransportError.sessionEnded("Sign in to use extensions.")
+        }
+        let generation = sessionGeneration
+        let data = try await client.extensionRequest(request)
+        guard generation == sessionGeneration, account != nil else { throw CancellationError() }
+        try Task.checkCancellation()
+        return data
+    }
     /// Who is signed in, so the app can say "You" on their own transactions.
     public private(set) var userID: UserID?
 
@@ -386,6 +407,7 @@ public final class SyncCoordinator {
         sessionGeneration += 1
         try? keyStore.delete(.session)
         account = nil
+        extensionServer = nil
         transport = nil
         userID = nil
         clientID = nil
@@ -415,6 +437,7 @@ public final class SyncCoordinator {
         self.clientID = clientID
         self.emailVerified = emailVerified
         self.account = email
+        extensionServer = Self.normalized(server)
         signInPrompt = nil
         accounts?.lastAccount = email
         if target.database !== store.database { switchTo(target) }

@@ -157,6 +157,13 @@ class Element:
         """A click, or Space on it: its first action."""
         actions = self.node.get_action_iface()
         if not actions or actions.get_n_actions() == 0:
+            if self.role == "check box":
+                checked = self._has(Atspi.StateType.CHECKED)
+                self.app.focus(self)
+                self.app.key("space")
+                self.app.until(lambda: self._has(Atspi.StateType.CHECKED) != checked,
+                               "Space to change the checkbox")
+                return
             raise ScreenError(f"{self!r} can't be pressed")
         self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
         self.app.settle()
@@ -488,6 +495,26 @@ class App:
         """The text box under a label such as "Name"."""
         return self.near("text", "", to=self.find("label", label, within))
 
+    def focus(self, element):
+        """Moves the real keyboard focus with Tab. GTK 4 does not implement
+        AT-SPI grab_focus for every text control; no coordinates are used."""
+        role, words = element.role, element.words
+        self.bring_to_front()
+        for _ in range(60):
+            if self.find(role, words).focused:
+                return
+            self.key("Tab")
+        raise self.failure("Tab did not reach the requested field")
+
+    def picker(self, label, within=None):
+        """A named combo box. GTK may use its selected option as its name,
+        with the stable field label in its accessible description."""
+        def named():
+            choices = [e for e in (within or self.front).all("combo box") if e.showing
+                       and (e.words == label or e.value == label)]
+            return choices[0] if len(choices) == 1 else None
+        return self.until(named, f"the {label} picker")
+
     # The sidebar
 
     def group(self, name):
@@ -784,6 +811,8 @@ class App:
         self.password = secrets.token_urlsafe(18)
         self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
+        if SERVER_OVERRIDE:
+            self.field("Server", sheet).type(STAGING)
         self.button("Create an account", within=sheet).press()
         self.wait_shows("Confirm password")
         sheet = self.front
@@ -810,6 +839,8 @@ class App:
         self.email, self.password = _ACCOUNTS[name.lower()]
         self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
+        if SERVER_OVERRIDE:
+            self.field("Server", sheet).type(STAGING)
         self.field("Email", sheet).type(self.email)
         self.field("Password", sheet).type(self.password)
         self.button("Sign in", within=sheet).press()
@@ -1016,7 +1047,8 @@ def _accessibility_bus():
 # code staging emails them from its test mailbox. The mailbox's token comes
 # from the environment only, never a file in the repository or a command line.
 
-STAGING = "https://staging.wellspent.space"
+SERVER_OVERRIDE = os.environ.get("WELLSPENT_UI_SERVER_URL") or None
+STAGING = SERVER_OVERRIDE or "https://staging.wellspent.space"
 MAILBOX_TOKEN = os.environ.get("WELLSPENT_UI_TEST_MAILBOX_TOKEN") or None
 RUN = f"{datetime.datetime.now():%m%d%H%M%S}{secrets.token_hex(2)}"
 # Every account in a run has an address of its own.

@@ -37,6 +37,8 @@ public actor RateLimiter {
         public static let signInPerAccount = Limit(attempts: 20, window: 15 * 60)
         /// Typing an emailed code. Each code also allows only five tries.
         public static let codeCheck = Limit(attempts: 10, window: 15 * 60)
+        public static let warTableEnrollment = Limit(attempts: 30, window: 60 * 60)
+        public static let warTableMutation = Limit(attempts: 120, window: 60)
     }
 
     private var hits: [String: [Date]] = [:]
