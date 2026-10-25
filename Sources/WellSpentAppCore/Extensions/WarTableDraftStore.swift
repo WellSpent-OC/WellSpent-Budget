@@ -148,21 +148,30 @@ public final class WarTableDraftStore {
 
     private func openDirectory(create: Bool) throws -> Int32? {
         guard directory.isFileURL, directory.path.hasPrefix("/") else { throw Failure.invalidDirectory }
-        let components = directory.pathComponents.filter { $0 != "/" }
-        guard !components.isEmpty, !components.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else { throw Failure.invalidDirectory }
-        var folder = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard folder >= 0 else { throw Failure.ioFailure }
-        do {
-            for component in components {
-                var child = openat(folder, component, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-                if child < 0 && errno == ENOENT {
-                    if !create { close(folder); return nil }
-                    guard mkdirat(folder, component, mode_t(0o700)) == 0 || errno == EEXIST else { throw Failure.ioFailure }
-                    child = openat(folder, component, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        let path = directory.path
+        if create {
+            var isDir: ObjCBool = false
+            if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
+                do {
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                            attributes: [.posixPermissions: NSNumber(value: 0o700)])
+                } catch {
+                    throw Failure.ioFailure
                 }
-                guard child >= 0 else { throw Failure.invalidDirectory }
-                close(folder); folder = child
             }
+        }
+        let folder = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard folder >= 0 else {
+            if errno == ENOENT {
+                if !create { return nil }
+                throw Failure.ioFailure
+            }
+            if errno == ELOOP || errno == ENOTDIR {
+                throw Failure.invalidDirectory
+            }
+            throw Failure.invalidDirectory
+        }
+        do {
             var info = stat()
             guard fstat(folder, &info) == 0, info.st_uid == geteuid() else { throw Failure.invalidDirectory }
             if create {
