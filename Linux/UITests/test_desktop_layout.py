@@ -52,6 +52,11 @@ class DesktopLayout(unittest.TestCase):
         app.button("Cancel", within=review).press()
         app.wait_for_window(1, "the import review to close")
 
+    def test_extensions_flag_hides_activity_rail(self):
+        app = launch_fresh(self, extensions=False)
+        self.assertFalse(app.shows("Extensions", role="push button"))
+        self.assertFalse(app.shows("WarTable", role="push button"))
+
 
 if __name__ == "__main__":
     unittest.main()

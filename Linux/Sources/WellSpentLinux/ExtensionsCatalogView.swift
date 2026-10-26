@@ -5,10 +5,13 @@ import WellSpentAppCore
 /// Displays the catalog of WellSpent extensions on Linux.
 struct ExtensionsCatalogView: View {
     var isWarTableEnabled: Bool
+    var isWarTableAvailable: Bool = true
     var installWarTable: @MainActor @Sendable () -> Void
     var openWarTable: @MainActor @Sendable () -> Void
 
-    private let items = ExtensionCatalog.items(platform: "linux")
+    private var items: [ExtensionCatalogItem] {
+        ExtensionCatalog.items(platform: "linux", isWarTableEnabled: isWarTableAvailable)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

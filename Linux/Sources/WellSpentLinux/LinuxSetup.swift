@@ -52,6 +52,8 @@ enum LinuxSetup {
         let process = ProcessInfo.processInfo.environment
         return try Workspace.launch(accounts: accounts, defaults: defaults, environment: environment,
                                     undoWindow: Workspace.undoWindow(for: environment, in: process),
-                                    pinnedDay: Workspace.pinnedDay(for: environment, in: process))
+                                    pinnedDay: Workspace.pinnedDay(for: environment, in: process),
+                                    features: FeatureFlags.resolve(for: environment, defaults: defaults,
+                                                                   processEnvironment: process))
     }
 }

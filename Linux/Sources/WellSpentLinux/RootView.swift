@@ -25,7 +25,8 @@ struct RootView: View {
     @State var isWarTableInstalled = false
 
     private var isWarTableActive: Bool {
-        isWarTableInstalled || (warTable.snapshot?.installation.isEnabled ?? false)
+        workspace.features.isWarTableEnabled &&
+            (isWarTableInstalled || (warTable.snapshot?.installation.isEnabled ?? false))
     }
 
     init(workspace: Workspace) {
@@ -52,42 +53,40 @@ struct RootView: View {
             if workspace.environment == .staging {
                 StagingBanner()
             }
-            HStack(spacing: 0) {
-                ActivityRailView(
-                    active: $activeExtension,
-                    isWarTableInstalled: isWarTableActive,
-                    openAccount: { showingAccount = true }
-                )
-                Divider()
-                switch activeExtension {
-                case .budgets:
-                    NavigationSplitView {
-                        SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
-                    } detail: {
-                        if let invitation {
-                            InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
-                        } else if let openGroup, let people {
-                            GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
-                                          invite: { sheet = .share(openGroup) })
-                        } else {
-                            detail
-                        }
-                    }
-                case .warTable:
-                    WarTableView(screen: warTable, openAccount: { showingAccount = true })
-                case .catalog:
-                    ExtensionsCatalogView(
-                        isWarTableEnabled: isWarTableActive,
-                        installWarTable: {
-                            isWarTableInstalled = true
-                            activeExtension = .warTable
-                            Task { await warTable.enable() }
-                        },
-                        openWarTable: {
-                            activeExtension = .warTable
-                        }
+            if workspace.features.areExtensionsEnabled {
+                HStack(spacing: 0) {
+                    ActivityRailView(
+                        active: $activeExtension,
+                        isWarTableInstalled: isWarTableActive,
+                        openAccount: { showingAccount = true }
                     )
+                    Divider()
+                    switch activeExtension {
+                    case .budgets:
+                        budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
+                    case .warTable:
+                        if workspace.features.isWarTableEnabled {
+                            WarTableView(screen: warTable, openAccount: { showingAccount = true })
+                        } else {
+                            budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
+                        }
+                    case .catalog:
+                        ExtensionsCatalogView(
+                            isWarTableEnabled: isWarTableActive,
+                            isWarTableAvailable: workspace.features.isWarTableEnabled,
+                            installWarTable: {
+                                isWarTableInstalled = true
+                                activeExtension = .warTable
+                                Task { await warTable.enable() }
+                            },
+                            openWarTable: {
+                                activeExtension = .warTable
+                            }
+                        )
+                    }
                 }
+            } else {
+                budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
             }
         }
         .sheet(isPresented: $showingAccount) {
@@ -132,6 +131,21 @@ struct RootView: View {
         .alert(Binding(get: { problem.map { "Something went wrong: \($0)" } },
                        set: { if $0 == nil { model.dismissError() } })) {
             Button("OK") { model.dismissError() }
+        }
+    }
+
+    private func budgetSplitView(invitation: JoinScreen?, openGroup: BudgetGroup?, people: MembersScreen?) -> some View {
+        NavigationSplitView {
+            SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
+        } detail: {
+            if let invitation {
+                InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
+            } else if let openGroup, let people {
+                GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
+                              invite: { sheet = .share(openGroup) })
+            } else {
+                detail
+            }
         }
     }
 
