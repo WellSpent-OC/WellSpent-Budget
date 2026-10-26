@@ -211,14 +211,14 @@ class App:
 
     # Starting and stopping
 
-    def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None, region="en_US.UTF-8"):
+    def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None,
+               extensions=None, wartable=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
         invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
         `undo_seconds` sets how long Undo stays. `autosync_seconds` sets the
-        periodic sync interval. `region` is the computer's,
-        as a desktop names it: the scenarios' United States unless a test
-        says otherwise, such as "de_DE.UTF-8"."""
+        periodic sync interval. `extensions` and `wartable` control feature flags.
+        `region` is the computer's, as a desktop names it."""
         if self.process is not None:
             raise RuntimeError("already running")
         env = dict(os.environ)
@@ -228,13 +228,20 @@ class App:
         env.pop("WELLSPENT_DAY_OF_MONTH", None)
         env.pop("WELLSPENT_UNDO_SECONDS", None)
         env.pop("WELLSPENT_AUTOSYNC_SECONDS", None)
+        env.pop("WELLSPENT_FEATURE_EXTENSIONS", None)
+        env.pop("WELLSPENT_FEATURE_WARTABLE", None)
         if day is not None:
             env["WELLSPENT_DAY_OF_MONTH"] = str(day)
         if undo_seconds is not None:
             env["WELLSPENT_UNDO_SECONDS"] = str(undo_seconds)
         if autosync_seconds is not None:
             env["WELLSPENT_AUTOSYNC_SECONDS"] = str(autosync_seconds)
-        self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds, region=region)
+        if extensions is not None:
+            env["WELLSPENT_FEATURE_EXTENSIONS"] = "1" if extensions else "0"
+        if wartable is not None:
+            env["WELLSPENT_FEATURE_WARTABLE"] = "1" if wartable else "0"
+        self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds,
+                                  extensions=extensions, wartable=wartable, region=region)
         self.env = env
         self.log = open(os.path.join(self.home, "app.log"), "ab")
         # Each copy runs on a session bus and keyring of its own, as each

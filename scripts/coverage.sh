@@ -36,10 +36,13 @@ if [ ! -f "${PROFDATA}" ] || [ ! -f "${TEST_BIN}" ]; then
   exit 1
 fi
 
-IGNORE='(\.build|Tests)/'
-xcrun llvm-cov report "${TEST_BIN}" -instr-profile "${PROFDATA}" -ignore-filename-regex="${IGNORE}"
+LLVM_COV="llvm-cov"
+command -v llvm-cov > /dev/null || LLVM_COV="xcrun llvm-cov"
 
-TOTAL="$(xcrun llvm-cov export "${TEST_BIN}" -instr-profile "${PROFDATA}" \
+IGNORE='(\.build|Tests)/'
+${LLVM_COV} report "${TEST_BIN}" -instr-profile "${PROFDATA}" -ignore-filename-regex="${IGNORE}"
+
+TOTAL="$(${LLVM_COV} export "${TEST_BIN}" -instr-profile "${PROFDATA}" \
           -ignore-filename-regex="${IGNORE}" --summary-only \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"][0]["totals"]["lines"]["percent"])')"
 
