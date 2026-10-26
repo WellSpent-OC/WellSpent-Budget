@@ -60,6 +60,19 @@ struct RootView: View {
             if workspace.environment == .staging {
                 StagingBanner()
             }
+            HStack(alignment: .center) {
+                Text("WELLSPENT")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Palette.goldLight)
+                Spacer()
+                Text("\(screen.openGroup?.name ?? "Demo Team") · Linux desktop")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.sidebarHeader)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .background(Palette.titlebarBackground)
+
             if workspace.features.areExtensionsEnabled {
                 HStack(spacing: 0) {
                     ActivityRailView(
@@ -68,7 +81,7 @@ struct RootView: View {
                         isWarTableInstalled: isWarTableActive,
                         openAccount: { showingAccount = true }
                     )
-                    Divider()
+                    Palette.railBorder.frame(width: 1)
                     switch activeExtension {
                     case .budgets:
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
@@ -326,14 +339,14 @@ struct SidebarView: View {
                 }
                 .padding(8)
             }
-            Divider()
+            Palette.sidebarDivider.frame(height: 1)
             addMenu
-            Divider()
+            Palette.sidebarDivider.frame(height: 1)
             footer
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(minWidth: 240, maxHeight: .infinity)
-        .background(Palette.surface)
+        .frame(minWidth: 180, maxWidth: 220, maxHeight: .infinity)
+        .background(Palette.sidebarDark)
     }
 
     @ViewBuilder
@@ -370,12 +383,12 @@ struct SidebarView: View {
             Button(action: { screen.openPage(of: section.id) }) {
                 HStack {
                     Text(section.title.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Palette.muted)
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundColor(Palette.sidebarHeader)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
                         .background(RoundedRectangle(cornerRadius: 4)
-                            .fill(section.isPageOpen ? Color(PaletteValues.accent).opacity(0.15) : Color.clear))
+                            .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
                     Spacer()
                 }
                 .frame(maxWidth: Self.widestLine)
@@ -479,11 +492,22 @@ struct BudgetDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(screen.title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Palette.ink)
+            HStack(alignment: .center) {
+                HStack(spacing: 4) {
+                    Text(screen.title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Palette.ink)
+                    Text("Budget")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Palette.ink)
+                }
                 Spacer()
+                Text("Current month")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Palette.ink)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 5).stroke(Palette.line, style: StrokeStyle(width: 1)))
                 if screen.mayAdd {
                     Button(Words.importStatement) {
                         Task {
