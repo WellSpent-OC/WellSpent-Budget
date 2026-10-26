@@ -168,7 +168,8 @@ ui-test: ui-test-project
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
-		-resultBundlePath .build/xcode/ui-test.xcresult $$only
+		-resultBundlePath .build/xcode/ui-test.xcresult $$only || true; \
+	DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh .build/xcode/ui-test.xcresult
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
 # Xcode and xcodegen. iOS/project.yml is the source, and the .xcodeproj it
@@ -261,7 +262,9 @@ iphone-ui-test: iphone-ui-test-build
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \
 		trap - EXIT INT TERM; \
-		if [ $$status -ne 0 ]; then echo "iPhone UI tests failed in $$look mode"; exit $$status; fi; \
+		if ! DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh .build/xcode-iphone/ui-test-$$look.xcresult; then \
+			echo "iPhone UI tests failed in $$look mode (xcodebuild status $$status)"; exit 1; \
+		fi; \
 	done
 
 # The TestFlight build: WellSpent.app sandboxed and signed for the Mac App Store,
