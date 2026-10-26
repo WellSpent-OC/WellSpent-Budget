@@ -76,6 +76,29 @@ coverage:
 # Everything CI runs, in the same order, so a failure here is a failure there.
 gates: build test server-test integration-test coverage
 
+# The WarTable extension's connector tests, as CI runs them. They need Linux's
+# bubblewrap sandbox: one of them fails without it instead of skipping, so a
+# machine without bwrap says so and moves on.
+wartable-test:
+	@if command -v bwrap >/dev/null 2>&1; then \
+		cd Extensions/WarTable/adapter && python3 -m unittest discover -s tests; \
+	else \
+		echo "wartable-test: no bwrap here (Linux only), skipped; CI runs it"; \
+	fi
+
+# Everything the push rule asks for, on the exact head, before any push: every
+# check but the UI tests. `make hooks` makes git run it before each push. On a
+# Mac with Xcode, the Mac UI test target is compiled too. The iPhone's builds
+# are the iPhone seat's own targets, iphone-build and iphone-ui-test-build.
+prepush: gates wartable-test
+	@if [ -d /Applications/Xcode.app ]; then $(MAKE) ui-test-build; else echo "prepush: no Xcode here, the Mac UI test build is skipped"; fi
+	@echo "prepush: every check passed on $$(git rev-parse --short HEAD)"
+
+# Points git at scripts/hooks, so `make prepush` runs before every push.
+hooks:
+	git config core.hooksPath scripts/hooks
+	@echo "hooks: git now runs scripts/hooks/pre-push before each push (SKIP_PREPUSH=1 skips it once)"
+
 clean:
 	swift package clean
 	cd Server && swift package clean
