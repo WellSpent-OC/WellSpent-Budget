@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 /// Protocol for querying PriceLabs listing and revenue data.
 public protocol PriceLabsService: Sendable {
     func fetchListings() async throws -> [RunwayProperty]
@@ -57,7 +61,7 @@ public struct PriceLabsMockData {
     ]
 
     public static func sampleBookings(for listingID: String) -> [RunwayBooking] {
-        let calendar = Calendar.current
+        let calendar = AppLocale.calendar
         let today = calendar.startOfDay(for: Date())
 
         if listingID == ebbTideID {
@@ -216,7 +220,7 @@ public final class PriceLabsMockService: PriceLabsService {
 }
 
 /// Production read-only client for PriceLabs Customer API.
-public final class PriceLabsClient: PriceLabsService {
+public actor PriceLabsClient: PriceLabsService {
     public let apiKey: String
     private let baseURL = URL(string: "https://api.pricelabs.co/v1")!
     private let session: URLSession
