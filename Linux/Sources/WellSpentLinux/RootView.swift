@@ -21,18 +21,25 @@ struct RootView: View {
     /// The people on the group's page, while one shows.
     @State var openPage = OpenGroupPage()
     @State var warTable: WarTableScreen
+    @State var runway: RunwayScreen
     @State var activeExtension: ActiveExtension = .budgets
     @State var isWarTableInstalled = false
+    @State var isRunwayInstalled = false
 
     private var isWarTableActive: Bool {
         workspace.features.isWarTableEnabled &&
             (isWarTableInstalled || (warTable.snapshot?.installation.isEnabled ?? false))
     }
 
+    private var isRunwayActive: Bool {
+        workspace.features.isRunwayEnabled && isRunwayInstalled
+    }
+
     init(workspace: Workspace) {
         self.workspace = workspace
         _screen = State(wrappedValue: MainScreen(workspace: workspace))
         _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
+        _runway = State(wrappedValue: RunwayScreen(isConfigured: true))
     }
 
     private var model: AppModel { workspace.model }
@@ -57,6 +64,7 @@ struct RootView: View {
                 HStack(spacing: 0) {
                     ActivityRailView(
                         active: $activeExtension,
+                        isRunwayInstalled: isRunwayActive,
                         isWarTableInstalled: isWarTableActive,
                         openAccount: { showingAccount = true }
                     )
@@ -64,6 +72,12 @@ struct RootView: View {
                     switch activeExtension {
                     case .budgets:
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
+                    case .runway:
+                        if workspace.features.isRunwayEnabled {
+                            RunwayView(screen: runway, openAccount: { showingAccount = true })
+                        } else {
+                            budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
+                        }
                     case .warTable:
                         if workspace.features.isWarTableEnabled {
                             WarTableView(screen: warTable, openAccount: { showingAccount = true })
@@ -74,6 +88,8 @@ struct RootView: View {
                         ExtensionsCatalogView(
                             isWarTableEnabled: isWarTableActive,
                             isWarTableAvailable: workspace.features.isWarTableEnabled,
+                            isRunwayEnabled: isRunwayActive,
+                            isRunwayAvailable: workspace.features.isRunwayEnabled,
                             installWarTable: {
                                 isWarTableInstalled = true
                                 activeExtension = .warTable
@@ -81,6 +97,13 @@ struct RootView: View {
                             },
                             openWarTable: {
                                 activeExtension = .warTable
+                            },
+                            installRunway: {
+                                isRunwayInstalled = true
+                                activeExtension = .runway
+                            },
+                            openRunway: {
+                                activeExtension = .runway
                             }
                         )
                     }

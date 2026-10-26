@@ -6,11 +6,19 @@ import WellSpentAppCore
 struct ExtensionsCatalogView: View {
     var isWarTableEnabled: Bool
     var isWarTableAvailable: Bool = true
+    var isRunwayEnabled: Bool = false
+    var isRunwayAvailable: Bool = true
     var installWarTable: @MainActor @Sendable () -> Void
     var openWarTable: @MainActor @Sendable () -> Void
+    var installRunway: @MainActor @Sendable () -> Void = {}
+    var openRunway: @MainActor @Sendable () -> Void = {}
 
     private var items: [ExtensionCatalogItem] {
-        ExtensionCatalog.items(platform: "linux", isWarTableEnabled: isWarTableAvailable)
+        ExtensionCatalog.items(
+            platform: "linux",
+            isWarTableEnabled: isWarTableAvailable,
+            isRunwayEnabled: isRunwayAvailable
+        )
     }
 
     var body: some View {
@@ -78,6 +86,10 @@ struct ExtensionsCatalogView: View {
                 Text("Turned on")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(Palette.accent)
+            } else if item.id == "wellspent.properties" && isRunwayEnabled {
+                Text("Turned on")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Palette.accent)
             } else {
                 Text("Available")
                     .font(.system(size: 11, weight: .semibold))
@@ -104,6 +116,16 @@ struct ExtensionsCatalogView: View {
             } else {
                 Button("Install WarTable") {
                     installWarTable()
+                }
+            }
+        } else if item.id == "wellspent.properties" {
+            if isRunwayEnabled {
+                Button("Open Runway") {
+                    openRunway()
+                }
+            } else {
+                Button("Install Runway") {
+                    installRunway()
                 }
             }
         } else if item.status == .comingSoon {
