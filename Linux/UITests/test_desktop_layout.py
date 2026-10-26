@@ -56,6 +56,7 @@ class DesktopLayout(unittest.TestCase):
         app = launch_fresh(self, extensions=False)
         self.assertFalse(app.shows("Extensions", role="push button"))
         self.assertFalse(app.shows("WarTable", role="push button"))
+        self.assertFalse(app.shows("Runway", role="push button"))
 
 
 if __name__ == "__main__":

@@ -38,7 +38,11 @@ public struct ExtensionCatalogItem: Identifiable, Sendable, Equatable {
 
 /// Catalog of extensions available or planned for WellSpent.
 public enum ExtensionCatalog {
-    public static func items(platform: String = "linux", isWarTableEnabled: Bool = true) -> [ExtensionCatalogItem] {
+    public static func items(
+        platform: String = "linux",
+        isWarTableEnabled: Bool = true,
+        isRunwayEnabled: Bool = true
+    ) -> [ExtensionCatalogItem] {
         var items: [ExtensionCatalogItem] = []
         if isWarTableEnabled {
             items.append(
@@ -53,16 +57,18 @@ public enum ExtensionCatalog {
                 )
             )
         }
-        items.append(contentsOf: [
+        items.append(
             ExtensionCatalogItem(
                 id: "wellspent.properties",
-                name: "Properties",
-                summary: "For rental houses: cash flow, bookings, break-even, and turnover needs.",
+                name: "Runway (Properties)",
+                summary: "For rental houses: cash flow, PriceLabs bookings, break-even runway, and proforma scenarios.",
                 pricing: "$5 a house a month, billed yearly",
-                status: .comingSoon,
+                status: isRunwayEnabled ? .available : .comingSoon,
                 platforms: ["macos", "ios", "linux"],
                 isInstalled: false
-            ),
+            )
+        )
+        items.append(contentsOf: [
             ExtensionCatalogItem(
                 id: "wellspent.settle",
                 name: "Settle",
@@ -104,7 +110,11 @@ public enum ExtensionCatalog {
     }
 
     public static func items(platform: String = "linux", features: FeatureFlags) -> [ExtensionCatalogItem] {
-        items(platform: platform, isWarTableEnabled: features.isWarTableEnabled)
+        items(
+            platform: platform,
+            isWarTableEnabled: features.isWarTableEnabled,
+            isRunwayEnabled: features.isRunwayEnabled
+        )
     }
 }
 

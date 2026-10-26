@@ -5,6 +5,7 @@ import WellSpentAppCore
 /// High-level navigation modes on the Activity Rail.
 enum ActiveExtension: String, CaseIterable, Sendable {
     case budgets
+    case runway
     case warTable
     case catalog
 }
@@ -12,9 +13,10 @@ enum ActiveExtension: String, CaseIterable, Sendable {
 /// The far-left Activity Rail, inspired by VS Code.
 /// Budgets is the default built-in extension.
 /// Extensions is the second built-in extension for catalog discovery.
-/// Add-ons like WarTable appear on the rail once installed.
+/// Add-ons like Runway and WarTable appear on the rail once installed.
 struct ActivityRailView: View {
     @Binding var active: ActiveExtension
+    var isRunwayInstalled: Bool = false
     var isWarTableInstalled: Bool
     var openAccount: @MainActor @Sendable () -> Void
 
@@ -22,6 +24,12 @@ struct ActivityRailView: View {
         VStack(spacing: 12) {
             railButton(title: "Budget", symbol: "◧", isSelected: active == .budgets) {
                 active = .budgets
+            }
+
+            if isRunwayInstalled {
+                railButton(title: "Runway", symbol: "🏡", isSelected: active == .runway) {
+                    active = .runway
+                }
             }
 
             if isWarTableInstalled {
