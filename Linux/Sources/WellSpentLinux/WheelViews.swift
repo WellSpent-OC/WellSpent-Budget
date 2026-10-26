@@ -128,24 +128,19 @@ struct BudgetRow: View {
                 .fill(fill.isOver ? Palette.warning : Palette.budgetColors[abs(summary.budget.colorIndex % Palette.budgetColors.count)])
                 .frame(width: 7, height: 7)
             Text(summary.budget.name)
-                .font(.system(size: 13))
-                .foregroundColor(Color(PaletteValues.rowWords))
+                .font(.system(size: 13, weight: isPicked ? .bold : .regular))
+                .foregroundColor(isPicked ? Palette.sidebarPillText : Palette.sidebarText)
             Spacer()
             Text(fill.amount)
-                .font(.money(11, weight: fill.isOver ? .semibold : .regular))
-                .foregroundColor(Color(PaletteValues.rowAmount))
+                .font(.money(11, weight: isPicked ? .bold : (fill.isOver ? .semibold : .regular)))
+                .foregroundColor(isPicked ? Palette.sidebarPillText : Palette.sidebarHeader)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(RowFillBackground(fill: fill))
-        .overlay {
-            if isPicked {
-                // Inside the row's edge, so the fill stays the row's size.
-                RoundedRectangle(cornerRadius: 4)
-                    .inset(by: 1)
-                    .stroke(Color(PaletteValues.rowOutline), style: StrokeStyle(width: 2))
-            }
-        }
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isPicked ? Palette.sidebarPill : Color.clear)
+        )
     }
 }
 
@@ -188,13 +183,17 @@ struct BudgetWheelPanel: View {
                     .font(.system(size: 13))
                     .foregroundColor(Color(PaletteValues.muted))
             }
-            HStack(spacing: 20) {
+            HStack(spacing: 24) {
                 MoneyWheelView(wheel: screen.wheel, geometry: .budgetDesktop)
-                VStack(alignment: .leading, spacing: 10) {
-                    FiguresList(figures: screen.wheel.figures)
+                VStack(alignment: .leading, spacing: 8) {
                     if let pace = screen.pace {
                         PaceLine(pace: pace, editBudget: editBudget)
                     }
+                    Text("The budget extension runs smoothly inside its own pane, isolated from add ons.")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize(horizontal: false, vertical: true)
+                    FiguresList(figures: screen.wheel.figures)
                 }
                 // A floor as well as a ceiling, as on the Mac. The pace words
                 // take their full height, so squeezed to a sliver they would
