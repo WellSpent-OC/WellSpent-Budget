@@ -9,6 +9,7 @@ import WellSpentImport
 import WellSpentKeyStore
 import WellSpentModel
 import WellSpentStore
+import WellSpentSync
 
 /// UI tests for the Mac app.
 ///
@@ -324,6 +325,51 @@ struct ViewTests {
         let (model, _, _) = try modelWithData()
         let view = wellSpentRootView(workspace: Workspace(model: model, sync: idleSync(model)))
         #expect(throws: Never.self) { _ = try view.inspect() }
+    }
+
+    // MARK: - Email invitations
+
+    @Test func incomingInvitationRowDisplaysGroupAndInviter() throws {
+        let (model, _, _) = try modelWithData()
+        let sync = idleSync(model)
+        let main = MainScreen(workspace: Workspace(model: model, sync: sync))
+        let invitation = IncomingInvitation(
+            id: UUID(),
+            groupID: GroupID(),
+            groupName: "Household",
+            inviterName: "Robin",
+            inviteeName: "Leslie",
+            level: .write,
+            history: .all,
+            expiresAt: Date().addingTimeInterval(86400)
+        )
+        let row = IncomingInvitationRow(screen: main, invitation: invitation)
+        let texts = try row.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(texts.contains("Household"))
+        #expect(texts.contains(EmailInvitationWords.invited))
+        #expect(texts.contains(EmailInvitationWords.from("Robin")))
+    }
+
+    @Test func outgoingInvitationRowDisplaysRecipientAndStatus() throws {
+        let (model, group, _) = try modelWithData()
+        let sync = idleSync(model)
+        let members = MembersScreen(actions: sync, group: group.id, groupName: "Household")
+        let invite = ServerInvite(
+            id: UUID(),
+            level: .write,
+            history: .all,
+            expiresAt: Date().addingTimeInterval(86400),
+            inviterID: UserID(),
+            email: "leslie@example.com",
+            inviteeName: "Leslie",
+            inviterName: "Robin",
+            status: "pending"
+        )
+        let row = OutgoingInvitationRow(screen: members, invitation: invite)
+        let texts = try row.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(texts.contains("Leslie"))
+        #expect(texts.contains("leslie@example.com"))
+        #expect(texts.contains(EmailInvitationWords.status(invite)))
     }
 
     // MARK: - Palette
