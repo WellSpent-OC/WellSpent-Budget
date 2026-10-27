@@ -355,6 +355,7 @@ struct SidebarView: View {
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 0) {
+                addMenu
                 Divider()
                 footer
             }
@@ -428,6 +429,29 @@ struct SidebarView: View {
                 Button(item.title, role: item.isDestructive ? .destructive : nil) { perform(item.action) }
             }
         }
+    }
+
+    /// Like Add List in Reminders: the common action is the button, the rarer
+    /// ones are in its menu.
+    private var addMenu: some View {
+        HStack {
+            Menu {
+                ForEach(screen.addMenu) { item in
+                    Button(item.title) { perform(item.action) }
+                }
+            } label: {
+                Label(screen.addButton.title, systemImage: "plus.circle")
+                    .font(.system(size: 12))
+            } primaryAction: {
+                perform(screen.addButton.action)
+            }
+            .menuStyle(.borderlessButton)
+            .accessibilityIdentifier(AccessibilityID.sidebarAdd)
+            .fixedSize()
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
     }
 
     /// A delete or a leave asks first. People… opens the group's page, and
