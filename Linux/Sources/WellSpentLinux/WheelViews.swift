@@ -145,15 +145,16 @@ struct RowFillBackground: View {
     let isPicked: Bool
 
     var body: some View {
-        GeometryReader { proxy in
-            let fillWidth = max(0, min(proxy.size.width * min(max(fill.share, 0.0), 1.0), proxy.size.width))
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(trackColor)
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(fill.share > 0 ? progressColor : Color.clear)
-                    .frame(width: fillWidth, height: proxy.size.height)
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(trackColor)
+            if fill.share > 0 {
+                HStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(progressColor)
+                        .frame(width: max(164 * min(max(fill.share, 0.0), 1.0), 6))
+                    Spacer()
+                }
             }
         }
     }
