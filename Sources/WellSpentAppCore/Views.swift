@@ -85,6 +85,12 @@ struct RootView: View {
     @State private var showingFileImporter = false
     @State private var showingAccount = false
     @State private var editor: EditorSheet?
+    @State private var activeExtension: ActiveExtension = .budgets
+    @State private var isWarTableInstalled = false
+
+    private var isWarTableActive: Bool {
+        workspace.features.isWarTableEnabled && isWarTableInstalled
+    }
 
     init(workspace: Workspace) {
         _workspace = State(initialValue: workspace)
@@ -92,34 +98,41 @@ struct RootView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(screen: screen, editor: $editor, showingAccount: $showingAccount)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
-        } detail: {
-            if let invitation = screen.invitation {
-                InvitationPage(sync: sync, screen: invitation, main: screen, showingAccount: $showingAccount)
-                    // A page of its own for each link opened.
-                    .id(ObjectIdentifier(invitation))
-            } else if let group = screen.openGroup {
-                GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
-                          invite: { editor = .share(group) })
-                    // A page of its own for each group, and again after a
-                    // rename, so its words name the group as it is now.
-                    .id([group.id.uuid.uuidString, group.name])
-            } else {
-                switch screen.detail {
-                case .budget(let summary):
-                    BudgetDetailView(model: model, sync: sync, summary: summary,
-                                     showingAddTransaction: $showingAddTransaction,
-                                     showingFileImporter: $showingFileImporter,
-                                     showingAccount: $showingAccount,
-                                     editor: $editor, main: screen)
-                case .noBudgets:
-                    noBudgets
-                case .noneSelected:
-                    ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
-                                           systemImage: "tray",
-                                           description: Text(MainScreen.Words.noneSelectedText))
+        HStack(spacing: 0) {
+            ActivityRailView(
+                active: $activeExtension,
+                isWarTableInstalled: isWarTableActive,
+                openAccount: { showingAccount = true }
+            )
+            Divider()
+            switch activeExtension {
+            case .budgets, .runway:
+                budgetSplitView
+            case .catalog:
+                ExtensionsCatalogView(
+                    isWarTableInstalled: isWarTableActive,
+                    isWarTableAvailable: workspace.features.isWarTableEnabled,
+                    toggleWarTable: {
+                        isWarTableInstalled.toggle()
+                        if isWarTableInstalled {
+                            activeExtension = .warTable
+                        }
+                    },
+                    openWarTable: {
+                        activeExtension = .warTable
+                    }
+                )
+            case .warTable:
+                if workspace.features.isWarTableEnabled {
+                    WarTablePlaceholderView(
+                        openCatalog: { activeExtension = .catalog },
+                        turnOff: {
+                            isWarTableInstalled = false
+                            activeExtension = .budgets
+                        }
+                    )
+                } else {
+                    budgetSplitView
                 }
             }
         }
@@ -156,6 +169,41 @@ struct RootView: View {
             Button(MainScreen.Words.ok) { model.dismissError() }
         } message: {
             Text(model.errorMessage ?? "")
+        }
+    }
+
+    private var budgetSplitView: some View {
+        NavigationSplitView {
+            SidebarView(screen: screen, editor: $editor, showingAccount: $showingAccount)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
+        } detail: {
+            if let invitation = screen.invitation {
+                InvitationPage(sync: sync, screen: invitation, main: screen, showingAccount: $showingAccount)
+                    // A page of its own for each link opened.
+                    .id(ObjectIdentifier(invitation))
+            } else if let group = screen.openGroup {
+                GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
+                          invite: { editor = .share(group) },
+                          addBudget: { editor = .newBudget(in: group.id) })
+                    // A page of its own for each group, and again after a
+                    // rename, so its words name the group as it is now.
+                    .id([group.id.uuid.uuidString, group.name])
+            } else {
+                switch screen.detail {
+                case .budget(let summary):
+                    BudgetDetailView(model: model, sync: sync, summary: summary,
+                                     showingAddTransaction: $showingAddTransaction,
+                                     showingFileImporter: $showingFileImporter,
+                                     showingAccount: $showingAccount,
+                                     editor: $editor, main: screen)
+                case .noBudgets:
+                    noBudgets
+                case .noneSelected:
+                    ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
+                                           systemImage: "tray",
+                                           description: Text(MainScreen.Words.noneSelectedText))
+                }
+            }
         }
     }
 
@@ -266,13 +314,6 @@ struct SidebarView: View {
 
     var body: some View {
         List {
-            if !screen.incomingInvitations.isEmpty {
-                Section(EmailInvitationWords.incomingTitle) {
-                    ForEach(screen.incomingInvitations, id: \.id) { invitation in
-                        IncomingInvitationRow(screen: screen, invitation: invitation)
-                    }
-                }
-            }
             ForEach(screen.sections) { section in
                 Section {
                     if let note = section.note {
@@ -294,6 +335,24 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .top) {
+            if !screen.incomingInvitations.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(EmailInvitationWords.incomingTitle.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.7)
+                        .foregroundStyle(Color.secondary)
+                        .padding(.horizontal, 4)
+                        .padding(.top, 4)
+                    ForEach(screen.incomingInvitations, id: \.id) { invitation in
+                        IncomingInvitationRow(screen: screen, invitation: invitation)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 0) {
                 addMenu
@@ -313,47 +372,34 @@ struct SidebarView: View {
         }
     }
 
-    /// The group's name, highlighted while its page is open, and the arrow at
-    /// the end of the line. A click on the name, or anywhere on the line but
-    /// the arrow, opens the page. The arrow hides or shows the budgets. The
-    /// whole line carries the group's menu.
-    ///
-    /// The sidebar's list makes a group's line one element for VoiceOver and
-    /// the UI tests, joining the identifiers of everything in it. So only the
-    /// name has one, and the arrow sits at the end, where a click finds it.
+    /// The group's name, highlighted while its page is open.
+    /// Clicking the group name opens that group in the main view and
+    /// toggles whether its budgets are expanded or collapsed.
+    /// The group page can also open from the context menu (People…).
     private func header(_ section: MainScreen.Section) -> some View {
-        HStack(spacing: 2) {
-            Button {
-                screen.openPage(of: section.group.id)
-            } label: {
-                HStack(spacing: 0) {
-                    Text(section.title.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.7)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
-                                    in: RoundedRectangle(cornerRadius: 4))
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
+        Button {
+            screen.openPage(of: section.group.id)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                screen.toggle(section.group.id)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-            .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
-            } label: {
-                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 9, weight: .semibold))
+        } label: {
+            HStack(spacing: 0) {
+                Text(section.title.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(0.7)
                     .foregroundStyle(Palette.muted)
-                    .frame(width: 16, height: 16)
-                    .contentShape(Rectangle())
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
+                                in: RoundedRectangle(cornerRadius: 4))
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .help(section.toggleHelp)
-            .accessibilityLabel(section.toggleHelp)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+        .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
+        .help(section.toggleHelp)
         .contextMenu { menu(screen.groupMenu(section.group)) }
     }
 

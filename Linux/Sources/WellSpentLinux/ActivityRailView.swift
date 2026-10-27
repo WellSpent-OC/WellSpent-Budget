@@ -2,14 +2,6 @@ import Foundation
 import SwiftCrossUI
 import WellSpentAppCore
 
-/// High-level navigation modes on the Activity Rail.
-enum ActiveExtension: String, CaseIterable, Sendable {
-    case budgets
-    case runway
-    case warTable
-    case catalog
-}
-
 /// The far-left Activity Rail, inspired by VS Code.
 /// Budgets is the default built-in extension.
 /// Extensions is the second built-in extension for catalog discovery.

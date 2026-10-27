@@ -185,6 +185,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSRequiresAquaSystemAppearance</key><true/>
     <key>WellSpentEnvironment</key><string>$WELLSPENT_ENV</string>
 </dict>
 </plist>
