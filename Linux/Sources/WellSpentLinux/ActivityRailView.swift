@@ -10,6 +10,12 @@ struct ActivityRailView: View {
     @Binding var active: ActiveExtension
     var isRunwayInstalled: Bool = false
     var isWarTableInstalled: Bool
+    var showsSync: Bool = false
+    var syncTitle: String = "Sync"
+    var syncHelp: String = "Sync now"
+    var isSyncing: Bool = false
+    var isBusy: Bool = false
+    var syncNow: (@MainActor @Sendable () -> Void)? = nil
     var openAccount: @MainActor @Sendable () -> Void
 
     var body: some View {
@@ -35,6 +41,24 @@ struct ActivityRailView: View {
             }
 
             Spacer()
+
+            if showsSync, let syncNow {
+                Button(action: syncNow) {
+                    VStack(spacing: 2) {
+                        Text(isSyncing ? "⏳" : "🔄")
+                            .font(.system(size: 15))
+                            .foregroundColor(Palette.sidebarHeader)
+                        Text(syncTitle)
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(Palette.sidebarHeader)
+                    }
+                    .frame(width: 42, height: 40)
+                }
+                .help(syncHelp)
+                .accessibility(label: syncTitle)
+                .buttonStyle(.plain)
+                .disabled(isBusy)
+            }
 
             Button(action: openAccount) {
                 VStack(spacing: 2) {
