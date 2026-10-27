@@ -197,6 +197,7 @@ struct InvitationPage: View {
                 } else {
                     Text(screen.title)
                         .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Palette.ink)
                     if let problem = screen.linkProblem {
                         note(problem, warning: true)
                     }
@@ -205,7 +206,9 @@ struct InvitationPage: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .environment(\.colorScheme, .light)
         .background(Palette.surface)
+        .foregroundStyle(Palette.ink)
         .toolbar {
             ToolbarItemGroup {
                 if main.showsSync {
@@ -220,23 +223,26 @@ struct InvitationPage: View {
     /// Who invited them and to what, then what the server says it offers,
     /// once it has said.
     private func offer(_ invitation: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(invitation)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             if let line = screen.levelLine {
                 Text(marking(screen.levelTitle, in: line))
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Palette.ink)
             }
             if let explanation = screen.levelExplanation {
                 Text(explanation)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let history = screen.historyLine {
                 Text(history)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -248,7 +254,8 @@ struct InvitationPage: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Text(Words.name)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Palette.ink)
                 TextField(Words.name, text: $screen.myName, prompt: Text(Words.namePrompt))
                     .textFieldStyle(.roundedBorder)
                     .labelsHidden()
@@ -303,17 +310,20 @@ struct GroupPage: View {
     @Binding var showingAccount: Bool
     /// Opens the Share sheet for this group.
     let invite: () -> Void
+    /// Opens the New Budget sheet for this group.
+    let addBudget: () -> Void
     @State private var screen: MembersScreen
     private typealias Words = MembersScreen.Words
 
     /// `screen` opens the page on one made already, for tests.
     init(sync: SyncCoordinator, group: BudgetGroup, main: MainScreen, showingAccount: Binding<Bool>,
-         invite: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
+         invite: @escaping () -> Void = {}, addBudget: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
         self.sync = sync
         self.group = group
         self.main = main
         _showingAccount = showingAccount
         self.invite = invite
+        self.addBudget = addBudget
         _screen = State(initialValue: screen ?? MembersScreen(actions: sync, group: group.id, groupName: group.name))
     }
 
@@ -325,6 +335,7 @@ struct GroupPage: View {
                 HStack {
                     Text(removed)
                         .font(.system(size: 12))
+                        .foregroundStyle(Palette.ink)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -333,9 +344,10 @@ struct GroupPage: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(AccessibilityID.groupRemoved)
                 Divider()
+                    .overlay(Palette.line)
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 20) {
                     header
                     // Every budget in the group added up for the month, above
                     // its people. None for a group with no budgets.
@@ -350,6 +362,13 @@ struct GroupPage: View {
                     }
                     if screen.mayLeave {
                         Button(Words.leave) { main.askToLeave(group) }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Palette.warning)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Palette.surface, in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line, lineWidth: 1))
                             .disabled(screen.isWorking)
                             .accessibilityIdentifier(AccessibilityID.groupLeave)
                     }
@@ -358,9 +377,19 @@ struct GroupPage: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .environment(\.colorScheme, .light)
         .background(Palette.surface)
         .toolbar {
             ToolbarItemGroup {
+                if sync.mayManageBudgets(in: group.id) {
+                    Button {
+                        addBudget()
+                    } label: {
+                        Label(MainScreen.Words.addBudget, systemImage: "plus")
+                    }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .accessibilityIdentifier(AccessibilityID.groupAddBudget)
+                }
                 if main.showsSync {
                     SyncButton(sync: sync, showingAccount: $showingAccount)
                 }
@@ -386,41 +415,55 @@ struct GroupPage: View {
 
     /// The name, with Invite Someone… on the right, and the line under it.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(group.name)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(Palette.ink)
                 Spacer()
                 if screen.mayInvite {
                     Button(Words.invite) { invite() }
+                        .buttonStyle(.bordered)
+                        .tint(Palette.accent)
+                        .font(.system(size: 13, weight: .medium))
                         .accessibilityIdentifier(AccessibilityID.groupInvite)
                 }
             }
             Text(screen.summary)
-                .font(.system(size: 12))
+                .font(.system(size: 13))
                 .foregroundStyle(Palette.muted)
                 .accessibilityIdentifier(AccessibilityID.groupSummary)
         }
+        .padding(.bottom, 2)
     }
 
     private var people: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(Words.people.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.7)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
                 .foregroundStyle(Palette.muted)
             VStack(spacing: 0) {
                 ForEach(screen.rows) { row in
                     person(row)
-                    if row.id != screen.rows.last?.id { Divider() }
+                    if row.id != screen.rows.last?.id || !screen.pendingInvites.isEmpty {
+                        Divider()
+                            .overlay(Palette.line)
+                    }
                 }
-                ForEach(screen.pendingInvites, id: \.id) { invitation in
-                    Divider()
+                ForEach(Array(screen.pendingInvites.enumerated()), id: \.element.id) { index, invitation in
                     OutgoingInvitationRow(screen: screen, invitation: invitation)
+                    if index < screen.pendingInvites.count - 1 {
+                        Divider()
+                            .overlay(Palette.line)
+                    }
                 }
             }
-            .padding(.horizontal, 12)
-            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.line, lineWidth: 1))
+            .foregroundStyle(Palette.ink)
         }
     }
 
@@ -428,10 +471,11 @@ struct GroupPage: View {
     /// The picker and Remove… show only where this person may change them.
     /// Anyone else's level is a small label.
     private func person(_ row: MembersScreen.Row) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(row.label)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Palette.ink)
                 Text(Words.levelExplanation(row.level))
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.muted)
@@ -440,11 +484,12 @@ struct GroupPage: View {
             Spacer()
             if row.levelChoices.isEmpty {
                 Text(row.levelTitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Palette.muted.opacity(0.4)))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Palette.ink)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Palette.surface, in: Capsule())
+                    .overlay(Capsule().stroke(Palette.line, lineWidth: 1))
             } else {
                 Picker(Words.level, selection: Binding(get: { row.level }, set: { level in
                     Task { await screen.setLevel(level, for: row.id) }
@@ -457,11 +502,14 @@ struct GroupPage: View {
             }
             if row.mayRemove {
                 Button(Words.remove) { screen.askToRemove(row.id) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(Palette.warning)
                     .disabled(screen.isWorking)
                     .accessibilityIdentifier(AccessibilityID.groupRemove(row.name))
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
     }
 }
 
