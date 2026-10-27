@@ -95,3 +95,44 @@ void wellspent_wartable_transcript(void *widget, const char *conversation, const
                                   const char *last_message, int latest_request);
 /// Opens a valid HTTPS URL with installed Google Chrome. Never substitutes Chromium.
 int wellspent_wartable_open_url(const char *url);
+
+// MARK: - Native GTK 4 Shell (Phase 1)
+
+typedef void (*wellspent_gtk_action_cb)(void *context, const char *action_id);
+
+void wellspent_gtk_init_css(void);
+
+void *wellspent_gtk_create_shell_window(void *gtk_app,
+                                        const char *title,
+                                        const char *team_name,
+                                        wellspent_gtk_action_cb on_action,
+                                        void *context);
+
+void wellspent_gtk_sidebar_clear(void *shell_ptr);
+
+void wellspent_gtk_sidebar_add_group(void *shell_ptr,
+                                     const char *group_id,
+                                     const char *title,
+                                     int is_collapsed,
+                                     int is_first);
+
+void wellspent_gtk_sidebar_add_budget(void *shell_ptr,
+                                      const char *budget_id,
+                                      const char *name,
+                                      const char *amount_text,
+                                      double share,
+                                      int is_over,
+                                      int is_selected);
+
+void wellspent_gtk_sidebar_add_footer(void *shell_ptr, const char *status_text);
+
+void wellspent_gtk_update_detail(void *shell_ptr,
+                                 const char *budget_name,
+                                 const char *spent_text,
+                                 const char *left_text,
+                                 const char *pace_text,
+                                 double share,
+                                 int is_over);
+
+void wellspent_gtk_window_present(void *shell_ptr);
+

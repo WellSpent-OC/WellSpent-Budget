@@ -1,3 +1,4 @@
+import CGtk4
 import Foundation
 import GtkBackend
 import Observation
@@ -5,22 +6,77 @@ import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentLinuxNative
 
-/// The Linux app. It starts up exactly as the Mac app does, through
-/// `Workspace.launch`, with Linux's own folder, settings and keyring
-/// (`LinuxSetup`). The screens are drawn by SwiftCrossUI on GTK 4; what they
-/// hold, check and say is the shared code.
+/// The Linux desktop app launcher. Defaults to Straight Native GTK 4 (Phase 1).
+/// To run the legacy SwiftCrossUI simulator for comparison, launch with WELLSPENT_SXI=1.
 @main
-struct WellSpentLinuxApp: App {
+struct WellSpentLinuxApp {
+    @MainActor
+    static func main() {
+        if ProcessInfo.processInfo.environment["WELLSPENT_SXI"] == "1" {
+            WellSpentLinuxSxiApp.main()
+        } else {
+            runNative()
+        }
+    }
+
+    @MainActor
+    private static func runNative() {
+        let workspace: Workspace
+        do {
+            workspace = try LinuxSetup.launch()
+        } catch {
+            FileHandle.standardError.write(Data(
+                "\(LinuxSetup.environment.appName) could not open its database: \(error)\n".utf8))
+            exit(1)
+        }
+
+        workspace.autoSync.start()
+        Task { @MainActor in await workspace.autoSync.syncIfIdle() }
+
+        let appId = LinuxSetup.environment.linuxAppIdentifier
+        guard let app = gtk_application_new(appId, G_APPLICATION_DEFAULT_FLAGS) else {
+            FileHandle.standardError.write(Data("Could not create GtkApplication\n".utf8))
+            exit(1)
+        }
+
+        OpenedLinks.handOver(appIdentifier: appId) { link in
+            Task { await workspace.open(link) }
+        }
+        wellspent_quit_on_terminate()
+        LinuxLifecycle.watch(workspace)
+
+        let controller = NativeShellController(workspace: workspace)
+        let retainedController = Unmanaged.passRetained(controller)
+
+        g_signal_connect_data(
+            app,
+            "activate",
+            unsafeBitCast({ (app: UnsafeMutableRawPointer?, data: UnsafeMutableRawPointer?) in
+                guard let app, let data else { return }
+                let ctrl = Unmanaged<NativeShellController>.fromOpaque(data).takeUnretainedValue()
+                MainActor.assumeIsolated {
+                    ctrl.attach(to: app)
+                }
+            } as @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void, to: GCallback.self),
+            retainedController.toOpaque(),
+            nil,
+            GConnectFlags(0)
+        )
+
+        let gApp = UnsafeMutableRawPointer(app).bindMemory(to: GApplication.self, capacity: 1)
+        let status = g_application_run(gApp, Int32(CommandLine.argc), CommandLine.unsafeArgv)
+        retainedController.release()
+        g_object_unref(app)
+        exit(status)
+    }
+}
+
+/// Fallback SwiftCrossUI application.
+struct WellSpentLinuxSxiApp: App {
     typealias Backend = GtkBackend
 
     @State var workspace: Workspace
 
-    /// GTK under this build's own app ID. Without one, every SwiftCrossUI app
-    /// shares a placeholder ID, and opening live while staging was open only
-    /// brought staging to the front. SwiftCrossUI asks for it once, just
-    /// before GTK starts: a launch given a link while a copy is open hands it
-    /// over there (`OpenedLinks`). A click while the app is open starts such a
-    /// launch, and the open copy opens the link's page.
     var backend: GtkBackend {
         let backend = GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
         OpenedLinks.handOver(appIdentifier: LinuxSetup.environment.linuxAppIdentifier) { [workspace] link in
@@ -36,18 +92,13 @@ struct WellSpentLinuxApp: App {
         do {
             workspace = try LinuxSetup.launch()
         } catch {
-            // No window can show it yet: the database is what the window draws.
             FileHandle.standardError.write(Data(
                 "\(LinuxSetup.environment.appName) could not open its database: \(error)\n".utf8))
             exit(1)
         }
         _workspace = State(wrappedValue: workspace)
         workspace.autoSync.start()
-        // The launch sync also works when the desktop starts us in the
-        // background. LinuxLifecycle handles later returns to the window.
         Task { @MainActor in await workspace.autoSync.syncIfIdle() }
-        // A click on an invite link that started the app: its page is up as
-        // the window opens.
         if let link = OpenedLinks.launchLink {
             Task { @MainActor in await workspace.open(link) }
         }
