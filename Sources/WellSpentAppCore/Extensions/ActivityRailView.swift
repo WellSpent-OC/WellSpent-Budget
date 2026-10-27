@@ -51,6 +51,7 @@ public struct ActivityRailView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
             .help("Account and sync")
             .accessibilityLabel("Account")
         }
@@ -85,6 +86,9 @@ public struct ActivityRailView: View {
             )
         }
         .buttonStyle(.plain)
+        // Rail buttons change views, they do not take typed input, so the
+        // keyboard focus ring (a blue square on macOS) has nothing to say here.
+        .focusEffectDisabled()
         .help(title)
         .accessibilityLabel(title)
     }
