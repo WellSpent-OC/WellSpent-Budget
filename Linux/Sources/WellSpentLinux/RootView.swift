@@ -380,38 +380,39 @@ struct SidebarView: View {
         }
     }
 
-    /// A group's name, marked while its page is open, then its menu and the
-    /// arrow. The name and the line up to the menu are one plain button that
-    /// opens the page, by a click or by the keyboard. The menu and the arrow
-    /// sit beside that button, not inside it, so each keeps its own click.
+    /// A group's name, marked while its page is open, then its menu.
+    @ViewBuilder
     private func groupRow(_ section: MainScreen.Section) -> some View {
-        HStack {
-            Button(action: { screen.openPage(of: section.id) }) {
-                HStack {
-                    Text(section.title.uppercased())
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(Palette.sidebarHeader)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4)
-                            .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
-                    Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            if section.id != screen.sections.first?.id {
+                Palette.sidebarDivider
+                    .frame(height: 1)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 6)
+            }
+            HStack {
+                Button(action: { screen.openPage(of: section.id) }) {
+                    HStack {
+                        Text(section.title.uppercased())
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(Palette.sidebarHeader)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 4)
+                                .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
+                        Spacer()
+                    }
+                    .frame(maxWidth: Self.widestLine)
                 }
-                .frame(maxWidth: Self.widestLine)
+                // Before the style, which wraps the button in a widget of its own.
+                .accessibility(selected: section.isPageOpen)
+                .buttonStyle(.plain)
+                // GTK has no right-click menu here, so each group has a button
+                // that opens the menu the Mac shows on a right-click.
+                Menu("⋯") {
+                    menuItems(screen.groupMenu(section.group))
+                }
             }
-            // Before the style, which wraps the button in a widget of its own.
-            .accessibility(selected: section.isPageOpen)
-            .buttonStyle(.plain)
-            // GTK has no right-click menu here, so each group has a button
-            // that opens the menu the Mac shows on a right-click.
-            Menu("⋯") {
-                menuItems(screen.groupMenu(section.group))
-            }
-            // The arrow at the end of the line hides or shows the budgets,
-            // as on the Mac, which names it by its tooltip too.
-            Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
-                .accessibility(label: section.toggleHelp)
-                .help(section.toggleHelp)
         }
     }
 
