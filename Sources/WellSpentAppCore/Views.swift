@@ -2,6 +2,9 @@
 // the same shared logic with its own screens.
 #if canImport(SwiftUI)
 import SwiftUI
+#if canImport(Combine)
+import Combine
+#endif
 #if os(iOS)
 import UIKit
 #endif
@@ -170,6 +173,20 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
+        #if canImport(Combine) && canImport(AppKit)
+        .onReceive(NotificationCenter.default.publisher(for: .wellSpentNewBudget)) { _ in
+            editor = .newBudget(in: screen.openGroup?.id)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .wellSpentNewGroup)) { _ in
+            editor = .newGroup
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .wellSpentJoinGroup)) { _ in
+            editor = .join
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .wellSpentAddTransaction)) { _ in
+            showingAddTransaction = true
+        }
+        #endif
     }
 
     private var budgetSplitView: some View {
@@ -432,9 +449,9 @@ struct SidebarView: View {
     }
 
     /// Like Add List in Reminders: the common action is the button, the rarer
-    /// ones are in its menu.
+    /// ones are in its menu. Offers Add Budget and New Group side by side.
     private var addMenu: some View {
-        HStack {
+        HStack(spacing: 8) {
             Menu {
                 ForEach(screen.addMenu) { item in
                     Button(item.title) { perform(item.action) }
@@ -448,7 +465,21 @@ struct SidebarView: View {
             .menuStyle(.borderlessButton)
             .accessibilityIdentifier(AccessibilityID.sidebarAdd)
             .fixedSize()
+
             Spacer()
+
+            Menu {
+                Button(MainScreen.Words.newGroup) { perform(.newGroup) }
+                Button(MainScreen.Words.join) { perform(.join) }
+            } label: {
+                Label(MainScreen.Words.newGroup.replacingOccurrences(of: "…", with: ""), systemImage: "folder.badge.plus")
+                    .font(.system(size: 12))
+            } primaryAction: {
+                perform(.newGroup)
+            }
+            .menuStyle(.borderlessButton)
+            .accessibilityIdentifier(AccessibilityID.sidebarAddGroup)
+            .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
