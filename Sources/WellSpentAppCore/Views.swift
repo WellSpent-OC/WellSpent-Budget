@@ -102,41 +102,45 @@ struct RootView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ActivityRailView(
-                active: $activeExtension,
-                isWarTableInstalled: isWarTableActive,
-                openAccount: { showingAccount = true }
-            )
-            Divider()
-            switch activeExtension {
-            case .budgets, .runway:
-                budgetSplitView
-            case .catalog:
-                ExtensionsCatalogView(
+            if workspace.features.areExtensionsEnabled {
+                ActivityRailView(
+                    active: $activeExtension,
                     isWarTableInstalled: isWarTableActive,
-                    isWarTableAvailable: workspace.features.isWarTableEnabled,
-                    toggleWarTable: {
-                        isWarTableInstalled.toggle()
-                        if isWarTableInstalled {
+                    openAccount: { showingAccount = true }
+                )
+                Divider()
+                switch activeExtension {
+                case .budgets, .runway:
+                    budgetSplitView
+                case .catalog:
+                    ExtensionsCatalogView(
+                        isWarTableInstalled: isWarTableActive,
+                        isWarTableAvailable: workspace.features.isWarTableEnabled,
+                        toggleWarTable: {
+                            isWarTableInstalled.toggle()
+                            if isWarTableInstalled {
+                                activeExtension = .warTable
+                            }
+                        },
+                        openWarTable: {
                             activeExtension = .warTable
                         }
-                    },
-                    openWarTable: {
-                        activeExtension = .warTable
-                    }
-                )
-            case .warTable:
-                if workspace.features.isWarTableEnabled {
-                    WarTablePlaceholderView(
-                        openCatalog: { activeExtension = .catalog },
-                        turnOff: {
-                            isWarTableInstalled = false
-                            activeExtension = .budgets
-                        }
                     )
-                } else {
-                    budgetSplitView
+                case .warTable:
+                    if workspace.features.isWarTableEnabled {
+                        WarTablePlaceholderView(
+                            openCatalog: { activeExtension = .catalog },
+                            turnOff: {
+                                isWarTableInstalled = false
+                                activeExtension = .budgets
+                            }
+                        )
+                    } else {
+                        budgetSplitView
+                    }
                 }
+            } else {
+                budgetSplitView
             }
         }
         .stagingBanner(workspace.environment)
