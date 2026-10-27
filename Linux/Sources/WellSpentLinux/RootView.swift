@@ -79,6 +79,12 @@ struct RootView: View {
                         active: $activeExtension,
                         isRunwayInstalled: isRunwayActive,
                         isWarTableInstalled: isWarTableActive,
+                        showsSync: screen.showsSync,
+                        syncTitle: screen.syncTitle,
+                        syncHelp: screen.syncHelp,
+                        isSyncing: screen.syncShowsProgress,
+                        isBusy: screen.isBusy,
+                        syncNow: { Task { await screen.syncNow() } },
                         openAccount: { showingAccount = true }
                     )
                     Palette.railBorder.frame(width: 1)
@@ -444,26 +450,12 @@ struct SidebarView: View {
         .padding(8)
     }
 
-    /// Whether budgets go through the server or stay on this computer, and
-    /// the way in or the sync button.
+    /// Whether budgets go through the server or stay on this computer.
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(screen.footer)
                 .font(.system(size: 11))
                 .foregroundColor(Palette.muted)
-            HStack {
-                Button(screen.accountTitle) { showingAccount = true }
-                    .help(screen.accountHelp)
-                    .disabled(screen.isBusy)
-                if screen.showsSync {
-                    if screen.syncShowsProgress {
-                        ProgressView().frame(width: 16, height: 16)
-                    }
-                    Button(screen.syncTitle) { Task { await screen.syncNow() } }
-                        .help(screen.syncHelp)
-                        .disabled(screen.isBusy)
-                }
-            }
             if let failure = screen.syncFailure {
                 Text(failure)
                     .font(.system(size: 11))
