@@ -17,7 +17,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from wellspent_ui import (MAILBOX_TOKEN, RUN, STAGING, emailed_code, launch_fresh, needs_accounts, unique)
+from wellspent_ui import (MAILBOX_TOKEN, RUN, SERVER_OVERRIDE, STAGING, emailed_code, launch_fresh, needs_accounts,
+                          unique)
 
 KEPT_HERE = "Kept on this computer only"
 SYNCED = "Syncs through WellSpent's server"
@@ -78,7 +79,12 @@ class Accounts(unittest.TestCase):
         """Sign in, or Account when signed in: the account sheet."""
         button = "Account" if app.shows("Account", within=app.main, role="push button") else "Sign in"
         app.button(button, within=app.main).press()
-        return app.wait_for_window(2, "the account sheet")
+        sheet = app.wait_for_window(2, "the account sheet")
+        # A disposable server for this run, as the shared sign_up does: the
+        # sign-in step takes its address, and every step after goes there.
+        if SERVER_OVERRIDE and app.shows("Server", within=sheet):
+            app.field("Server", sheet).type(STAGING)
+        return sheet
 
     def create(self, app, address, password, confirmation=None):
         """Sign in, Create an account, the three fields, Create account."""
