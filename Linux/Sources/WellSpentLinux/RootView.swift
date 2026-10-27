@@ -79,6 +79,12 @@ struct RootView: View {
                         active: $activeExtension,
                         isRunwayInstalled: isRunwayActive,
                         isWarTableInstalled: isWarTableActive,
+                        showsSync: screen.showsSync,
+                        syncTitle: screen.syncTitle,
+                        syncHelp: screen.syncHelp,
+                        isSyncing: screen.syncShowsProgress,
+                        isBusy: screen.isBusy,
+                        syncNow: { Task { await screen.syncNow() } },
                         openAccount: { showingAccount = true }
                     )
                     Palette.railBorder.frame(width: 1)
@@ -326,6 +332,7 @@ struct SidebarView: View {
         // outline and the group's mark.
         _ = screen.selectedBudget
         _ = screen.openGroup
+        _ = screen.sections
         return VStack(spacing: 0) {
             // The rows at the top and the footer at the bottom, as on the Mac.
             ScrollView {
@@ -374,38 +381,39 @@ struct SidebarView: View {
         }
     }
 
-    /// A group's name, marked while its page is open, then its menu and the
-    /// arrow. The name and the line up to the menu are one plain button that
-    /// opens the page, by a click or by the keyboard. The menu and the arrow
-    /// sit beside that button, not inside it, so each keeps its own click.
+    /// A group's name, marked while its page is open, then its menu.
+    @ViewBuilder
     private func groupRow(_ section: MainScreen.Section) -> some View {
-        HStack {
-            Button(action: { screen.openPage(of: section.id) }) {
-                HStack {
-                    Text(section.title.uppercased())
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(Palette.sidebarHeader)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(RoundedRectangle(cornerRadius: 4)
-                            .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
-                    Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            if section.id != screen.sections.first?.id {
+                Palette.sidebarDivider
+                    .frame(height: 1)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 6)
+            }
+            HStack {
+                Button(action: { screen.toggle(section.id) }) {
+                    HStack {
+                        Text(section.title.uppercased())
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(Palette.sidebarHeader)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 4)
+                                .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
+                        Spacer()
+                    }
+                    .frame(maxWidth: Self.widestLine)
                 }
-                .frame(maxWidth: Self.widestLine)
-            }
-            // Before the style, which wraps the button in a widget of its own.
-            .accessibility(selected: section.isPageOpen)
-            .buttonStyle(.plain)
-            // GTK has no right-click menu here, so each group has a button
-            // that opens the menu the Mac shows on a right-click.
-            Menu("⋯") {
-                menuItems(screen.groupMenu(section.group))
-            }
-            // The arrow at the end of the line hides or shows the budgets,
-            // as on the Mac, which names it by its tooltip too.
-            Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
                 .accessibility(label: section.toggleHelp)
                 .help(section.toggleHelp)
+                .buttonStyle(.plain)
+                // GTK has no right-click menu here, so each group has a button
+                // that opens the menu the Mac shows on a right-click.
+                Menu("⋯") {
+                    menuItems(screen.groupMenu(section.group))
+                }
+            }
         }
     }
 
@@ -444,26 +452,12 @@ struct SidebarView: View {
         .padding(8)
     }
 
-    /// Whether budgets go through the server or stay on this computer, and
-    /// the way in or the sync button.
+    /// Whether budgets go through the server or stay on this computer.
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(screen.footer)
                 .font(.system(size: 11))
                 .foregroundColor(Palette.muted)
-            HStack {
-                Button(screen.accountTitle) { showingAccount = true }
-                    .help(screen.accountHelp)
-                    .disabled(screen.isBusy)
-                if screen.showsSync {
-                    if screen.syncShowsProgress {
-                        ProgressView().frame(width: 16, height: 16)
-                    }
-                    Button(screen.syncTitle) { Task { await screen.syncNow() } }
-                        .help(screen.syncHelp)
-                        .disabled(screen.isBusy)
-                }
-            }
             if let failure = screen.syncFailure {
                 Text(failure)
                     .font(.system(size: 11))
