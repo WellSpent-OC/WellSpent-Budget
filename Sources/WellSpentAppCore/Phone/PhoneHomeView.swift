@@ -11,14 +11,20 @@ struct PhoneHomeView: View {
     let screen: MainScreen
     let perform: (MainScreen.Action) -> Void
     @Binding var showingAccount: Bool
+    @Binding var showingExtensionsCatalog: Bool
 
     var body: some View {
         List {
             if !screen.incomingInvitations.isEmpty {
-                Section(EmailInvitationWords.incomingTitle) {
+                Section {
                     ForEach(screen.incomingInvitations, id: \.id) { invitation in
                         IncomingInvitationRow(screen: screen, invitation: invitation)
                     }
+                } header: {
+                    Text(EmailInvitationWords.incomingTitle.uppercased())
+                        .font(.subheadline.weight(.semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(Palette.muted)
                 }
                 .listRowBackground(Palette.surface)
             }
@@ -84,28 +90,32 @@ struct PhoneHomeView: View {
         .navigationTitle(AppEnvironment.current.appName)
     }
 
-    /// A tap on a group's name opens its page, and the arrow beside it hides
+    /// A tap on a group's name opens its page, and the arrow in front of it hides
     /// or shows its budgets. A long press holds the group's menu, with hiding
     /// in it too. The name is not a Button, which takes a long press as a tap.
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 4) {
-            // In capitals, as on the Mac and in the design.
-            Text(section.title.uppercased())
-                .contentShape(Rectangle())
-                .onTapGesture { screen.openPage(of: section.group.id) }
-                .accessibilityAddTraits(.isButton)
-                .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
             } label: {
-                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
+                Image(systemName: section.isCollapsed ? "chevron.right" : "chevron.down")
                     .font(.caption2.weight(.semibold))
-                    .frame(width: 32, height: 28)
+                    .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(section.toggleHelp)
             .accessibilityIdentifier(AccessibilityID.sidebarGroupToggle(section.group.name))
+
+            // In capitals, as on the Mac and in the design.
+            Text(section.title.uppercased())
+                .font(.subheadline.weight(.semibold))
+                .tracking(0.6)
+                .contentShape(Rectangle())
+                .onTapGesture { screen.openPage(of: section.group.id) }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+
             Spacer()
         }
         .foregroundStyle(Palette.muted)
@@ -167,6 +177,15 @@ struct PhoneHomeView: View {
                 ForEach(addItems) { item in
                     Button(PhoneWording.button(item.title)) { perform(item.action) }
                 }
+                if screen.workspace.features.areExtensionsEnabled {
+                    Divider()
+                    Button {
+                        showingExtensionsCatalog = true
+                    } label: {
+                        Label("Add an extension…", systemImage: "plus.square.dashed")
+                    }
+                    .accessibilityIdentifier(AccessibilityID.sidebarAddExtension)
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.title3.weight(.semibold))
@@ -210,6 +229,7 @@ struct PhoneBudgetRow: View {
                 .fill(summary.isOverspent ? Palette.warning : Palette.budgetColor(summary.budget.colorIndex))
                 .frame(width: 8, height: 8)
             Text(summary.budget.name)
+                .font(.body.weight(.medium))
                 .lineLimit(1)
                 .foregroundStyle(Color(PaletteValues.rowWords))
             Spacer(minLength: 8)

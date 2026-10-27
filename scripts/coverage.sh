@@ -24,7 +24,7 @@ swift test --enable-code-coverage ${FLAGS:-} > /dev/null
 BIN_DIR="$(swift build --show-bin-path)"
 PROFDATA="${BIN_DIR}/codecov/default.profdata"
 # The test bundle is a directory on macOS and a plain binary on Linux.
-TEST_BIN="$(find "${BIN_DIR}" -name '*PackageTests.xctest' -maxdepth 1 | head -1)"
+TEST_BIN="$(find "${BIN_DIR}" \( -name '*PackageTests.xctest' -o -name 'WellSpentAppCoreTests.xctest' \) -maxdepth 1 | head -1)"
 if [ -d "${TEST_BIN}" ]; then
   TEST_BIN="${TEST_BIN}/Contents/MacOS/$(basename "${TEST_BIN}" .xctest)"
 fi
