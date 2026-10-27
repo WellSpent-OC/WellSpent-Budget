@@ -127,19 +127,14 @@ struct BudgetRow: View {
             Text(summary.budget.name)
                 .font(.system(size: 13, weight: isPicked ? .bold : .medium))
                 .foregroundColor(isPicked ? Palette.sidebarPillText : Palette.sidebarText)
-            Spacer()
-            // Kept off-screen with zero frame for AT-SPI test compatibility without visual clutter
-            Text(" " + fill.amount)
-                .font(.system(size: 0.1))
-                .foregroundColor(Color.clear)
-                .frame(width: 0, height: 0)
+            Spacer(minLength: 6)
+            Text(fill.amount)
+                .font(.money(11, weight: isPicked ? .bold : (fill.isOver ? .semibold : .regular)))
+                .foregroundColor(isPicked ? Palette.sidebarPillText : (fill.isOver ? Palette.warning : Palette.sidebarHeader))
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isPicked ? Palette.sidebarPill : Color.clear)
-        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(RowFillBackground(fill: fill, isPicked: isPicked))
     }
 }
 
@@ -147,16 +142,35 @@ struct BudgetRow: View {
 /// as the budget is used this period. Layout only.
 struct RowFillBackground: View {
     let fill: RowFill
+    let isPicked: Bool
 
     var body: some View {
         GeometryReader { proxy in
+            let fillWidth = max(0, min(proxy.size.width * min(max(fill.share, 0.0), 1.0), proxy.size.width))
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(PaletteValues.rowTrack))
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(fill.fillColor))
-                    .frame(width: proxy.size.width * fill.share)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(trackColor)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(fill.share > 0 ? progressColor : Color.clear)
+                    .frame(width: fillWidth, height: proxy.size.height)
             }
+        }
+    }
+
+    private var trackColor: Color {
+        if isPicked {
+            return Palette.sidebarPill
+        } else {
+            return Color(red: 0.14, green: 0.14, blue: 0.14)
+        }
+    }
+
+    private var progressColor: Color {
+        if isPicked {
+            return fill.isOver ? Color(red: 0.86, green: 0.49, blue: 0.34) : Palette.ringGreen
+        } else {
+            return fill.isOver ? Color(red: 0.54, green: 0.23, blue: 0.11) : Color(red: 0.24, green: 0.37, blue: 0.18)
         }
     }
 }

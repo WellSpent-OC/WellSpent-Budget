@@ -332,6 +332,7 @@ struct SidebarView: View {
         // outline and the group's mark.
         _ = screen.selectedBudget
         _ = screen.openGroup
+        _ = screen.sections
         return VStack(spacing: 0) {
             // The rows at the top and the footer at the bottom, as on the Mac.
             ScrollView {
@@ -391,7 +392,7 @@ struct SidebarView: View {
                     .padding(.horizontal, 6)
             }
             HStack {
-                Button(action: { screen.openPage(of: section.id) }) {
+                Button(action: { screen.toggle(section.id) }) {
                     HStack {
                         Text(section.title.uppercased())
                             .font(.system(size: 9.5, weight: .bold))
@@ -404,8 +405,8 @@ struct SidebarView: View {
                     }
                     .frame(maxWidth: Self.widestLine)
                 }
-                // Before the style, which wraps the button in a widget of its own.
-                .accessibility(selected: section.isPageOpen)
+                .accessibility(label: section.toggleHelp)
+                .help(section.toggleHelp)
                 .buttonStyle(.plain)
                 // GTK has no right-click menu here, so each group has a button
                 // that opens the menu the Mac shows on a right-click.
