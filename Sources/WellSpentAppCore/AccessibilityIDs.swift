@@ -34,6 +34,10 @@ public enum AccessibilityID {
     public static func sidebarBudget(_ name: String) -> String { "sidebar.budget.\(name)" }
     /// Add Budget, with New Group and Join a Group in its menu.
     public static let sidebarAdd = "sidebar.add"
+    /// New Group button in the Mac sidebar footer.
+    public static let sidebarAddGroup = "sidebar.addGroup"
+    /// Add an extension in the mobile menu.
+    public static let sidebarAddExtension = "sidebar.addExtension"
     /// Sign in, in the footer, shown only while signed out.
     public static let sidebarSignIn = "sidebar.signIn"
 
@@ -160,6 +164,8 @@ public enum AccessibilityID {
 
     // MARK: A group's page
 
+    /// The plus button at the top of a group's page to add a budget.
+    public static let groupAddBudget = "group.addBudget"
     /// The line under the group's name: shared or not, how many people, and
     /// who made it.
     public static let groupSummary = "group.summary"

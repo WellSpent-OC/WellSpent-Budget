@@ -39,11 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
+        window.appearance = NSAppearance(named: .aqua)
         window.title = workspace.environment.appName
         window.center()
         // Each WellSpent account keeps its own budgets and its own keychain items,
         // so several can share this Mac login. See `AccountDirectory`.
-        window.contentView = NSHostingView(rootView: wellSpentRootView(workspace: workspace))
+        window.contentView = NSHostingView(rootView: wellSpentRootView(workspace: workspace).environment(\.colorScheme, .light))
         window.makeKeyAndOrderFront(nil)
         self.window = window
         self.workspace = workspace

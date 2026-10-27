@@ -38,26 +38,37 @@ public struct ExtensionCatalogItem: Identifiable, Sendable, Equatable {
 
 /// Catalog of extensions available or planned for WellSpent.
 public enum ExtensionCatalog {
-    public static func items(platform: String = "linux") -> [ExtensionCatalogItem] {
-        [
-            ExtensionCatalogItem(
-                id: "wellspent.wartable",
-                name: "WarTable",
-                summary: "AI agent chat and workroom: connect agents, collaborate in rooms, and review tasks.",
-                pricing: "Free, MIT license",
-                status: .available,
-                platforms: ["linux"],
-                isInstalled: true
-            ),
+    public static func items(
+        platform: String = "linux",
+        isWarTableEnabled: Bool = true,
+        isRunwayEnabled: Bool = true
+    ) -> [ExtensionCatalogItem] {
+        var items: [ExtensionCatalogItem] = []
+        if isWarTableEnabled {
+            items.append(
+                ExtensionCatalogItem(
+                    id: "wellspent.wartable",
+                    name: "WarTable",
+                    summary: "AI agent chat and workroom: connect agents, collaborate in rooms, and review tasks.",
+                    pricing: "Free, MIT license",
+                    status: .available,
+                    platforms: ["linux", "macos", "ios"],
+                    isInstalled: true
+                )
+            )
+        }
+        items.append(
             ExtensionCatalogItem(
                 id: "wellspent.properties",
-                name: "Properties",
-                summary: "For rental houses: cash flow, bookings, break-even, and turnover needs.",
+                name: "Runway (Properties)",
+                summary: "For rental houses: cash flow, PriceLabs bookings, break-even runway, and proforma scenarios.",
                 pricing: "$5 a house a month, billed yearly",
-                status: .comingSoon,
+                status: isRunwayEnabled ? .available : .comingSoon,
                 platforms: ["macos", "ios", "linux"],
                 isInstalled: false
-            ),
+            )
+        )
+        items.append(contentsOf: [
             ExtensionCatalogItem(
                 id: "wellspent.settle",
                 name: "Settle",
@@ -94,7 +105,16 @@ public enum ExtensionCatalog {
                 platforms: ["macos", "ios", "linux"],
                 isInstalled: false
             )
-        ]
+        ])
+        return items
+    }
+
+    public static func items(platform: String = "linux", features: FeatureFlags) -> [ExtensionCatalogItem] {
+        items(
+            platform: platform,
+            isWarTableEnabled: features.isWarTableEnabled,
+            isRunwayEnabled: features.isRunwayEnabled
+        )
     }
 }
 

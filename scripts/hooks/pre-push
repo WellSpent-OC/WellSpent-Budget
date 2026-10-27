@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs the project's local checks before every push (the rule of 2026-10-22:
+# everything but the UI tests runs on the engineer's own machine first). A
+# failing check refuses the push. Installed by `make hooks`. To push without
+# it, for a branch that only holds documents, say: SKIP_PREPUSH=1 git push
+set -u
+if [ "${SKIP_PREPUSH:-}" = "1" ]; then
+    echo "pre-push: skipped by SKIP_PREPUSH=1" >&2
+    exit 0
+fi
+cd "$(git rev-parse --show-toplevel)" || exit 1
+echo "pre-push: running make prepush (about 25 minutes on a Mac; SKIP_PREPUSH=1 skips it)" >&2
+exec make prepush

@@ -96,6 +96,8 @@ struct PhoneEntryRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.merchant)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Palette.ink)
                 Text(row.detailLine)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
@@ -116,12 +118,16 @@ struct PhoneEntryRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(row.amount)
                     .font(.body.monospacedDigit())
+                    .fontWeight(.medium)
+                    .foregroundStyle(Palette.ink)
                 if showsAddedBy {
                     Text(row.addedBy)
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(Palette.muted)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
-                        .overlay(Capsule().stroke(Palette.muted, lineWidth: 1))
+                        .background(Palette.ground, in: Capsule())
+                        .overlay(Capsule().stroke(Palette.line, lineWidth: 1))
                 }
             }
         }

@@ -11,7 +11,7 @@
 # ARCHS          the architectures to build, for example "arm64 x86_64" (default: this Mac's)
 # OUT            where the .app lands (default .build/app)
 # SCRATCH        where SwiftPM builds (default .build)
-# SIGN           adhoc (default) or appstore, see below
+# SIGN           adhoc (default), appstore or development, see below
 #
 # Staging is the default because a test build mistaken for live could reach real
 # budgets, and the reverse cannot. Only the beta workflow and `make testflight`
@@ -33,6 +33,19 @@
 #                      from the environment or a CODESIGN_IDENTITY= line in KEYINFO
 #   KEYINFO            a file of NAME=value lines (default ~/.config/wellspent/apple/keyinfo.txt)
 #   TEAM_ID            the Apple Developer team that owns the bundle id (default GBF27ALM9A)
+#
+# SIGN=development: the release twin, which `make release-twin` builds. Staging
+# only, under its own name and app ID, WellSpent Twin and app.wellspent.mac.twin,
+# so it never shares a data folder or keychain items with another copy. It is
+# sandboxed with the App Store build's permissions, and signed with the Apple
+# Development certificate and a profile for this Mac only. Apple will not run the
+# App Store build itself on a Mac, so the twin is as close as a machine gets to
+# trying a release before it goes up. It carries no data move, so its container
+# starts empty. These come from outside the repo:
+#   TWIN_PROFILE          the twin's Mac development profile (default
+#                         ~/.config/wellspent/apple/WellSpent_Twin_Development.provisionprofile)
+#   DEVELOPMENT_IDENTITY  the Apple Development certificate as its 40 digit SHA-1 hash,
+#                         from the environment or a DEVELOPMENT_IDENTITY= line in KEYINFO
 # Certificate names hold the account holder's name, so they never go in this repo.
 set -eu
 
@@ -91,8 +104,23 @@ case "$SIGN" in
         xcodebuild -version > /dev/null 2>&1 \
             || fail "SIGN=appstore needs Xcode's tools: DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer"
         ;;
+    development)
+        [ "$WELLSPENT_ENV" = staging ] || fail "SIGN=development builds the staging twin only"
+        NAME="WellSpent Twin"
+        BUNDLE_ID="app.wellspent.mac.twin"
+        LINK_SCHEME="wellspent-twin"
+        APP="$OUT/$NAME.app"
+        PROFILE="${TWIN_PROFILE:-$APPLE_DIR/WellSpent_Twin_Development.provisionprofile}"
+        [ -f "$PROFILE" ] || fail "No twin profile at $PROFILE. Set TWIN_PROFILE."
+        CODESIGN_IDENTITY="${DEVELOPMENT_IDENTITY:-}"
+        if [ -z "$CODESIGN_IDENTITY" ] && [ -f "$KEYINFO" ]; then
+            CODESIGN_IDENTITY="$(sed -n 's/^DEVELOPMENT_IDENTITY=//p' "$KEYINFO" | head -n 1)"
+        fi
+        [ -n "$CODESIGN_IDENTITY" ] \
+            || fail "No DEVELOPMENT_IDENTITY. Set it, or add a DEVELOPMENT_IDENTITY= line to $KEYINFO."
+        ;;
     *)
-        fail "SIGN must be adhoc or appstore, not $SIGN"
+        fail "SIGN must be adhoc, appstore or development, not $SIGN"
         ;;
 esac
 
@@ -157,6 +185,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSRequiresAquaSystemAppearance</key><true/>
     <key>WellSpentEnvironment</key><string>$WELLSPENT_ENV</string>
 </dict>
 </plist>
@@ -203,9 +232,12 @@ if [ "$SIGN" = appstore ]; then
 </dict>
 </plist>
 EOF
+fi
 
-    # TestFlight needs the profile in the bundle. A downloaded file carries a
-    # quarantine attribute App Store Connect rejects, so attributes go before signing.
+if [ "$SIGN" != adhoc ]; then
+    # A signed build carries its profile: TestFlight needs it, and so does the
+    # twin's sandbox. A downloaded file carries a quarantine attribute App Store
+    # Connect rejects, so attributes go before signing.
     cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
     xattr -cr "$APP"
     # The installer puts the app in place as root, so every file must be readable by

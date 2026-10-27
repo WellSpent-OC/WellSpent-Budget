@@ -24,7 +24,7 @@ swift test --enable-code-coverage ${FLAGS:-} > /dev/null
 BIN_DIR="$(swift build --show-bin-path)"
 PROFDATA="${BIN_DIR}/codecov/default.profdata"
 # The test bundle is a directory on macOS and a plain binary on Linux.
-TEST_BIN="$(find "${BIN_DIR}" -name '*PackageTests.xctest' -maxdepth 1 | head -1)"
+TEST_BIN="$(find "${BIN_DIR}" \( -name '*PackageTests.xctest' -o -name 'WellSpentAppCoreTests.xctest' \) -maxdepth 1 | head -1)"
 if [ -d "${TEST_BIN}" ]; then
   TEST_BIN="${TEST_BIN}/Contents/MacOS/$(basename "${TEST_BIN}" .xctest)"
 fi
@@ -36,10 +36,13 @@ if [ ! -f "${PROFDATA}" ] || [ ! -f "${TEST_BIN}" ]; then
   exit 1
 fi
 
-IGNORE='(\.build|Tests)/'
-xcrun llvm-cov report "${TEST_BIN}" -instr-profile "${PROFDATA}" -ignore-filename-regex="${IGNORE}"
+LLVM_COV="llvm-cov"
+command -v llvm-cov > /dev/null || LLVM_COV="xcrun llvm-cov"
 
-TOTAL="$(xcrun llvm-cov export "${TEST_BIN}" -instr-profile "${PROFDATA}" \
+IGNORE='(\.build|Tests)/'
+${LLVM_COV} report "${TEST_BIN}" -instr-profile "${PROFDATA}" -ignore-filename-regex="${IGNORE}"
+
+TOTAL="$(${LLVM_COV} export "${TEST_BIN}" -instr-profile "${PROFDATA}" \
           -ignore-filename-regex="${IGNORE}" --summary-only \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"][0]["totals"]["lines"]["percent"])')"
 

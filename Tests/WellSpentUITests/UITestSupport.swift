@@ -14,12 +14,13 @@ import WellSpentSync
 /// the ways the test reaches into its window.
 @MainActor
 final class TestApp {
-    let app = XCUIApplication()
+    let app: XCUIApplication
     /// Where this run's databases go. Removed at the end.
     let dataRoot: URL
     private var signedInAccount: UITestSignedInAccount?
 
     init() throws {
+        app = XCUIApplication()
         FailureScreenshots.registerOnce()
         dataRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("wellspent-ui-test-\(UUID().uuidString)", isDirectory: true)
@@ -30,6 +31,18 @@ final class TestApp {
         // Application Support or the keychain, so no password prompt can stop
         // the run.
         app.launchEnvironment[AccountDirectory.dataRootVariable] = dataRoot.path
+    }
+
+    /// The release twin, which `make release-twin` builds: this release signed
+    /// for development under its own app ID, launched from its own path. It
+    /// keeps its databases in its own sandbox container and its keys in the
+    /// keychain, as the App Store build does on a tester's Mac. Trying that is
+    /// the point of it, so no run folder is handed to it.
+    init(twin: URL) throws {
+        app = XCUIApplication(url: twin)
+        FailureScreenshots.registerOnce()
+        dataRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wellspent-twin-\(UUID().uuidString)", isDirectory: true)
     }
 
     // MARK: - Launching and finding things
@@ -605,16 +618,14 @@ final class TestApp {
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
     }
 
-    /// The arrow at the end of a group's line in the sidebar, which hides or
-    /// shows its budgets. The list makes the whole line one element, so the
-    /// click goes to its right end, where the arrow is.
+    /// Toggles a group's expansion by clicking its name in the sidebar.
     func clickGroupArrow(_ name: String) {
         let identifier = AccessibilityID.sidebarGroup(name)
         let line = element(identifier)
         XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
         revealInSidebar(line)
         waitUntilHittable(line, identifier)
-        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
+        line.click()
     }
 
     /// How many elements in the sidebar carry a budget's identifier, across

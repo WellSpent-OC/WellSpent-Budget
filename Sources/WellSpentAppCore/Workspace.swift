@@ -28,17 +28,21 @@ public final class Workspace {
     /// The day of the month a staging UI test put the money wheel on
     /// (`pinnedDayVariable`), or nil, so the wheel reads the clock.
     public let pinnedDay: Int?
+    /// Which experimental or in-progress features are turned on.
+    public let features: FeatureFlags
     @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
         [.era, .year, .month, .day], from: Date())
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
+                features: FeatureFlags? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
+        self.features = features ?? FeatureFlags.resolve(for: sync.environment, defaults: sync.defaults)
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
         sync.didSync = { [weak self] in
@@ -216,6 +220,8 @@ public final class Workspace {
                           undoWindow: undoWindow(for: environment, in: processEnvironment),
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
+                          features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
+                                                         processEnvironment: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
     }
 
@@ -260,6 +266,7 @@ public final class Workspace {
                        undoWindow: Duration = AppModel.defaultUndoWindow,
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
+                       features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
         let sync: SyncCoordinator
@@ -276,7 +283,8 @@ public final class Workspace {
         // Set either way: an older install that already has budgets has had its
         // first run, and must not get samples after its data moves to an account.
         accounts.samplesSeeded = true
+        let resolvedFeatures = features ?? FeatureFlags.resolve(for: environment, defaults: defaults)
         return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
-                         pinnedDay: pinnedDay)
+                         pinnedDay: pinnedDay, features: resolvedFeatures)
     }
 }

@@ -100,25 +100,36 @@ struct ViewTests {
         #expect(texts.contains("Groceries"))
         #expect(texts.contains("Eating out"))
         #expect(texts.contains(SyncWording.footer(signedIn: false)), "the line saying where budgets are kept")
-        #expect(texts.contains("Add Budget"), "the way to make a budget is always on screen")
     }
 
-    /// A click on a group's name opens its page. The arrow at the end of the
-    /// line hides or shows its budgets, and leaves the page as it is.
-    @Test func aClickOnAGroupsNameOpensItsPageAndTheArrowBesideItHidesItsBudgets() throws {
+    /// At the top of a group's page, a plus button in the toolbar adds a budget to that group.
+    @Test func aGroupPageOffersAddBudgetButtonInToolbar() throws {
+        let (model, group, _) = try modelWithData()
+        let sync = idleSync(model)
+        let screen = MainScreen(workspace: Workspace(model: model, sync: sync))
+        var added = false
+        let page = GroupPage(sync: sync, group: group, main: screen, showingAccount: .constant(false),
+                             addBudget: { added = true })
+        let add = try page.inspect().find(button: MainScreen.Words.addBudget)
+        #expect(try add.accessibilityIdentifier() == AccessibilityID.groupAddBudget)
+        try add.tap()
+        #expect(added)
+    }
+
+    /// A click on a group's name opens its page and toggles whether its budgets are hidden or shown.
+    @Test func aClickOnAGroupsNameOpensItsPageAndTogglesItsBudgets() throws {
         let (model, group, _) = try modelWithData()
         let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
         let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
 
+        #expect(screen.sections.first?.isCollapsed == false)
         try sidebar.inspect().find(button: "HOUSEHOLD").tap()
-        #expect(screen.openGroup?.id == group.id)
-        #expect(screen.sections.first?.isCollapsed == false, "a click on the name hides nothing")
+        #expect(screen.openGroup?.id == group.id, "a click on the name opens its page")
+        #expect(screen.sections.first?.isCollapsed == true, "a click on the name toggles collapsed")
 
-        try sidebar.inspect().find(ViewType.Button.self) { button in
-            try button.accessibilityLabel().string() == MainScreen.Words.hideBudgets
-        }.tap()
-        #expect(screen.sections.first?.isCollapsed == true)
-        #expect(screen.openGroup?.id == group.id)
+        try sidebar.inspect().find(button: "HOUSEHOLD").tap()
+        #expect(screen.openGroup?.id == group.id, "its page stays open")
+        #expect(screen.sections.first?.isCollapsed == false, "another click expands")
     }
 
     @Test func groupsCollapseAndExpandIndependently() {
