@@ -165,6 +165,8 @@ struct PhonePersonRow: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.label)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Palette.ink)
                 Text(MembersScreen.Words.levelExplanation(row.level))
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
@@ -177,19 +179,19 @@ struct PhonePersonRow: View {
     }
 }
 
-/// A person's level, in a small capsule. The owner's is filled.
+/// A person's level, in a small capsule.
 struct PhoneLevelBadge: View {
     let title: String
     let isOwner: Bool
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(isOwner ? Palette.ground : Palette.ink)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Palette.ink)
             .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(isOwner ? Palette.ink : Color.clear))
-            .overlay(Capsule().stroke(Palette.ink, lineWidth: 1))
+            .padding(.vertical, 3)
+            .background(Palette.ground, in: Capsule())
+            .overlay(Capsule().stroke(Palette.line, lineWidth: 1))
     }
 }
 
@@ -214,6 +216,7 @@ struct PhonePersonView: View {
                             HStack(spacing: 10) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(Words.levelTitle(level))
+                                        .font(.body.weight(.medium))
                                         .foregroundStyle(Palette.ink)
                                     Text(Words.levelExplanation(level))
                                         .font(.footnote)

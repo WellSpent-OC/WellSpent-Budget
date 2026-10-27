@@ -128,12 +128,12 @@ struct GroupMoneySection: View {
     let money: GroupMoney
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(GroupMoney.Words.section.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.7)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.8)
                 .foregroundStyle(Palette.muted)
-            HStack(spacing: 16) {
+            HStack(spacing: 20) {
                 MoneyWheelView(wheel: money.wheel, geometry: .groupDesktop, middle: .full(amountSize: 28))
                     .accessibilityIdentifier(AccessibilityID.groupWheel)
                 VStack(alignment: .leading, spacing: 8) {
@@ -150,9 +150,10 @@ struct GroupMoneySection: View {
                 // A floor too, for the same reason as a budget's figures.
                 .frame(minWidth: BudgetWheelPanel.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
-            .padding(12)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+            .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.line, lineWidth: 1))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.groupMoney)

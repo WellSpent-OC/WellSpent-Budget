@@ -22,11 +22,22 @@ struct PhoneRootView: View {
     @State private var accountAfterSheet = false
     @State private var showingAccount = false
     @State private var addingEntry = false
+    @State private var activeExtension: ActiveExtension = .budgets
+    @State private var isWarTableInstalled = false
+    @State private var showingExtensionsCatalog = false
     /// The screen a staging build was asked to open on, applied once.
     private let start: StartingScreen?
     @State private var startApplied = false
     private var model: AppModel { workspace.model }
     private var sync: SyncCoordinator { workspace.sync }
+
+    private var isWarTableActive: Bool {
+        workspace.features.isWarTableEnabled && isWarTableInstalled
+    }
+
+    private var hasActiveExtensions: Bool {
+        isWarTableActive
+    }
 
     init(workspace: Workspace, startingOn start: StartingScreen? = nil) {
         _workspace = State(initialValue: workspace)
@@ -35,10 +46,7 @@ struct PhoneRootView: View {
     }
 
     var body: some View {
-        NavigationStack(path: path) {
-            PhoneHomeView(screen: screen, perform: perform, showingAccount: $showingAccount)
-                .navigationDestination(for: PhoneRoute.self) { route in destination(route) }
-        }
+        mainContent
         .tint(Palette.accent)
         .stagingBanner(workspace.environment, syncedAt: sync.lastSyncedAt)
         // The view preferences go where this build keeps its settings, so a
@@ -54,6 +62,7 @@ struct PhoneRootView: View {
         // Outside the part rebuilt when an account signs in, so the sheet
         // keeps its step through signing in.
         .sheet(isPresented: $showingAccount) { PhoneAccountSheet(sync: sync) }
+        .sheet(isPresented: $showingExtensionsCatalog) { extensionsCatalogSheet }
         .confirmationDialog(screen.pendingDelete?.title ?? "",
                             isPresented: Binding(get: { screen.pendingDelete != nil },
                                                  set: { if !$0 { screen.keepIt() } }),
@@ -78,6 +87,68 @@ struct PhoneRootView: View {
         .onChange(of: sync.signInPrompt) { _, prompt in
             if prompt != nil { showingAccount = true }
         }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if hasActiveExtensions {
+            TabView(selection: $activeExtension) {
+                budgetStack
+                    .tabItem {
+                        Label("Budgets", systemImage: "chart.pie.fill")
+                    }
+                    .tag(ActiveExtension.budgets)
+
+                if isWarTableActive {
+                    NavigationStack {
+                        WarTablePlaceholderView(
+                            openCatalog: { showingExtensionsCatalog = true },
+                            turnOff: {
+                                isWarTableInstalled = false
+                                activeExtension = .budgets
+                            }
+                        )
+                    }
+                    .tabItem {
+                        Label("WarTable", systemImage: "bubble.left.and.bubble.right.fill")
+                    }
+                    .tag(ActiveExtension.warTable)
+                }
+            }
+        } else {
+            budgetStack
+        }
+    }
+
+    private var budgetStack: some View {
+        NavigationStack(path: path) {
+            PhoneHomeView(screen: screen, perform: perform, showingAccount: $showingAccount,
+                          showingExtensionsCatalog: $showingExtensionsCatalog)
+                .navigationDestination(for: PhoneRoute.self) { route in destination(route) }
+        }
+    }
+
+    private var extensionsCatalogSheet: some View {
+        ExtensionsCatalogView(
+            isWarTableInstalled: isWarTableActive,
+            isWarTableAvailable: workspace.features.isWarTableEnabled,
+            toggleWarTable: {
+                isWarTableInstalled.toggle()
+                if isWarTableInstalled {
+                    activeExtension = .warTable
+                    showingExtensionsCatalog = false
+                } else {
+                    activeExtension = .budgets
+                }
+            },
+            openWarTable: {
+                showingExtensionsCatalog = false
+                activeExtension = .warTable
+            },
+            done: {
+                showingExtensionsCatalog = false
+            }
+        )
     }
 
     /// The stack's one pushed screen: an invitation, a group's page or a

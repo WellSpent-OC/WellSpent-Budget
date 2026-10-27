@@ -52,7 +52,7 @@ public enum ExtensionCatalog {
                     summary: "AI agent chat and workroom: connect agents, collaborate in rooms, and review tasks.",
                     pricing: "Free, MIT license",
                     status: .available,
-                    platforms: ["linux"],
+                    platforms: ["linux", "macos", "ios"],
                     isInstalled: true
                 )
             )
