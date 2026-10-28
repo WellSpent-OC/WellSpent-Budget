@@ -170,16 +170,16 @@ struct PhoneRootView: View {
                     activeExtension = .budgets
                 }
             },
+            openWarTable: {
+                showingExtensionsCatalog = false
+                activeExtension = .warTable
+            },
             isPropertiesInstalled: isPropertiesActive,
             isPropertiesAvailable: workspace.features.isPropertiesEnabled,
             toggleProperties: { setProperties(on: !isPropertiesActive) },
             openProperties: {
                 showingExtensionsCatalog = false
                 activeExtension = .properties
-            },
-            openWarTable: {
-                showingExtensionsCatalog = false
-                activeExtension = .warTable
             },
             done: {
                 showingExtensionsCatalog = false

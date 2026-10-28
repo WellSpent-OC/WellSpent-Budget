@@ -1,6 +1,6 @@
 """Properties has a door: turned on from Extensions, Houses joins the rail, and
 Budgets stays exactly as it was. Off, or on a build whose flag is off, nothing
-of Properties shows. Scenarios PROP-01, PROP-02 and PROP-03."""
+of Properties shows. Scenarios PROP-01 and PROP-02."""
 
 import unittest
 
@@ -22,7 +22,7 @@ class Properties(unittest.TestCase):
         app.wait_shows("Houses", role="push button")
         app.picture("desktop-houses")
 
-        # Scenario PROP-03: Budgets exactly as before.
+        # Budgets exactly as before.
         app.button("Budget", within=app.main).press()
         app.wait_shows("Repairs", within=app.main)
         app.wait_shows("Rentals", within=app.main)

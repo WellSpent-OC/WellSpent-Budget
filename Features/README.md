@@ -52,9 +52,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 157 | 153 |
-| Linux | 161 | 121 |
-| iPhone | 150 | 147 |
+| Mac | 159 | 153 |
+| Linux | 163 | 123 |
+| iPhone | 152 | 147 |
 | Server | 9 | 9 |
 | Connector | 4 | 4 |
 
@@ -272,6 +272,13 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.
+
+### [Properties.md](Properties.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Linux |
+| PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Linux |
 
 ### [WarTable.md](WarTable.md)
 
