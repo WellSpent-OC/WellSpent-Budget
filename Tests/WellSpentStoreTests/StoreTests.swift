@@ -128,6 +128,100 @@ struct LocalStoreTests {
         #expect(fetched.amount == Money(minorUnits: -14208))
     }
 
+    /// Every kind an entry can be comes back as it went in, with its sign.
+    @Test func everyEntryKindRoundTrips() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+
+        for kind in TransactionKind.allCases {
+            let cents = kind.isMoneyIn ? 1200 : -1200
+            let entry = Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 9, 22),
+                                    merchant: kind.rawValue, amount: Money(minorUnits: cents), kind: kind)
+            try store.save(entry)
+            let fetched = try #require(try store.transaction(entry.id))
+            #expect(fetched.kind == kind)
+            #expect(fetched.amount == Money(minorUnits: cents))
+        }
+    }
+
+    /// An entry saved with no kind gets the one its sign implied, so a row
+    /// written by an app that did not know kinds keeps its meaning.
+    @Test func anEntryWithNoKindTakesItFromItsSign() throws {
+        #expect(Transaction(budgetID: BudgetID(), groupID: GroupID(), date: day(2026, 9, 1),
+                            merchant: "a", amount: Money(minorUnits: -100)).kind == .spending)
+        #expect(Transaction(budgetID: BudgetID(), groupID: GroupID(), date: day(2026, 9, 1),
+                            merchant: "a", amount: Money(minorUnits: 100)).kind == .refund)
+        #expect(Transaction(budgetID: BudgetID(), groupID: GroupID(), date: day(2026, 9, 1),
+                            merchant: "a", amount: Money(minorUnits: 0)).kind == .spending)
+    }
+
+    /// A row whose kind this build does not know is refused as corrupt, the
+    /// same as an unknown source, rather than guessed at.
+    @Test func aRowWithAnUnknownKindIsRefused() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+        let entry = Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 9, 22),
+                                merchant: "Hilltop", amount: Money(minorUnits: -100))
+        try store.save(entry)
+        try store.database.write { db in
+            try db.execute(sql: "UPDATE transactionRecord SET kind = 'bogus' WHERE id = ?",
+                           arguments: [entry.id.dbValue])
+        }
+        #expect(throws: StoreError.self) { try store.transaction(entry.id) }
+    }
+
+    /// A group claimed by an extension remembers which one.
+    @Test func aClaimedGroupRoundTrips() throws {
+        let store = try makeStore()
+        let house = BudgetGroup(name: "Pool House", claimedBy: "wellspent.properties")
+        try store.save(house)
+        try store.save(BudgetGroup(name: "Household"))
+
+        let groups = try store.groups()
+        #expect(groups.first { $0.name == "Pool House" }?.claimedBy == "wellspent.properties")
+        #expect(groups.first { $0.name == "Household" }?.claimedBy == nil)
+    }
+
+    /// Income is money in. It never lowers what was spent, which is what a
+    /// refund does. Borrowed money and money from savings have their own
+    /// lines. A transfer and a card payment count as nothing, but every
+    /// entry counts toward the entry count.
+    @Test func summarySplitsMoneyInFromSpending() throws {
+        let store = try makeStore()
+        let (group, budget) = try seedHousehold(store)
+        let rows: [(Int, TransactionKind)] = [
+            (-10000, .spending), (2500, .refund), (131000, .income),
+            (50000, .loanDraw), (20000, .savingsDraw), (-30000, .transfer), (-40000, .cardPayment),
+        ]
+        for (cents, kind) in rows {
+            try store.save(Transaction(budgetID: budget.id, groupID: group.id, date: day(2026, 9, 10),
+                                       merchant: kind.rawValue, amount: Money(minorUnits: cents), kind: kind))
+        }
+
+        let summary = try store.summary(for: budget, on: day(2026, 9, 12),
+                                        calendar: Calendar(identifier: .gregorian))
+        #expect(summary.spent == Money(minorUnits: 7500), "spending less the refund, and nothing else")
+        #expect(summary.moneyIn == Money(minorUnits: 131000))
+        #expect(summary.borrowed == Money(minorUnits: 50000))
+        #expect(summary.fromSavings == Money(minorUnits: 20000))
+        #expect(summary.cashFlow == Money(minorUnits: 123500))
+        #expect(summary.transactionCount == 7)
+        #expect(summary.remaining == Money(minorUnits: 92500), "income does not refill a budget")
+    }
+
+    /// A budget with nothing in it reports zero on every line.
+    @Test func anEmptyBudgetHasZeroOnEveryLine() throws {
+        let store = try makeStore()
+        let (_, budget) = try seedHousehold(store)
+        let summary = try store.summary(for: budget, on: day(2026, 9, 12),
+                                        calendar: Calendar(identifier: .gregorian))
+        #expect(summary.spent == Money(minorUnits: 0))
+        #expect(summary.moneyIn == Money(minorUnits: 0))
+        #expect(summary.borrowed == Money(minorUnits: 0))
+        #expect(summary.fromSavings == Money(minorUnits: 0))
+        #expect(summary.transactionCount == 0)
+    }
+
     @Test func summaryAddsUpSpending() throws {
         let store = try makeStore()
         let (group, budget) = try seedHousehold(store)
@@ -603,5 +697,45 @@ struct LocalMigrationTests {
 
         _ = try WellSpentDatabase(writer: queue)
         #expect(try queue.read { db in try WellSpentDatabase.migrator.hasCompletedMigrations(db) })
+    }
+
+    /// v12 gives every entry a kind. A row from before had only a sign, and
+    /// keeps the meaning it had: negative is spending, positive a refund. A
+    /// group from before is claimed by nobody. Sums read the same as before.
+    @Test func entriesFromBeforeV12KeepTheirMeaning() throws {
+        var configuration = Configuration()
+        configuration.foreignKeysEnabled = true
+        let queue = try DatabaseQueue(configuration: configuration)
+        try WellSpentDatabase.migrator.migrate(queue, upTo: "v11-conflict-noticed")
+        let group = GroupID(), budget = BudgetID(), spent = RecordID(), refund = RecordID()
+        let when = day(2026, 10, 5)
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO budgetGroup (id, name, note, createdAt, updatedAt, isDeleted)
+                VALUES (?, 'Household', '', ?, ?, 0)
+                """, arguments: [group.uuid.uuidString, when, when])
+            try db.execute(sql: """
+                INSERT INTO budget (id, budgetGroupId, name, limitMinorUnits, currency, resetJSON,
+                                    colorIndex, sortOrder, createdAt, updatedAt, isDeleted)
+                VALUES (?, ?, 'Groceries', 100000, 'USD', '{"monthly":{"days":[1]}}', 0, 0, ?, ?, 0)
+                """, arguments: [budget.uuid.uuidString, group.uuid.uuidString, when, when])
+            for (id, cents) in [(spent, -10000), (refund, 2500)] {
+                try db.execute(sql: """
+                    INSERT INTO transactionRecord (id, budgetId, budgetGroupId, date, merchant, note,
+                                                   amountMinorUnits, currency, source, createdAt, updatedAt, isDeleted)
+                    VALUES (?, ?, ?, ?, 'Costco', '', ?, 'USD', 'manual', ?, ?, 0)
+                    """, arguments: [id.uuid.uuidString, budget.uuid.uuidString, group.uuid.uuidString,
+                                     when, cents, when, when])
+            }
+        }
+
+        let store = Store(database: try WellSpentDatabase(writer: queue))
+        #expect(try store.transaction(spent)?.kind == .spending)
+        #expect(try store.transaction(refund)?.kind == .refund)
+        #expect(try store.groups().map(\.claimedBy) == [nil])
+        let summary = try store.summary(for: try #require(try store.budget(budget)), on: when,
+                                        calendar: Calendar(identifier: .gregorian))
+        #expect(summary.spent == Money(minorUnits: 7500))
+        #expect(summary.moneyIn == Money(minorUnits: 0))
     }
 }

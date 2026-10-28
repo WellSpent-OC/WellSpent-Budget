@@ -403,6 +403,20 @@ public final class WellSpentDatabase: Sendable {
             try db.execute(sql: "UPDATE conflictCopy SET noticedAt = seenAt")
         }
 
+        // An entry gets a kind, so money in can exist. Rows from before had
+        // only a sign: negative was spending, positive a refund, and they keep
+        // that meaning. A group gets `claimedBy`, the id of an extension that
+        // draws it (a house, later a debt), or nothing for a plain group.
+        m.registerMigration("v12-entry-kind-claimed-by") { db in
+            try db.alter(table: "transactionRecord") { t in
+                t.add(column: "kind", .text).notNull().defaults(to: "spending")
+            }
+            try db.execute(sql: "UPDATE transactionRecord SET kind = 'refund' WHERE amountMinorUnits > 0")
+            try db.alter(table: "budgetGroup") { t in
+                t.add(column: "claimedBy", .text)
+            }
+        }
+
         return m
     }
 }

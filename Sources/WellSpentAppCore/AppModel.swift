@@ -155,7 +155,8 @@ public final class AppModel {
 
     // MARK: - Editing
 
-    public func addTransaction(merchant: String, amount: Money, date: Date, note: String) {
+    public func addTransaction(merchant: String, amount: Money, date: Date, note: String,
+                               kind: TransactionKind = .spending) {
         guard let selectedBudget, let budget = budget(for: selectedBudget) else { return }
         // A button left showing cannot add what the server would refuse.
         guard mayAddEntries(budget.groupID) else {
@@ -163,10 +164,12 @@ public final class AppModel {
             return
         }
         do {
-            // Stored negative: a budget counts money going out.
-            let signed = Money(minorUnits: -abs(amount.minorUnits), currency: amount.currency)
+            // The sign follows the kind: money out is stored negative, money in
+            // positive, however the amount was typed.
+            let size = abs(amount.minorUnits)
+            let signed = Money(minorUnits: kind.isMoneyIn ? size : -size, currency: amount.currency)
             try store.save(Transaction(budgetID: budget.id, groupID: budget.groupID, date: date,
-                                       merchant: merchant, note: note, amount: signed))
+                                       merchant: merchant, note: note, amount: signed, kind: kind))
             changed()
         } catch {
             errorMessage = String(describing: error)
@@ -657,6 +660,7 @@ public final class AppModel {
             merchant: proposal.line.cleanedDescription,
             note: proposal.line.rawDescription,
             amount: proposal.line.amount,
+            kind: .inferred(from: proposal.line.amount),
             source: .statement,
             importFingerprint: proposal.fingerprint
         ))

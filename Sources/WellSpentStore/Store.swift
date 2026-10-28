@@ -178,26 +178,44 @@ public struct Store: Sendable {
 
     // MARK: - Summaries
 
-    /// Spending for one budget over one period, added up in SQL.
+    /// One budget's money over one period, added up in SQL by kind.
     ///
-    /// Only money out counts against a budget. A refund arrives as a positive
-    /// amount and reduces spending, which is why this sums the negatives and flips
-    /// the sign rather than taking absolute values.
+    /// Spending and refunds count against the budget: a refund arrives as a
+    /// positive amount and reduces what was spent, so their sum is flipped.
+    /// Income is money in and never lowers spending. Borrowed money and money
+    /// from savings are kept on their own lines. Transfers and card payments
+    /// count as nothing, but every row counts toward the entry count.
     public func summary(for budget: Budget, on date: Date = Date(),
                         calendar: Calendar = .autoupdatingCurrent) throws -> BudgetSummary {
         let period = budget.reset.period(containing: date, calendar: calendar)
-        let (total, count) = try database.read { db -> (Int, Int) in
-            let row = try Row.fetchOne(db, sql: """
-                SELECT COALESCE(SUM(amountMinorUnits), 0) AS total, COUNT(*) AS count
+        let rows = try database.read { db -> [(kind: String, total: Int, count: Int)] in
+            try Row.fetchAll(db, sql: """
+                SELECT kind, COALESCE(SUM(amountMinorUnits), 0) AS total, COUNT(*) AS count
                 FROM transactionRecord
                 WHERE budgetId = ? AND isDeleted = 0 AND date >= ? AND date < ?
+                GROUP BY kind
                 """, arguments: [budget.id.dbValue, period.start, period.end])
-            return (row?["total"] ?? 0, row?["count"] ?? 0)
+                .map { ($0["kind"], $0["total"], $0["count"]) }
+        }
+        let currency = budget.limit.currency
+        var spent = 0, moneyIn = 0, borrowed = 0, fromSavings = 0, count = 0
+        for row in rows {
+            count += row.count
+            switch TransactionKind(rawValue: row.kind) {
+            case .spending, .refund: spent -= row.total
+            case .income: moneyIn += row.total
+            case .loanDraw: borrowed += row.total
+            case .savingsDraw: fromSavings += row.total
+            case .transfer, .cardPayment, nil: break
+            }
         }
         return BudgetSummary(
             budget: budget, period: period,
-            spent: Money(minorUnits: -total, currency: budget.limit.currency),
-            transactionCount: count
+            spent: Money(minorUnits: spent, currency: currency),
+            transactionCount: count,
+            moneyIn: Money(minorUnits: moneyIn, currency: currency),
+            borrowed: Money(minorUnits: borrowed, currency: currency),
+            fromSavings: Money(minorUnits: fromSavings, currency: currency)
         )
     }
 
