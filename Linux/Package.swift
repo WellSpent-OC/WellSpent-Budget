@@ -26,6 +26,7 @@ let package = Package(
         .executableTarget(
             name: "WellSpentLinux",
             dependencies: [
+                "CGtk4",
                 "WellSpentLinuxNative",
                 .product(name: "WarTableCore", package: "WarTable"),
                 .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
