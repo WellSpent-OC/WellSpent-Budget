@@ -120,7 +120,7 @@ final class PhoneImportTests: XCTestCase {
         XCTAssertEqual(run.count(Words.needsBudget), "1")
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.hasRow("Corner Bakery", timeout: 10),
                       "Corner Bakery is not in Groceries. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Trader Joes")).exists, "a line left at Choose was added")
 
@@ -133,7 +133,7 @@ final class PhoneImportTests: XCTestCase {
         run.choose("Groceries", for: joes)
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Trader Joes")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.hasRow("Trader Joes", timeout: 10),
                       "Trader Joes is not in Groceries. On screen: \(run.visibleTexts())")
         // A row is one element, so its words are read from its label.
         for words in ["Trader Joes", "\(today) · Statement", joes, "$54.20"] {
@@ -180,7 +180,7 @@ final class PhoneImportTests: XCTestCase {
         XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3),
                        "the import stopped with an error. On screen: \(run.visibleTexts())")
         for merchant in ["Trader Joes", "Corner Bakery"] {
-            XCTAssertTrue(run.element(AccessibilityID.entryRow(merchant)).waitForExistence(timeout: 10),
+            XCTAssertTrue(run.hasRow(merchant, timeout: 10),
                           "\(merchant) is not in Eating out. On screen: \(run.visibleTexts())")
         }
         run.importStatement()
@@ -384,6 +384,12 @@ final class PhoneImportTests: XCTestCase {
         run.openFilesPicker()
         let picked = run.pickInOnMyIPhone("picked")
         let review = run.element(AccessibilityID.importConfirm)
+        // On a slow runner the first tap on the file can land while Files
+        // is still settling and pick nothing: the row stays, enabled, and
+        // no review opens. A person taps again, and so does this.
+        if !review.waitForExistence(timeout: 15), picked.exists, picked.isHittable {
+            picked.tap()
+        }
         XCTAssertTrue(review.waitForExistence(timeout: 30),
                       "the review did not open after the pick. The file's row was "
                       + "\(!picked.exists ? "gone" : picked.isEnabled ? "enabled" : "dimmed"). On screen: \(run.visibleTexts())")
