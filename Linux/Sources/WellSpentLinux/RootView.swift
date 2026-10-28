@@ -21,7 +21,6 @@ struct RootView: View {
     /// The people on the group's page, while one shows.
     @State var openPage = OpenGroupPage()
     @State var warTable: WarTableScreen
-    @State var runway: RunwayScreen
     @State var activeExtension: ActiveExtension = .budgets
     @State var isWarTableInstalled = false
     @State var isPropertiesInstalled = false
@@ -41,7 +40,6 @@ struct RootView: View {
         self.workspace = workspace
         _screen = State(wrappedValue: MainScreen(workspace: workspace))
         _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
-        _runway = State(wrappedValue: RunwayScreen(isConfigured: true))
     }
 
     private var model: AppModel { workspace.model }
@@ -94,10 +92,15 @@ struct RootView: View {
                     case .budgets:
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                     case .properties:
-                        // Until the Oct 26 prototype leaves the public repo (SEAM-1, waiting on a
-                        // yes), Houses opens the prototype's Runway page.
-                        if workspace.features.isPropertiesEnabled {
-                            RunwayView(screen: runway, openAccount: { showingAccount = true })
+                        if isPropertiesActive {
+                            HousesView(
+                                openCatalog: { activeExtension = .catalog },
+                                turnOff: {
+                                    isPropertiesInstalled = false
+                                    workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
+                                    activeExtension = .budgets
+                                }
+                            )
                         } else {
                             budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                         }
