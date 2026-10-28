@@ -168,4 +168,8 @@ void wellspent_gtk_show_account_dialog(void *shell_ptr,
 
 void wellspent_gtk_window_present(void *shell_ptr);
 
+// Frees the shell struct. Call it once, after the action callback has said
+// "window:destroyed"; every widget pointer inside is already NULL by then.
+void wellspent_gtk_free_shell(void *shell_ptr);
+
 

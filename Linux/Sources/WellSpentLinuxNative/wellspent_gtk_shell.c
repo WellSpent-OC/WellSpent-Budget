@@ -484,6 +484,26 @@ typedef struct {
     void *context;
 } WellSpentGtkShell;
 
+static void on_window_destroy(GtkWidget *win, gpointer user_data) {
+    WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
+    if (!shell) return;
+    wellspent_gtk_action_cb cb = shell->action_cb;
+    void *context = shell->context;
+    // Every widget belonged to the window, so none of these may be touched again.
+    WellSpentGtkShell cleared = {0};
+    cleared.wheel_arc = shell->wheel_arc;
+    *shell = cleared;
+    if (cb) cb(context, "window:destroyed");
+}
+
+/// Screen readers and the UI tests find a control by its name and role. A
+/// rail button shows a glyph, so its name is set here, in the same words the
+/// SwiftCrossUI rail uses.
+static void set_accessible_name(GtkWidget *widget, const char *name) {
+    if (!widget || !name) return;
+    gtk_accessible_update_property(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_PROPERTY_LABEL, name, -1);
+}
+
 static void on_btn_clicked(GtkButton *btn, gpointer user_data) {
     const char *action = g_object_get_data(G_OBJECT(btn), "action_id");
     WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
@@ -621,6 +641,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_bud, "active");
     gtk_widget_set_tooltip_text(btn_bud, "Budgets");
     g_object_set_data_full(G_OBJECT(btn_bud), "action_id", g_strdup("tab:budgets"), g_free);
+    set_accessible_name(btn_bud, "Budget");
     g_signal_connect(btn_bud, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_bud);
 
@@ -629,6 +650,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_run, "rail-btn");
     gtk_widget_set_tooltip_text(btn_run, "Runway & Properties");
     g_object_set_data_full(G_OBJECT(btn_run), "action_id", g_strdup("tab:runway"), g_free);
+    set_accessible_name(btn_run, "Properties");
     g_signal_connect(btn_run, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_run);
 
@@ -637,6 +659,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_wt, "rail-btn");
     gtk_widget_set_tooltip_text(btn_wt, "WarTable");
     g_object_set_data_full(G_OBJECT(btn_wt), "action_id", g_strdup("tab:wartable"), g_free);
+    set_accessible_name(btn_wt, "WarTable");
     g_signal_connect(btn_wt, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_wt);
 
@@ -645,6 +668,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_cat, "rail-btn");
     gtk_widget_set_tooltip_text(btn_cat, "Extensions Catalog");
     g_object_set_data_full(G_OBJECT(btn_cat), "action_id", g_strdup("tab:catalog"), g_free);
+    set_accessible_name(btn_cat, "Extensions");
     g_signal_connect(btn_cat, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_cat);
 
@@ -657,6 +681,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_sync, "rail-btn");
     gtk_widget_set_tooltip_text(btn_sync, "Sync now");
     g_object_set_data_full(G_OBJECT(btn_sync), "action_id", g_strdup("action:sync"), g_free);
+    set_accessible_name(btn_sync, "Sync");
     g_signal_connect(btn_sync, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_sync);
 
@@ -665,6 +690,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_acct, "rail-btn");
     gtk_widget_set_tooltip_text(btn_acct, "Account");
     g_object_set_data_full(G_OBJECT(btn_acct), "action_id", g_strdup("action:account"), g_free);
+    set_accessible_name(btn_acct, "Account");
     g_signal_connect(btn_acct, "clicked", G_CALLBACK(on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_acct);
 
@@ -949,8 +975,17 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
 
     gtk_box_append(GTK_BOX(main_hbox), stack);
 
-    g_object_set_data_full(G_OBJECT(win), "shell_data", shell, g_free);
+    // When the window goes (the person closed it, or the app quit), every
+    // widget in it goes too. The struct outlives them so a call that is
+    // already in flight finds NULL pointers, not freed ones; each entry point
+    // checks. Swift hears "window:destroyed", drops its pointer, and frees the
+    // struct with wellspent_gtk_free_shell.
+    g_signal_connect(win, "destroy", G_CALLBACK(on_window_destroy), shell);
     return shell;
+}
+
+void wellspent_gtk_free_shell(void *shell_ptr) {
+    g_free(shell_ptr);
 }
 
 void wellspent_gtk_set_active_tab(void *shell_ptr, const char *tab_name) {
@@ -1105,6 +1140,8 @@ void wellspent_gtk_sidebar_add_budget(void *shell_ptr,
     gtk_box_append(GTK_BOX(row_box), amt_lbl);
 
     gtk_button_set_child(GTK_BUTTON(btn), row_box);
+    set_accessible_name(btn, name);
+    gtk_accessible_update_state(GTK_ACCESSIBLE(btn), GTK_ACCESSIBLE_STATE_SELECTED, is_selected ? TRUE : FALSE, -1);
 
     char act_buf[256];
     snprintf(act_buf, sizeof(act_buf), "budget:%s", budget_id ? budget_id : "");
@@ -1240,7 +1277,6 @@ static void on_create_budget_submit(GtkButton *btn, gpointer user_data) {
         data->cb(data->context, name, limit);
     }
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    g_free(data);
 }
 
 static void on_dialog_cancel(GtkButton *btn, gpointer user_data) {
@@ -1260,6 +1296,8 @@ void wellspent_gtk_show_new_budget_dialog(void *shell_ptr,
 
     GtkWidget *dlg = gtk_window_new();
     data->dialog = dlg;
+    // The dialog owns its data: destroying it, by any path, frees this.
+    g_object_set_data_full(G_OBJECT(dlg), "dialog_data", data, g_free);
     gtk_window_set_title(GTK_WINDOW(dlg), "New Budget");
     gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(shell->window));
     gtk_window_set_modal(GTK_WINDOW(dlg), TRUE);
@@ -1337,7 +1375,6 @@ static void on_create_tx_submit(GtkButton *btn, gpointer user_data) {
         data->cb(data->context, merch, amt, note);
     }
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    g_free(data);
 }
 
 void wellspent_gtk_show_new_tx_dialog(void *shell_ptr,
@@ -1352,6 +1389,8 @@ void wellspent_gtk_show_new_tx_dialog(void *shell_ptr,
 
     GtkWidget *dlg = gtk_window_new();
     data->dialog = dlg;
+    // The dialog owns its data: destroying it, by any path, frees this.
+    g_object_set_data_full(G_OBJECT(dlg), "dialog_data", data, g_free);
     gtk_window_set_title(GTK_WINDOW(dlg), "New Transaction");
     gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(shell->window));
     gtk_window_set_modal(GTK_WINDOW(dlg), TRUE);
@@ -1438,7 +1477,6 @@ static void on_sign_in_submit(GtkButton *btn, gpointer user_data) {
         data->cb(data->context, "sign_in", email, pass);
     }
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    g_free(data);
 }
 
 static void on_sign_out_submit(GtkButton *btn, gpointer user_data) {
@@ -1447,7 +1485,6 @@ static void on_sign_out_submit(GtkButton *btn, gpointer user_data) {
         data->cb(data->context, "sign_out", NULL, NULL);
     }
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    g_free(data);
 }
 
 void wellspent_gtk_show_account_dialog(void *shell_ptr,
@@ -1464,6 +1501,8 @@ void wellspent_gtk_show_account_dialog(void *shell_ptr,
 
     GtkWidget *dlg = gtk_window_new();
     data->dialog = dlg;
+    // The dialog owns its data: destroying it, by any path, frees this.
+    g_object_set_data_full(G_OBJECT(dlg), "dialog_data", data, g_free);
     gtk_window_set_title(GTK_WINDOW(dlg), "Account");
     gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(shell->window));
     gtk_window_set_modal(GTK_WINDOW(dlg), TRUE);

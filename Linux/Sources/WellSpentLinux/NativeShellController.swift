@@ -17,11 +17,20 @@ final class NativeShellController {
         self.screen = MainScreen(workspace: workspace)
     }
 
+    /// Builds the window the first time "activate" fires. A second launch that
+    /// hands over a link fires it again; then the window that exists comes to
+    /// the front, and nothing is built or leaked.
     func attach(to gtkApp: UnsafeMutableRawPointer) {
+        if let shellPtr {
+            wellspent_gtk_window_present(shellPtr)
+            return
+        }
         let teamName = screen.openGroup?.name ?? "Demo Team"
         let title = LinuxSetup.environment.appName
 
-        let context = Unmanaged.passRetained(self).toOpaque()
+        // Unretained: the app holds this controller for as long as it runs,
+        // which is longer than any window.
+        let context = Unmanaged.passUnretained(self).toOpaque()
 
         let onAction: wellspent_gtk_action_cb = { ctx, actionId in
             guard let ctx, let actionId else { return }
@@ -40,6 +49,15 @@ final class NativeShellController {
     }
 
     func handleAction(_ action: String) {
+        if action == "window:destroyed" {
+            // The window and every widget in it are gone. Free the struct and
+            // forget it, so nothing in flight reaches it.
+            if let shellPtr {
+                wellspent_gtk_free_shell(shellPtr)
+            }
+            shellPtr = nil
+            return
+        }
         guard let shellPtr else { return }
 
         if action.starts(with: "group:") {
@@ -67,11 +85,14 @@ final class NativeShellController {
             wellspent_gtk_set_sync_state(shellPtr, 1)
             Task {
                 await screen.syncNow()
-                wellspent_gtk_set_sync_state(shellPtr, 0)
+                // Read again after the wait: the window may have closed meanwhile.
+                if let shellPtr = self.shellPtr {
+                    wellspent_gtk_set_sync_state(shellPtr, 0)
+                }
                 render()
             }
         } else if action == "action:account" {
-            let context = Unmanaged.passRetained(self).toOpaque()
+            let context = Unmanaged.passUnretained(self).toOpaque()
             let isSigned = workspace.sync.account != nil
             let email = workspace.sync.account ?? ""
             wellspent_gtk_show_account_dialog(
@@ -80,7 +101,7 @@ final class NativeShellController {
                 isSigned ? 1 : 0,
                 { ctx, act, em, pw in
                     guard let ctx, let act else { return }
-                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeRetainedValue()
+                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeUnretainedValue()
                     let action = String(cString: act)
                     let emStr = em.map { String(cString: $0) } ?? ""
                     let pwStr = pw.map { String(cString: $0) } ?? ""
@@ -91,12 +112,12 @@ final class NativeShellController {
                 context
             )
         } else if action == "action:add_budget" {
-            let context = Unmanaged.passRetained(self).toOpaque()
+            let context = Unmanaged.passUnretained(self).toOpaque()
             wellspent_gtk_show_new_budget_dialog(
                 shellPtr,
                 { ctx, name, limit in
                     guard let ctx, let name, let limit else { return }
-                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeRetainedValue()
+                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeUnretainedValue()
                     let nameStr = String(cString: name)
                     let limitStr = String(cString: limit)
                     MainActor.assumeIsolated {
@@ -106,12 +127,12 @@ final class NativeShellController {
                 context
             )
         } else if action == "action:new_transaction" {
-            let context = Unmanaged.passRetained(self).toOpaque()
+            let context = Unmanaged.passUnretained(self).toOpaque()
             wellspent_gtk_show_new_tx_dialog(
                 shellPtr,
                 { ctx, merch, amt, note in
                     guard let ctx, let amt else { return }
-                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeRetainedValue()
+                    let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeUnretainedValue()
                     let merchStr = merch.map { String(cString: $0) } ?? ""
                     let amtStr = String(cString: amt)
                     let noteStr = note.map { String(cString: $0) } ?? ""
