@@ -7,6 +7,11 @@ public struct ExtensionsCatalogView: View {
     public var isWarTableAvailable: Bool
     public var toggleWarTable: @MainActor () -> Void
     public var openWarTable: @MainActor () -> Void
+    /// Properties: turned on by this person, and allowed by the flag.
+    public var isPropertiesInstalled: Bool
+    public var isPropertiesAvailable: Bool
+    public var toggleProperties: @MainActor () -> Void
+    public var openProperties: @MainActor () -> Void
     public var done: (@MainActor () -> Void)?
 
     public init(
@@ -14,21 +19,42 @@ public struct ExtensionsCatalogView: View {
         isWarTableAvailable: Bool = true,
         toggleWarTable: @escaping @MainActor () -> Void,
         openWarTable: @escaping @MainActor () -> Void,
+        isPropertiesInstalled: Bool = false,
+        isPropertiesAvailable: Bool = false,
+        toggleProperties: @escaping @MainActor () -> Void = {},
+        openProperties: @escaping @MainActor () -> Void = {},
         done: (@MainActor () -> Void)? = nil
     ) {
         self.isWarTableInstalled = isWarTableInstalled
         self.isWarTableAvailable = isWarTableAvailable
         self.toggleWarTable = toggleWarTable
         self.openWarTable = openWarTable
+        self.isPropertiesInstalled = isPropertiesInstalled
+        self.isPropertiesAvailable = isPropertiesAvailable
+        self.toggleProperties = toggleProperties
+        self.openProperties = openProperties
         self.done = done
     }
 
     private var items: [ExtensionCatalogItem] {
         #if os(iOS)
-        ExtensionCatalog.items(platform: "ios", isWarTableEnabled: isWarTableAvailable)
+        ExtensionCatalog.items(platform: "ios", isWarTableEnabled: isWarTableAvailable,
+                               isPropertiesEnabled: isPropertiesAvailable)
         #else
-        ExtensionCatalog.items(platform: "macos", isWarTableEnabled: isWarTableAvailable)
+        ExtensionCatalog.items(platform: "macos", isWarTableEnabled: isWarTableAvailable,
+                               isPropertiesEnabled: isPropertiesAvailable)
         #endif
+    }
+
+    /// The card whose switch this person can flip, with what it shows.
+    private func switchable(_ item: ExtensionCatalogItem) -> (isOn: Bool, toggle: @MainActor () -> Void, open: @MainActor () -> Void)? {
+        if item.id == "wellspent.wartable" {
+            return (isWarTableInstalled, toggleWarTable, openWarTable)
+        }
+        if item.id == PropertiesRegistration.id, isPropertiesAvailable {
+            return (isPropertiesInstalled, toggleProperties, openProperties)
+        }
+        return nil
     }
 
     public var body: some View {
@@ -111,8 +137,8 @@ public struct ExtensionsCatalogView: View {
 
     @ViewBuilder
     private func statusBadge(for item: ExtensionCatalogItem) -> some View {
-        if item.id == "wellspent.wartable" {
-            if isWarTableInstalled {
+        if let card = switchable(item) {
+            if card.isOn {
                 Text("Turned on")
                     .font(.system(size: 10, weight: .bold))
                     .padding(.horizontal, 7)
@@ -156,10 +182,10 @@ public struct ExtensionsCatalogView: View {
 
     @ViewBuilder
     private func cardAction(for item: ExtensionCatalogItem) -> some View {
-        if item.id == "wellspent.wartable" {
+        if let card = switchable(item) {
             HStack(spacing: 8) {
-                if isWarTableInstalled {
-                    Button(action: openWarTable) {
+                if card.isOn {
+                    Button(action: card.open) {
                         Text("Open")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 10)
@@ -170,7 +196,7 @@ public struct ExtensionsCatalogView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button(action: toggleWarTable) {
+                    Button(action: card.toggle) {
                         Text("Turn off")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 10)
@@ -180,7 +206,7 @@ public struct ExtensionsCatalogView: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Button(action: toggleWarTable) {
+                    Button(action: card.toggle) {
                         Text("Turn on")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 12)

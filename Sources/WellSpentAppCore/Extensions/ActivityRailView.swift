@@ -8,15 +8,19 @@ import SwiftUI
 public struct ActivityRailView: View {
     @Binding public var active: ActiveExtension
     public var isWarTableInstalled: Bool
+    /// Houses, the Properties extension's place on the rail, once turned on.
+    public var isPropertiesInstalled: Bool
     public var openAccount: @MainActor () -> Void
 
     public init(
         active: Binding<ActiveExtension>,
         isWarTableInstalled: Bool,
+        isPropertiesInstalled: Bool = false,
         openAccount: @escaping @MainActor () -> Void
     ) {
         self._active = active
         self.isWarTableInstalled = isWarTableInstalled
+        self.isPropertiesInstalled = isPropertiesInstalled
         self.openAccount = openAccount
     }
 
@@ -24,6 +28,12 @@ public struct ActivityRailView: View {
         VStack(spacing: 12) {
             railButton(title: "Budget", symbol: "chart.pie.fill", isSelected: active == .budgets) {
                 active = .budgets
+            }
+
+            if isPropertiesInstalled {
+                railButton(title: "Houses", symbol: "house.fill", isSelected: active == .properties) {
+                    active = .properties
+                }
             }
 
             if isWarTableInstalled {

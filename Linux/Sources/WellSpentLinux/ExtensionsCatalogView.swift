@@ -6,18 +6,18 @@ import WellSpentAppCore
 struct ExtensionsCatalogView: View {
     var isWarTableEnabled: Bool
     var isWarTableAvailable: Bool = true
-    var isRunwayEnabled: Bool = false
-    var isRunwayAvailable: Bool = true
+    var isPropertiesEnabled: Bool = false
+    var isPropertiesAvailable: Bool = true
     var installWarTable: @MainActor @Sendable () -> Void
     var openWarTable: @MainActor @Sendable () -> Void
-    var installRunway: @MainActor @Sendable () -> Void = {}
-    var openRunway: @MainActor @Sendable () -> Void = {}
+    var turnOnProperties: @MainActor @Sendable () -> Void = {}
+    var openProperties: @MainActor @Sendable () -> Void = {}
 
     private var items: [ExtensionCatalogItem] {
         ExtensionCatalog.items(
             platform: "linux",
             isWarTableEnabled: isWarTableAvailable,
-            isRunwayEnabled: isRunwayAvailable
+            isPropertiesEnabled: isPropertiesAvailable
         )
     }
 
@@ -86,7 +86,7 @@ struct ExtensionsCatalogView: View {
                 Text("Turned on")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(Palette.accent)
-            } else if item.id == "wellspent.properties" && isRunwayEnabled {
+            } else if item.id == "wellspent.properties" && isPropertiesEnabled {
                 Text("Turned on")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(Palette.accent)
@@ -119,13 +119,13 @@ struct ExtensionsCatalogView: View {
                 }
             }
         } else if item.id == "wellspent.properties" {
-            if isRunwayEnabled {
-                Button("Open Runway") {
-                    openRunway()
+            if isPropertiesEnabled {
+                Button("Open Houses") {
+                    openProperties()
                 }
             } else {
-                Button("Install Runway") {
-                    installRunway()
+                Button("Turn on") {
+                    turnOnProperties()
                 }
             }
         } else if item.status == .comingSoon {

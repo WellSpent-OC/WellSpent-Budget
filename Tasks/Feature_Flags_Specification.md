@@ -57,6 +57,7 @@ In a production release, the app is purely a personal finance manager. The Activ
 |---|---|---|---|---|---|---|
 | Extensions | `areExtensionsEnabled` | `WELLSPENT_FEATURE_EXTENSIONS` | `feature.extensions` | `false` | `true` | Enables the Activity Rail and the Extensions Catalog. |
 | WarTable | `isWarTableEnabled` | `WELLSPENT_FEATURE_WARTABLE` | `feature.wartable` | `false` | `true` | Enables the WarTable extension card and rail destination. |
+| Properties | `isPropertiesEnabled` | `WELLSPENT_FEATURE_PROPERTIES` | `feature.properties` | `false` | `false` | Enables the Properties extension card and the Houses rail item (desktop) or tab (iPhone). Runway is a page inside Properties, not a rail destination. |
 
 ### Hierarchical Coercion Rule
 

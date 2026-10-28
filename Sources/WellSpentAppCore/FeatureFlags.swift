@@ -13,8 +13,8 @@ public struct FeatureFlags: Sendable, Equatable {
     /// The environment variable to control WarTable in staging.
     nonisolated public static let warTableVariable = "WELLSPENT_FEATURE_WARTABLE"
 
-    /// The environment variable to control Runway in staging.
-    nonisolated public static let runwayVariable = "WELLSPENT_FEATURE_RUNWAY"
+    /// The environment variable to control Properties in staging.
+    nonisolated public static let propertiesVariable = "WELLSPENT_FEATURE_PROPERTIES"
 
     /// The user defaults key for App Extensions.
     public static let extensionsDefaultsKey = "feature.extensions"
@@ -22,8 +22,8 @@ public struct FeatureFlags: Sendable, Equatable {
     /// The user defaults key for WarTable.
     public static let warTableDefaultsKey = "feature.wartable"
 
-    /// The user defaults key for Runway.
-    public static let runwayDefaultsKey = "feature.runway"
+    /// The user defaults key for Properties.
+    public static let propertiesDefaultsKey = "feature.properties"
 
     /// Whether App Extensions, including the activity rail and catalog, are on.
     public let areExtensionsEnabled: Bool
@@ -31,17 +31,17 @@ public struct FeatureFlags: Sendable, Equatable {
     /// Whether WarTable is on. If extensions are off, WarTable is always off.
     public let isWarTableEnabled: Bool
 
-    /// Whether Runway is on. If extensions are off, Runway is always off.
-    public let isRunwayEnabled: Bool
+    /// Whether Properties is on. If extensions are off, Properties is always off.
+    public let isPropertiesEnabled: Bool
 
     public init(
         areExtensionsEnabled: Bool = false,
         isWarTableEnabled: Bool = false,
-        isRunwayEnabled: Bool = false
+        isPropertiesEnabled: Bool = false
     ) {
         self.areExtensionsEnabled = areExtensionsEnabled
         self.isWarTableEnabled = areExtensionsEnabled && isWarTableEnabled
-        self.isRunwayEnabled = areExtensionsEnabled && isRunwayEnabled
+        self.isPropertiesEnabled = areExtensionsEnabled && isPropertiesEnabled
     }
 
     /// Resolves the flags for a build environment.
@@ -57,7 +57,7 @@ public struct FeatureFlags: Sendable, Equatable {
     ) -> FeatureFlags {
         let extensionsEnabled: Bool
         let warTableEnabled: Bool
-        let runwayEnabled: Bool
+        let propertiesEnabled: Bool
 
         if let envText = processEnvironment[extensionsVariable] {
             extensionsEnabled = isTruthy(envText)
@@ -75,18 +75,18 @@ public struct FeatureFlags: Sendable, Equatable {
             warTableEnabled = false
         }
 
-        if let envText = processEnvironment[runwayVariable] {
-            runwayEnabled = isTruthy(envText)
-        } else if let defValue = defaults?.object(forKey: runwayDefaultsKey) as? Bool {
-            runwayEnabled = defValue
+        if let envText = processEnvironment[propertiesVariable] {
+            propertiesEnabled = isTruthy(envText)
+        } else if let defValue = defaults?.object(forKey: propertiesDefaultsKey) as? Bool {
+            propertiesEnabled = defValue
         } else {
-            runwayEnabled = false
+            propertiesEnabled = false
         }
 
         return FeatureFlags(
             areExtensionsEnabled: extensionsEnabled,
             isWarTableEnabled: warTableEnabled,
-            isRunwayEnabled: runwayEnabled
+            isPropertiesEnabled: propertiesEnabled
         )
     }
 

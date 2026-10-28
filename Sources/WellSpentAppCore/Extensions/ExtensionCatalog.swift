@@ -41,7 +41,7 @@ public enum ExtensionCatalog {
     public static func items(
         platform: String = "linux",
         isWarTableEnabled: Bool = true,
-        isRunwayEnabled: Bool = true
+        isPropertiesEnabled: Bool = true
     ) -> [ExtensionCatalogItem] {
         var items: [ExtensionCatalogItem] = []
         if isWarTableEnabled {
@@ -60,10 +60,10 @@ public enum ExtensionCatalog {
         items.append(
             ExtensionCatalogItem(
                 id: "wellspent.properties",
-                name: "Runway (Properties)",
-                summary: "For rental houses: cash flow, PriceLabs bookings, break-even runway, and proforma scenarios.",
+                name: "Properties",
+                summary: "For rental houses: bookings from PriceLabs, income into the budget, and each house's page with its runway.",
                 pricing: "$5 a house a month, billed yearly",
-                status: isRunwayEnabled ? .available : .comingSoon,
+                status: isPropertiesEnabled ? .available : .comingSoon,
                 platforms: ["macos", "ios", "linux"],
                 isInstalled: false
             )
@@ -113,7 +113,7 @@ public enum ExtensionCatalog {
         items(
             platform: platform,
             isWarTableEnabled: features.isWarTableEnabled,
-            isRunwayEnabled: features.isRunwayEnabled
+            isPropertiesEnabled: features.isPropertiesEnabled
         )
     }
 }
