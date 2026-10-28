@@ -53,7 +53,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
 | Mac | 160 | 153 |
-| Linux | 164 | 121 |
+| Linux | 164 | 136 |
 | iPhone | 153 | 147 |
 | Server | 9 | 9 |
 | Connector | 4 | 4 |
@@ -62,21 +62,21 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| ACCT-01 | Signed out, budgets are kept on this computer only | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-02 | Create an account | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-03 | Create an account says what is wrong before sending | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-04 | An email that already has an account | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-05 | Confirm the email with the code | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-06 | A wrong code, and another code | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-07 | An email not confirmed yet is asked for again | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-08 | Sign in | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-09 | A wrong password | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-10 | Forgot password | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-11 | Sign out | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-12 | Sign out everywhere asks first | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-13 | Signed out from another device | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-14 | Each device is listed by its own name | Mac, Linux, iPhone | Mac, iPhone |
-| ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, iPhone |
+| ACCT-01 | Signed out, budgets are kept on this computer only | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-02 | Create an account | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-03 | Create an account says what is wrong before sending | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-04 | An email that already has an account | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-05 | Confirm the email with the code | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-06 | A wrong code, and another code | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-07 | An email not confirmed yet is asked for again | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-08 | Sign in | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-09 | A wrong password | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-10 | Forgot password | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-11 | Sign out | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-12 | Sign out everywhere asks first | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-13 | Signed out from another device | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-14 | Each device is listed by its own name | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-16 | On a Mac, the Dock says STAGING too | Mac | Mac |
 
 ### [SampleGroups.md](SampleGroups.md)
