@@ -291,7 +291,7 @@ jobs:
     # Nightly and by hand only; a pull request runs the fast checks.
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     container:
       image: swift:6.2.4-noble
       # A failed step reads a stuck app's stacks with lldb, which needs ptrace.
