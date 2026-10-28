@@ -84,8 +84,9 @@ public enum EntrySaveResult: Equatable, Sendable {
 /// so a change someone else made to it meanwhile stays.
 public struct EntryChange: Equatable, Sendable {
     public var merchant: String?
-    /// Its size. The entry keeps its sign: money out stays money out, and a
-    /// refund stays a refund.
+    /// Its size. The sign follows the entry's kind: money out stays money
+    /// out, a refund stays a refund, income stays money in. A transfer keeps
+    /// the sign it had.
     public var amount: Money?
     public var date: Date?
     public var note: String?
