@@ -215,6 +215,78 @@ final class EntryGapTests: XCTestCase {
         run.expect(note: "birthday cake", under: "Corner Bakery")
     }
 
+    // MARK: - Money in
+
+    @MainActor
+    func testAnEntryMarkedMoneyInShowsAPlusSignAndImportsOfferIncomeOrRefund() throws {
+        let run = try start(region: "en_US")
+        let stamp = Self.stamp()
+        let groupName = "Pool House \(stamp)", bookings = "Bookings \(stamp)"
+        let income = EntryEditor.Words.income, refund = EntryEditor.Words.refund
+        let airbnb = "AIRBNB PAYOUT", cleaning = "CLEANING CO"
+
+        // 1. A group with Bookings, $2,000.00 a month, and $400.00 spent.
+        run.addGroup(named: groupName)
+        run.addBudget(named: bookings, amount: "2000", inGroup: groupName)
+        run.addEntry(merchant: "Cleaner", amount: "400")
+        run.expect(entry: "Cleaner", shows: "$400.00")
+
+        // Scenario INC-01
+        // 2. $750.00 with Money in switched on: its row shows a plus sign,
+        // the spending row does not, and what is spent does not change. Not
+        // "Airbnb" and not $1,310.00: the import in step 4 would take a payer
+        // it has seen as a rule, and an entry of the same amount today as the
+        // same transaction, and AIRBNB PAYOUT must still ask for its budget.
+        run.click(AccessibilityID.budgetAdd)
+        run.type("Guest deposit", into: AccessibilityID.entryMerchant)
+        run.type("750", into: AccessibilityID.entryAmount)
+        run.click(AccessibilityID.entryMoneyIn)
+        run.frame("inc-b-1-money-in-switch")
+        run.click(AccessibilityID.entryAdd)
+        run.expectNoSheet()
+        run.expect(entry: "Guest deposit", shows: "+$750.00")
+        run.expect(entry: "Cleaner", shows: "$400.00")
+        run.frame("inc-b-2-plus-sign-row")
+        let spent = TodaysBudget(limit: 200_000, spent: 40_000)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: spent.wheel.spokenSummary, "after the money in")
+
+        // 3. Opened, the entry still says it is income.
+        run.clickRow("Guest deposit")
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryTopLine), holds: "Manual \u{00B7} \(income)",
+                               timeout: 5), "the opened entry does not say \(income). On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.entryCancel)
+        run.expectNoSheet()
+
+        // Scenario INC-02
+        // 4. A statement with a payout and a charge: the payout is offered as
+        // money in, Income first, with Refund to choose; the charge has no
+        // such choice. Taken as Income, it lands with its plus sign.
+        let statement = try run.writeStatement([(airbnb, "1310.00"), (cleaning, "-120.00")])
+        run.importStatement(at: statement)
+        let payoutKind = run.element(AccessibilityID.importLineKind(airbnb))
+        XCTAssertTrue(run.wait(for: payoutKind, holds: income, timeout: 5),
+                      "the payout is not offered as \(income). On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.element(AccessibilityID.importLineKind(cleaning)).exists, "money out offers no kind")
+        run.frame("inc-b-3-import-income-or-refund")
+        run.choose(refund, in: AccessibilityID.importLineKind(airbnb))
+        run.choose(income, in: AccessibilityID.importLineKind(airbnb))
+        run.choose(bookings, in: AccessibilityID.importLineBudget(airbnb))
+        run.choose(bookings, in: AccessibilityID.importLineBudget(cleaning))
+        run.click(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        // The bank's "CLEANING CO" comes in cleaned up as "Cleaning".
+        run.expect(entry: "Airbnb Payout", shows: "+$1310.00")
+        run.expect(entry: "Cleaning", shows: "$120.00")
+
+        // 5. The next payout from the same payer is offered the same way.
+        let next = try run.writeStatement([(airbnb, "980.00")])
+        run.importStatement(at: next)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importLineKind(airbnb)), holds: income, timeout: 5),
+                      "the second payout is not offered as \(income)")
+        run.click(AccessibilityID.importCancel)
+    }
+
     // MARK: - A date before this period
 
     @MainActor
@@ -602,6 +674,21 @@ private extension TestApp {
     /// The row in the budget's list that holds an entry, found by the cell
     /// with its merchant: a row of an outline, or of a table, whichever the
     /// list reaches the test as.
+    /// A picture of the window for the design seat's acceptance read, kept
+    /// with the run's results whether the test passes or not.
+    func frame(_ name: String) {
+        // Every display, not the window: a window's own picture fails on a
+        // second display, and the run's window may sit on either one.
+        XCTContext.runActivity(named: name) { activity in
+            for (index, screen) in XCUIScreen.screens.enumerated() {
+                let picture = XCTAttachment(screenshot: screen.screenshot())
+                picture.name = "\(name)-screen\(index)"
+                picture.lifetime = .keepAlways
+                activity.add(picture)
+            }
+        }
+    }
+
     func listRow(_ merchant: String) -> XCUIElement {
         let rows = app.windows.firstMatch.descendants(matching: .any).matching(NSPredicate(
             format: "elementType == %d OR elementType == %d", XCUIElement.ElementType.outlineRow.rawValue,

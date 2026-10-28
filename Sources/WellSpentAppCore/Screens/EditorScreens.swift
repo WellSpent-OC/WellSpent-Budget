@@ -153,6 +153,10 @@ public final class EntryEditor {
     public var amountText: String
     public var note: String
     public var date: Date
+    /// The Money in switch. Off, the entry is money spent, however the
+    /// amount is typed. On, it is money in: income when added here, and an
+    /// opened refund stays a refund (INC-01).
+    public var isMoneyIn: Bool
     /// Where an opened entry is filed. Adding files into the budget on
     /// screen, and offers no choice.
     public var budgetID: BudgetID?
@@ -181,6 +185,7 @@ public final class EntryEditor {
         amountText = editing.map { TypedAmount.text($0.amount.magnitude, locale: locale) } ?? ""
         note = editing?.note ?? ""
         self.date = editing?.date ?? date
+        isMoneyIn = editing.map { $0.kind.isMoneyIn || ($0.kind == .transfer && $0.amount.minorUnits > 0) } ?? false
         budgetID = editing?.budgetID
         access = editing.map { model.access(to: $0) } ?? .change
         noticeLine = editing.flatMap { model.takeNotice(of: $0.id) ? Words.notice : nil }
@@ -266,7 +271,8 @@ public final class EntryEditor {
 
     /// Above the details: who added it, once someone else is in the group,
     /// as the list's Added by column decides. Then where it came from, in
-    /// the list's words, and Refund for money in.
+    /// the list's words, and what it is when it is not plain spending:
+    /// Income, Refund, and so on.
     public var topLine: String? {
         guard let editing else { return nil }
         var parts: [String] = []
@@ -276,8 +282,18 @@ public final class EntryEditor {
             parts.append(Words.addedBy(mine ? Words.you : name ?? Words.aMember))
         }
         parts.append(editing.source.rawValue.capitalized)
-        if editing.amount.minorUnits > 0 { parts.append(Words.refund) }
+        if editing.kind != .spending { parts.append(Words.name(of: editing.kind)) }
         return parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// The kind the switch stands for on an opened entry: off is spending;
+    /// on keeps a money-in kind the entry already has, and makes anything
+    /// else income.
+    private var switchedKind: TransactionKind? {
+        guard let editing else { return nil }
+        let wasMoneyIn = editing.kind.isMoneyIn || (editing.kind == .transfer && editing.amount.minorUnits > 0)
+        if isMoneyIn == wasMoneyIn { return nil }
+        return isMoneyIn ? .income : .spending
     }
 
     /// The budgets an opened entry may move to: the live ones in its own
@@ -308,6 +324,7 @@ public final class EntryEditor {
         if !AppLocale.calendar.isDate(date, inSameDayAs: editing.date) { changes.date = date }
         if note != editing.note { changes.note = note }
         if let budgetID, budgetID != editing.budgetID { changes.budget = budgetID }
+        if let kind = switchedKind { changes.kind = kind }
         return changes == EntryChange() ? nil : changes
     }
 
@@ -317,7 +334,8 @@ public final class EntryEditor {
     public func add() -> Bool {
         guard canAdd, let amount = TypedAmount(amountText, locale: locale).money,
               let budget = model.selectedBudget, model.budget(for: budget) != nil else { return false }
-        model.addTransaction(merchant: merchant, amount: amount, date: date, note: note)
+        model.addTransaction(merchant: merchant, amount: amount, date: date, note: note,
+                             kind: isMoneyIn ? .income : .spending)
         return model.errorMessage == nil
     }
 
@@ -371,6 +389,26 @@ public final class EntryEditor {
         public static let done = "Done"
         public static let delete = "Delete\u{2026}"
         public static let refund = "Refund"
+        /// The switch's label. Placeholder words until the word check.
+        public static let moneyIn = "Money in"
+        public static let income = "Income"
+        public static let transfer = "Transfer"
+        public static let borrowed = "Borrowed"
+        public static let fromSavings = "From savings"
+        public static let cardPayment = "Card payment"
+        /// What an entry is, for the top line and the import review. Spending
+        /// has no word: it is what every entry was.
+        public static func name(of kind: TransactionKind) -> String {
+            switch kind {
+            case .spending: return ""
+            case .refund: return refund
+            case .income: return income
+            case .transfer: return transfer
+            case .loanDraw: return borrowed
+            case .savingsDraw: return fromSavings
+            case .cardPayment: return cardPayment
+            }
+        }
         public static let you = "you"
         public static let aMember = "a member"
         public static func addedBy(_ who: String) -> String { "Added by \(who)" }

@@ -118,6 +118,8 @@ public enum AccessibilityID {
     public static let entryBudget = "entry.budget"
     /// Above the details: who added it, where it came from, and Refund.
     public static let entryTopLine = "entry.topLine"
+    /// The Money in switch, on a new or opened entry.
+    public static let entryMoneyIn = "entry.moneyIn"
     /// When this computer's last change to it didn't go through.
     public static let entryNoticeLine = "entry.noticeLine"
     /// Under the date, when it moves the entry out of this period.
@@ -135,6 +137,8 @@ public enum AccessibilityID {
     public static func importLineStatus(_ bankText: String) -> String { "import.status.\(bankText)" }
     /// The budget list on a line that needs one, by the bank's text.
     public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
+    /// A money-in line's kind list (Income, Refund, …), by the bank's text.
+    public static func importLineKind(_ bankText: String) -> String { "import.kind.\(bankText)" }
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
     /// A line's row on a phone, by the bank's text: its date and name, its

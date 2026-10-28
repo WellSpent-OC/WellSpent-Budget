@@ -165,6 +165,8 @@ struct EntrySheetTests {
 
         #expect(try texts(sheet).contains("New transaction"))
         #expect(try buttons(sheet) == ["Cancel", "Add"])
+        #expect(try sheet.inspect().findAll(ViewType.Toggle.self).count == 1, "the Money in switch")
+        #expect(try texts(sheet).contains("Money in"))
         #expect((try? sheet.inspect().find(ViewType.Picker.self)) == nil, "it goes in the budget on screen")
     }
 

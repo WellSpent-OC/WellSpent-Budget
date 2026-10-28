@@ -846,6 +846,9 @@ struct EntrySheet: View {
                     .foregroundStyle(Palette.warning)
                     .accessibilityIdentifier(AccessibilityID.entryAmountProblem)
             }
+            Toggle(Words.moneyIn, isOn: Bindable(editor).isMoneyIn)
+                .toggleStyle(.switch)
+                .accessibilityIdentifier(AccessibilityID.entryMoneyIn)
             DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
                 .accessibilityIdentifier(AccessibilityID.entryDate)
             if let line = editor.periodLine {
@@ -1030,7 +1033,8 @@ struct ImportReviewSheet: View {
             LazyVStack(spacing: 0) {
                 ForEach(screen.rows) { row in
                     ImportRow(row: row, choices: screen.budgetChoices,
-                              choose: { screen.choose($0, for: row.id) })
+                              choose: { screen.choose($0, for: row.id) },
+                              chooseKind: { screen.choose($0, for: row.id) })
                     Divider()
                 }
             }
@@ -1068,6 +1072,7 @@ struct ImportRow: View {
     let row: ImportReviewScreen.Row
     let choices: [Budget]
     let choose: (BudgetID?) -> Void
+    let chooseKind: (TransactionKind) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1096,6 +1101,19 @@ struct ImportRow: View {
                     .accessibilityIdentifier(AccessibilityID.importLineStatus(row.bankDescription))
             }
             .frame(width: 140, alignment: .leading)
+
+            if let kind = row.kind {
+                Picker(ImportReviewScreen.Words.kind, selection: Binding(get: { kind }, set: { chooseKind($0) })) {
+                    ForEach(ImportReviewScreen.kindChoices, id: \.self) { choice in
+                        Text(ImportReviewScreen.name(of: choice)).tag(choice)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 110)
+                .accessibilityIdentifier(AccessibilityID.importLineKind(row.bankDescription))
+            } else {
+                Spacer().frame(width: 110)
+            }
 
             if row.needsBudget {
                 Picker("", selection: Binding(get: { row.chosenBudget }, set: { choose($0) })) {

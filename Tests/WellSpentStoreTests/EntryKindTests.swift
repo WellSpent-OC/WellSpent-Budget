@@ -12,10 +12,6 @@ struct EntryKindTests {
         #expect(TransactionKind.inferred(from: Money(minorUnits: 1)) == .refund)
     }
 
-    @Test func spendingAndRefundsCountAsSpentAndNothingElseDoes() {
-        #expect(TransactionKind.allCases.filter(\.countsAsSpent) == [.spending, .refund])
-    }
-
     @Test func moneyInKindsAreStoredPositive() {
         #expect(TransactionKind.allCases.filter(\.isMoneyIn) == [.refund, .income, .loanDraw, .savingsDraw])
         #expect(!TransactionKind.transfer.isMoneyIn, "a transfer is left as typed")

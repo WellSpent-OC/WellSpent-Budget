@@ -52,7 +52,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 162 | 153 |
+| Mac | 162 | 155 |
 | Linux | 166 | 138 |
 | iPhone | 155 | 147 |
 | Server | 9 | 9 |
@@ -129,8 +129,8 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-01 | An entry can be money coming in | Mac, Linux, iPhone | None yet |
-| INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | None yet |
+| INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac |
+| INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac |
 | INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
 
 ### [EditEntry.md](EditEntry.md)
