@@ -24,6 +24,7 @@ struct PhoneRootView: View {
     @State private var addingEntry = false
     @State private var activeExtension: ActiveExtension = .budgets
     @State private var isWarTableInstalled = false
+    @State private var isPropertiesInstalled = false
     @State private var showingExtensionsCatalog = false
     /// The screen a staging build was asked to open on, applied once.
     private let start: StartingScreen?
@@ -35,8 +36,23 @@ struct PhoneRootView: View {
         workspace.features.isWarTableEnabled && isWarTableInstalled
     }
 
+    /// On when the flag allows it and this person turned it on, on this device.
+    private var isPropertiesActive: Bool {
+        workspace.features.isPropertiesEnabled &&
+            (isPropertiesInstalled || workspace.extensionSwitches.isOn(PropertiesRegistration.id))
+    }
+
     private var hasActiveExtensions: Bool {
-        isWarTableActive
+        isWarTableActive || isPropertiesActive
+    }
+
+    /// Turns Properties on or off for this person on this device, and moves
+    /// the tabs to Houses or back to Budgets.
+    private func setProperties(on: Bool) {
+        isPropertiesInstalled = on
+        workspace.extensionSwitches.set(PropertiesRegistration.id, on: on)
+        activeExtension = on ? .properties : .budgets
+        if on { showingExtensionsCatalog = false }
     }
 
     init(workspace: Workspace, startingOn start: StartingScreen? = nil) {
@@ -99,6 +115,19 @@ struct PhoneRootView: View {
                     }
                     .tag(ActiveExtension.budgets)
 
+                if isPropertiesActive {
+                    NavigationStack {
+                        HousesPlaceholderView(
+                            openCatalog: { showingExtensionsCatalog = true },
+                            turnOff: { setProperties(on: false) }
+                        )
+                    }
+                    .tabItem {
+                        Label("Houses", systemImage: "house.fill")
+                    }
+                    .tag(ActiveExtension.properties)
+                }
+
                 if isWarTableActive {
                     NavigationStack {
                         WarTablePlaceholderView(
@@ -140,6 +169,13 @@ struct PhoneRootView: View {
                 } else {
                     activeExtension = .budgets
                 }
+            },
+            isPropertiesInstalled: isPropertiesActive,
+            isPropertiesAvailable: workspace.features.isPropertiesEnabled,
+            toggleProperties: { setProperties(on: !isPropertiesActive) },
+            openProperties: {
+                showingExtensionsCatalog = false
+                activeExtension = .properties
             },
             openWarTable: {
                 showingExtensionsCatalog = false
