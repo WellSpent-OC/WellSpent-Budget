@@ -7,6 +7,16 @@ import PackageDescription
 //
 // The server is a separate package under Server/, so Vapor and its NIO dependency
 // tree never slow down a client build.
+// The paid Properties extension is a private package. A build that sets
+// WELLSPENT_PROPERTIES_PATH to a checkout of WellSpent-OC/WellSpent-Properties
+// links it, and the app's seam (`#if canImport(WellSpentProperties)`) comes
+// alive. Unset, which is every public build, the app builds without it.
+let propertiesPath = Context.environment["WELLSPENT_PROPERTIES_PATH"]
+let propertiesDependencies: [Package.Dependency] =
+    propertiesPath.map { [.package(name: "WellSpentProperties", path: $0)] } ?? []
+let propertiesProducts: [Target.Dependency] =
+    propertiesPath == nil ? [] : [.product(name: "WellSpentProperties", package: "WellSpentProperties")]
+
 let package = Package(
     name: "WellSpentBudget",
     platforms: [.macOS(.v14), .iOS(.v17)],
@@ -22,6 +32,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "WarTable", path: "Extensions/WarTable"),
+    ] + propertiesDependencies + [
         // `import Crypto` re-exports CryptoKit on Apple platforms and uses
         // swift-crypto's own implementation on Linux. One call site, both platforms.
         // A range, not `from:`, so the server package can resolve a version its
@@ -91,7 +102,7 @@ let package = Package(
             name: "WellSpentAppCore",
             dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto",
                            "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions",
-                           .product(name: "WarTableCore", package: "WarTable")]
+                           .product(name: "WarTableCore", package: "WarTable")] + propertiesProducts
         ),
         // The SwiftUI shell: views and the AppKit entry point. Deliberately thin,
         // because nothing in here can be unit tested without a UI harness.

@@ -42,7 +42,7 @@ final class PhoneExtensionsTests: XCTestCase {
         // 2. Extensions Catalog opens
         XCTAssertTrue(run.text("Extensions").waitForExistence(timeout: 5))
         XCTAssertTrue(run.text("WarTable").exists)
-        XCTAssertTrue(run.text("Runway (Properties)").exists || run.text("Properties").exists)
+        XCTAssertTrue(run.text("Properties").exists)
 
         // 3. Turn on WarTable
         let turnOn = run.button("Turn on")
