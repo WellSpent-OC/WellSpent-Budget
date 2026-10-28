@@ -206,9 +206,11 @@ public final class AppModel {
             }
             if let merchant = change.merchant { entry.merchant = merchant }
             if let amount = change.amount {
+                // The sign follows the kind, so a refund stays a refund and
+                // income stays money in. A transfer keeps the sign it had.
                 let size = abs(amount.minorUnits)
-                entry.amount = Money(minorUnits: entry.amount.minorUnits > 0 ? size : -size,
-                                     currency: entry.amount.currency)
+                let moneyIn = entry.kind == .transfer ? entry.amount.minorUnits > 0 : entry.kind.isMoneyIn
+                entry.amount = Money(minorUnits: moneyIn ? size : -size, currency: entry.amount.currency)
             }
             if let date = change.date { entry.date = date }
             if let note = change.note { entry.note = note }
