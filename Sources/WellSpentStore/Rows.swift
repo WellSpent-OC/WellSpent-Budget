@@ -65,6 +65,7 @@ struct GroupRow: Codable, FetchableRecord, PersistableRecord {
     var id: String
     var name: String
     var note: String
+    var claimedBy: String?
     var createdAt: Date
     var updatedAt: Date
     var isDeleted: Bool
@@ -73,13 +74,14 @@ struct GroupRow: Codable, FetchableRecord, PersistableRecord {
         id = model.id.dbValue
         name = model.name
         note = model.note
+        claimedBy = model.claimedBy
         createdAt = model.createdAt
         updatedAt = model.updatedAt
         isDeleted = model.isDeleted
     }
 
     func model() throws -> BudgetGroup {
-        BudgetGroup(id: GroupID(try RowCoding.uuid(id)), name: name, note: note,
+        BudgetGroup(id: GroupID(try RowCoding.uuid(id)), name: name, note: note, claimedBy: claimedBy,
                     createdAt: createdAt, updatedAt: updatedAt, isDeleted: isDeleted)
     }
 }
@@ -144,6 +146,7 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
     var note: String
     var amountMinorUnits: Int
     var currency: String
+    var kind: String
     var source: String
     var receiptId: String?
     var importFingerprint: String?
@@ -161,6 +164,7 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
         note = model.note
         amountMinorUnits = model.amount.minorUnits
         currency = model.amount.currency.rawValue
+        kind = model.kind.rawValue
         source = model.source.rawValue
         receiptId = model.receiptID?.dbValue
         importFingerprint = model.importFingerprint
@@ -177,12 +181,16 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
         guard let sourceValue = TransactionSource(rawValue: source) else {
             throw StoreError.corruptRow("unknown source '\(source)'")
         }
+        guard let kindValue = TransactionKind(rawValue: kind) else {
+            throw StoreError.corruptRow("unknown kind '\(kind)'")
+        }
         return Transaction(
             id: RecordID(try RowCoding.uuid(id)),
             budgetID: BudgetID(try RowCoding.uuid(budgetId)),
             groupID: GroupID(try RowCoding.uuid(budgetGroupId)),
             date: date, merchant: merchant, note: note,
             amount: Money(minorUnits: amountMinorUnits, currency: currencyValue),
+            kind: kindValue,
             source: sourceValue,
             receiptID: try receiptId.map { RecordID(try RowCoding.uuid($0)) },
             importFingerprint: importFingerprint,

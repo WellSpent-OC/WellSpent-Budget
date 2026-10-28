@@ -477,6 +477,41 @@ struct SampleBudgetTests {
         #expect(try app.model.store.searchTransactions("Hilltop").isEmpty)
     }
 
+    /// The sign follows the kind, however the amount was typed: spending is
+    /// stored negative, money in positive, and the kind is kept.
+    @Test func anEntryAddedAsMoneyInIsStoredPositiveWithItsKind() throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        let trip = try #require(app.model.addGroup(named: "Pool House"))
+        app.model.addBudget(named: "Bookings", limit: .dollars(2000), in: trip)
+        app.model.addTransaction(merchant: "Airbnb", amount: .dollars(1310), date: Date(), note: "", kind: .income)
+        app.model.addTransaction(merchant: "Cleaner", amount: .dollars(-120), date: Date(), note: "")
+        app.model.addTransaction(merchant: "Refund", amount: .dollars(-25), date: Date(), note: "", kind: .refund)
+        app.model.addTransaction(merchant: "Between accounts", amount: .dollars(-500), date: Date(), note: "", kind: .transfer)
+
+        let bookings = try #require(try app.model.store.budgets(in: trip).first)
+        let entries = try app.model.store.transactions(in: bookings.id)
+        func entry(_ merchant: String) throws -> Transaction {
+            try #require(entries.first { $0.merchant == merchant })
+        }
+        #expect(try entry("Airbnb").amount == .dollars(1310) && entry("Airbnb").kind == .income)
+        #expect(try entry("Cleaner").amount == .dollars(-120) && entry("Cleaner").kind == .spending)
+        #expect(try entry("Refund").amount == .dollars(25) && entry("Refund").kind == .refund)
+        #expect(try entry("Between accounts").amount == .dollars(-500), "a transfer is left as typed")
+        #expect(try entry("Between accounts").kind == .transfer)
+
+        // A new amount takes its sign from the kind. A transfer keeps the sign it had.
+        for merchant in ["Airbnb", "Cleaner", "Refund", "Between accounts"] {
+            #expect(app.model.updateEntry(try entry(merchant).id, EntryChange(amount: .dollars(-7))) == .saved)
+        }
+        let after = try app.model.store.transactions(in: bookings.id)
+        func now(_ merchant: String) -> Money? { after.first { $0.merchant == merchant }?.amount }
+        #expect(now("Airbnb") == .dollars(7), "income stays money in")
+        #expect(now("Cleaner") == .dollars(-7))
+        #expect(now("Refund") == .dollars(7), "a refund stays a refund")
+        #expect(now("Between accounts") == .dollars(-7), "a transfer keeps its sign")
+    }
+
     @Test func aGroupMadeBeforeSigningUpComesAlongAndTheSamplesDoNot() async throws {
         let mac = Mac()
         let app = try mac.launch()

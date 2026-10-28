@@ -155,7 +155,8 @@ public final class AppModel {
 
     // MARK: - Editing
 
-    public func addTransaction(merchant: String, amount: Money, date: Date, note: String) {
+    public func addTransaction(merchant: String, amount: Money, date: Date, note: String,
+                               kind: TransactionKind = .spending) {
         guard let selectedBudget, let budget = budget(for: selectedBudget) else { return }
         // A button left showing cannot add what the server would refuse.
         guard mayAddEntries(budget.groupID) else {
@@ -163,10 +164,12 @@ public final class AppModel {
             return
         }
         do {
-            // Stored negative: a budget counts money going out.
-            let signed = Money(minorUnits: -abs(amount.minorUnits), currency: amount.currency)
+            // The sign follows the kind: money out is stored negative, money in
+            // positive, however the amount was typed.
+            let size = abs(amount.minorUnits)
+            let signed = Money(minorUnits: kind.isMoneyIn ? size : -size, currency: amount.currency)
             try store.save(Transaction(budgetID: budget.id, groupID: budget.groupID, date: date,
-                                       merchant: merchant, note: note, amount: signed))
+                                       merchant: merchant, note: note, amount: signed, kind: kind))
             changed()
         } catch {
             errorMessage = String(describing: error)
@@ -203,9 +206,11 @@ public final class AppModel {
             }
             if let merchant = change.merchant { entry.merchant = merchant }
             if let amount = change.amount {
+                // The sign follows the kind, so a refund stays a refund and
+                // income stays money in. A transfer keeps the sign it had.
                 let size = abs(amount.minorUnits)
-                entry.amount = Money(minorUnits: entry.amount.minorUnits > 0 ? size : -size,
-                                     currency: entry.amount.currency)
+                let moneyIn = entry.kind == .transfer ? entry.amount.minorUnits > 0 : entry.kind.isMoneyIn
+                entry.amount = Money(minorUnits: moneyIn ? size : -size, currency: entry.amount.currency)
             }
             if let date = change.date { entry.date = date }
             if let note = change.note { entry.note = note }
@@ -657,6 +662,7 @@ public final class AppModel {
             merchant: proposal.line.cleanedDescription,
             note: proposal.line.rawDescription,
             amount: proposal.line.amount,
+            kind: .inferred(from: proposal.line.amount),
             source: .statement,
             importFingerprint: proposal.fingerprint
         ))
