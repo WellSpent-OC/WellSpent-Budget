@@ -95,3 +95,81 @@ void wellspent_wartable_transcript(void *widget, const char *conversation, const
                                   const char *last_message, int latest_request);
 /// Opens a valid HTTPS URL with installed Google Chrome. Never substitutes Chromium.
 int wellspent_wartable_open_url(const char *url);
+
+// MARK: - Native GTK 4 Shell (Phase 1 & Phase 2)
+
+typedef void (*wellspent_gtk_action_cb)(void *context, const char *action_id);
+typedef void (*wellspent_gtk_new_budget_cb)(void *context, const char *name, const char *limit);
+typedef void (*wellspent_gtk_new_tx_cb)(void *context, const char *merchant, const char *amount, const char *note);
+typedef void (*wellspent_gtk_account_cb)(void *context, const char *action, const char *email, const char *password);
+
+void wellspent_gtk_init_css(void);
+
+void *wellspent_gtk_create_shell_window(void *gtk_app,
+                                        const char *title,
+                                        const char *team_name,
+                                        wellspent_gtk_action_cb on_action,
+                                        void *context);
+
+void wellspent_gtk_sidebar_clear(void *shell_ptr);
+
+void wellspent_gtk_sidebar_add_group(void *shell_ptr,
+                                     const char *group_id,
+                                     const char *title,
+                                     int is_collapsed,
+                                     int is_first);
+
+void wellspent_gtk_sidebar_add_budget(void *shell_ptr,
+                                      const char *budget_id,
+                                      const char *name,
+                                      const char *amount_text,
+                                      double share,
+                                      int is_over,
+                                      int is_selected);
+
+void wellspent_gtk_sidebar_add_footer(void *shell_ptr, const char *status_text);
+
+void wellspent_gtk_update_detail_wheel(void *shell_ptr,
+                                       const char *budget_name,
+                                       const char *day_line,
+                                       const char *middle_key,
+                                       const char *middle_amount,
+                                       const char *middle_of,
+                                       const char *pace_text,
+                                       double arc,
+                                       double tick,
+                                       int is_over);
+
+void wellspent_gtk_clear_transactions(void *shell_ptr);
+
+void wellspent_gtk_add_transaction_row(void *shell_ptr,
+                                       const char *date,
+                                       const char *merchant,
+                                       const char *source,
+                                       const char *amount);
+
+void wellspent_gtk_set_active_tab(void *shell_ptr, const char *tab_name);
+
+void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing);
+
+void wellspent_gtk_show_new_budget_dialog(void *shell_ptr,
+                                          wellspent_gtk_new_budget_cb cb,
+                                          void *context);
+
+void wellspent_gtk_show_new_tx_dialog(void *shell_ptr,
+                                      wellspent_gtk_new_tx_cb cb,
+                                      void *context);
+
+void wellspent_gtk_show_account_dialog(void *shell_ptr,
+                                       const char *email,
+                                       int is_signed_in,
+                                       wellspent_gtk_account_cb cb,
+                                       void *context);
+
+void wellspent_gtk_window_present(void *shell_ptr);
+
+// Frees the shell struct. Call it once, after the action callback has said
+// "window:destroyed"; every widget pointer inside is already NULL by then.
+void wellspent_gtk_free_shell(void *shell_ptr);
+
+
