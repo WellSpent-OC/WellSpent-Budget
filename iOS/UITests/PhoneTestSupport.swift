@@ -72,12 +72,34 @@ final class PhoneTestApp {
             .waitForExistence(timeout: timeout)
     }
 
+    /// Whether an entry's row is in the list within the time given. A list
+    /// draws only the rows on screen, and under a budget's wheel and its
+    /// pace words the second row can already be below the bottom, where it
+    /// does not exist to a test. So when the row has not shown in time, the
+    /// list is scrolled to it before giving up. Every check that a row is
+    /// there goes through here, never through a bare `exists`.
+    @discardableResult
+    func hasRow(_ merchant: String, timeout: TimeInterval = 10) -> Bool {
+        has(AccessibilityID.entryRow(merchant), timeout: timeout)
+    }
+
+    /// Whether anything in a list is there within the time given, scrolled
+    /// to when the list has not drawn it yet: a person's row or Leave Group
+    /// at the end of a group's page, as much as an entry under a wheel.
+    @discardableResult
+    func has(_ identifier: String, timeout: TimeInterval = 10) -> Bool {
+        if element(identifier).waitForExistence(timeout: timeout) { return true }
+        return scrollTo(identifier, timeout: 15).exists
+    }
+
     /// Whether an entry's row holds these words within the time given. A row
     /// is one element, read as its words in order, so its words are in its
     /// label and not on screen as words of their own. Capitals are ignored,
-    /// as in `shows`.
+    /// as in `shows`. A row below the bottom of the list is scrolled to
+    /// first, as `hasRow` does.
     func row(_ merchant: String, says words: String, timeout: TimeInterval = 10) -> Bool {
-        app.descendants(matching: .any)
+        guard hasRow(merchant, timeout: timeout) else { return false }
+        return app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS[c] %@",
                                   AccessibilityID.entryRow(merchant), words))
             .firstMatch.waitForExistence(timeout: timeout)
@@ -169,8 +191,24 @@ final class PhoneTestApp {
         let target = element(identifier)
         let list = app.collectionViews.firstMatch
         let deadline = Date().addingTimeInterval(timeout)
-        while !target.exists, Date() < deadline {
+        // Down the list first, then back up: a thing near the top that the
+        // runner had not drawn yet, such as an invitation's buttons on Home,
+        // would otherwise be swiped off the top and never found. The swipes
+        // down stop short of the top, where a pull would sync.
+        var swipes = 0
+        while !target.exists, Date() < deadline, swipes < 6 {
             if list.exists { list.swipeUp() } else { app.swipeUp() }
+            swipes += 1
+        }
+        swipes = 0
+        while !target.exists, Date() < deadline, swipes < 8 {
+            if list.exists {
+                let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)))
+            } else {
+                app.swipeDown()
+            }
+            swipes += 1
         }
         if target.exists { bringToMiddle(target) }
         return target
@@ -382,6 +420,14 @@ final class PhoneTestApp {
         if !hittable, answerSavePasswordIfAsked() {
             hittable = wait(for: target, until: "hittable == true", timeout: 30)
         }
+        // A button at the foot of a form, such as Send on an invitation,
+        // sits under the keyboard once the fields above it are typed into:
+        // on screen, but nothing can tap it. A person drags the form up, and
+        // so does this, then looks again.
+        if !hittable, target.exists, app.keyboards.count > 0 {
+            bringToMiddle(target)
+            hittable = wait(for: target, until: "hittable == true", timeout: 10)
+        }
         XCTAssertTrue(hittable, "\(identifier) is on screen but cannot be tapped. On screen: \(visibleTexts())")
     }
 
@@ -499,8 +545,7 @@ final class PhoneTestApp {
         type(amount, into: AccessibilityID.entryAmount)
         if !note.isEmpty { type(note, into: AccessibilityID.entryNote) }
         tap(AccessibilityID.entryAdd)
-        XCTAssertTrue(element(AccessibilityID.entryRow(merchant)).waitForExistence(timeout: 10),
-                      "\(merchant) is not in the list. On screen: \(visibleTexts())")
+        XCTAssertTrue(hasRow(merchant), "\(merchant) is not in the list. On screen: \(visibleTexts())")
     }
 
     /// Signs in from the foot of Home, pasting the email and the password, and

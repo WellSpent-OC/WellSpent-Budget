@@ -385,8 +385,8 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: "Left $346 of $500"),
                       "the wheel does not show what is left of $500. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "no count of 2. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop Grocery")).exists, "Hilltop Grocery is not listed")
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Corner Bakery is not listed")
+        XCTAssertTrue(run.hasRow("Hilltop Grocery"), "Hilltop Grocery is not listed")
+        XCTAssertTrue(run.hasRow("Corner Bakery"), "Corner Bakery is not listed")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "last month's Market is listed")
         run.goBack()
         let row = run.scrollTo(AccessibilityID.sidebarBudget(budget))

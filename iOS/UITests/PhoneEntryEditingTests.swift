@@ -52,6 +52,9 @@ final class PhoneEntryEditingTests: XCTestCase {
         // A tap on it opens it as "Transaction", filled in, with its budget,
         // and where it came from above, since nobody else is in the group.
         // Delete has no "…", and Save is dimmed.
+        // Three rows under the wheel: the first can be above or below what
+        // the list has drawn, so it is brought on screen before it is read.
+        XCTAssertTrue(run.hasRow("Hilltop"), "Hilltop is not in the list. On screen: \(run.visibleTexts())")
         let row = run.element(AccessibilityID.entryRow("Hilltop"))
         XCTAssertEqual(row.elementType, .button, "VoiceOver does not read the row as a button")
         XCTAssertTrue(run.row("Hilltop", says: "$42.00"), "the row does not read as one. It says: \(run.rowLabel("Hilltop"))")
@@ -133,7 +136,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.goBack()
         run.scrollTo(AccessibilityID.sidebarBudget("Snacks"))
         run.openBudget(named: "Snacks")
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.hasRow("Hilltop", timeout: 10),
                       "Snacks does not list Hilltop. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows("$10.00"), "Snacks does not count it. On screen: \(run.visibleTexts())")
 
@@ -204,7 +207,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         // Scenario EDIT-07
         // 3. Undo brings it back as it was, and the bar goes.
         run.tap(AccessibilityID.undoButton)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.hasRow("Hilltop", timeout: 10),
                       "Undo did not bring it back")
         XCTAssertTrue(run.row("Hilltop", says: "$40.00"), "it is not back at $40.00. It says: \(run.rowLabel("Hilltop"))")
         XCTAssertTrue(run.shows("$50.50"), "the total does not count it again. On screen: \(run.visibleTexts())")
@@ -266,7 +269,7 @@ final class PhoneEntryEditingTests: XCTestCase {
                       "the bar does not name Kiosk. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.text(bakeryBar).exists, "the bar still names Bakery")
         run.tap(AccessibilityID.undoButton)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Kiosk")).waitForExistence(timeout: 10),
+        XCTAssertTrue(run.hasRow("Kiosk", timeout: 10),
                       "Undo did not bring Kiosk back")
         XCTAssertFalse(run.element(AccessibilityID.entryRow("Bakery")).exists, "Bakery came back")
         XCTAssertTrue(run.shows("$88.50"), "the total is wrong. On screen: \(run.visibleTexts())")

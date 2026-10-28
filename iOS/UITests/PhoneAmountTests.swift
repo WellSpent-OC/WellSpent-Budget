@@ -182,7 +182,7 @@ extension PhoneTestApp {
         type(merchant, into: AccessibilityID.entryMerchant)
         paste(amount, into: AccessibilityID.entryAmount)
         tap(AccessibilityID.entryAdd)
-        XCTAssertTrue(element(AccessibilityID.entryRow(merchant)).waitForExistence(timeout: 10),
+        XCTAssertTrue(hasRow(merchant, timeout: 10),
                       "\(merchant) is not in the list. On screen: \(visibleTexts())")
     }
 
