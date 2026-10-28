@@ -69,11 +69,26 @@ struct FeatureFlagsTests {
         #expect(withAll.isRunwayEnabled)
     }
 
-    @Test func stagingEnvironmentEnablesFeaturesByDefault() {
+    @Test func stagingEnvironmentDisablesFeaturesByDefault() {
         let resolved = FeatureFlags.resolve(for: .staging, defaults: nil, processEnvironment: [:])
-        #expect(resolved.areExtensionsEnabled)
-        #expect(resolved.isWarTableEnabled)
-        #expect(resolved.isRunwayEnabled)
+        #expect(!resolved.areExtensionsEnabled)
+        #expect(!resolved.isWarTableEnabled)
+        #expect(!resolved.isRunwayEnabled)
+    }
+
+    @Test func stagingEnvironmentEnablesFeaturesWithEnvironmentVariable() {
+        let enabled = FeatureFlags.resolve(
+            for: .staging,
+            defaults: nil,
+            processEnvironment: [
+                FeatureFlags.extensionsVariable: "1",
+                FeatureFlags.warTableVariable: "1",
+                FeatureFlags.runwayVariable: "1"
+            ]
+        )
+        #expect(enabled.areExtensionsEnabled)
+        #expect(enabled.isWarTableEnabled)
+        #expect(enabled.isRunwayEnabled)
     }
 
     @Test func stagingEnvironmentRespectsEnvironmentVariables() {

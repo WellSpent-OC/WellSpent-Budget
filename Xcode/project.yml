@@ -114,6 +114,16 @@ schemes:
         WellSpentUITests: [test]
     run:
       config: Debug
+      environmentVariables:
+        - variable: WELLSPENT_FEATURE_EXTENSIONS
+          value: "1"
+          isEnabled: false
+        - variable: WELLSPENT_FEATURE_WARTABLE
+          value: "1"
+          isEnabled: false
+        - variable: WELLSPENT_FEATURE_RUNWAY
+          value: "1"
+          isEnabled: false
     test:
       config: Debug
       targets:

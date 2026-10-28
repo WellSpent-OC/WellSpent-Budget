@@ -46,8 +46,10 @@ public struct FeatureFlags: Sendable, Equatable {
 
     /// Resolves the flags for a build environment.
     ///
-    /// Live builds turn unreleased features off unless an explicit preference
-    /// says otherwise. Staging builds turn them on by default.
+    /// Unreleased features are off by default across both live and staging so
+    /// in-development features are never shipped or shown by accident.
+    /// A developer or test can turn any flag on through process environment
+    /// variables or user defaults.
     public static func resolve(
         for environment: AppEnvironment,
         defaults: UserDefaults? = nil,
@@ -57,35 +59,28 @@ public struct FeatureFlags: Sendable, Equatable {
         let warTableEnabled: Bool
         let runwayEnabled: Bool
 
-        switch environment {
-        case .live:
-            extensionsEnabled = defaults?.bool(forKey: extensionsDefaultsKey) ?? false
-            warTableEnabled = defaults?.bool(forKey: warTableDefaultsKey) ?? false
-            runwayEnabled = defaults?.bool(forKey: runwayDefaultsKey) ?? false
-        case .staging:
-            if let envText = processEnvironment[extensionsVariable] {
-                extensionsEnabled = isTruthy(envText)
-            } else if let defValue = defaults?.object(forKey: extensionsDefaultsKey) as? Bool {
-                extensionsEnabled = defValue
-            } else {
-                extensionsEnabled = true
-            }
+        if let envText = processEnvironment[extensionsVariable] {
+            extensionsEnabled = isTruthy(envText)
+        } else if let defValue = defaults?.object(forKey: extensionsDefaultsKey) as? Bool {
+            extensionsEnabled = defValue
+        } else {
+            extensionsEnabled = false
+        }
 
-            if let envText = processEnvironment[warTableVariable] {
-                warTableEnabled = isTruthy(envText)
-            } else if let defValue = defaults?.object(forKey: warTableDefaultsKey) as? Bool {
-                warTableEnabled = defValue
-            } else {
-                warTableEnabled = true
-            }
+        if let envText = processEnvironment[warTableVariable] {
+            warTableEnabled = isTruthy(envText)
+        } else if let defValue = defaults?.object(forKey: warTableDefaultsKey) as? Bool {
+            warTableEnabled = defValue
+        } else {
+            warTableEnabled = false
+        }
 
-            if let envText = processEnvironment[runwayVariable] {
-                runwayEnabled = isTruthy(envText)
-            } else if let defValue = defaults?.object(forKey: runwayDefaultsKey) as? Bool {
-                runwayEnabled = defValue
-            } else {
-                runwayEnabled = true
-            }
+        if let envText = processEnvironment[runwayVariable] {
+            runwayEnabled = isTruthy(envText)
+        } else if let defValue = defaults?.object(forKey: runwayDefaultsKey) as? Bool {
+            runwayEnabled = defValue
+        } else {
+            runwayEnabled = false
         }
 
         return FeatureFlags(
