@@ -36,6 +36,9 @@ struct UpgradeTests {
         #expect(hilltop.note == "weekly shop")
         #expect(hilltop.date == Date(timeIntervalSince1970: 1_760_000_000))
         #expect(try store.transactions(in: eatingOut.id).map(\.amount) == [Money(minorUnits: -1_875)])
+        // 0.1.0 knew no kinds. Its rows were all money out, so they are all spending.
+        #expect(shopping.allSatisfy { $0.kind == .spending })
+        #expect(home.claimedBy == nil)
 
         // A transaction deleted in 0.1.0 stays deleted.
         #expect(try store.transactions(in: fuel.id).map(\.merchant) == ["Shell"])
