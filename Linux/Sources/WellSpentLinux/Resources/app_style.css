@@ -1,0 +1,105 @@
+/* WellSpent's Linux look: the Squidmar makeover (Design/App_Makeover/app_style.css)
+   as GTK 4.14 takes it. GTK's style sheet has no variables, so every colour is
+   written out; the names in comments are the makeover's. The layout is the
+   shell's own; this file only says how each piece looks.
+
+   band #1A1A1A  band-2 #262626  page #F1F1F1  paper #FFFFFF  cream #F4EEDC
+   green #76A24D  gold #D4AF37  ink #111111  muted #666666  on-band #F2F2F2
+   on-band-muted #A8A8A8  warning #B4532A  the sticker outline 3px */
+
+window.wellspent-native-window {
+    background-color: #F1F1F1;
+    color: #111111;
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+}
+
+/* ---------- type ---------- */
+.ws-head, .ws-title, .ws-group-name, .ws-button, .ws-spent, .ws-sheet-title,
+.ws-empty-title, .ws-wordmark, .ws-tag, .ws-section {
+    font-family: "Luckiest Guy", "Inter", sans-serif;
+    font-weight: normal;
+    text-transform: uppercase;
+}
+.ws-read { font-family: "Inter", sans-serif; font-size: 13px; color: #111111; }
+
+/* ---------- the top band ---------- */
+.ws-topbar { background-color: #1A1A1A; padding: 10px 16px; }
+.ws-wordmark { color: #D4AF37; font-size: 22px; }
+.ws-tag { font-size: 11px; color: #FFFFFF; background-color: #B4532A; border-radius: 4px; padding: 3px 8px; }
+.ws-sync { font-family: "Inter", sans-serif; font-size: 12px; color: #A8A8A8; }
+
+/* ---------- the rail (kept from Phase 1 until decision 2) ---------- */
+.activity-rail { background-color: #121212; border-right: 1px solid #292929; padding: 10px 4px; min-width: 52px; }
+.rail-btn { background: none; border: none; box-shadow: none; color: #A8A8A8; font-size: 15px; min-width: 42px; min-height: 42px; border-radius: 8px; padding: 0; }
+.rail-btn:hover { background-color: #262626; color: #F2F2F2; }
+.rail-btn.active { background-color: #262626; color: #D4AF37; }
+
+/* ---------- the sidebar ---------- */
+.ws-sidebar { background-color: #1A1A1A; padding: 12px 10px; min-width: 260px; }
+.ws-sidebar scrolledwindow, .ws-sidebar viewport { background-color: #1A1A1A; }
+.ws-group-head { background: none; border: none; box-shadow: none; padding: 6px 8px; border-radius: 8px; min-height: 0; }
+.ws-group-head.selected { background-color: #262626; }
+.ws-group-name { color: #D4AF37; font-size: 15px; }
+.ws-group-fold { color: #A8A8A8; font-size: 11px; }
+.ws-group-menu, .ws-group-menu button {
+    font-family: "Inter", sans-serif; font-size: 15px; color: #F2F2F2;
+    background-color: #262626; border: 2px solid #3A3A3A; border-radius: 8px; padding: 0 10px;
+    box-shadow: none; min-height: 0;
+}
+.ws-sidebar-divider { background-color: #333333; min-height: 1px; margin: 8px 6px; }
+.ws-note { font-family: "Inter", sans-serif; font-size: 12px; color: #A8A8A8; padding: 2px 10px; }
+
+/* The budget row is its own bar: a dark track, filled from the left. The fill
+   is a gradient the shell sets per row, so only the track and the words are here. */
+.ws-budget-row {
+    font-family: "Inter", sans-serif; font-size: 14px; color: #F2F2F2;
+    background-color: #242424; border: 3px solid transparent;
+    border-radius: 8px; padding: 7px 10px; margin: 2px 0; box-shadow: none; min-height: 0;
+}
+.ws-budget-row .ws-amount { color: #D9D9D9; font-feature-settings: "tnum"; }
+.ws-budget-row .ws-amount.over { font-weight: 600; }
+.ws-budget-row.selected {
+    background-color: #F4EEDC; color: #111111;
+    border: 3px solid #111111; box-shadow: 3px 3px 0 0 #000000;
+}
+.ws-budget-row.selected .ws-amount { color: #3A3A3A; }
+
+/* Invitations at the top of the sidebar: a gold dot on the dark band. */
+.ws-invite-row { font-family: "Inter", sans-serif; font-size: 14px; color: #F2F2F2; border-radius: 8px; padding: 7px 10px; }
+.ws-invite-dot { background-color: #D4AF37; border-radius: 5px; min-width: 10px; min-height: 10px; }
+.ws-invite-text { font-family: "Inter", sans-serif; font-size: 11px; color: #A8A8A8; }
+
+.ws-sidebar-foot { border-top: 2px solid #333333; padding-top: 10px; }
+.ws-sidebar-status { font-family: "Inter", sans-serif; font-size: 12px; color: #A8A8A8; }
+.ws-sidebar-failure { font-family: "Inter", sans-serif; font-size: 12px; color: #E38D66; }
+
+/* ---------- buttons ---------- */
+.ws-button {
+    font-size: 13px; color: #111111; background-color: #FFFFFF;
+    border: 3px solid #111111; border-radius: 10px; padding: 6px 14px;
+    box-shadow: 2px 2px 0 0 #111111; min-height: 0;
+}
+.ws-button.primary { background-color: #111111; color: #FFFFFF; }
+.ws-band .ws-button, .ws-band .ws-button button { background-color: #262626; color: #F2F2F2; border-color: #4A4A4A; box-shadow: none; }
+.ws-band .ws-button.primary { background-color: #D4AF37; color: #111111; border-color: #111111; }
+.ws-button:disabled { color: #9A9A9A; border-color: #BDBDBD; box-shadow: none; }
+.ws-button.danger { color: #B4532A; border-color: #B4532A; box-shadow: none; }
+
+/* ---------- sheets ---------- */
+.ws-sheet { background-color: #FFFFFF; }
+.ws-sheet-band { background-color: #1A1A1A; padding: 14px 20px; }
+.ws-sheet-title { font-size: 24px; color: #FFFFFF; }
+.ws-sheet-body { padding: 16px 20px 20px; }
+.ws-label { font-size: 12px; font-weight: 600; color: #111111; }
+.ws-help { font-size: 12px; color: #666666; }
+.ws-problem { font-size: 12px; color: #B4532A; }
+.ws-field, entry.ws-field {
+    font-family: "Inter", sans-serif; font-size: 14px; color: #111111; background-color: #FFFFFF;
+    border: 2px solid #111111; border-radius: 8px; padding: 7px 10px; box-shadow: none;
+}
+entry.ws-field:focus { box-shadow: 0 0 0 3px #D9D2BC; }
+.ws-picker, .ws-picker button {
+    font-family: "Inter", sans-serif; font-size: 14px; color: #111111; background-color: #F4EEDC;
+    border: 2px solid #111111; border-radius: 8px; padding: 6px 10px; box-shadow: none;
+}

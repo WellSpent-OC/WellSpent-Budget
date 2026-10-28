@@ -20,9 +20,12 @@ let package = Package(
     targets: [
         .systemLibrary(name: "CLibsecret", pkgConfig: "libsecret-1"),
         .systemLibrary(name: "CGtk4", pkgConfig: "gtk4"),
+        // The bundled fonts are handed to fontconfig at start, so the style
+        // sheet can name them without installing anything on the computer.
+        .systemLibrary(name: "CFontconfig", pkgConfig: "fontconfig"),
         // Thin C wrappers for what Swift cannot call directly: libsecret's
-        // variadic keyring calls, and the GTK clipboard.
-        .target(name: "WellSpentLinuxNative", dependencies: ["CLibsecret", "CGtk4"]),
+        // variadic keyring calls, the GTK clipboard, and the native shell.
+        .target(name: "WellSpentLinuxNative", dependencies: ["CLibsecret", "CGtk4", "CFontconfig"]),
         .executableTarget(
             name: "WellSpentLinux",
             dependencies: [
@@ -42,7 +45,12 @@ let package = Package(
             ],
             // "live" or "staging", written by the packaging step. Only the exact
             // word "live" is live, as on the Mac.
-            resources: [.copy("Resources/environment")]
+            resources: [
+                .copy("Resources/environment"),
+                // The look (Design/App_Makeover) and the two fonts it names.
+                .copy("Resources/app_style.css"),
+                .copy("Resources/Fonts"),
+            ]
         ),
     ]
 )

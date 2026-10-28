@@ -1,4 +1,6 @@
 #include "wellspent_native.h"
+#include "wellspent_gtk_shell_private.h"
+#include <fontconfig/fontconfig.h>
 #include <gtk/gtk.h>
 #include <math.h>
 #include <stdio.h>
@@ -433,56 +435,6 @@ static const char *WELLSPENT_SHELL_CSS =
 "    color: #FFFFFF;\n"
 "}\n";
 
-typedef struct {
-    GtkWidget *window;
-    GtkWidget *title_box;
-    GtkWidget *title_label;
-    GtkWidget *subtitle_label;
-    
-    // Rail
-    GtkWidget *rail_box;
-    GtkWidget *btn_budgets;
-    GtkWidget *btn_runway;
-    GtkWidget *btn_wartable;
-    GtkWidget *btn_catalog;
-    GtkWidget *btn_sync;
-    GtkWidget *btn_account;
-    
-    // Sidebar
-    GtkWidget *sidebar_scroll;
-    GtkWidget *sidebar_content;
-    GtkWidget *sidebar_footer_lbl;
-    
-    // Content Stack
-    GtkWidget *content_stack;
-    
-    // Budget Detail View
-    GtkWidget *detail_pane;
-    GtkWidget *detail_title;
-    GtkWidget *detail_subtitle;
-    GtkWidget *btn_add_tx;
-    
-    // Money Wheel
-    GtkWidget *wheel_drawing_area;
-    GtkWidget *wheel_mid_key;
-    GtkWidget *wheel_mid_amount;
-    GtkWidget *wheel_mid_of;
-    GtkWidget *wheel_pace_lbl;
-    double wheel_arc;
-    double wheel_tick;
-    int wheel_is_over;
-    
-    // Transactions
-    GtkWidget *tx_scroll;
-    GtkWidget *tx_box;
-    GtkWidget *tx_count_lbl;
-    
-    // Extensions Catalog View
-    GtkWidget *catalog_pane;
-    
-    wellspent_gtk_action_cb action_cb;
-    void *context;
-} WellSpentGtkShell;
 
 static void on_window_destroy(GtkWidget *win, gpointer user_data) {
     WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
@@ -499,12 +451,12 @@ static void on_window_destroy(GtkWidget *win, gpointer user_data) {
 /// Screen readers and the UI tests find a control by its name and role. A
 /// rail button shows a glyph, so its name is set here, in the same words the
 /// SwiftCrossUI rail uses.
-static void set_accessible_name(GtkWidget *widget, const char *name) {
+void wellspent_gtk_set_accessible_name(GtkWidget *widget, const char *name) {
     if (!widget || !name) return;
     gtk_accessible_update_property(GTK_ACCESSIBLE(widget), GTK_ACCESSIBLE_PROPERTY_LABEL, name, -1);
 }
 
-static void on_btn_clicked(GtkButton *btn, gpointer user_data) {
+void wellspent_gtk_on_btn_clicked(GtkButton *btn, gpointer user_data) {
     const char *action = g_object_get_data(G_OBJECT(btn), "action_id");
     WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
     if (shell && shell->action_cb && action) {
@@ -562,6 +514,38 @@ static void on_draw_wheel(GtkDrawingArea *area, cairo_t *cr, int width, int heig
     }
 }
 
+/// The bundled fonts go to fontconfig for this process only, so the style
+/// sheet can name them. Nothing is installed on the computer.
+int wellspent_fonts_add_file(const char *path) {
+    if (!path) return 0;
+    return FcConfigAppFontAddFile(FcConfigGetCurrent(), (const FcChar8 *)path) ? 1 : 0;
+}
+
+static gboolean css_from_file_loaded = FALSE;
+
+/// The look, from the makeover's style sheet shipped with the app. Loaded
+/// once; the inline sheet below stays as the fallback when the file is
+/// missing, so the shell is never unstyled.
+int wellspent_gtk_init_css_file(const char *path) {
+    if (!path || css_from_file_loaded) return css_from_file_loaded ? 1 : 0;
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_path(provider, path);
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(),
+        GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    g_object_unref(provider);
+    css_from_file_loaded = TRUE;
+    return 1;
+}
+
+/// A menu item's action: "shell.pick" with the item's id as its target, which
+/// goes to Swift as an action id like any button's.
+static void on_pick(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
+    if (!shell || !shell->action_cb || !parameter) return;
+    const char *id = g_variant_get_string(parameter, NULL);
+    if (id) shell->action_cb(shell->context, id);
+}
+
 void wellspent_gtk_init_css(void) {
     static gboolean initialized = FALSE;
     if (initialized) return;
@@ -596,6 +580,15 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     shell->window = win;
 
     gtk_window_set_title(GTK_WINDOW(win), title ? title : "WellSpent");
+
+    // Menus (a group's ⋯, More) are GMenu models; their items fire "shell.pick".
+    GSimpleActionGroup *actions = g_simple_action_group_new();
+    GSimpleAction *pick = g_simple_action_new("pick", G_VARIANT_TYPE_STRING);
+    g_signal_connect(pick, "activate", G_CALLBACK(on_pick), shell);
+    g_action_map_add_action(G_ACTION_MAP(actions), G_ACTION(pick));
+    g_object_unref(pick);
+    gtk_widget_insert_action_group(win, "shell", G_ACTION_GROUP(actions));
+    g_object_unref(actions);
     gtk_window_set_default_size(GTK_WINDOW(win), 1140, 740);
     gtk_widget_add_css_class(win, "wellspent-native-window");
 
@@ -641,8 +634,8 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_bud, "active");
     gtk_widget_set_tooltip_text(btn_bud, "Budgets");
     g_object_set_data_full(G_OBJECT(btn_bud), "action_id", g_strdup("tab:budgets"), g_free);
-    set_accessible_name(btn_bud, "Budget");
-    g_signal_connect(btn_bud, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_bud, "Budget");
+    g_signal_connect(btn_bud, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_bud);
 
     GtkWidget *btn_run = gtk_button_new_with_label("🏡");
@@ -650,8 +643,8 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_run, "rail-btn");
     gtk_widget_set_tooltip_text(btn_run, "Runway & Properties");
     g_object_set_data_full(G_OBJECT(btn_run), "action_id", g_strdup("tab:runway"), g_free);
-    set_accessible_name(btn_run, "Properties");
-    g_signal_connect(btn_run, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_run, "Properties");
+    g_signal_connect(btn_run, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_run);
 
     GtkWidget *btn_wt = gtk_button_new_with_label("⚔");
@@ -659,8 +652,8 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_wt, "rail-btn");
     gtk_widget_set_tooltip_text(btn_wt, "WarTable");
     g_object_set_data_full(G_OBJECT(btn_wt), "action_id", g_strdup("tab:wartable"), g_free);
-    set_accessible_name(btn_wt, "WarTable");
-    g_signal_connect(btn_wt, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_wt, "WarTable");
+    g_signal_connect(btn_wt, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_wt);
 
     GtkWidget *btn_cat = gtk_button_new_with_label("⬚");
@@ -668,8 +661,8 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_cat, "rail-btn");
     gtk_widget_set_tooltip_text(btn_cat, "Extensions Catalog");
     g_object_set_data_full(G_OBJECT(btn_cat), "action_id", g_strdup("tab:catalog"), g_free);
-    set_accessible_name(btn_cat, "Extensions");
-    g_signal_connect(btn_cat, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_cat, "Extensions");
+    g_signal_connect(btn_cat, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_cat);
 
     GtkWidget *rail_spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -681,8 +674,8 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_sync, "rail-btn");
     gtk_widget_set_tooltip_text(btn_sync, "Sync now");
     g_object_set_data_full(G_OBJECT(btn_sync), "action_id", g_strdup("action:sync"), g_free);
-    set_accessible_name(btn_sync, "Sync");
-    g_signal_connect(btn_sync, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_sync, "Sync");
+    g_signal_connect(btn_sync, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_sync);
 
     GtkWidget *btn_acct = gtk_button_new_with_label("👤");
@@ -690,22 +683,35 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_acct, "rail-btn");
     gtk_widget_set_tooltip_text(btn_acct, "Account");
     g_object_set_data_full(G_OBJECT(btn_acct), "action_id", g_strdup("action:account"), g_free);
-    set_accessible_name(btn_acct, "Account");
-    g_signal_connect(btn_acct, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    wellspent_gtk_set_accessible_name(btn_acct, "Account");
+    g_signal_connect(btn_acct, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_acct);
 
     gtk_box_append(GTK_BOX(main_hbox), rail);
 
     // 2. Sidebar (scrolled)
+    // The rows scroll; the Add Budget line and the footer stay at the bottom,
+    // as on the Mac. 260 wide (Design System: widths), nothing wraps.
+    GtkWidget *side_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_add_css_class(side_box, "ws-sidebar");
+    gtk_widget_add_css_class(side_box, "ws-band");
+    gtk_widget_set_size_request(side_box, 260, -1);
+
     GtkWidget *scroll = gtk_scrolled_window_new();
     shell->sidebar_scroll = scroll;
-    gtk_widget_add_css_class(scroll, "sidebar-box");
+    gtk_widget_set_vexpand(scroll, TRUE);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 
     GtkWidget *side_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     shell->sidebar_content = side_content;
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), side_content);
-    gtk_box_append(GTK_BOX(main_hbox), scroll);
+    gtk_box_append(GTK_BOX(side_box), scroll);
+
+    GtkWidget *side_bottom = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    shell->sidebar_bottom = side_bottom;
+    gtk_box_append(GTK_BOX(side_box), side_bottom);
+
+    gtk_box_append(GTK_BOX(main_hbox), side_box);
 
     // 3. Content Stack (switches between Budgets detail and Extensions catalog)
     GtkWidget *stack = gtk_stack_new();
@@ -745,7 +751,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(btn_add_tx, "add-trans-btn");
     gtk_widget_set_valign(btn_add_tx, GTK_ALIGN_CENTER);
     g_object_set_data_full(G_OBJECT(btn_add_tx), "action_id", g_strdup("action:new_transaction"), g_free);
-    g_signal_connect(btn_add_tx, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    g_signal_connect(btn_add_tx, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(head_row), btn_add_tx);
 
     gtk_box_append(GTK_BOX(detail), head_row);
@@ -932,7 +938,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(c2_btn, "ext-btn");
     gtk_widget_set_halign(c2_btn, GTK_ALIGN_START);
     g_object_set_data_full(G_OBJECT(c2_btn), "action_id", g_strdup("tab:wartable"), g_free);
-    g_signal_connect(c2_btn, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    g_signal_connect(c2_btn, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(card2), c2_btn);
 
     gtk_box_append(GTK_BOX(c_list), card2);
@@ -965,7 +971,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_add_css_class(c3_btn, "ext-btn");
     gtk_widget_set_halign(c3_btn, GTK_ALIGN_START);
     g_object_set_data_full(G_OBJECT(c3_btn), "action_id", g_strdup("tab:runway"), g_free);
-    g_signal_connect(c3_btn, "clicked", G_CALLBACK(on_btn_clicked), shell);
+    g_signal_connect(c3_btn, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(card3), c3_btn);
 
     gtk_box_append(GTK_BOX(c_list), card3);
@@ -1021,156 +1027,6 @@ void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing) {
         gtk_button_set_label(GTK_BUTTON(shell->btn_sync), "🔄");
         gtk_widget_set_tooltip_text(shell->btn_sync, "Sync now");
     }
-}
-
-void wellspent_gtk_sidebar_clear(void *shell_ptr) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->sidebar_content) return;
-    GtkWidget *child = gtk_widget_get_first_child(shell->sidebar_content);
-    while (child) {
-        GtkWidget *next = gtk_widget_get_next_sibling(child);
-        gtk_box_remove(GTK_BOX(shell->sidebar_content), child);
-        child = next;
-    }
-}
-
-void wellspent_gtk_sidebar_add_group(void *shell_ptr,
-                                     const char *group_id,
-                                     const char *title,
-                                     int is_collapsed,
-                                     int is_first) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->sidebar_content) return;
-
-    if (!is_first) {
-        GtkWidget *div = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-        gtk_widget_add_css_class(div, "sidebar-divider");
-        gtk_box_append(GTK_BOX(shell->sidebar_content), div);
-    }
-
-    char label_buf[256];
-    snprintf(label_buf, sizeof(label_buf), "%s", title ? title : "");
-
-    GtkWidget *btn = gtk_button_new_with_label(label_buf);
-    gtk_widget_add_css_class(btn, "group-header-btn");
-    gtk_widget_set_halign(btn, GTK_ALIGN_START);
-
-    char act_buf[256];
-    snprintf(act_buf, sizeof(act_buf), "group:%s", group_id ? group_id : "");
-    g_object_set_data_full(G_OBJECT(btn), "action_id", g_strdup(act_buf), g_free);
-    g_signal_connect(btn, "clicked", G_CALLBACK(on_btn_clicked), shell);
-
-    gtk_box_append(GTK_BOX(shell->sidebar_content), btn);
-}
-
-void wellspent_gtk_sidebar_add_budget(void *shell_ptr,
-                                      const char *budget_id,
-                                      const char *name,
-                                      const char *amount_text,
-                                      double share,
-                                      int is_over,
-                                      int is_selected) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->sidebar_content) return;
-
-    GtkWidget *btn = gtk_button_new();
-    gtk_widget_add_css_class(btn, "budget-row-btn");
-
-    if (is_selected) {
-        gtk_widget_add_css_class(btn, "selected");
-    }
-
-    double pct = share * 100.0;
-    if (pct < 0.0) pct = 0.0;
-    if (pct > 100.0) pct = 100.0;
-
-    char css_buf[512];
-    if (is_selected) {
-        if (pct > 0.0) {
-            const char *col = is_over ? "#DB7E56" : "#76A24D";
-            snprintf(css_buf, sizeof(css_buf),
-                     "button.budget-row-btn { background: linear-gradient(to right, %s 0%%, %s %.1f%%, #F4EEDC %.1f%%, #F4EEDC 100%%); }",
-                     col, col, pct, pct);
-        } else {
-            snprintf(css_buf, sizeof(css_buf), "button.budget-row-btn { background: #F4EEDC; }");
-        }
-    } else {
-        if (pct > 0.0) {
-            const char *col = is_over ? "#8A3A1C" : "#3D5E2E";
-            snprintf(css_buf, sizeof(css_buf),
-                     "button.budget-row-btn { background: linear-gradient(to right, %s 0%%, %s %.1f%%, #242424 %.1f%%, #242424 100%%); }",
-                     col, col, pct, pct);
-        } else {
-            snprintf(css_buf, sizeof(css_buf), "button.budget-row-btn { background: #242424; }");
-        }
-    }
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    GtkCssProvider *btn_provider = gtk_css_provider_new();
-    gtk_css_provider_load_from_string(btn_provider, css_buf);
-    gtk_style_context_add_provider(
-        gtk_widget_get_style_context(btn),
-        GTK_STYLE_PROVIDER(btn_provider),
-        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
-    );
-    g_object_unref(btn_provider);
-#pragma GCC diagnostic pop
-
-    GtkWidget *row_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
-    GtkWidget *name_lbl = gtk_label_new(name ? name : "");
-    gtk_widget_add_css_class(name_lbl, is_selected ? "budget-name-selected" : "budget-name");
-    gtk_widget_set_halign(name_lbl, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(row_box), name_lbl);
-
-    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_set_hexpand(spacer, TRUE);
-    gtk_box_append(GTK_BOX(row_box), spacer);
-
-    GtkWidget *amt_lbl = gtk_label_new(amount_text ? amount_text : "");
-    if (is_selected) {
-        gtk_widget_add_css_class(amt_lbl, "budget-amount-selected");
-    } else if (is_over) {
-        gtk_widget_add_css_class(amt_lbl, "budget-amount-over");
-    } else {
-        gtk_widget_add_css_class(amt_lbl, "budget-amount");
-    }
-    gtk_widget_set_halign(amt_lbl, GTK_ALIGN_END);
-    gtk_box_append(GTK_BOX(row_box), amt_lbl);
-
-    gtk_button_set_child(GTK_BUTTON(btn), row_box);
-    set_accessible_name(btn, name);
-    gtk_accessible_update_state(GTK_ACCESSIBLE(btn), GTK_ACCESSIBLE_STATE_SELECTED, is_selected ? TRUE : FALSE, -1);
-
-    char act_buf[256];
-    snprintf(act_buf, sizeof(act_buf), "budget:%s", budget_id ? budget_id : "");
-    g_object_set_data_full(G_OBJECT(btn), "action_id", g_strdup(act_buf), g_free);
-    g_signal_connect(btn, "clicked", G_CALLBACK(on_btn_clicked), shell);
-
-    gtk_box_append(GTK_BOX(shell->sidebar_content), btn);
-}
-
-void wellspent_gtk_sidebar_add_footer(void *shell_ptr, const char *status_text) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->sidebar_content) return;
-
-    // + Add Budget button above footer
-    GtkWidget *btn_add_b = gtk_button_new_with_label("+ Add Budget");
-    gtk_widget_add_css_class(btn_add_b, "sidebar-add-btn");
-    g_object_set_data_full(G_OBJECT(btn_add_b), "action_id", g_strdup("action:add_budget"), g_free);
-    g_signal_connect(btn_add_b, "clicked", G_CALLBACK(on_btn_clicked), shell);
-    gtk_box_append(GTK_BOX(shell->sidebar_content), btn_add_b);
-
-    GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_widget_set_vexpand(spacer, TRUE);
-    gtk_box_append(GTK_BOX(shell->sidebar_content), spacer);
-
-    GtkWidget *lbl = gtk_label_new(status_text ? status_text : "Syncs through WellSpent's server");
-    shell->sidebar_footer_lbl = lbl;
-    gtk_widget_add_css_class(lbl, "footer-text");
-    gtk_widget_set_halign(lbl, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(shell->sidebar_content), lbl);
 }
 
 void wellspent_gtk_update_detail_wheel(void *shell_ptr,
