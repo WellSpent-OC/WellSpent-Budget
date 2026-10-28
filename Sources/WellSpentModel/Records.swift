@@ -25,17 +25,24 @@ public struct BudgetGroup: SyncedRecord, Equatable {
     public var id: GroupID
     public var name: String
     public var note: String
+    /// The id of the extension that draws this group, such as
+    /// "wellspent.properties" for a house, or nil for a plain group. The core
+    /// only knows that a claimed group leaves the Budgets sidebar while that
+    /// extension is on. With it off, the group shows as a plain group again,
+    /// with its budgets and entries untouched.
+    public var claimedBy: String?
     public var createdAt: Date
     public var updatedAt: Date
     public var isDeleted: Bool
 
     public static var recordType: RecordType { .groupMeta }
 
-    public init(id: GroupID = GroupID(), name: String, note: String = "",
+    public init(id: GroupID = GroupID(), name: String, note: String = "", claimedBy: String? = nil,
                 createdAt: Date = Date(), updatedAt: Date = Date(), isDeleted: Bool = false) {
         self.id = id
         self.name = name
         self.note = note
+        self.claimedBy = claimedBy
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isDeleted = isDeleted
@@ -104,6 +111,43 @@ public enum TransactionSource: String, Codable, Sendable {
     case receipt
 }
 
+/// What an entry is, which decides how it counts.
+///
+/// The amount is already signed: negative is money out, positive is money in.
+/// The kind says what the sign means. Spending and refunds count against a
+/// budget as today. Income is money in. Borrowed money and money taken from
+/// savings are named on their own lines and are never income. A transfer
+/// between your own accounts, and a payment to a card whose own statement
+/// carries the purchases, count as nothing.
+public enum TransactionKind: String, Codable, Sendable, CaseIterable {
+    case spending
+    case refund
+    case income
+    case transfer
+    case loanDraw
+    case savingsDraw
+    case cardPayment
+
+    /// The kind an entry had before kinds existed: a negative amount was
+    /// spending, a positive one a refund. Used for rows and record bodies
+    /// written by an app that did not know the field.
+    public static func inferred(from amount: Money) -> TransactionKind {
+        amount.minorUnits > 0 ? .refund : .spending
+    }
+
+    /// Spending and refunds count toward what a budget has spent.
+    public var countsAsSpent: Bool { self == .spending || self == .refund }
+
+    /// Whether an entry of this kind is stored with a positive amount.
+    /// A transfer can go either way, so it is left as typed.
+    public var isMoneyIn: Bool {
+        switch self {
+        case .refund, .income, .loanDraw, .savingsDraw: return true
+        case .spending, .cardPayment, .transfer: return false
+        }
+    }
+}
+
 public struct Transaction: SyncedRecord, Equatable {
     public var id: RecordID
     public var budgetID: BudgetID
@@ -113,6 +157,8 @@ public struct Transaction: SyncedRecord, Equatable {
     public var note: String
     /// Negative is money out. A budget counts spending, so most rows are negative.
     public var amount: Money
+    /// What the amount means. See `TransactionKind`.
+    public var kind: TransactionKind
     public var source: TransactionSource
     public var receiptID: RecordID?
     /// Set when this row came from a statement, so re-importing the same file does
@@ -132,7 +178,7 @@ public struct Transaction: SyncedRecord, Equatable {
     public static var recordType: RecordType { .transaction }
 
     public init(id: RecordID = RecordID(), budgetID: BudgetID, groupID: GroupID, date: Date,
-                merchant: String, note: String = "", amount: Money,
+                merchant: String, note: String = "", amount: Money, kind: TransactionKind? = nil,
                 source: TransactionSource = .manual, receiptID: RecordID? = nil,
                 importFingerprint: String? = nil, createdBy: UserID? = nil,
                 createdAt: Date = Date(), updatedAt: Date = Date(), isDeleted: Bool = false) {
@@ -143,6 +189,7 @@ public struct Transaction: SyncedRecord, Equatable {
         self.merchant = merchant
         self.note = note
         self.amount = amount
+        self.kind = kind ?? .inferred(from: amount)
         self.source = source
         self.receiptID = receiptID
         self.importFingerprint = importFingerprint
@@ -150,6 +197,29 @@ public struct Transaction: SyncedRecord, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isDeleted = isDeleted
+    }
+
+    /// A body written before `kind` existed has no such key. It decodes with
+    /// the kind its sign implied, so an older app's records keep their meaning
+    /// and nothing a person sees changes. Encoding stays compiler-made and
+    /// always writes the kind.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(RecordID.self, forKey: .id)
+        budgetID = try c.decode(BudgetID.self, forKey: .budgetID)
+        groupID = try c.decode(GroupID.self, forKey: .groupID)
+        date = try c.decode(Date.self, forKey: .date)
+        merchant = try c.decode(String.self, forKey: .merchant)
+        note = try c.decode(String.self, forKey: .note)
+        amount = try c.decode(Money.self, forKey: .amount)
+        kind = try c.decodeIfPresent(TransactionKind.self, forKey: .kind) ?? .inferred(from: amount)
+        source = try c.decode(TransactionSource.self, forKey: .source)
+        receiptID = try c.decodeIfPresent(RecordID.self, forKey: .receiptID)
+        importFingerprint = try c.decodeIfPresent(String.self, forKey: .importFingerprint)
+        createdBy = try c.decodeIfPresent(UserID.self, forKey: .createdBy)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        isDeleted = try c.decode(Bool.self, forKey: .isDeleted)
     }
 }
 

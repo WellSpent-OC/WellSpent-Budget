@@ -43,9 +43,19 @@ struct ReadableStoreTests {
         let spent = Transaction(budgetID: budget.id, groupID: group.id, date: noon, merchant: "Market",
                                 amount: Money(minorUnits: -1_250), source: .manual)
         try queue.write { db in
-            try GroupRow(group).insert(db)
+            // Written the way v8 wrote them: no `claimedBy` on a group and no
+            // `kind` on an entry, since both arrive in v12.
+            try db.execute(sql: """
+                INSERT INTO budgetGroup (id, name, note, createdAt, updatedAt, isDeleted)
+                VALUES (?, ?, '', ?, ?, 0)
+                """, arguments: [group.id.dbValue, group.name, noon, noon])
             try BudgetRow(budget).insert(db)
-            try TransactionRow(spent).insert(db)
+            try db.execute(sql: """
+                INSERT INTO transactionRecord (id, budgetId, budgetGroupId, date, merchant, note,
+                                               amountMinorUnits, currency, source, createdAt, updatedAt, isDeleted)
+                VALUES (?, ?, ?, ?, ?, '', ?, 'USD', 'manual', ?, ?, 0)
+                """, arguments: [spent.id.dbValue, budget.id.dbValue, group.id.dbValue, noon, spent.merchant,
+                                 spent.amount.minorUnits, noon, noon])
             try OutboxRow(recordId: spent.id.dbValue, recordType: "transaction", budgetGroupId: group.id.dbValue,
                           budgetId: budget.id.dbValue, lamport: 3, isDeleted: false, queuedAt: noon,
                           isReseal: false, editLamport: nil).insert(db)

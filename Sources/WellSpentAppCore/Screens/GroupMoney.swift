@@ -10,6 +10,11 @@ public struct GroupMoney: Equatable, Sendable {
     public let groupID: GroupID
     public let groupName: String
     public let wheel: MoneyWheel
+    /// Income across the group's budgets this month. Not drawn yet; the
+    /// wheel's step 2 (INC-C) shows it against money out.
+    public let moneyIn: Money
+    /// Money in less money spent. For a house, its cash flow this month.
+    public var cashFlow: Money { moneyIn - wheel.spent }
     /// The wheel's day in the calendar month, which a group always has.
     private let day: PeriodDay
 
@@ -29,6 +34,7 @@ public struct GroupMoney: Equatable, Sendable {
         groupName = group.name
         wheel = MoneyWheel(scope: .group, budgeted: Money.total(counted.map(\.budget.limit), currency: currency),
                            spent: Money.total(counted.map(\.spent), currency: currency), day: day)
+        moneyIn = Money.total(counted.map(\.moneyIn), currency: currency)
         self.day = day
     }
 

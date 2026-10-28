@@ -20,12 +20,13 @@ Add puts money spent into the budget that is open. A transaction has a merchant,
 - And there is no budget to choose, because the transaction goes in the open budget
 - And "Add" stays dimmed while Merchant is empty or only spaces, or Amount is empty or not a number, such as "twelve"
 
-## ENTRY-03 Every amount is money spent, however it is typed
+## ENTRY-03 Every amount is money spent, however it is typed, unless marked money in
 
 - Given Groceries is open
 - When Robin adds four transactions, with the amount typed as 42.50, -42.50, (42.50) and $42.50
 - Then each one shows as "$42.50", and each adds $42.50 to what is spent
 - And an amount typed as $1,234.56 shows as "$1234.56"
+- And an entry marked as money in is the one exception (INC-01)
 
 ## ENTRY-04 A note shows under the merchant
 
@@ -104,3 +105,32 @@ Platforms: Mac, Linux
 - When he types "12.50" instead
 - Then the line goes, and "Add" lights
 - And where a comma marks decimals, such as in Germany, "1,250" is refused the same way, with "Type it like 12,50.", since a dollar has only two decimals. It is never read as $1250.00
+
+# Money in
+
+An entry is money spent unless it is marked money in. Money in is income, or a refund of something spent, or borrowed money, or money from savings, and each counts its own way: a refund lowers what was spent, income never does, and borrowed money and savings are named on their own lines and are never income. A transfer between your own accounts, and a payment to a card whose own statement carries the purchases, count as nothing. The record and the sums land with INC-A; the screens with INC-B; the wheel with INC-C.
+
+Platforms: Mac, Linux, iPhone, for every INC scenario.
+
+## INC-01 An entry can be money coming in
+
+- Given Robin has a group called Pool House with a budget called Bookings
+- When he adds an entry of $1,310.00 and marks it as money in
+- Then the entry shows in the list with a plus sign
+- And what Bookings has spent does not change
+- And how the group's wheel shows money in against money out is INC-C
+
+## INC-02 A statement line that is money in becomes an income entry
+
+- Given Robin brings in a statement file with a line "AIRBNB PAYOUT +1,310.00"
+- When he reviews the import
+- Then the line is offered as money in, with a choice of Income or Refund
+- And accepting it as Income makes an income entry on the budget he picks
+- And the next line from the same payer is offered the same way
+
+## INC-03 A house's cash flow is money in minus money out, after the mortgage
+
+- Given Pool House has $9,640.00 in and $5,260.00 out this month, the mortgage included
+- When Robin looks at Pool House
+- Then its cash flow this month says $4,380.00
+- And it never says "profit"

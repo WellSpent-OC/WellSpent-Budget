@@ -52,9 +52,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 
 | Platform | Scenarios on it | Named by a test |
 | - | - | - |
-| Mac | 157 | 153 |
-| Linux | 161 | 121 |
-| iPhone | 150 | 147 |
+| Mac | 160 | 153 |
+| Linux | 164 | 121 |
+| iPhone | 153 | 147 |
 | Server | 9 | 9 |
 | Connector | 4 | 4 |
 
@@ -118,7 +118,7 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | - | - | - | - |
 | ENTRY-01 | Add puts a transaction in the open budget | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-02 | The sheet asks for a merchant and an amount | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| ENTRY-03 | Every amount is money spent, however it is typed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-03 | Every amount is money spent, however it is typed, unless marked money in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-04 | A note shows under the merchant | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-05 | The newest transaction is on top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-06 | A date before this period keeps it out of this period | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -129,6 +129,9 @@ The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests
 | ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| INC-01 | An entry can be money coming in | Mac, Linux, iPhone | None yet |
+| INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | None yet |
+| INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
 
 ### [EditEntry.md](EditEntry.md)
 

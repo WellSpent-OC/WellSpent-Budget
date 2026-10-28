@@ -71,15 +71,31 @@ public extension ResetSchedule {
 public struct BudgetSummary: Equatable, Sendable {
     public let budget: Budget
     public let period: BudgetPeriod
+    /// Spending less refunds. What counts against the limit.
     public let spent: Money
+    /// Income. It never lowers `spent`.
+    public let moneyIn: Money
+    /// Borrowed money, named on its own line. Never income.
+    public let borrowed: Money
+    /// Money taken from savings, named on its own line. Never income.
+    public let fromSavings: Money
+    /// Every entry in the period, whatever its kind.
     public let transactionCount: Int
 
-    public init(budget: Budget, period: BudgetPeriod, spent: Money, transactionCount: Int) {
+    public init(budget: Budget, period: BudgetPeriod, spent: Money, transactionCount: Int,
+                moneyIn: Money? = nil, borrowed: Money? = nil, fromSavings: Money? = nil) {
+        let zero = Money(minorUnits: 0, currency: spent.currency)
         self.budget = budget
         self.period = period
         self.spent = spent
+        self.moneyIn = moneyIn ?? zero
+        self.borrowed = borrowed ?? zero
+        self.fromSavings = fromSavings ?? zero
         self.transactionCount = transactionCount
     }
+
+    /// Money in less money spent.
+    public var cashFlow: Money { moneyIn - spent }
 
     public var remaining: Money { budget.limit - spent }
     public var isOverspent: Bool { spent > budget.limit }

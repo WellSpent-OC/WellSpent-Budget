@@ -55,6 +55,24 @@ struct GroupMoneyTests {
         #expect(money.wheel.arcColor == PaletteValues.wheelLeft)
     }
 
+    /// Income across the group's budgets is added up beside the wheel, and
+    /// cash flow is money in less money spent. Nothing draws it yet (INC-C).
+    @Test func aGroupsMoneyInAndCashFlowAddUpItsBudgets() throws {
+        let period = WheelCalendar.month(of: october18)
+        func summary(_ name: String, spent: Int, moneyIn: Int) -> BudgetSummary {
+            BudgetSummary(budget: Budget(groupID: household.id, name: name, limit: Money(minorUnits: 200_000)),
+                          period: period, spent: Money(minorUnits: spent), transactionCount: 2,
+                          moneyIn: Money(minorUnits: moneyIn))
+        }
+        let money = try #require(groupMoney([summary("Bookings", spent: 40_000, moneyIn: 964_000),
+                                             summary("Mortgage", spent: 486_000, moneyIn: 0)], on: october18))
+        #expect(money.moneyIn == Money(minorUnits: 964_000))
+        #expect(money.wheel.spent == Money(minorUnits: 526_000), "income does not lower spending")
+        #expect(money.cashFlow == Money(minorUnits: 438_000))
+        let plain = try #require(groupMoney(householdBudgets(on: october18), on: october18))
+        #expect(plain.moneyIn == Money(minorUnits: 0))
+    }
+
     // Scenario WHEEL-11
     @Test func aGroupWithNoBudgetsHasNoMoney() {
         #expect(groupMoney([], on: october18) == nil)
