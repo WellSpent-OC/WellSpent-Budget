@@ -105,7 +105,7 @@ final class PhoneSignInSyncTests: XCTestCase {
         XCTAssertTrue(header.exists, "the shared group did not arrive. On screen: \(run.visibleTexts())")
         run.scrollTo(AccessibilityID.sidebarBudget(budgetName))
         run.openBudget(named: budgetName)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.hasRow("Costco", timeout: 15),
                       "Leslie's entry is not in the list. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.row("Costco", says: "Leslie"), "her entry does not say she added it. The row says: \(run.rowLabel("Costco"))")
 

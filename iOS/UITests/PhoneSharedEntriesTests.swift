@@ -203,7 +203,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.join(link, as: "Robin")
         run.scrollTo(AccessibilityID.sidebarBudget(budget))
         run.openBudget(named: budget)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 20),
+        XCTAssertTrue(run.hasRow("Costco", timeout: 20),
                       "Leslie's Costco is not in the list. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-13
