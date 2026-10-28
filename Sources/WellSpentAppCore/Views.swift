@@ -90,14 +90,29 @@ struct RootView: View {
     @State private var editor: EditorSheet?
     @State private var activeExtension: ActiveExtension = .budgets
     @State private var isWarTableInstalled = false
+    @State private var isPropertiesInstalled = false
 
     private var isWarTableActive: Bool {
         workspace.features.isWarTableEnabled && isWarTableInstalled
     }
 
+    /// On when the flag allows it and this person turned it on, on this device.
+    private var isPropertiesActive: Bool {
+        workspace.features.isPropertiesEnabled &&
+            (isPropertiesInstalled || workspace.extensionSwitches.isOn(PropertiesRegistration.id))
+    }
+
     init(workspace: Workspace) {
         _workspace = State(initialValue: workspace)
         _screen = State(initialValue: MainScreen(workspace: workspace))
+    }
+
+    /// Turns Properties on or off for this person on this device, and moves
+    /// the rail to Houses or back to Budgets.
+    private func setProperties(on: Bool) {
+        isPropertiesInstalled = on
+        workspace.extensionSwitches.set(PropertiesRegistration.id, on: on)
+        activeExtension = on ? .properties : .budgets
     }
 
     var body: some View {
@@ -106,12 +121,22 @@ struct RootView: View {
                 ActivityRailView(
                     active: $activeExtension,
                     isWarTableInstalled: isWarTableActive,
+                    isPropertiesInstalled: isPropertiesActive,
                     openAccount: { showingAccount = true }
                 )
                 Divider()
                 switch activeExtension {
-                case .budgets, .runway:
+                case .budgets:
                     budgetSplitView
+                case .properties:
+                    if isPropertiesActive {
+                        HousesPlaceholderView(
+                            openCatalog: { activeExtension = .catalog },
+                            turnOff: { setProperties(on: false) }
+                        )
+                    } else {
+                        budgetSplitView
+                    }
                 case .catalog:
                     ExtensionsCatalogView(
                         isWarTableInstalled: isWarTableActive,
@@ -124,7 +149,11 @@ struct RootView: View {
                         },
                         openWarTable: {
                             activeExtension = .warTable
-                        }
+                        },
+                        isPropertiesInstalled: isPropertiesActive,
+                        isPropertiesAvailable: workspace.features.isPropertiesEnabled,
+                        toggleProperties: { setProperties(on: !isPropertiesActive) },
+                        openProperties: { activeExtension = .properties }
                     )
                 case .warTable:
                     if workspace.features.isWarTableEnabled {

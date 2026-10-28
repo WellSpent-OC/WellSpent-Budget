@@ -5,10 +5,10 @@ import WellSpentAppCore
 /// The far-left Activity Rail, inspired by VS Code.
 /// Budgets is the default built-in extension.
 /// Extensions is the second built-in extension for catalog discovery.
-/// Add-ons like Runway and WarTable appear on the rail once installed.
+/// Add-ons like Properties (Houses) and WarTable appear on the rail once turned on.
 struct ActivityRailView: View {
     @Binding var active: ActiveExtension
-    var isRunwayInstalled: Bool = false
+    var isPropertiesInstalled: Bool = false
     var isWarTableInstalled: Bool
     var showsSync: Bool = false
     var syncTitle: String = "Sync"
@@ -24,9 +24,9 @@ struct ActivityRailView: View {
                 active = .budgets
             }
 
-            if isRunwayInstalled {
-                railButton(title: "Runway", symbol: "🏡", isSelected: active == .runway) {
-                    active = .runway
+            if isPropertiesInstalled {
+                railButton(title: "Houses", symbol: "🏡", isSelected: active == .properties) {
+                    active = .properties
                 }
             }
 
