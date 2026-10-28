@@ -499,6 +499,17 @@ struct SampleBudgetTests {
         #expect(try entry("Refund").amount == .dollars(25) && entry("Refund").kind == .refund)
         #expect(try entry("Between accounts").amount == .dollars(-500), "a transfer is left as typed")
         #expect(try entry("Between accounts").kind == .transfer)
+
+        // A new amount takes its sign from the kind. A transfer keeps the sign it had.
+        for merchant in ["Airbnb", "Cleaner", "Refund", "Between accounts"] {
+            #expect(app.model.updateEntry(try entry(merchant).id, EntryChange(amount: .dollars(-7))) == .saved)
+        }
+        let after = try app.model.store.transactions(in: bookings.id)
+        func now(_ merchant: String) -> Money? { after.first { $0.merchant == merchant }?.amount }
+        #expect(now("Airbnb") == .dollars(7), "income stays money in")
+        #expect(now("Cleaner") == .dollars(-7))
+        #expect(now("Refund") == .dollars(7), "a refund stays a refund")
+        #expect(now("Between accounts") == .dollars(-7), "a transfer keeps its sign")
     }
 
     @Test func aGroupMadeBeforeSigningUpComesAlongAndTheSamplesDoNot() async throws {
