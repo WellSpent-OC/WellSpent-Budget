@@ -154,15 +154,35 @@ struct PhoneEntryFields: View {
                 .accessibilityIdentifier(AccessibilityID.entryMerchant)
         }
         PhoneField(Words.amount) {
-            TextField(Words.amount, text: $editor.amountText)
-                .keyboardType(.decimalPad)
-                .accessibilityIdentifier(AccessibilityID.entryAmount)
+            HStack(spacing: 2) {
+                // Money in shows a plus sign in front of what is typed. The
+                // person types a plain number and never the sign.
+                if editor.isMoneyIn {
+                    Text("+")
+                        .foregroundStyle(Palette.muted)
+                        .accessibilityHidden(true)
+                }
+                TextField(Words.amount, text: $editor.amountText)
+                    .keyboardType(.decimalPad)
+                    .accessibilityIdentifier(AccessibilityID.entryAmount)
+            }
         }
         if let problem = editor.amountProblem {
             Text(problem)
                 .font(.footnote)
                 .foregroundStyle(Palette.warning)
                 .accessibilityIdentifier(AccessibilityID.entryAmountProblem)
+        }
+        // Off is spending, and says nothing. On, the entry is money in, with
+        // a line saying what that does to the budget (INC-01).
+        Toggle(Words.moneyIn, isOn: $editor.isMoneyIn)
+            .tint(Palette.accent)
+            .accessibilityIdentifier(AccessibilityID.entryMoneyIn)
+        if let line = editor.moneyInLine {
+            Text(line)
+                .font(.footnote)
+                .foregroundStyle(Palette.muted)
+                .accessibilityIdentifier(AccessibilityID.entryMoneyInLine)
         }
         DatePicker(Words.date, selection: $editor.date, displayedComponents: .date)
             .datePickerStyle(.compact)
