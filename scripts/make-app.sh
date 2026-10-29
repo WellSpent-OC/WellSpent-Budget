@@ -51,6 +51,8 @@ set -eu
 
 WELLSPENT_ENV="${WELLSPENT_ENV:-staging}"
 # The flags this build carries on ("extensions,properties"); empty is none.
+# WELLSPENT_PROPERTIES_PATH, when set, links the private Properties package,
+# and the build fails if the binary came out without it.
 WELLSPENT_FEATURES="${WELLSPENT_FEATURES:-}"
 VERSION="${VERSION:-0.0.0-dev}"
 BUILD="${BUILD:-1}"
@@ -133,6 +135,14 @@ for arch in $ARCHS; do arch_flags="$arch_flags --arch $arch"; done
 swift build -c release --product WellSpentApp --scratch-path "$SCRATCH" $arch_flags
 # shellcheck disable=SC2086
 bin="$(swift build -c release --product WellSpentApp --scratch-path "$SCRATCH" $arch_flags --show-bin-path)"
+
+# With the package path set, the binary must hold the package (Package.swift
+# reads WELLSPENT_PROPERTIES_PATH from this build's environment): otherwise a
+# build carrying the flags on would show a catalog with no Houses behind it.
+if [ -n "${WELLSPENT_PROPERTIES_PATH:-}" ]; then
+    strings "$bin/WellSpentApp" | grep -q WellSpentProperties \
+        || fail "WELLSPENT_PROPERTIES_PATH is set, but the build does not link WellSpentProperties."
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
