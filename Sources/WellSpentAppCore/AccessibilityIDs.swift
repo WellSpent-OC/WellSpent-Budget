@@ -120,6 +120,10 @@ public enum AccessibilityID {
     public static let entryTopLine = "entry.topLine"
     /// The Money in switch, on a new or opened entry.
     public static let entryMoneyIn = "entry.moneyIn"
+    /// Under the switch while it is on: what money in does to the budget.
+    public static let entryMoneyInLine = "entry.moneyInLine"
+    /// After the count line on a budget's page: the period's money in.
+    public static let budgetMoneyInLine = "budget.moneyInLine"
     /// When this computer's last change to it didn't go through.
     public static let entryNoticeLine = "entry.noticeLine"
     /// Under the date, when it moves the entry out of this period.

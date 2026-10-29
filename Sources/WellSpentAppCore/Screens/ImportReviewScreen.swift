@@ -167,6 +167,8 @@ public struct ImportReviewScreen {
         public static let budget = "Budget"
         /// The name VoiceOver reads for a money-in line's kind list.
         public static let kind = "Money in"
+        /// The third part of a phone's kind choice: the other kinds.
+        public static let more = "More\u{2026}"
         public static let importButton = "Import"
         public static let cancel = "Cancel"
     }

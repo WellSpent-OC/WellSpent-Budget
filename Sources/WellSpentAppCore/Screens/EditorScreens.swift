@@ -263,10 +263,20 @@ public final class EntryEditor {
                      Detail(label: Words.amount, value: editing.amount.magnitude.display),
                      Detail(label: Words.date, value: Words.fullDate(editing.date))]
         if !editing.note.isEmpty { shown.append(Detail(label: Words.note, value: editing.note)) }
+        if editing.kind != .spending { shown.append(Detail(label: Words.moneyIn, value: Words.name(of: editing.kind))) }
         if let budget = try? model.store.budget(editing.budgetID) {
             shown.append(Detail(label: Words.budget, value: budget.name))
         }
         return shown
+    }
+
+    /// Under the Money in switch while it is on: what money in does to the
+    /// budget the entry goes in, by that budget's name. Nil while the switch
+    /// is off, or when no budget is known yet.
+    public var moneyInLine: String? {
+        guard isMoneyIn, let id = budgetID ?? model.selectedBudget,
+              let budget = model.budget(for: id) else { return nil }
+        return Words.moneyInHelp(budget: budget.name)
     }
 
     /// Above the details: who added it, once someone else is in the group,
@@ -391,6 +401,8 @@ public final class EntryEditor {
         public static let refund = "Refund"
         /// The switch's label. Placeholder words until the word check.
         public static let moneyIn = "Money in"
+        /// Under the switch while it is on. Placeholder words too.
+        public static func moneyInHelp(budget: String) -> String { "Adds to \(budget) instead of spending from it." }
         public static let income = "Income"
         public static let transfer = "Transfer"
         public static let borrowed = "Borrowed"

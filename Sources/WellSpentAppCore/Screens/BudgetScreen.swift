@@ -107,6 +107,12 @@ public struct BudgetScreen {
         return "\(count) transaction\(count == 1 ? "" : "s") since \(since)"
     }
 
+    /// "$3275.00 in", after the count line, once the period has money in.
+    /// Nil until it does: a budget with no money in says nothing about it.
+    public var moneyInLine: String? {
+        summary.moneyIn.minorUnits > 0 ? Words.moneyIn(summary.moneyIn.display) : nil
+    }
+
     /// A short date for the list, as the Mac's table shows it.
     nonisolated public static func shortDate(_ date: Date) -> String {
         date.formatted(.dateTime.day().month(.abbreviated).locale(AppLocale.current))
@@ -122,6 +128,8 @@ public struct BudgetScreen {
         public static let add = "Add"
         public static let importStatement = "Import statement"
         public static let notice = "Your change didn't go through."
+        /// The period's money in, after the count line. Placeholder words.
+        public static func moneyIn(_ amount: String) -> String { "\(amount) in" }
         /// What a tap on a row does, said by VoiceOver after the row's words.
         public static let rowHelp = "Opens the transaction."
     }

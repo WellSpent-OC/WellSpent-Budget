@@ -611,7 +611,7 @@ extension PhoneTestApp {
 
 /// The test's statements: a folder of its own, since the app's data folder
 /// must not exist before the first launch.
-private struct StatementFolder {
+struct StatementFolder {
     let url: URL
 
     init() throws {

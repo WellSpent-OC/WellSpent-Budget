@@ -37,9 +37,17 @@ struct PhoneBudgetWheelSections: View {
                 PhoneFigureRow(figure: figure)
             }
         } footer: {
-            Text(screen.countLine)
-                .font(.footnote)
-                .foregroundStyle(Palette.muted)
+            // The count, then the period's money in after a dot once there
+            // is any: "5 transactions since Oct 1 · $3275.00 in" (INC-B).
+            HStack(spacing: 0) {
+                Text(screen.countLine)
+                if let moneyIn = screen.moneyInLine {
+                    Text(" \u{00B7} \(moneyIn)")
+                        .accessibilityIdentifier(AccessibilityID.budgetMoneyInLine)
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.muted)
         }
         .listRowBackground(Palette.surface)
         if let pace = screen.pace {
