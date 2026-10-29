@@ -44,19 +44,15 @@ A UI test names a scenario with one comment line, directly above the step that c
 - A tag says the step checks what the scenario is about. It does not promise that the step checks every line of it.
 - The Linux and iPhone tests name scenarios with the same line.
 - To find every test that names a scenario, search for its ID: `git grep -n "PAGE-05"`.
-- When a tag is added or taken out, change the tables below to match.
+- When a tag is added or taken out, change the row below to match.
 
 The Mac's UI tests are in `Tests/WellSpentUITests`, the iPhone's in `iOS/UITests`, and Linux's in `Linux/UITests`, where Python names a scenario with `# Scenario` in place of `// Scenario`.
 
 ## Every scenario, and which platforms have a test for it
 
-| Platform | Scenarios on it | Named by a test |
-| - | - | - |
-| Mac | 160 | 153 |
-| Linux | 164 | 136 |
-| iPhone | 153 | 147 |
-| Server | 9 | 9 |
-| Connector | 4 | 4 |
+The count per platform, and what is still to write, is printed by
+`python3 -I scripts/scenario-check.py --list` and in the Scenario check job's summary.
+It is not kept here, where every pull request would change the same lines.
 
 ### [Accounts.md](Accounts.md)
 
