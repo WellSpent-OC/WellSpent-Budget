@@ -11,7 +11,10 @@ PAGE-03" in Swift or "# Scenario PAGE-02" in Python.
 Always fails on:
 - a tag naming a scenario that does not exist,
 - a tag on a platform its scenario does not name,
-- a table in Features/README.md that does not match the scenarios and the tags.
+- a row in Features/README.md that does not match the scenarios and the tags.
+
+The per-platform counts are printed, not kept in the README: a count every pull
+request changed was a merge conflict every time two were open.
 
 With --require-all it also fails while any scenario has no test on a platform it
 names (the Definition of Done, item 3). --list prints those scenarios.
@@ -37,7 +40,6 @@ HEADING = re.compile(r"^## ([A-Z]+-\d+) (.+?)\s*$")
 TAG = re.compile(r"^\s*(?://|#)\s*Scenario\s+(.+?)\s*$")
 ID = re.compile(r"[A-Z]+-\d+")
 ROW = re.compile(r"^\|\s*([A-Z]+-\d+)\s*\|(.*)\|\s*$")
-COUNT = re.compile(r"^\|\s*(Mac|Linux|iPhone|Server|Connector)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*$")
 
 
 def platforms_named(text):
@@ -96,11 +98,8 @@ def read_tags(scenarios, problems):
 def check_readme(scenarios, tested, problems):
     readme = (FEATURES / "README.md").read_text(encoding="utf-8").splitlines()
     rows = {}
-    counts = {}
     for line in readme:
-        if match := COUNT.match(line):
-            counts[match.group(1)] = (int(match.group(2)), int(match.group(3)))
-        elif match := ROW.match(line):
+        if match := ROW.match(line):
             cells = [cell.strip() for cell in match.group(2).split("|")]
             if len(cells) == 3:
                 rows[match.group(1)] = cells
@@ -121,13 +120,6 @@ def check_readme(scenarios, tested, problems):
             problems.append(f"Features/README.md: {identifier} has a test on {should}, not {row[2]}")
     for identifier in sorted(set(rows) - set(scenarios)):
         problems.append(f"Features/README.md: a row for {identifier}, which is not a scenario")
-    for name in PLATFORMS:
-        on = sum(1 for _, where, _ in scenarios.values() if name in where)
-        expected = (on, len(tested[name]))
-        if counts.get(name) != expected:
-            found = " and ".join(map(str, counts[name])) if name in counts else "nothing"
-            problems.append(f"Features/README.md: {name}'s line should read {expected[0]} and {expected[1]}, "
-                            f"not {found}")
 
 
 def main(arguments):

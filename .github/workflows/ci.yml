@@ -9,13 +9,18 @@ name: CI
 #
 # main is staging, and each release has its own branch, release/X.Y. A change
 # reaches either only through a pull request, so pull requests into both run
-# here. Nothing runs on a push: main and a release branch only ever move forward
-# to a pull request's head, which must be up to date and has already passed
-# every check, and those results stay on that commit. A second run would test
-# the same commit again and double the load on staging's test accounts.
+# here, and again in the merge queue on the exact commit that will land.
+# Nothing runs on a push: main and a release branch only ever move forward to a
+# commit that has already passed every check here, and those results stay on
+# that commit. A second run would test the same commit again and double the
+# load on staging's test accounts.
 on:
   pull_request:
     branches: [main, 'release/**']
+  # The merge queue builds each queued pull request on top of main and runs
+  # these checks on that result before it lands, so a change can only reach
+  # main after passing against what is already there.
+  merge_group:
   # The UI tests run once a night, not on every pull request (project
   # rule, 2026-10-22). 09:00 UTC is 03:00 in Mountain Daylight Time.
   schedule:
@@ -348,7 +353,7 @@ jobs:
   linux-ui-test:
     name: Linux UI test
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     container:
@@ -451,7 +456,7 @@ jobs:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: macos-latest
     # Every Mac scenario has a UI test now, and a part runs close to an hour
     # on GitHub's Macs. 120 leaves room; a hung run still stops.
@@ -540,7 +545,7 @@ jobs:
   mac-ui-test:
     name: Mac UI test
     needs: mac-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -590,7 +595,7 @@ jobs:
     name: iPhone UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: macos-latest
     timeout-minutes: 240
     strategy:
@@ -672,7 +677,7 @@ jobs:
   iphone-ui-test:
     name: iPhone UI test
     needs: iphone-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -717,12 +722,12 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check, wartable-connector]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, linux-client-with-properties, ios-build, scenario-check, wartable-connector]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
     # commented on pull requests that had nothing wrong with them.
-    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -736,12 +741,17 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          if [ -z "$PR" ]; then
+            # In the merge queue there is no pull request to label; failing is enough.
+            echo "::error::Gates failed."
+            exit 1
+          fi
           gh pr edit "$PR" --add-label "gates: failing" --repo "$GITHUB_REPOSITORY" || true
 
           if [ "$HAS_GATE_TOKEN" = "true" ] && gh pr ready "$PR" --undo --repo "$GITHUB_REPOSITORY"; then
@@ -756,12 +766,13 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          [ -n "$PR" ] || exit 0  # the merge queue has no pull request to update
           # Only undo what this workflow did. An intentional draft stays a draft.
           if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels \
                --jq '.labels[].name' | grep -qx "gates: failing"; then

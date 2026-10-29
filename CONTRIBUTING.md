@@ -15,11 +15,14 @@ one spends a week on something that will not be merged.
 2. The checks run. The first time you contribute, a maintainer reads your change
    and then lets them run. A pull request merges only when every check passes:
    Unit tests, Coverage floor, Linux container builds, Server tests on Postgres,
-   Linux client tests, Linux app builds, Gate, and review.
+   Linux client tests, Linux app builds, Linux client with Properties, Gate,
+   and review.
 3. A maintainer reviews it. Anything the checks cannot cover, such as a screen,
    is tried by hand on a test server, never with real budgets.
-4. A maintainer merges it by rebasing your commits onto `main`, so your name stays
-   on your work.
+4. A maintainer adds it to the merge queue. The queue rebases your commits onto
+   `main`, so your name stays on your work, runs the checks once more on that
+   result, and merges it. Nobody waits on a green pull request: once it is
+   reviewed, it lands on its own.
 
 **Write tests that fail without your change.** A fix comes with a test that fails
 on the code before it and passes after it.
