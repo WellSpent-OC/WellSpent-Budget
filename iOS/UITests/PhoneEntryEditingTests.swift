@@ -113,7 +113,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         XCTAssertTrue(bar.waitForExistence(timeout: 5), "no Undo bar. On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.wait(for: bar, until: "exists == false", timeout: 3), "the bar went at once")
         XCTAssertTrue(run.wait(for: bar, until: "exists == false", timeout: 25), "the bar stayed")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "Market came back")
+        XCTAssertTrue(run.lacksRow("Market"), "Market came back")
         XCTAssertTrue(run.shows("$60.00"), "the total still counts it. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-04
@@ -239,7 +239,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.addEntry(merchant: "Bakery", amount: "5.00")
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.undoBar), until: "exists == false", timeout: 5),
                       "adding left the bar")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop")).exists, "Hilltop came back")
+        XCTAssertTrue(run.lacksRow("Hilltop"), "Hilltop came back")
         run.addEntry(merchant: "Kiosk", amount: "2.00")
 
         // Scenario EDIT-17, EDIT-08
@@ -271,7 +271,7 @@ final class PhoneEntryEditingTests: XCTestCase {
         run.tap(AccessibilityID.undoButton)
         XCTAssertTrue(run.hasRow("Kiosk", timeout: 10),
                       "Undo did not bring Kiosk back")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Bakery")).exists, "Bakery came back")
+        XCTAssertTrue(run.lacksRow("Bakery"), "Bakery came back")
         XCTAssertTrue(run.shows("$88.50"), "the total is wrong. On screen: \(run.visibleTexts())")
     }
 

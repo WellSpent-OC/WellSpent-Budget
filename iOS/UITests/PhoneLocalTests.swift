@@ -160,7 +160,7 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.wait(for: add, until: "isEnabled == true", timeout: 5), "Add stayed dimmed")
         run.tap(AccessibilityID.entryCancel)
         XCTAssertTrue(run.wait(for: add, until: "exists == false", timeout: 10), "the sheet did not close")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).exists, "Cancel added it")
+        XCTAssertTrue(run.lacksRow("Corner Bakery"), "Cancel added it")
 
         // Scenario ENTRY-01, ENTRY-04
         // 2. Add puts it in the open budget, with today, Manual and the
@@ -387,7 +387,7 @@ final class PhoneLocalTests: XCTestCase {
         XCTAssertTrue(run.shows("2 transactions since \(Self.startOfMonth())"), "no count of 2. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.hasRow("Hilltop Grocery"), "Hilltop Grocery is not listed")
         XCTAssertTrue(run.hasRow("Corner Bakery"), "Corner Bakery is not listed")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Market")).exists, "last month's Market is listed")
+        XCTAssertTrue(run.lacksRow("Market"), "last month's Market is listed")
         run.goBack()
         let row = run.scrollTo(AccessibilityID.sidebarBudget(budget))
         XCTAssertTrue(row.label.contains("$345.92"), "Home does not show $345.92 beside it: \(row.label)")

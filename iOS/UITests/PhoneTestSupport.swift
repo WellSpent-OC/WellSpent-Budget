@@ -92,6 +92,23 @@ final class PhoneTestApp {
         return scrollTo(identifier, timeout: 15).exists
     }
 
+    /// Whether an entry's row is gone from the list. A list draws only the
+    /// rows on screen, so a row below the bottom does not exist to a test,
+    /// and a bare `exists == false` would pass while the row is still there.
+    /// The row is given the time to show where the list stands, then the
+    /// list is searched for it, as `hasRow` does. Every check that a row is
+    /// not there goes through here, never through a bare `exists`.
+    func lacksRow(_ merchant: String, timeout: TimeInterval = 3) -> Bool {
+        lacks(AccessibilityID.entryRow(merchant), timeout: timeout)
+    }
+
+    /// Whether anything in a list is not there: waited for, then scrolled
+    /// for, and found nowhere.
+    func lacks(_ identifier: String, timeout: TimeInterval = 3) -> Bool {
+        if element(identifier).waitForExistence(timeout: timeout) { return false }
+        return !scrollTo(identifier, timeout: 15).exists
+    }
+
     /// Whether an entry's row holds these words within the time given. A row
     /// is one element, read as its words in order, so its words are in its
     /// label and not on screen as words of their own. Capitals are ignored,
