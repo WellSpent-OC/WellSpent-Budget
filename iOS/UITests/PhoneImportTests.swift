@@ -92,12 +92,12 @@ final class PhoneImportTests: XCTestCase {
         run.choose("Groceries", for: bakery)
         run.tap(AccessibilityID.importCancel)
         run.waitForTheReviewToClose()
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 3),
+        XCTAssertTrue(run.lacksRow("Corner Bakery", timeout: 3),
                        "Cancel added Corner Bakery")
         run.importStatement()
         run.choose("Groceries", for: bakery)
         run.swipeTheReviewDown()
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 3),
+        XCTAssertTrue(run.lacksRow("Corner Bakery", timeout: 3),
                        "swiping the review down added Corner Bakery")
         run.importStatement()
         XCTAssertEqual([run.status(of: joes), run.status(of: bakery)], [Words.needsBudget, Words.needsBudget])
@@ -122,7 +122,7 @@ final class PhoneImportTests: XCTestCase {
         run.waitForTheReviewToClose()
         XCTAssertTrue(run.hasRow("Corner Bakery", timeout: 10),
                       "Corner Bakery is not in Groceries. On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Trader Joes")).exists, "a line left at Choose was added")
+        XCTAssertTrue(run.lacksRow("Trader Joes"), "a line left at Choose was added")
 
         // Scenario IMPORT-02
         // 5. Corner Bakery is in already. Trader Joes, given Groceries, shows
@@ -247,7 +247,7 @@ final class PhoneImportTests: XCTestCase {
         run.choose("Groceries", for: farm)
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Farm Stand")).waitForExistence(timeout: 3),
+        XCTAssertTrue(run.lacksRow("Farm Stand", timeout: 3),
                        "a line from before this period shows")
         XCTAssertEqual(run.countLine(), countLine, "the count changed")
         run.importStatement()
@@ -295,7 +295,7 @@ final class PhoneImportTests: XCTestCase {
         XCTAssertFalse(run.waitForTransactionCount(counted + 2, timeout: 5),
                        "Corner Bakery came back. The page says: \(run.countLine())")
         XCTAssertTrue(run.waitForTransactionCount(counted + 1, timeout: 1), "the count changed. The page says: \(run.countLine())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 5),
+        XCTAssertTrue(run.lacksRow("Corner Bakery", timeout: 5),
                        "Corner Bakery is listed again")
     }
 

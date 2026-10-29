@@ -16,6 +16,10 @@ struct ActivityRailView: View {
     var isSyncing: Bool = false
     var isBusy: Bool = false
     var syncNow: (@MainActor @Sendable () -> Void)? = nil
+    /// "Sign in" until there is an account, then "Account": the shared words,
+    /// which the UI tests and a screen reader go by.
+    var accountTitle: String = "Account"
+    var accountHelp: String = "Account and sync"
     var openAccount: @MainActor @Sendable () -> Void
 
     var body: some View {
@@ -65,14 +69,14 @@ struct ActivityRailView: View {
                     Text("👤")
                         .font(.system(size: 15))
                         .foregroundColor(Palette.sidebarHeader)
-                    Text("Account")
+                    Text(accountTitle)
                         .font(.system(size: 8, weight: .medium))
                         .foregroundColor(Palette.sidebarHeader)
                 }
                 .frame(width: 42, height: 40)
             }
-            .help("Account and sync")
-            .accessibility(label: "Account")
+            .help(accountHelp)
+            .accessibility(label: accountTitle)
             .buttonStyle(.plain)
         }
         .padding(.vertical, 10)

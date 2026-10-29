@@ -94,7 +94,7 @@ final class PhoneNewAccountTests: XCTestCase {
             XCTAssertFalse(run.element(AccessibilityID.sidebarGroup(sample)).exists, "\(sample) came along")
         }
         run.openBudget(named: "Fuel")
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Gas station")).waitForExistence(timeout: 10), "Gas station did not come along")
+        XCTAssertTrue(run.hasRow("Gas station", timeout: 10), "Gas station did not come along")
         run.goBack()
         run.syncAndWait()
         let otherDevice = try SecondAccount(server: mailbox.server, settingsSuite: "app.wellspent.uitest.robin")
@@ -126,7 +126,7 @@ final class PhoneNewAccountTests: XCTestCase {
         }
         XCTAssertFalse(run.element(AccessibilityID.sidebarGroup("Side Business")).exists, "Side Business came along")
         run.openBudget(named: "Groceries")
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Farmers market")).waitForExistence(timeout: 10), "Farmers market is missing")
+        XCTAssertTrue(run.hasRow("Farmers market", timeout: 10), "Farmers market is missing")
         run.goBack()
         run.syncAndWait()
         let otherDevice = try SecondAccount(server: mailbox.server, settingsSuite: "app.wellspent.uitest.robin")
@@ -263,12 +263,12 @@ final class PhoneNewAccountTests: XCTestCase {
                                               MembersScreen.Words.madeBy("Robin")])
         XCTAssertTrue(run.wait(for: summary, until: "label == '\(three)'", timeout: 30), "Sam did not show: \(summary.label)")
         for row in ["Robin", "Leslie"] {
-            XCTAssertTrue(run.element(AccessibilityID.groupPerson(row)).waitForExistence(timeout: 10), "no row for \(row)")
+            XCTAssertTrue(run.has(AccessibilityID.groupPerson(row), timeout: 10), "no row for \(row)")
             XCTAssertFalse(run.app.buttons.matching(identifier: AccessibilityID.groupPerson(row)).firstMatch.exists,
                            "\(row)'s row opens a page")
         }
-        XCTAssertTrue(run.element(AccessibilityID.groupInvite).exists, "no Invite Someone")
-        XCTAssertTrue(run.element(AccessibilityID.groupLeave).exists, "no Leave Group")
+        XCTAssertTrue(run.has(AccessibilityID.groupInvite), "no Invite Someone")
+        XCTAssertTrue(run.has(AccessibilityID.groupLeave), "no Leave Group")
         run.tap(AccessibilityID.groupPerson("Sam"))
         let levels = run.app.buttons
         for offered in [AccessLevel.read, .write] {

@@ -152,7 +152,7 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertTrue(robinRow.label.contains(MembersScreen.Words.levelTitle(.superadmin)), "Robin is not the owner")
         XCTAssertTrue(leslieRow.label.contains(MembersScreen.Words.levelTitle(.write)), "Leslie is not at Add")
         XCTAssertLessThan(robinRow.frame.minY, leslieRow.frame.minY, "the owner does not come first")
-        XCTAssertTrue(run.element(AccessibilityID.groupInvite).exists, "no Invite Someone")
+        XCTAssertTrue(run.has(AccessibilityID.groupInvite), "no Invite Someone")
         XCTAssertFalse(run.element(AccessibilityID.groupLeave).exists, "the owner is offered Leave Group")
 
         // Scenario PAGE-10
@@ -253,13 +253,13 @@ final class PhoneSharingTests: XCTestCase {
         run.tap(AccessibilityID.acceptInvitation(fresh.id))
         XCTAssertTrue(run.element(AccessibilityID.groupSummary).waitForExistence(timeout: 20))
         XCTAssertFalse(run.element(AccessibilityID.invitationName).exists, "Accept asked for a name")
-        XCTAssertTrue(run.element(AccessibilityID.groupPerson("Robin")).waitForExistence(timeout: 15),
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Robin"), timeout: 15),
                       "the accepted member did not receive their invited name")
         run.goBack()
         XCTAssertFalse(run.element(AccessibilityID.incomingInvitation(fresh.id)).exists)
         for budget in budgets { XCTAssertTrue(run.scrollTo(AccessibilityID.sidebarBudget(budget)).exists) }
         run.openBudget(named: budgets[0])
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Existing purchase")).waitForExistence(timeout: 15))
+        XCTAssertTrue(run.hasRow("Existing purchase", timeout: 15))
         run.goBack()
         run.signOut()
         await sender.deleteGroup(named: groupName)
@@ -317,13 +317,17 @@ final class PhoneSharingTests: XCTestCase {
         // Scenario PAGE-12
         // 3. At View, the page shows levels only: no one to tap, no Invite
         // Someone, and Leave Group at the end.
+        // The people sit under the page's summary, where a slow runner has
+        // not drawn them yet, so each is waited for before it is read.
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Robin")), "no row for Robin. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Leslie")), "no row for Leslie. On screen: \(run.visibleTexts())")
         let robinRow = run.element(AccessibilityID.groupPerson("Robin"))
         XCTAssertTrue(robinRow.label.contains(MembersScreen.Words.levelTitle(.read)), "Robin is not at View")
         XCTAssertNotEqual(robinRow.elementType, .button, "Robin's own row opens a page")
         XCTAssertNotEqual(run.element(AccessibilityID.groupPerson("Leslie")).elementType, .button,
                           "Leslie's row opens a page")
         XCTAssertFalse(run.element(AccessibilityID.groupInvite).exists, "View is offered Invite Someone")
-        XCTAssertTrue(run.element(AccessibilityID.groupLeave).exists, "no Leave Group")
+        XCTAssertTrue(run.has(AccessibilityID.groupLeave), "no Leave Group")
 
         // Scenario PAGE-14, SHARE-15
         // 4. Leslie makes Robin an admin, so the group's menu offers him

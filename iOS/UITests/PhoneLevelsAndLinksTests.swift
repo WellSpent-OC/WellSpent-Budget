@@ -156,7 +156,7 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         run.join(fromNow, as: "Robin")
         run.scrollTo(AccessibilityID.sidebarBudget(laterBudget))
         run.openBudget(named: laterBudget)
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).waitForExistence(timeout: 5),
+        XCTAssertTrue(run.lacksRow("Hilltop Grocery", timeout: 5),
                        "an entry from before the link shows")
         XCTAssertTrue(run.figure(MoneyWheel.Words.spent, is: "$0.00"), "the total counts what came before")
         try await leslie.addEntry("Costco", amount: Money(minorUnits: -9900), inBudget: laterBudget, group: laterGroup)
@@ -164,8 +164,8 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
         run.goBack()
         run.syncAndWait()
         run.openBudget(named: laterBudget)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 20), "Costco did not reach Robin")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop Grocery")).waitForExistence(timeout: 5),
+        XCTAssertTrue(run.hasRow("Costco", timeout: 20), "Costco did not reach Robin")
+        XCTAssertTrue(run.lacksRow("Hilltop Grocery", timeout: 5),
                        "Hilltop showed after it changed")
         // With Costco in, the total proves the sync came: it counts Costco and
         // still leaves Hilltop out.
@@ -315,10 +315,10 @@ final class PhoneLevelsAndLinksTests: XCTestCase {
                                                MembersScreen.Words.madeByYou])
         XCTAssertTrue(run.wait(for: summary, until: "label == '\(shared)'", timeout: 30),
                       "the page did not hear of Leslie: \(summary.label)")
-        XCTAssertTrue(run.element(AccessibilityID.groupPerson("Leslie")).exists, "no row for Leslie")
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Leslie")), "no row for Leslie")
         run.goBack()
         run.openGroupPage(named: groupName)
-        XCTAssertTrue(run.element(AccessibilityID.groupPerson("Leslie")).waitForExistence(timeout: 5),
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Leslie"), timeout: 5),
                       "a page opened after she joined does not show her")
 
         // Scenario PAGE-17

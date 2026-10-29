@@ -121,7 +121,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.entrySave).exists, "Save is still offered")
         run.tap(AccessibilityID.entryDone)
         run.expectNoSheet()
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Bakery")).waitForExistence(timeout: 3), "Bakery came back")
+        XCTAssertTrue(run.lacksRow("Bakery", timeout: 3), "Bakery came back")
 
         // Scenario EDIT-12
         // 4. Bread is open with a new amount typed, and Leslie changes its
@@ -203,7 +203,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.join(link, as: "Robin")
         run.scrollTo(AccessibilityID.sidebarBudget(budget))
         run.openBudget(named: budget)
-        XCTAssertTrue(run.element(AccessibilityID.entryRow("Costco")).waitForExistence(timeout: 20),
+        XCTAssertTrue(run.hasRow("Costco", timeout: 20),
                       "Leslie's Costco is not in the list. On screen: \(run.visibleTexts())")
 
         // Scenario EDIT-13
@@ -257,7 +257,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         run.tap(AccessibilityID.undoButton)
         try run.expectAlert(saying: UndoOffer.Words.refused(.viewOnly))
         XCTAssertFalse(run.element(AccessibilityID.undoBar).exists, "the bar stayed")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 3), "Hilltop came back")
+        XCTAssertTrue(run.lacksRow("Hilltop", timeout: 3), "Hilltop came back")
 
         // Scenario EDIT-09
         // 4. The same, moved down to Add instead: only Leslie, or a manager,
@@ -372,7 +372,7 @@ final class PhoneSharedEntriesTests: XCTestCase {
         XCTAssertFalse(run.app.alerts.firstMatch.waitForExistence(timeout: 3), "the import ended in an error")
         XCTAssertFalse(run.waitForTransactionCount(counted + 1, timeout: 5), "the import added something. The page says: \(run.countLine())")
         XCTAssertTrue(run.waitForTransactionCount(counted, timeout: 1), "the count changed. The page says: \(run.countLine())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Corner Bakery")).waitForExistence(timeout: 5), "Corner Bakery came back")
+        XCTAssertTrue(run.lacksRow("Corner Bakery", timeout: 5), "Corner Bakery came back")
 
         // Scenario EDIT-14
         // 3. Robin has his Bread open, and Leslie's change to its amount
