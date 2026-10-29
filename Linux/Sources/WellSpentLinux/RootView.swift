@@ -85,6 +85,8 @@ struct RootView: View {
                         isSyncing: screen.syncShowsProgress,
                         isBusy: screen.isBusy,
                         syncNow: { Task { await screen.syncNow() } },
+                        accountTitle: screen.accountTitle,
+                        accountHelp: screen.accountHelp,
                         openAccount: { showingAccount = true }
                     )
                     Palette.railBorder.frame(width: 1)
@@ -186,7 +188,9 @@ struct RootView: View {
 
     private func budgetSplitView(invitation: JoinScreen?, openGroup: BudgetGroup?, people: MembersScreen?) -> some View {
         NavigationSplitView {
-            SidebarView(screen: screen, perform: perform, showingAccount: $showingAccount)
+            SidebarView(screen: screen, perform: perform,
+                        showsAccountInFooter: !workspace.features.areExtensionsEnabled,
+                        showingAccount: $showingAccount)
         } detail: {
             if let invitation {
                 InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
@@ -322,6 +326,9 @@ enum SidebarRow: Identifiable {
 struct SidebarView: View {
     var screen: MainScreen
     var perform: (MainScreen.Action) -> Void
+    /// True when the activity rail is hidden, so the footer carries Sign in
+    /// and Sync instead.
+    var showsAccountInFooter: Bool = false
     @Binding var showingAccount: Bool
 
     var rows: [SidebarRow] {
@@ -400,7 +407,9 @@ struct SidebarView: View {
                     .padding(.horizontal, 6)
             }
             HStack {
-                Button(action: { screen.toggle(section.id) }) {
+                // The name opens the group's page (PAGE-01). A screen reader
+                // and the UI tests know the button by the name itself.
+                Button(action: { screen.openPage(of: section.id) }) {
                     HStack {
                         Text(section.title.uppercased())
                             .font(.system(size: 9.5, weight: .bold))
@@ -413,14 +422,20 @@ struct SidebarView: View {
                     }
                     .frame(maxWidth: Self.widestLine)
                 }
-                .accessibility(label: section.toggleHelp)
-                .help(section.toggleHelp)
+                // Before the style, which wraps the button in a widget of its own.
+                .accessibility(selected: section.isPageOpen)
                 .buttonStyle(.plain)
                 // GTK has no right-click menu here, so each group has a button
                 // that opens the menu the Mac shows on a right-click.
                 Menu("⋯") {
                     menuItems(screen.groupMenu(section.group))
                 }
+                // The arrow at the end of the line hides or shows the budgets
+                // (PAGE-05), as on the Mac, which names it by its tooltip too.
+                Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
+                    .accessibility(label: section.toggleHelp)
+                    .help(section.toggleHelp)
+                    .buttonStyle(.plain)
             }
         }
     }
@@ -460,12 +475,30 @@ struct SidebarView: View {
         .padding(8)
     }
 
-    /// Whether budgets go through the server or stay on this computer.
+    /// Whether budgets go through the server or stay on this computer. Sign
+    /// in (or Account) and Sync live on the activity rail; without the rail,
+    /// which the extensions flag hides, they sit here, so a person can always
+    /// sign in (ACCT-01).
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(screen.footer)
                 .font(.system(size: 11))
                 .foregroundColor(Palette.muted)
+            if showsAccountInFooter {
+                HStack {
+                    Button(screen.accountTitle) { showingAccount = true }
+                        .help(screen.accountHelp)
+                        .disabled(screen.isBusy)
+                    if screen.showsSync {
+                        if screen.syncShowsProgress {
+                            ProgressView().frame(width: 16, height: 16)
+                        }
+                        Button(screen.syncTitle) { Task { await screen.syncNow() } }
+                            .help(screen.syncHelp)
+                            .disabled(screen.isBusy)
+                    }
+                }
+            }
             if let failure = screen.syncFailure {
                 Text(failure)
                     .font(.system(size: 11))
