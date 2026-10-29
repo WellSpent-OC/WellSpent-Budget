@@ -184,6 +184,64 @@ struct EditorScreensTests {
         #expect(try model.store.transaction(spending.id)?.amount == Money(minorUnits: 131_000))
     }
 
+    @Test func theMoneyInSwitchHasAHelpLineNamingTheBudgetOnlyWhileOn() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Pool House"))
+        let bookings = try #require(model.addBudget(named: "Bookings", limit: .dollars(2000), in: group))
+        model.selectedBudget = bookings
+
+        let editor = EntryEditor(model: model)
+        #expect(editor.moneyInLine == nil, "off says nothing")
+        editor.isMoneyIn = true
+        #expect(editor.moneyInLine == "Adds to Bookings instead of spending from it.")
+        editor.isMoneyIn = false
+        #expect(editor.moneyInLine == nil)
+
+        // An opened entry names its own budget, not the one on screen.
+        let cleaning = try #require(model.addBudget(named: "Cleaning", limit: .dollars(300), in: group))
+        let entry = Transaction(budgetID: cleaning, groupID: group, date: Date(), merchant: "Deposit",
+                                amount: Money(minorUnits: 5000), kind: .income)
+        try model.store.save(entry)
+        model.reload()
+        let opened = try #require(EntryEditor(model: model, entry: entry.id))
+        #expect(opened.moneyInLine == "Adds to Cleaning instead of spending from it.")
+    }
+
+    @Test func theBudgetSaysItsMoneyInOnlyOnceThereIsSome() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Pool House"))
+        let bookings = try #require(model.addBudget(named: "Bookings", limit: .dollars(2000), in: group))
+        model.selectedBudget = bookings
+        model.addTransaction(merchant: "Cleaner", amount: Money(minorUnits: 40000), date: Date(), note: "")
+        var screen = BudgetScreen(summary: try #require(model.summary(for: bookings)), model: model, me: nil)
+        #expect(screen.moneyInLine == nil, "spending alone says nothing about money in")
+
+        model.addTransaction(merchant: "Airbnb", amount: Money(minorUnits: 131_000), date: Date(), note: "",
+                             kind: .income)
+        screen = BudgetScreen(summary: try #require(model.summary(for: bookings)), model: model, me: nil)
+        #expect(screen.moneyInLine == "$1310.00 in")
+        #expect(screen.countLine.hasPrefix("2 transactions since"), "the count line itself is unchanged")
+    }
+
+    @Test func theReadOnlyDetailsSayMoneyInForIncomeAndRefundsOnly() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Pool House"))
+        let bookings = try #require(model.addBudget(named: "Bookings", limit: .dollars(2000), in: group))
+        func details(_ kind: TransactionKind, _ amount: Int) throws -> [String] {
+            let entry = Transaction(budgetID: bookings, groupID: group, date: Date(), merchant: "Line",
+                                    amount: Money(minorUnits: amount), kind: kind)
+            try model.store.save(entry)
+            model.reload()
+            let opened = try #require(EntryEditor(model: model, entry: entry.id))
+            return opened.details.filter { $0.label == "Money in" }.map(\.value)
+        }
+        #expect(try details(.income, 131_000) == ["Income"])
+        #expect(try details(.refund, 2500) == ["Refund"])
+        #expect(try details(.spending, -4000) == [])
+        #expect(try details(.transfer, 10000) == [], "a transfer is not money in, and the top line names it")
+        #expect(try details(.cardPayment, -20000) == [])
+    }
+
     @Test func anEntryNeedsAMerchantAndAnAmount() {
         #expect(EntryEditor.canAdd(merchant: "Hilltop", amountText: "12"))
         #expect(!EntryEditor.canAdd(merchant: "", amountText: "12"))

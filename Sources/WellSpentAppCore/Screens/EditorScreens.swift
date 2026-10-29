@@ -263,7 +263,7 @@ public final class EntryEditor {
                      Detail(label: Words.amount, value: editing.amount.magnitude.display),
                      Detail(label: Words.date, value: Words.fullDate(editing.date))]
         if !editing.note.isEmpty { shown.append(Detail(label: Words.note, value: editing.note)) }
-        if editing.kind != .spending { shown.append(Detail(label: Words.moneyIn, value: Words.name(of: editing.kind))) }
+        if editing.kind.isMoneyIn { shown.append(Detail(label: Words.moneyIn, value: Words.name(of: editing.kind))) }
         if let budget = try? model.store.budget(editing.budgetID) {
             shown.append(Detail(label: Words.budget, value: budget.name))
         }
