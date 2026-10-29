@@ -25,6 +25,7 @@ final class NativeShellController {
             wellspent_gtk_window_present(shellPtr)
             return
         }
+        Self.loadLook()
         let teamName = screen.openGroup?.name ?? "Demo Team"
         let title = LinuxSetup.environment.appName
 
@@ -48,6 +49,74 @@ final class NativeShellController {
         }
     }
 
+    /// The makeover's look: the two bundled fonts go to fontconfig, then the
+    /// style sheet loads. Once per process; a missing file leaves the inline
+    /// fallback sheet in place.
+    private static var lookLoaded = false
+    private static func loadLook() {
+        guard !lookLoaded else { return }
+        lookLoaded = true
+        if let fonts = Bundle.module.url(forResource: "Fonts", withExtension: nil),
+           let files = try? FileManager.default.contentsOfDirectory(at: fonts, includingPropertiesForKeys: nil) {
+            for file in files where file.pathExtension == "ttf" {
+                _ = wellspent_fonts_add_file(file.path)
+            }
+        }
+        if let css = Bundle.module.url(forResource: "app_style", withExtension: "css") {
+            _ = wellspent_gtk_init_css_file(css.path)
+        }
+    }
+
+    /// A menu's items as the shell takes them: one title per line, "-" between
+    /// the parts. The flattened items match "<prefix>:<index>" by position.
+    /// A group's menu, or More, as `NativeMenu` holds it: the spec C draws and
+    /// the item a reported index means come from the same list.
+    private static func menu(_ parts: [[MainScreen.MenuItem]]) -> NativeMenu<MainScreen.MenuItem> {
+        NativeMenu(parts, title: \.title)
+    }
+
+    private func groupMenuItem(_ group: GroupID, index: Int) -> MainScreen.MenuItem? {
+        guard let section = screen.sections.first(where: { $0.id == group }) else { return nil }
+        return Self.menu(screen.groupMenu(section.group)).item(at: index)
+    }
+
+    /// What a menu item or button asks for. The sheets that open from here
+    /// are the next pull requests (Phase 3); until then an action without a
+    /// native sheet says so on stderr and does nothing, since the shell is
+    /// opt-in.
+    func perform(_ action: MainScreen.Action) {
+        guard let shellPtr else { return }
+        switch action {
+        case .newBudget:
+            handleAction("action:add_budget_sheet")
+        case .deleteBudget, .deleteGroup:
+            screen.ask(action)
+            askPendingDelete()
+        default:
+            FileHandle.standardError.write(Data("native shell: no sheet yet for \(action)\n".utf8))
+        }
+    }
+
+    /// A delete's question, with the shared words, then the shared rule.
+    private func askPendingDelete() {
+        guard let shellPtr, let pending = screen.pendingDelete else { return }
+        let message = screen.message(for: pending)
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        wellspent_gtk_ask(shellPtr, pending.title, message, pending.confirmLabel, MainScreen.Words.cancel,
+                          { ctx, confirmed in
+                              guard let ctx else { return }
+                              let ctrl = Unmanaged<NativeShellController>.fromOpaque(ctx).takeUnretainedValue()
+                              MainActor.assumeIsolated {
+                                  if confirmed == 1, let pending = ctrl.screen.pendingDelete {
+                                      ctrl.screen.confirm(pending)
+                                  } else {
+                                      ctrl.screen.keepIt()
+                                  }
+                                  ctrl.render()
+                              }
+                          }, context)
+    }
+
     func handleAction(_ action: String) {
         if action == "window:destroyed" {
             // The window and every widget in it are gone. Free the struct and
@@ -66,6 +135,35 @@ final class NativeShellController {
                 screen.toggle(GroupID(u))
                 render()
             }
+        } else if action.starts(with: "menu:group:") {
+            // "menu:group:<uuid>:<index>"
+            let rest = action.dropFirst("menu:group:".count)
+            let parts = rest.split(separator: ":", maxSplits: 1).map(String.init)
+            if parts.count == 2, let u = UUID(uuidString: parts[0]), let index = Int(parts[1]),
+               let item = groupMenuItem(GroupID(u), index: index) {
+                perform(item.action)
+            }
+        } else if action.starts(with: "menu:add:") {
+            if let index = Int(action.dropFirst("menu:add:".count)),
+               let item = Self.menu([screen.addMenu]).item(at: index) {
+                perform(item.action)
+            }
+        } else if action.starts(with: "invite:") {
+            // "invite:accept:<uuid>" or "invite:reject:<uuid>"
+            let rest = action.dropFirst("invite:".count)
+            let parts = rest.split(separator: ":", maxSplits: 1).map(String.init)
+            if parts.count == 2, let u = UUID(uuidString: parts[1]),
+               let invitation = screen.incomingInvitations.first(where: { $0.id == u }) {
+                let accepting = parts[0] == "accept"
+                render()
+                Task {
+                    if accepting { _ = await screen.acceptInvitation(invitation) }
+                    else { _ = await screen.rejectInvitation(invitation) }
+                    render()
+                }
+            }
+        } else if action == "action:add_budget" {
+            perform(screen.addButton.action)
         } else if action.starts(with: "budget:") {
             let budgetIdStr = String(action.dropFirst("budget:".count))
             if let u = UUID(uuidString: budgetIdStr) {
@@ -111,7 +209,7 @@ final class NativeShellController {
                 },
                 context
             )
-        } else if action == "action:add_budget" {
+        } else if action == "action:add_budget_sheet" {
             let context = Unmanaged.passUnretained(self).toOpaque()
             wellspent_gtk_show_new_budget_dialog(
                 shellPtr,
@@ -195,36 +293,46 @@ final class NativeShellController {
     func render() {
         guard let shellPtr else { return }
 
-        // Clear and rebuild sidebar rows instantly
+        // The sidebar, rebuilt from the shared screen: invitations, each
+        // group's name and menu, its note and budgets, the waiting note,
+        // then Add Budget, More and the footer. Everything the SwiftCrossUI
+        // sidebar shows, in the same words.
         wellspent_gtk_sidebar_clear(shellPtr)
+
+        typealias InviteWords = EmailInvitationWords
+        for invitation in screen.incomingInvitations {
+            wellspent_gtk_sidebar_add_invitation(
+                shellPtr, invitation.id.uuidString, invitation.groupName.uppercased(),
+                InviteWords.invited, InviteWords.from(invitation.inviterName), InviteWords.terms(invitation),
+                InviteWords.accept, InviteWords.reject,
+                screen.isResponding(to: invitation.id) ? 1 : 0,
+                screen.invitationFailure(for: invitation.id))
+        }
 
         let sections = screen.sections
         for (i, section) in sections.enumerated() {
             wellspent_gtk_sidebar_add_group(
-                shellPtr,
-                section.id.uuid.uuidString,
-                section.title.uppercased(),
-                section.isCollapsed ? 1 : 0,
-                i == 0 ? 1 : 0
-            )
-
+                shellPtr, section.id.uuid.uuidString, section.title.uppercased(), section.toggleHelp,
+                section.isPageOpen ? 1 : 0, i == 0 ? 1 : 0,
+                Self.menu(screen.groupMenu(section.group)).spec)
+            if let note = section.note {
+                wellspent_gtk_sidebar_add_note(shellPtr, note)
+            }
             for summary in section.budgets {
                 let fill = RowFill(summary)
-                let isSelected = screen.selectedBudget == summary.budget.id
-
                 wellspent_gtk_sidebar_add_budget(
-                    shellPtr,
-                    summary.budget.id.uuid.uuidString,
-                    summary.budget.name,
-                    fill.amount,
-                    fill.share,
-                    fill.isOver ? 1 : 0,
-                    isSelected ? 1 : 0
-                )
+                    shellPtr, summary.budget.id.uuid.uuidString, summary.budget.name,
+                    fill.amount, fill.spokenValue, fill.share, fill.isOver ? 1 : 0,
+                    screen.selectedBudget == summary.budget.id ? 1 : 0)
             }
         }
+        if let waiting = screen.waitingNote {
+            wellspent_gtk_sidebar_add_note(shellPtr, waiting)
+        }
 
-        wellspent_gtk_sidebar_add_footer(shellPtr, screen.footer)
+        wellspent_gtk_sidebar_add_footer(
+            shellPtr, screen.addButton.title, Self.menu([screen.addMenu]).spec,
+            screen.footer, screen.syncFailure)
 
         // Select first budget if none selected
         if screen.selectedBudget == nil {

@@ -113,21 +113,44 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
 
 void wellspent_gtk_sidebar_clear(void *shell_ptr);
 
-void wellspent_gtk_sidebar_add_group(void *shell_ptr,
-                                     const char *group_id,
-                                     const char *title,
-                                     int is_collapsed,
-                                     int is_first);
+// An invitation at the top of the sidebar, with Accept and Reject. Its
+// buttons fire "invite:accept:<id>" and "invite:reject:<id>".
+void wellspent_gtk_sidebar_add_invitation(void *shell_ptr, const char *invitation_id,
+                                          const char *group_name, const char *invited,
+                                          const char *from, const char *terms,
+                                          const char *accept_title, const char *reject_title,
+                                          int is_responding, const char *failure);
 
-void wellspent_gtk_sidebar_add_budget(void *shell_ptr,
-                                      const char *budget_id,
-                                      const char *name,
-                                      const char *amount_text,
-                                      double share,
-                                      int is_over,
-                                      int is_selected);
+// A group's name (its button fires "group:<id>") and its ⋯ menu. The menu
+// spec is one item per line, a line of "-" a divider; an item fires
+// "menu:group:<id>:<index>", the index counting items only.
+void wellspent_gtk_sidebar_add_group(void *shell_ptr, const char *group_id, const char *title,
+                                     const char *toggle_help, int is_page_open, int is_first,
+                                     const char *menu_spec);
 
-void wellspent_gtk_sidebar_add_footer(void *shell_ptr, const char *status_text);
+// A quiet line under a group's name, such as "waiting on its founder".
+void wellspent_gtk_sidebar_add_note(void *shell_ptr, const char *text);
+
+// A budget's row, the bar filled to `share`. Fires "budget:<id>".
+void wellspent_gtk_sidebar_add_budget(void *shell_ptr, const char *budget_id, const char *name,
+                                      const char *amount_text, const char *spoken_value,
+                                      double share, int is_over, int is_selected);
+
+// Under the rows: the Add Budget button ("action:add_budget"), the More menu
+// (its items fire "menu:add:<index>"), the footer and any sync failure.
+void wellspent_gtk_sidebar_add_footer(void *shell_ptr, const char *add_title, const char *more_spec,
+                                      const char *status_text, const char *failure_text);
+
+// A question before a delete: the answer is 1 for the confirming button, 0 for
+// Cancel or a closed dialog.
+typedef void (*wellspent_gtk_ask_cb)(void *context, int confirmed);
+void wellspent_gtk_ask(void *shell_ptr, const char *title, const char *message,
+                       const char *confirm_title, const char *cancel_title,
+                       wellspent_gtk_ask_cb cb, void *context);
+
+// The look: the style sheet shipped with the app, and the fonts it names.
+int wellspent_gtk_init_css_file(const char *path);
+int wellspent_fonts_add_file(const char *path);
 
 void wellspent_gtk_update_detail_wheel(void *shell_ptr,
                                        const char *budget_name,
