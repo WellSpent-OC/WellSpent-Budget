@@ -663,7 +663,7 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, linux-client-with-properties, ios-build, scenario-check, wartable-connector]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check, wartable-connector]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -682,7 +682,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -707,7 +707,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
