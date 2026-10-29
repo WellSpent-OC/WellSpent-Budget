@@ -288,6 +288,9 @@ jobs:
       - name: Build
         run: swift build --package-path Linux
 
+      - name: Test
+        run: swift test --package-path Linux
+
   # The same client, with the private Properties package linked. The package
   # comes from WellSpent-OC/WellSpent-Properties through a read-only deploy
   # key, so nothing from it lands in this repository. Builds without the key
