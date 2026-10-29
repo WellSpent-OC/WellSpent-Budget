@@ -92,14 +92,17 @@ public struct EntryChange: Equatable, Sendable {
     public var note: String?
     /// Another budget in the entry's own group.
     public var budget: BudgetID?
+    /// What the entry is. The amount's sign follows it.
+    public var kind: TransactionKind?
 
     public init(merchant: String? = nil, amount: Money? = nil, date: Date? = nil, note: String? = nil,
-                budget: BudgetID? = nil) {
+                budget: BudgetID? = nil, kind: TransactionKind? = nil) {
         self.merchant = merchant
         self.amount = amount
         self.date = date
         self.note = note
         self.budget = budget
+        self.kind = kind
     }
 }
 

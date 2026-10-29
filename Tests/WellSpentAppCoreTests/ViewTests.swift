@@ -301,7 +301,7 @@ struct ViewTests {
                                                          proposals: [proposal],
                                                          summary: StatementMatcher().summarise([proposal]))
             let shown = try #require(ImportReviewScreen(model: model).rows.first)
-            let row = ImportRow(row: shown, choices: [], choose: { _ in })
+            let row = ImportRow(row: shown, choices: [], choose: { _ in }, chooseKind: { _ in })
             let texts = try row.inspect().findAll(ViewType.Text.self).map { try $0.string() }
 
             #expect(texts.contains(expected), "for \(decision) got \(texts)")

@@ -70,6 +70,11 @@ public final class AppModel {
         public var proposals: [ImportProposal]
         public var summary: ImportSummary
         public var chosenBudgets: [Int: BudgetID] = [:]
+        /// What each money-in line will be, by its place in the statement:
+        /// Income unless the same payer's last money-in entry says otherwise,
+        /// and whatever the person picks in the review. Lines that are money
+        /// out have no entry here.
+        public var chosenKinds: [Int: TransactionKind] = [:]
     }
 
     /// Whether a budget opens by itself while none is open: one at launch,
@@ -205,10 +210,11 @@ public final class AppModel {
                 entry.budgetID = target.id
             }
             if let merchant = change.merchant { entry.merchant = merchant }
-            if let amount = change.amount {
+            if let kind = change.kind { entry.kind = kind }
+            if change.amount != nil || change.kind != nil {
                 // The sign follows the kind, so a refund stays a refund and
                 // income stays money in. A transfer keeps the sign it had.
-                let size = abs(amount.minorUnits)
+                let size = abs((change.amount ?? entry.amount).minorUnits)
                 let moneyIn = entry.kind == .transfer ? entry.amount.minorUnits > 0 : entry.kind.isMoneyIn
                 entry.amount = Money(minorUnits: moneyIn ? size : -size, currency: entry.amount.currency)
             }
@@ -572,13 +578,32 @@ public final class AppModel {
 
             let matcher = StatementMatcher()
             let proposals = matcher.propose(lines, context: context)
-            pendingImport = PendingImport(filename: url.lastPathComponent,
-                                          groupID: group.id, groupName: group.name,
-                                          proposals: proposals,
-                                          summary: matcher.summarise(proposals))
+            var pending = PendingImport(filename: url.lastPathComponent,
+                                        groupID: group.id, groupName: group.name,
+                                        proposals: proposals,
+                                        summary: matcher.summarise(proposals))
+            pending.chosenKinds = Self.moneyInKinds(for: proposals, remembering: allTransactions)
+            pendingImport = pending
         } catch {
             errorMessage = ImportWording.words(for: error, file: url.lastPathComponent)
         }
+    }
+
+    /// A money-in line is offered as Income, unless the same payer's latest
+    /// money-in entry was marked something else, in which case it is offered
+    /// the same way (INC-02). Payers are matched by the cleaned-up name,
+    /// which is what an imported entry's merchant is, in any case.
+    static func moneyInKinds(for proposals: [ImportProposal],
+                             remembering entries: [Transaction]) -> [Int: TransactionKind] {
+        var remembered: [String: TransactionKind] = [:]
+        for entry in entries.sorted(by: { $0.date < $1.date }) where entry.kind.isMoneyIn && !entry.isDeleted {
+            remembered[entry.merchant.lowercased()] = entry.kind
+        }
+        var kinds: [Int: TransactionKind] = [:]
+        for (index, proposal) in proposals.enumerated() where proposal.line.amount.minorUnits > 0 {
+            kinds[index] = remembered[proposal.line.cleanedDescription.lowercased()] ?? .income
+        }
+        return kinds
     }
 
     /// The group a statement goes into: the one whose budget is open, so a
@@ -610,12 +635,12 @@ public final class AppModel {
                     skipped += 1
 
                 case .add(let budgetID):
-                    try write(proposal, into: budgetID, group: pending.groupID)
+                    try write(proposal, into: budgetID, group: pending.groupID, kind: pending.chosenKinds[index])
                     added += 1
 
                 case .needsBudget:
                     guard let chosen = pending.chosenBudgets[index] else { continue }
-                    try write(proposal, into: chosen, group: pending.groupID)
+                    try write(proposal, into: chosen, group: pending.groupID, kind: pending.chosenKinds[index])
                     added += 1
                 }
             }
@@ -655,14 +680,15 @@ public final class AppModel {
     /// Files the row under its budget's own group. A row given a budget from
     /// another group, and filed under the group being imported into, was
     /// shown here and refused by every other member.
-    private func write(_ proposal: ImportProposal, into budgetID: BudgetID, group: GroupID) throws {
+    private func write(_ proposal: ImportProposal, into budgetID: BudgetID, group: GroupID,
+                       kind: TransactionKind? = nil) throws {
         let home = try store.budget(budgetID)?.groupID ?? group
         try store.saveImported(Transaction(
             budgetID: budgetID, groupID: home, date: proposal.line.date,
             merchant: proposal.line.cleanedDescription,
             note: proposal.line.rawDescription,
             amount: proposal.line.amount,
-            kind: .inferred(from: proposal.line.amount),
+            kind: kind ?? .inferred(from: proposal.line.amount),
             source: .statement,
             importFingerprint: proposal.fingerprint
         ))

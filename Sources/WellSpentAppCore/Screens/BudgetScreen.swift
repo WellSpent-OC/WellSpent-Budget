@@ -16,7 +16,8 @@ public struct BudgetScreen {
         /// "You", or the name that member gave the group.
         public let addedBy: String
         public let source: String
-        /// Without its sign: every entry is money out.
+        /// Money out shows its size with no sign, since that is what every
+        /// entry was. Money in shows a plus sign: "+$1310.00".
         public let amount: String
         /// Whether this person may change or delete it, for its menu. The
         /// row looks the same either way, and a click opens it either way.
@@ -28,6 +29,11 @@ public struct BudgetScreen {
         /// Under the merchant on a phone: "Oct 10 · Manual". Who added it
         /// shows on its own, beside the amount.
         public var detailLine: String { "\(BudgetScreen.shortDate(date)) · \(source)" }
+    }
+
+    /// "$42.50" for money out, "+$1310.00" for money in.
+    public static func amountText(_ amount: Money) -> String {
+        amount.minorUnits > 0 ? "+" + amount.magnitude.display : amount.magnitude.display
     }
 
     public let summary: BudgetSummary
@@ -58,7 +64,7 @@ public struct BudgetScreen {
         rows = model.transactions.map { transaction in
             Row(id: transaction.id, date: transaction.date, merchant: transaction.merchant, note: transaction.note,
                 addedBy: model.addedBy(transaction, me: me), source: transaction.source.rawValue.capitalized,
-                amount: transaction.amount.magnitude.display,
+                amount: Self.amountText(transaction.amount),
                 mayChange: model.access(to: transaction, mayAdd: mayAdd, mayManage: mayManage).mayChange,
                 notice: model.notices.contains(transaction.id) ? Words.notice : nil)
         }

@@ -135,9 +135,6 @@ public enum TransactionKind: String, Codable, Sendable, CaseIterable {
         amount.minorUnits > 0 ? .refund : .spending
     }
 
-    /// Spending and refunds count toward what a budget has spent.
-    public var countsAsSpent: Bool { self == .spending || self == .refund }
-
     /// Whether an entry of this kind is stored with a positive amount.
     /// A transfer can go either way, so it is left as typed.
     public var isMoneyIn: Bool {

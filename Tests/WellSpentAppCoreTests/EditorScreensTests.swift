@@ -127,6 +127,63 @@ struct EditorScreensTests {
         #expect(model.transactions.first?.amount == Money(minorUnits: -4250))
     }
 
+    // Scenario INC-01
+    /// The Money in switch. On, a new entry is income, stored positive, and
+    /// its row shows a plus sign. An opened entry shows the switch as it is,
+    /// and flipping it saves the kind: a refund switched off is spending, a
+    /// spending switched on is income.
+    @Test func anEntryMarkedMoneyInIsIncomeAndShowsAPlusSign() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Pool House"))
+        let bookings = try #require(model.addBudget(named: "Bookings", limit: .dollars(2000), in: group))
+        model.selectedBudget = bookings
+
+        let editor = EntryEditor(model: model)
+        #expect(!editor.isMoneyIn, "off to start: every entry is money spent unless marked")
+        editor.merchant = "Airbnb"
+        editor.amountText = "1310.00"
+        editor.isMoneyIn = true
+        #expect(editor.add())
+        let payout = try #require(model.transactions.first { $0.merchant == "Airbnb" })
+        #expect(payout.amount == Money(minorUnits: 131_000) && payout.kind == .income)
+
+        let screen = BudgetScreen(summary: try #require(model.summaries[group]?.first), model: model, me: nil)
+        #expect(screen.rows.first { $0.merchant == "Airbnb" }?.amount == "+$1310.00")
+        #expect(BudgetScreen.amountText(Money(minorUnits: -4250)) == "$42.50", "money out shows no sign")
+
+        // Opened, the switch is on and the top line says Income.
+        let opened = try #require(EntryEditor(model: model, entry: payout.id))
+        #expect(opened.isMoneyIn)
+        #expect(opened.topLine == "Manual \u{00B7} Income")
+        #expect(!opened.canSave, "nothing changed yet")
+        opened.isMoneyIn = false
+        #expect(opened.canSave)
+        #expect(opened.save())
+        let turned = try #require(try model.store.transaction(payout.id))
+        #expect(turned.kind == .spending && turned.amount == Money(minorUnits: -131_000))
+
+        // A refund opened shows the switch on, and stays a refund when saved as is.
+        let refund = Transaction(budgetID: bookings, groupID: group, date: Date(), merchant: "Cleaner refund",
+                                 amount: Money(minorUnits: 2500))
+        try model.store.save(refund)
+        model.reload()
+        let openedRefund = try #require(EntryEditor(model: model, entry: refund.id))
+        #expect(openedRefund.isMoneyIn && openedRefund.topLine == "Manual \u{00B7} Refund")
+        openedRefund.amountText = "30"
+        #expect(openedRefund.save())
+        #expect(try model.store.transaction(refund.id)?.kind == .refund)
+        #expect(try model.store.transaction(refund.id)?.amount == Money(minorUnits: 3000))
+
+        // Switched on, a spending entry becomes income.
+        let spending = try #require(model.transactions.first { $0.merchant == "Airbnb" })
+        let openedSpending = try #require(EntryEditor(model: model, entry: spending.id))
+        #expect(!openedSpending.isMoneyIn)
+        openedSpending.isMoneyIn = true
+        #expect(openedSpending.save())
+        #expect(try model.store.transaction(spending.id)?.kind == .income)
+        #expect(try model.store.transaction(spending.id)?.amount == Money(minorUnits: 131_000))
+    }
+
     @Test func anEntryNeedsAMerchantAndAnAmount() {
         #expect(EntryEditor.canAdd(merchant: "Hilltop", amountText: "12"))
         #expect(!EntryEditor.canAdd(merchant: "", amountText: "12"))
@@ -283,6 +340,55 @@ struct EditorScreensTests {
         screen.cancel()
         #expect(!screen.isOpen)
         #expect(try model.store.transactions(in: groceries).count == 1)
+    }
+
+    // Scenario INC-02
+    /// A statement line that is money in is offered as Income, with Refund
+    /// and the rest to choose from, and lands as the kind chosen. The next
+    /// line from the same payer is offered the way the last one was marked.
+    @Test func theImportReviewOffersMoneyInAsIncomeOrRefund() throws {
+        let model = try emptyModel()
+        let group = try #require(model.addGroup(named: "Pool House"))
+        let bookings = try #require(model.addBudget(named: "Bookings", limit: .dollars(2000), in: group))
+        model.selectedBudget = bookings
+        func statement(_ lines: String) throws -> URL {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("statement-\(UUID().uuidString).csv")
+            try "Date,Description,Amount\n\(lines)".write(to: url, atomically: true, encoding: .utf8)
+            return url
+        }
+        let first = try statement("""
+        10/05/2026,"AIRBNB PAYOUT",1310.00
+        10/04/2026,"CLEANING CO",-120.00
+        """)
+        defer { try? FileManager.default.removeItem(at: first) }
+
+        let screen = ImportReviewScreen(model: model)
+        model.prepareImport(from: first)
+        #expect(screen.rows.map(\.kind) == [.income, nil], "money in is offered as income; money out has no kind")
+        #expect(screen.rows[0].isMoneyIn && !screen.rows[1].isMoneyIn)
+        #expect(ImportReviewScreen.kindChoices.prefix(2) == [.income, .refund])
+        #expect(ImportReviewScreen.name(of: .income) == "Income" && ImportReviewScreen.name(of: .refund) == "Refund")
+        screen.choose(.refund, for: 1)
+        #expect(screen.rows[1].kind == nil, "a money-out line takes no kind")
+        screen.choose(.refund, for: 0)
+        #expect(screen.rows[0].kind == .refund)
+        screen.choose(bookings, for: 0)
+        screen.choose(bookings, for: 1)
+        screen.commit()
+        let landed = try model.store.transactions(in: bookings)
+        #expect(landed.first { $0.merchant == "Airbnb Payout" }?.kind == .refund)
+        #expect(landed.first { $0.merchant == "Airbnb Payout" }?.amount == Money(minorUnits: 131_000))
+        #expect(landed.first { $0.amount == Money(minorUnits: -12_000) }?.kind == .spending)
+
+        // The next payout from the same payer is offered the same way.
+        let second = try statement("""
+        10/12/2026,"AIRBNB PAYOUT",980.00
+        10/12/2026,"VRBO PAYOUT",640.00
+        """)
+        defer { try? FileManager.default.removeItem(at: second) }
+        model.prepareImport(from: second)
+        #expect(screen.rows.map(\.kind) == [.refund, .income])
+        screen.cancel()
     }
 
     /// A line given a budget will be added, so the counts and its row say so

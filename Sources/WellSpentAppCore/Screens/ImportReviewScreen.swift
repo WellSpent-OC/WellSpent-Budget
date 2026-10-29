@@ -50,6 +50,10 @@ public struct ImportReviewScreen {
         /// or not.
         public let needsBudget: Bool
         public let chosenBudget: BudgetID?
+        /// Money in. It shows the kind list, Income unless chosen otherwise
+        /// (INC-02). Nil for money out.
+        public let kind: TransactionKind?
+        public var isMoneyIn: Bool { kind != nil }
 
         /// The date and the cleaned-up name on one line, for a phone:
         /// "Oct 2 · Trader Joes".
@@ -91,9 +95,11 @@ public struct ImportReviewScreen {
             // the choice can still change.
             if needsBudget, pending.chosenBudgets[index] != nil { (status, tone) = (Words.willBeAdded, .toAdd) }
             return Row(id: index, date: proposal.line.date, description: proposal.line.cleanedDescription,
-                       bankDescription: proposal.line.rawDescription, amount: proposal.line.amount.display,
+                       bankDescription: proposal.line.rawDescription,
+                       amount: proposal.line.amount.display,
                        status: status, tone: tone, isActionable: proposal.isActionable,
-                       needsBudget: needsBudget, chosenBudget: pending.chosenBudgets[index])
+                       needsBudget: needsBudget, chosenBudget: pending.chosenBudgets[index],
+                       kind: pending.chosenKinds[index])
         }
     }
 
@@ -106,6 +112,19 @@ public struct ImportReviewScreen {
     /// Files a line that needs a budget; nil takes the choice back.
     public func choose(_ budget: BudgetID?, for row: Int) {
         model.pendingImport?.chosenBudgets[row] = budget
+    }
+
+    /// What a money-in line may be, in the order the list shows them:
+    /// Income and Refund first, the rest behind them.
+    public static let kindChoices: [TransactionKind] = [.income, .refund, .loanDraw, .savingsDraw, .transfer]
+
+    /// Names a kind in the list.
+    public static func name(of kind: TransactionKind) -> String { EntryEditor.Words.name(of: kind) }
+
+    /// Marks a money-in line as the kind chosen. A money-out line is left alone.
+    public func choose(_ kind: TransactionKind, for row: Int) {
+        guard model.pendingImport?.chosenKinds[row] != nil else { return }
+        model.pendingImport?.chosenKinds[row] = kind
     }
 
     /// What the system's file picker gives back. The first file chosen is read
@@ -146,6 +165,8 @@ public struct ImportReviewScreen {
         public static let choose = "Choose"
         /// The name VoiceOver reads for a line's budget list.
         public static let budget = "Budget"
+        /// The name VoiceOver reads for a money-in line's kind list.
+        public static let kind = "Money in"
         public static let importButton = "Import"
         public static let cancel = "Cancel"
     }
