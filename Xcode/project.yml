@@ -121,7 +121,7 @@ schemes:
         - variable: WELLSPENT_FEATURE_WARTABLE
           value: "1"
           isEnabled: false
-        - variable: WELLSPENT_FEATURE_RUNWAY
+        - variable: WELLSPENT_FEATURE_PROPERTIES
           value: "1"
           isEnabled: false
     test:

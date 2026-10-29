@@ -21,25 +21,25 @@ struct RootView: View {
     /// The people on the group's page, while one shows.
     @State var openPage = OpenGroupPage()
     @State var warTable: WarTableScreen
-    @State var runway: RunwayScreen
     @State var activeExtension: ActiveExtension = .budgets
     @State var isWarTableInstalled = false
-    @State var isRunwayInstalled = false
+    @State var isPropertiesInstalled = false
 
     private var isWarTableActive: Bool {
         workspace.features.isWarTableEnabled &&
             (isWarTableInstalled || (warTable.snapshot?.installation.isEnabled ?? false))
     }
 
-    private var isRunwayActive: Bool {
-        workspace.features.isRunwayEnabled && isRunwayInstalled
+    /// On when the flag allows it and this person turned it on, on this device.
+    private var isPropertiesActive: Bool {
+        workspace.features.isPropertiesEnabled &&
+            (isPropertiesInstalled || workspace.extensionSwitches.isOn(PropertiesRegistration.id))
     }
 
     init(workspace: Workspace) {
         self.workspace = workspace
         _screen = State(wrappedValue: MainScreen(workspace: workspace))
         _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
-        _runway = State(wrappedValue: RunwayScreen(isConfigured: true))
     }
 
     private var model: AppModel { workspace.model }
@@ -77,7 +77,7 @@ struct RootView: View {
                 HStack(spacing: 0) {
                     ActivityRailView(
                         active: $activeExtension,
-                        isRunwayInstalled: isRunwayActive,
+                        isPropertiesInstalled: isPropertiesActive,
                         isWarTableInstalled: isWarTableActive,
                         showsSync: screen.showsSync,
                         syncTitle: screen.syncTitle,
@@ -91,9 +91,16 @@ struct RootView: View {
                     switch activeExtension {
                     case .budgets:
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
-                    case .runway:
-                        if workspace.features.isRunwayEnabled {
-                            RunwayView(screen: runway, openAccount: { showingAccount = true })
+                    case .properties:
+                        if isPropertiesActive {
+                            HousesView(
+                                openCatalog: { activeExtension = .catalog },
+                                turnOff: {
+                                    isPropertiesInstalled = false
+                                    workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
+                                    activeExtension = .budgets
+                                }
+                            )
                         } else {
                             budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                         }
@@ -107,8 +114,8 @@ struct RootView: View {
                         ExtensionsCatalogView(
                             isWarTableEnabled: isWarTableActive,
                             isWarTableAvailable: workspace.features.isWarTableEnabled,
-                            isRunwayEnabled: isRunwayActive,
-                            isRunwayAvailable: workspace.features.isRunwayEnabled,
+                            isPropertiesEnabled: isPropertiesActive,
+                            isPropertiesAvailable: workspace.features.isPropertiesEnabled,
                             installWarTable: {
                                 isWarTableInstalled = true
                                 activeExtension = .warTable
@@ -117,12 +124,13 @@ struct RootView: View {
                             openWarTable: {
                                 activeExtension = .warTable
                             },
-                            installRunway: {
-                                isRunwayInstalled = true
-                                activeExtension = .runway
+                            turnOnProperties: {
+                                isPropertiesInstalled = true
+                                workspace.extensionSwitches.set(PropertiesRegistration.id, on: true)
+                                activeExtension = .properties
                             },
-                            openRunway: {
-                                activeExtension = .runway
+                            openProperties: {
+                                activeExtension = .properties
                             }
                         )
                     }

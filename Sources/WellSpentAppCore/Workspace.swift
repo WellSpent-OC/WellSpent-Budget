@@ -30,6 +30,8 @@ public final class Workspace {
     public let pinnedDay: Int?
     /// Which experimental or in-progress features are turned on.
     public let features: FeatureFlags
+    /// Which extensions this person turned on, on this device, per account.
+    public let extensionSwitches: ExtensionSwitches
     @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
         [.era, .year, .month, .day], from: Date())
 
@@ -43,6 +45,9 @@ public final class Workspace {
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
         self.features = features ?? FeatureFlags.resolve(for: sync.environment, defaults: sync.defaults)
+        self.extensionSwitches = ExtensionSwitches(defaults: sync.defaults, account: { [sync] in
+            sync.userID.map { "\($0)" }
+        })
         // Whatever a sync brought in, including other people's transactions,
         // shows up without having to click anything.
         sync.didSync = { [weak self] in

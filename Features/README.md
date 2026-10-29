@@ -272,6 +272,13 @@ It is not kept here, where every pull request would change the same lines.
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.
 
+### [Properties.md](Properties.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Linux |
+| PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Linux |
+
 ### [WarTable.md](WarTable.md)
 
 | ID | Scenario | Platforms | Has a test on |

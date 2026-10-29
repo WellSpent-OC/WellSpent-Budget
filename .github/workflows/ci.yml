@@ -288,6 +288,65 @@ jobs:
       - name: Build
         run: swift build --package-path Linux
 
+  # The same client, with the private Properties package linked. The package
+  # comes from WellSpent-OC/WellSpent-Properties through a read-only deploy
+  # key, so nothing from it lands in this repository. Builds without the key
+  # (a fork, a pull request from one) say so and pass.
+  linux-client-with-properties:
+    name: Linux client with Properties
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container: swift:6.2-noble
+    env:
+      HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No deploy key here, so nothing to build with
+        if: env.HAS_PROPERTIES_KEY != 'true'
+        run: echo "PROPERTIES_DEPLOY_KEY is not set; the public build without the package is the other job."
+
+      - name: Install the SQLite headers GRDB needs, and ssh
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends libsqlite3-dev openssh-client
+
+      - name: Check out the Properties package with the deploy key
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        env:
+          PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
+          chmod 600 ~/.ssh/properties_deploy_key
+          # GitHub's published host key, so the clone trusts the right host
+          # without a scan that can fail quietly on a runner.
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --depth 1 git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
+          rm -f ~/.ssh/properties_deploy_key
+
+      - name: Cache SwiftPM
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-linux-properties-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-linux-properties-
+
+      # The seam's own test checks that the registry offers Properties when,
+      # and only when, the package is linked.
+      - name: Build and test with the package linked
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        env:
+          WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
+          WELLSPENT_PROPERTIES_LINKED: "1"
+        run: |
+          swift build --build-tests
+          swift test --skip-build --no-parallel --filter PropertiesRegistrationTests
+
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
   # screen through GTK's accessibility tree and act as a person does. Not a
   # required check until its first green run.
@@ -663,7 +722,7 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, ios-build, scenario-check, wartable-connector]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, linux-client-with-properties, ios-build, scenario-check, wartable-connector]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -682,7 +741,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -707,7 +766,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
