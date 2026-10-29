@@ -657,6 +657,44 @@ class App:
         subprocess.run(["xdotool", "key", "--clearmodifiers", *keys], check=True)
         self.settle()
 
+    def typing(self, text):
+        """Keys typed in the window in front, one keystroke each, as a person
+        types: into whatever has the keyboard, unlike `Element.type`, which
+        replaces a text box's words through the accessibility tree."""
+        self._focus_front()
+        subprocess.run(["xdotool", "type", "--clearmodifiers", "--delay", "20", text], check=True)
+        self.settle()
+
+    def copy(self, text):
+        """Puts `text` on the clipboard, as copying it elsewhere does."""
+        subprocess.run(["xclip", "-selection", "clipboard", "-in"], input=text.encode(), check=True)
+
+    def keyboard_to(self, box):
+        """Puts the real keyboard in the text box `box` itself: asks GTK for
+        the focus, then Tabs to it when GTK does not oblige, checking the box
+        and not a lookalike. No coordinates are used."""
+        self.bring_to_front()
+        if not box.focused:
+            try:
+                Atspi.Component.grab_focus(box.node)
+            except Exception:
+                pass
+        for _ in range(60):
+            if box.focused:
+                return box
+            self.key("Tab")
+        raise self.failure(f"Tab did not reach {box!r}")
+
+    def paste(self, text, into):
+        """Copies `text`, puts the keyboard in the text box `into`, selects
+        what it holds and presses Ctrl+V, as a person pastes over a field.
+        Gives the box back."""
+        self.copy(text)
+        self.keyboard_to(into)
+        self.key("ctrl+a")
+        self.key("ctrl+v")
+        return into
+
     def _focus_front(self):
         # The test display has no window manager to give the window in front
         # the keyboard, so it's given here: the app's newest window showing.
@@ -807,9 +845,35 @@ class App:
                     break
         return counts
 
+    def line_lists(self, review, bank_words):
+        """The lists on the line with the bank's words, left to right: a
+        money-in line's kind list (Income, Refund, ...) and then its budget
+        list; a money-out line's budget list alone."""
+        label = self.find("label", bank_words, within=review)
+        def lists():
+            node = label.node
+            while node is not None:
+                hits = [e for e in Element(self, node).all("combo box") if e.showing]
+                if hits:
+                    return hits
+                node = node.get_parent()
+            return None
+        return self.until(lists, f"the lists on the line saying {bank_words!r}")
+
     def file_line(self, review, bank_words, budget):
-        """Chooses a budget for the line with the bank's words, in its list."""
-        self.choose(budget, self.near("combo box", None, to=self.find("label", bank_words, within=review)))
+        """Chooses a budget for the line with the bank's words, in its list,
+        the rightmost one on the line."""
+        self.choose(budget, self.line_lists(review, bank_words)[-1])
+
+    def kind_list(self, review, bank_words):
+        """A money-in line's kind list, named Money in for a screen reader,
+        or None when the line is money out and has none."""
+        lists = [e for e in self.line_lists(review, bank_words)
+                 if "Money in" in (e.words, e.value) or e.words in self.KINDS]
+        return lists[0] if lists else None
+
+    # What a money-in line can land as, the kind list's choices.
+    KINDS = ("Income", "Refund", "Borrowed", "From savings", "Transfer")
 
     def answer(self, button):
         """Presses `button` in the question in front, such as "Delete"."""
@@ -851,8 +915,13 @@ class App:
         the first time it's needed. Signed in, with their groups synced."""
         if name.lower() not in _ACCOUNTS:
             return self.sign_up(name)
-        self.email, self.password = _ACCOUNTS[name.lower()]
         self.button("Sign in", within=self.main).press()
+        return self.sign_in_on_sheet(name)
+
+    def sign_in_on_sheet(self, name):
+        """Signs in on the account sheet something else opened, such as the
+        invitation page's Sign in…, to the person's account for this run."""
+        self.email, self.password = _ACCOUNTS[name.lower()]
         sheet = self.wait_for_window(2, "the account sheet")
         if SERVER_OVERRIDE:
             self.field("Server", sheet).type(STAGING)
@@ -1146,6 +1215,12 @@ def emailed_code(address, after):
             return found
         time.sleep(0.5)
     raise ScreenError(f"no code reached {address}'s mailbox")
+
+
+def account(name):
+    """A test person's sign-in, (email, password), for a test that types or
+    pastes them itself. Never printed."""
+    return _ACCOUNTS[name.lower()]
 
 
 def launch_fresh(test, *arguments, **settings):

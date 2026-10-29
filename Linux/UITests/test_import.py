@@ -200,6 +200,38 @@ class Import(unittest.TestCase):
             app.answer("OK")
             self.assertEqual(1, len(app.windows()), "a review opened")
 
+    def test_a_money_in_line_becomes_income(self):
+        app = self.app
+        app.new_budget("Bookings", "2000", group="Kitchen")
+        path = app.write_file("payout.csv", statement((1, "AIRBNB PAYOUT", "1310.00"),
+                                                      (1, "CLEANING CO", "-120.00")))
+        review = app.open_statement(path)
+
+        # Scenario INC-02
+        # 1. The payout is offered as money in, Income first, with Refund to
+        # choose; the charge has no such choice.
+        payout = app.kind_list(review, "AIRBNB PAYOUT")
+        self.assertIsNotNone(payout, "the payout has no kind list")
+        self.assertEqual("Income", payout.words)
+        self.assertIsNone(app.kind_list(review, "CLEANING CO"), "money out offers no kind")
+        app.choose("Refund", payout)
+        app.choose("Income", payout)
+
+        # 2. Taken as Income on Bookings, it lands with its plus sign.
+        app.file_line(review, "AIRBNB PAYOUT", "Bookings")
+        app.file_line(review, "CLEANING CO", "Bookings")
+        self.finish(review)
+        app.budget("Bookings").press()
+        app.until(lambda: len(app.entries()) == 2, "both lines to list")
+        amounts = {row[1]: row[-1] for row in app.entries()}
+        self.assertEqual("+$1310.00", amounts["Airbnb Payout"])
+        self.assertEqual("$120.00", amounts["Cleaning"])
+
+        # 3. The next payout from the same payer is offered the same way.
+        again = app.write_file("payout2.csv", statement((1, "AIRBNB PAYOUT", "980.00")))
+        review = app.open_statement(again)
+        self.assertEqual("Income", app.kind_list(review, "AIRBNB PAYOUT").words)
+        self.finish(review, "Cancel")
 
 if __name__ == "__main__":
     unittest.main()

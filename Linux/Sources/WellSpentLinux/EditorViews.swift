@@ -234,6 +234,11 @@ struct EntryEditorView: View {
         if let problem = editor.amountProblem {
             Note(problem, warning: true)
         }
+        // Money in (INC-01): the Mac's switch, a labelled check box here, so a
+        // screen reader and the tests find it by its words.
+        Toggle(Words.moneyIn, isOn: Binding(get: { editor.isMoneyIn }, set: { editor.isMoneyIn = $0 }))
+            .toggleStyle(.checkbox)
+            .controlLabel(Words.moneyIn)
         DatePicker(selection: Binding(get: { editor.date }, set: { editor.date = $0 }),
                    displayedComponents: .date) {
             Text(Words.date)
@@ -321,6 +326,18 @@ struct ImportReviewView: View {
     /// was drawn with. The toolkit can lay a line out again before it draws
     /// it again, and an old row would set its list back to Choose, which
     /// undoes the choice.
+    /// The kinds a money-in line can land as, Income first (INC-02).
+    private var kindChoices: [Choice<TransactionKind>] {
+        ImportReviewScreen.kindChoices.map { Choice(value: $0, description: ImportReviewScreen.name(of: $0)) }
+    }
+
+    /// The kind a money-in line is set to now, read from the screen each
+    /// time the list asks, as `chosenBudget` is: a value captured when the
+    /// line was drawn would snap the list back after a choice.
+    private func chosenKind(_ row: Int) -> TransactionKind? {
+        screen.rows.first { $0.id == row }?.kind
+    }
+
     private func chosenBudget(_ row: Int) -> BudgetID? {
         screen.rows.first { $0.id == row }?.chosenBudget
     }
@@ -432,6 +449,18 @@ struct ImportReviewView: View {
                     .foregroundColor(Self.color(row.tone))
             }
             .frame(width: 140, alignment: .leading)
+            // A money-in line's kind list, read by its chosen kind as GTK names
+            // a list; a money-out line keeps the space so the budget lists
+            // line up.
+            if row.kind != nil {
+                Picker(of: kindChoices, selection: Binding(
+                    get: { kindChoices.first { $0.value == chosenKind(row.id) } },
+                    set: { if let chosen = $0?.value { screen.choose(chosen, for: row.id) } }))
+                    .frame(width: 110)
+            } else {
+                Spacer()
+                    .frame(width: 110)
+            }
             if row.needsBudget {
                 Picker(of: budgetChoices, selection: Binding(
                     get: { budgetChoices.first { $0.value == chosenBudget(row.id) } },
