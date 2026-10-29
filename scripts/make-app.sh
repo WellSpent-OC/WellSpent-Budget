@@ -50,6 +50,8 @@
 set -eu
 
 WELLSPENT_ENV="${WELLSPENT_ENV:-staging}"
+# The flags this build carries on ("extensions,properties"); empty is none.
+WELLSPENT_FEATURES="${WELLSPENT_FEATURES:-}"
 VERSION="${VERSION:-0.0.0-dev}"
 BUILD="${BUILD:-1}"
 ARCHS="${ARCHS:-$(uname -m)}"
@@ -187,6 +189,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>NSHighResolutionCapable</key><true/>
     <key>NSRequiresAquaSystemAppearance</key><true/>
     <key>WellSpentEnvironment</key><string>$WELLSPENT_ENV</string>
+    <key>WellSpentFeatures</key><string>$WELLSPENT_FEATURES</string>
 </dict>
 </plist>
 EOF

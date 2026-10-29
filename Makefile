@@ -314,6 +314,11 @@ TESTFLIGHT_VERSION ?= $(patsubst v%,%,$(shell git describe --tags --exact-match 
 # Worked out once, so every step of one run uses the same build number.
 ifeq ($(origin TESTFLIGHT_BUILD),undefined)
 TESTFLIGHT_BUILD := $(shell date -u +%Y%m%d%H%M)
+# The flags a TestFlight build carries on, so testers reach extensions with no
+# switch (decided 2026-10-29). The App Store build is made without them. The
+# private Properties package is linked from its checkout beside this one.
+TESTFLIGHT_FEATURES ?= extensions,properties
+TESTFLIGHT_PROPERTIES_PATH ?= $(HOME)/rvn/wellspent-properties
 endif
 TESTFLIGHT_OUT := .build/testflight
 TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
@@ -322,6 +327,7 @@ TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
 testflight:
 	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make testflight builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=live SIGN=appstore VERSION=$(TESTFLIGHT_VERSION) BUILD=$(TESTFLIGHT_BUILD) \
+		WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" WELLSPENT_PROPERTIES_PATH="$(TESTFLIGHT_PROPERTIES_PATH)" \
 		OUT=$(TESTFLIGHT_OUT) SCRATCH=.build/appstore PROFILE="$(PROFILE)" KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	scripts/release-check.sh "$(TESTFLIGHT_APP)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)"
 	$(MAKE) release-twin TESTFLIGHT_VERSION=$(TESTFLIGHT_VERSION) TESTFLIGHT_BUILD=$(TESTFLIGHT_BUILD)
@@ -344,7 +350,8 @@ IPHONE_TESTFLIGHT_IPA := $(IPHONE_TESTFLIGHT_OUT)/WellSpentPhone.ipa
 
 iphone-testflight: iphone-project
 	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make iphone-testflight builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
-	DEVELOPER_DIR=$(XCODE) scripts/make-iphone-ipa.sh "$(IPHONE_PROFILE)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)" "$(IPHONE_TESTFLIGHT_OUT)"
+	DEVELOPER_DIR=$(XCODE) WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" WELLSPENT_PROPERTIES_PATH="$(TESTFLIGHT_PROPERTIES_PATH)" \
+		scripts/make-iphone-ipa.sh "$(IPHONE_PROFILE)" "$(TESTFLIGHT_VERSION)" "$(TESTFLIGHT_BUILD)" "$(IPHONE_TESTFLIGHT_OUT)"
 	@# The release check reads the app inside the .ipa, the one that uploads, as
 	@# the export signed it, not the archive's.
 	rm -rf "$(IPHONE_TESTFLIGHT_OUT)/check" && unzip -q "$(IPHONE_TESTFLIGHT_IPA)" -d "$(IPHONE_TESTFLIGHT_OUT)/check"

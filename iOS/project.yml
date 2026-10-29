@@ -58,6 +58,9 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         WellSpentEnvironment: $(WELLSPENT_ENVIRONMENT)
+        # The flags this build carries on, "extensions,properties" for a
+        # TestFlight build (make iphone-testflight), none otherwise.
+        WellSpentFeatures: $(WELLSPENT_FEATURES)
         # The export question, answered no, as in the Mac app: the app's code
         # holds Apple's encryption only. The release check confirms both
         # before every upload (scripts/crypto-check.sh), so an upload never
@@ -93,6 +96,7 @@ targets:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.staging
           WELLSPENT_ENVIRONMENT: staging
+          WELLSPENT_FEATURES: ""
           WELLSPENT_DISPLAY_NAME: WellSpent Staging
           WELLSPENT_INVITE_SCHEME: wellspent-staging
           CODE_SIGN_IDENTITY: "-"
@@ -101,6 +105,7 @@ targets:
           # The Mac's bundle ID: one app record and one subscription for both.
           PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac
           WELLSPENT_ENVIRONMENT: live
+          WELLSPENT_FEATURES: ""
           WELLSPENT_DISPLAY_NAME: WellSpent
           WELLSPENT_INVITE_SCHEME: wellspent
           CODE_SIGN_IDENTITY: Apple Distribution
