@@ -52,5 +52,6 @@ let package = Package(
                 .copy("Resources/Fonts"),
             ]
         ),
+        .testTarget(name: "WellSpentLinuxTests", dependencies: ["WellSpentLinux"]),
     ]
 )

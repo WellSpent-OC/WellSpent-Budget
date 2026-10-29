@@ -69,14 +69,15 @@ final class NativeShellController {
 
     /// A menu's items as the shell takes them: one title per line, "-" between
     /// the parts. The flattened items match "<prefix>:<index>" by position.
-    private static func menuSpec(_ parts: [[MainScreen.MenuItem]]) -> String {
-        parts.map { $0.map(\.title).joined(separator: "\n") }.joined(separator: "\n-\n")
+    /// A group's menu, or More, as `NativeMenu` holds it: the spec C draws and
+    /// the item a reported index means come from the same list.
+    private static func menu(_ parts: [[MainScreen.MenuItem]]) -> NativeMenu<MainScreen.MenuItem> {
+        NativeMenu(parts, title: \.title)
     }
 
     private func groupMenuItem(_ group: GroupID, index: Int) -> MainScreen.MenuItem? {
         guard let section = screen.sections.first(where: { $0.id == group }) else { return nil }
-        let items = screen.groupMenu(section.group).flatMap { $0 }
-        return items.indices.contains(index) ? items[index] : nil
+        return Self.menu(screen.groupMenu(section.group)).item(at: index)
     }
 
     /// What a menu item or button asks for. The sheets that open from here
@@ -94,7 +95,6 @@ final class NativeShellController {
         default:
             FileHandle.standardError.write(Data("native shell: no sheet yet for \(action)\n".utf8))
         }
-        _ = shellPtr
     }
 
     /// A delete's question, with the shared words, then the shared rule.
@@ -144,8 +144,9 @@ final class NativeShellController {
                 perform(item.action)
             }
         } else if action.starts(with: "menu:add:") {
-            if let index = Int(action.dropFirst("menu:add:".count)), screen.addMenu.indices.contains(index) {
-                perform(screen.addMenu[index].action)
+            if let index = Int(action.dropFirst("menu:add:".count)),
+               let item = Self.menu([screen.addMenu]).item(at: index) {
+                perform(item.action)
             }
         } else if action.starts(with: "invite:") {
             // "invite:accept:<uuid>" or "invite:reject:<uuid>"
@@ -313,7 +314,7 @@ final class NativeShellController {
             wellspent_gtk_sidebar_add_group(
                 shellPtr, section.id.uuid.uuidString, section.title.uppercased(), section.toggleHelp,
                 section.isPageOpen ? 1 : 0, i == 0 ? 1 : 0,
-                Self.menuSpec(screen.groupMenu(section.group)))
+                Self.menu(screen.groupMenu(section.group)).spec)
             if let note = section.note {
                 wellspent_gtk_sidebar_add_note(shellPtr, note)
             }
@@ -330,7 +331,7 @@ final class NativeShellController {
         }
 
         wellspent_gtk_sidebar_add_footer(
-            shellPtr, screen.addButton.title, Self.menuSpec([screen.addMenu]),
+            shellPtr, screen.addButton.title, Self.menu([screen.addMenu]).spec,
             screen.footer, screen.syncFailure)
 
         // Select first budget if none selected
