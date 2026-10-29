@@ -118,7 +118,7 @@ public enum PaletteValues {
     public static let wheelLeft = ColorPair(light: RGB(hex: 0x76A24D), dark: RGB(hex: 0x76A24D))
     /// The month bar's dark fill to the covered day: the row fill's dark green
     /// in both looks, so the app has two greens, not three (Properties design
-    /// 2, Cooper's pass). The light fill after it is `wheelLeft`.
+    /// 2, the design pass of 2026-10-27). The light fill after it is `wheelLeft`.
     public static let monthDeep = ColorPair(light: RGB(hex: 0x3D5E2E), dark: RGB(hex: 0x3D5E2E))
     /// The wheel's two edges and its tick.
     public static let wheelEdge = ColorPair(light: RGB(hex: 0x111111), dark: RGB(hex: 0xF2EEE4))

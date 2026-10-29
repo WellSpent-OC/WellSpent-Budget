@@ -129,7 +129,6 @@ struct MonthBarView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .strokeBorder(Color(PaletteValues.wheelEdge), lineWidth: WheelGeometry.edgeWidth)
             }
-            .clipped(antialiased: false)
         }
         .frame(height: height)
         .padding(.vertical, 8)
