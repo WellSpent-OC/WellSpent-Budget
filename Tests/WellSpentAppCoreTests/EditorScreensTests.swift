@@ -449,6 +449,23 @@ struct EditorScreensTests {
         screen.cancel()
     }
 
+    // Scenario INC-02
+    /// Two money-in entries from the same payer on the same day: the one
+    /// marked most recently decides how the next line is offered, whatever
+    /// order the store hands them back in.
+    @Test func theSamePayerOnTheSameDayFollowsTheLatestMark() throws {
+        let day = Date(timeIntervalSince1970: 1_790_000_000)
+        func entry(_ kind: TransactionKind, changedAt seconds: TimeInterval) -> Transaction {
+            Transaction(budgetID: BudgetID(), groupID: GroupID(), date: day, merchant: "Airbnb Payout",
+                        amount: Money(minorUnits: 100_000), kind: kind, updatedAt: day.addingTimeInterval(seconds))
+        }
+        let line = StatementLine(date: day, rawDescription: "AIRBNB PAYOUT", amount: Money(minorUnits: 98_000))
+        let proposals = [ImportProposal(line: line, decision: .needsBudget, fingerprint: "x")]
+        let older = entry(.income, changedAt: 10), newer = entry(.refund, changedAt: 20)
+        #expect(AppModel.moneyInKinds(for: proposals, remembering: [older, newer]) == [0: .refund])
+        #expect(AppModel.moneyInKinds(for: proposals, remembering: [newer, older]) == [0: .refund])
+    }
+
     /// A line given a budget will be added, so the counts and its row say so
     /// at once, and say "Needs a budget" again if the choice is taken back. They
     /// used to stay as the statement was first read, until Import.
