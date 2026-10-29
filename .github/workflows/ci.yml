@@ -316,8 +316,10 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
           chmod 600 ~/.ssh/properties_deploy_key
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes" \
+          # GitHub's published host key, so the clone trusts the right host
+          # without a scan that can fail quietly on a runner.
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
             git clone --depth 1 git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
           rm -f ~/.ssh/properties_deploy_key
 
