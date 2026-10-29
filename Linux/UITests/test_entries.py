@@ -219,6 +219,34 @@ class Entries(unittest.TestCase):
         app.wait_for_window(1, "the sheet to close")
         self.assertEqual(["Hilltop Grocery"], [e[1] for e in app.entries()])
 
+    def test_an_entry_can_be_money_in(self):
+        app = launch_fresh(self)
+        app.new_group("Pool House")
+        app.new_budget("Bookings", "2000", group="Pool House")
+        app.add_entry("Cleaner", "400.00")
+        before = app.sidebar()
+
+        # Scenario INC-01
+        # 1. $1,310.00 marked as money in: its row shows a plus sign, the
+        # spending row does not, and what Bookings has spent does not change.
+        sheet = self.open_sheet(app)
+        app.field("Merchant", sheet).type("Guest deposit")
+        app.field("Amount", sheet).type("1310.00")
+        app.find("check box", "Money in", within=sheet).press()
+        app.button("Add", within=sheet).press()
+        app.wait_for_window(1, "the New transaction sheet to close")
+        app.until(lambda: any(row[1] == "Guest deposit" for row in app.entries()), "the money in to list")
+        amounts = {row[1]: row[-1] for row in app.entries()}
+        self.assertEqual("+$1310.00", amounts["Guest deposit"])
+        self.assertEqual("$400.00", amounts["Cleaner"])
+        self.assertEqual(before, app.sidebar())
+
+        # 2. Opened, the entry still says it is money in.
+        app.entry("Guest deposit").press()
+        editor = app.wait_for_window(2, "Guest deposit to open")
+        self.assertIn("Manual · Income", app.texts(editor))
+        app.button("Cancel", within=editor).press()
+        app.wait_for_window(1, "the editor to close")
 
 if __name__ == "__main__":
     unittest.main()

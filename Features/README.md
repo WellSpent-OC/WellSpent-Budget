@@ -125,8 +125,8 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, iPhone |
-| INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, iPhone |
+| INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
 
 ### [EditEntry.md](EditEntry.md)
@@ -215,34 +215,34 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| CLICK-01 | A clicked invite link opens its invitation page | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-02 | A click starts WellSpent when it is closed | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-03 | The page gives the invite's own level and history | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-04 | Join takes the group in and opens its page | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-05 | Signed out, Sign in… stands in place of Join | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-01 | A clicked invite link opens its invitation page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-02 | A click starts WellSpent when it is closed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-03 | The page gives the invite's own level and history | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-04 | Join takes the group in and opens its page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-05 | Signed out, Sign in… stands in place of Join | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-06 | Not confirmed yet, Confirm your email… stands in place of Join | Mac, Linux, iPhone | Mac, iPhone |
 | CLICK-07 | The page stays through making an account | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-08 | A link cut short says part of it is missing | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-08 | A link cut short says part of it is missing | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-09 | A used link says so | Mac, Linux, iPhone | Mac, iPhone |
 | CLICK-10 | A link to a group you are in already | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-11 | Another link replaces the page | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-12 | Picking a budget or a group takes the page down | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-11 | Another link replaces the page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-12 | Picking a budget or a group takes the page down | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-13 | A link from the other app says which app it is for | Mac, Linux, iPhone | Mac, iPhone |
 
 ### [Paste.md](Paste.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PASTE-01 | Paste puts copied text into a field | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-02 | Sign in by pasting the email and the password | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-03 | Paste an invite link to join a group | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-04 | Select all, then typing replaces the whole field | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-05 | Copy, then paste, brings the copied words back | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-06 | Cut takes the words out, and paste puts them back | Mac, Linux, iPhone | Mac, iPhone |
+| PASTE-01 | Paste puts copied text into a field | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-02 | Sign in by pasting the email and the password | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-03 | Paste an invite link to join a group | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-04 | Select all, then typing replaces the whole field | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-05 | Copy, then paste, brings the copied words back | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-06 | Cut takes the words out, and paste puts them back | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PASTE-07 | Undo takes back a paste | Mac | Mac |
 | PASTE-08 | The Edit menu holds the editing commands | Mac | Mac |
-| PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | Mac, iPhone |
-| PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | Mac, iPhone |
+| PASTE-09 | Every field on the account sheet takes a paste, the emailed code too | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PASTE-10 | The fields for making a group or a budget, and for joining, take a paste | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [MoneyWheel.md](MoneyWheel.md)
 
