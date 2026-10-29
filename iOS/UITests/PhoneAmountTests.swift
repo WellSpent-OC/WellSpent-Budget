@@ -151,7 +151,7 @@ final class PhoneAmountTests: XCTestCase {
         run.tap(AccessibilityID.entryAdd)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.entryAmount), until: "exists == false", timeout: 10),
                       "the sheet did not close. On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.element(AccessibilityID.entryRow("Hilltop")).waitForExistence(timeout: 3),
+        XCTAssertTrue(run.lacksRow("Hilltop", timeout: 3),
                        "an entry from last month is listed")
         XCTAssertTrue(run.figure(MoneyWheel.Words.spent, is: "$0.00"), "Spent is not $0.00. On screen: \(run.visibleTexts())")
         let start = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today

@@ -92,6 +92,23 @@ final class PhoneTestApp {
         return scrollTo(identifier, timeout: 15).exists
     }
 
+    /// Whether an entry's row is gone from the list. A list draws only the
+    /// rows on screen, so a row below the bottom does not exist to a test,
+    /// and a bare `exists == false` would pass while the row is still there.
+    /// The row is given the time to show where the list stands, then the
+    /// list is searched for it, as `hasRow` does. Every check that a row is
+    /// not there goes through here, never through a bare `exists`.
+    func lacksRow(_ merchant: String, timeout: TimeInterval = 3) -> Bool {
+        lacks(AccessibilityID.entryRow(merchant), timeout: timeout)
+    }
+
+    /// Whether anything in a list is not there: waited for, then scrolled
+    /// for, and found nowhere.
+    func lacks(_ identifier: String, timeout: TimeInterval = 3) -> Bool {
+        if element(identifier).waitForExistence(timeout: timeout) { return false }
+        return !scrollTo(identifier, timeout: 15).exists
+    }
+
     /// Whether an entry's row holds these words within the time given. A row
     /// is one element, read as its words in order, so its words are in its
     /// label and not on screen as words of their own. Capitals are ignored,
@@ -191,10 +208,16 @@ final class PhoneTestApp {
         let target = element(identifier)
         let list = app.collectionViews.firstMatch
         let deadline = Date().addingTimeInterval(timeout)
+        // Where the list stands now: its first drawn row, and where its top
+        // edge is. The way back up returns here exactly, never past it, so
+        // a list that began at its top is not pulled, and signed in a pull
+        // syncs mid test.
+        let anchor = list.exists ? list.cells.element(boundBy: 0) : nil
+        let anchorID = anchor?.exists == true ? anchor?.identifier : nil
+        let anchorTop = anchor?.exists == true ? anchor?.frame.minY : nil
         // Down the list first, then back up: a thing near the top that the
         // runner had not drawn yet, such as an invitation's buttons on Home,
-        // would otherwise be swiped off the top and never found. The swipes
-        // down stop short of the top, where a pull would sync.
+        // would otherwise be swiped off the top and never found.
         var swipes = 0
         while !target.exists, Date() < deadline, swipes < 6 {
             if list.exists { list.swipeUp() } else { app.swipeUp() }
@@ -202,16 +225,30 @@ final class PhoneTestApp {
         }
         swipes = 0
         while !target.exists, Date() < deadline, swipes < 8 {
-            if list.exists {
-                let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)))
-            } else {
-                app.swipeDown()
+            guard list.exists else { app.swipeDown(); swipes += 1; continue }
+            let first = list.cells.element(boundBy: 0)
+            if let anchorID, let anchorTop, first.exists, first.identifier == anchorID {
+                // The starting row is drawn again: the last drag goes exactly
+                // back to where it stood, and no further.
+                let short = anchorTop - first.frame.minY
+                if short > 1 { drag(list, by: short) }
+                if target.exists { break }
             }
+            // Above the start. The first drawn row whole inside the list
+            // means the list is at its top, where a drag is a pull: stop.
+            if first.exists, first.frame.minY >= list.frame.minY - 1 { break }
+            drag(list, by: 300)
             swipes += 1
         }
         if target.exists { bringToMiddle(target) }
         return target
+    }
+
+    /// Drags the list down by so many points, from 30 percent down it, so
+    /// the content above comes into view.
+    private func drag(_ list: XCUIElement, by points: CGFloat) {
+        let start = list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: points)))
     }
 
     /// Drags the list until a row of it is mid screen, if it is near the top
