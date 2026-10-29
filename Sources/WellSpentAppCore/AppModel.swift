@@ -592,11 +592,14 @@ public final class AppModel {
     /// A money-in line is offered as Income, unless the same payer's latest
     /// money-in entry was marked something else, in which case it is offered
     /// the same way (INC-02). Payers are matched by the cleaned-up name,
-    /// which is what an imported entry's merchant is, in any case.
+    /// which is what an imported entry's merchant is, in any case. "Last"
+    /// is the latest entry date, and between two on the same day the one
+    /// changed most recently, so the answer is the same on every read.
     static func moneyInKinds(for proposals: [ImportProposal],
                              remembering entries: [Transaction]) -> [Int: TransactionKind] {
         var remembered: [String: TransactionKind] = [:]
-        for entry in entries.sorted(by: { $0.date < $1.date }) where entry.kind.isMoneyIn && !entry.isDeleted {
+        let byDate = entries.sorted { ($0.date, $0.updatedAt) < ($1.date, $1.updatedAt) }
+        for entry in byDate where entry.kind.isMoneyIn && !entry.isDeleted {
             remembered[entry.merchant.lowercased()] = entry.kind
         }
         var kinds: [Int: TransactionKind] = [:]
