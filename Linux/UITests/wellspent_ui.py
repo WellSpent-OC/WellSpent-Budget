@@ -162,6 +162,14 @@ class Element:
         """A click, or Space on it: its first action."""
         actions = self.node.get_action_iface()
         if not actions or actions.get_n_actions() == 0:
+            # A menu button carries the name and holds the button that does
+            # the pressing, so press that, as a screen reader's user does.
+            for inner in self.all():
+                inner_actions = inner.node.get_action_iface()
+                if inner_actions and inner_actions.get_n_actions() > 0:
+                    inner._ask(lambda: Atspi.Action.do_action(inner.node, 0), "press")
+                    self.app.settle()
+                    return
             if self.role == "check box":
                 checked = self._has(Atspi.StateType.CHECKED)
                 self.app.focus(self)
