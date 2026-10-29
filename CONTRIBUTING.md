@@ -15,8 +15,7 @@ one spends a week on something that will not be merged.
 2. The checks run. The first time you contribute, a maintainer reads your change
    and then lets them run. A pull request merges only when every check passes:
    Unit tests, Coverage floor, Linux container builds, Server tests on Postgres,
-   Linux client tests, Linux app builds, Linux client with Properties, Gate,
-   and review.
+   Linux client tests, Linux app builds, Gate, and review.
 3. A maintainer reviews it. Anything the checks cannot cover, such as a screen,
    is tried by hand on a test server, never with real budgets.
 4. A maintainer adds it to the merge queue. The queue rebases your commits onto
