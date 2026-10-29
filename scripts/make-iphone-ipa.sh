@@ -12,6 +12,11 @@
 # goes where Xcode's export looks for profiles, so nobody has to install it by
 # hand. The Apple Distribution certificate must be in the login keychain.
 #
+# WELLSPENT_FEATURES names the flags the build carries on, as the app reads
+# them from its Info.plist ("extensions,properties"); empty is none.
+# WELLSPENT_PROPERTIES_PATH, when set, links the private Properties package,
+# and the build fails if the archive came out without it.
+#
 # Needs Xcode: DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer.
 set -eu
 
@@ -57,7 +62,17 @@ xcodebuild archive \
     -destination 'generic/platform=iOS' -archivePath "$archive" \
     -derivedDataPath .build/xcode-iphone-release -clonedSourcePackagesDirPath .build/xcode-packages \
     DEVELOPMENT_TEAM="$team" PROVISIONING_PROFILE_SPECIFIER="$uuid" \
-    MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build"
+    MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build" \
+    WELLSPENT_FEATURES="${WELLSPENT_FEATURES:-}"
+
+# With the package path set, the archive must hold the package: otherwise
+# Houses can never appear on a tester's phone, however the flags are set.
+if [ -n "${WELLSPENT_PROPERTIES_PATH:-}" ]; then
+    binary="$archive/Products/Applications/WellSpentPhone.app/WellSpentPhone"
+    [ -f "$binary" ] || fail "No app binary in the archive at $binary."
+    strings "$binary" | grep -q WellSpentProperties \
+        || fail "WELLSPENT_PROPERTIES_PATH is set, but the archive does not link WellSpentProperties."
+fi
 
 # Xcode's export, signed with the same profile, for App Store Connect.
 cat > "$work/ExportOptions.plist" <<EOF

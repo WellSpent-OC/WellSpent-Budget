@@ -69,6 +69,53 @@ struct FeatureFlagsTests {
         #expect(withAll.isPropertiesEnabled)
     }
 
+    @Test func aBuildCarriesItsFlagsInItsInfoPlist() {
+        // A TestFlight build is a live build that lists the flags it carries,
+        // so testers reach extensions with no switch.
+        let testFlight = FeatureFlags.bundleFeatures(from: "extensions,properties")
+        let live = FeatureFlags.resolve(for: .live, defaults: nil, processEnvironment: [:],
+                                        bundleFeatures: testFlight)
+        #expect(live.areExtensionsEnabled && live.isPropertiesEnabled)
+        #expect(!live.isWarTableEnabled, "only the flags named")
+
+        // An App Store build, made without the list, has none, in either
+        // environment's name.
+        for environment in AppEnvironment.allCases {
+            let bare = FeatureFlags.resolve(for: environment, defaults: nil, processEnvironment: [:],
+                                            bundleFeatures: [])
+            #expect(!bare.areExtensionsEnabled && !bare.isWarTableEnabled && !bare.isPropertiesEnabled)
+        }
+
+        // The list is read loosely: spaces and case are ignored, and anything
+        // but a string is none.
+        #expect(FeatureFlags.bundleFeatures(from: " Extensions , PROPERTIES ,, ") == ["extensions", "properties"])
+        #expect(FeatureFlags.bundleFeatures(from: "") == [])
+        #expect(FeatureFlags.bundleFeatures(from: nil) == [])
+        #expect(FeatureFlags.bundleFeatures(from: ["extensions"]) == [])
+        #expect(FeatureFlags.bundleFeatures(in: Bundle(for: BundleMarker.self)) == [],
+                "the test bundle carries no flags")
+    }
+
+    @Test func theEnvironmentAndTheDefaultsOutrankTheInfoPlist() {
+        let carried = FeatureFlags.bundleFeatures(from: "extensions,properties")
+        let offByVariable = FeatureFlags.resolve(for: .live, defaults: nil,
+                                                 processEnvironment: [FeatureFlags.propertiesVariable: "0"],
+                                                 bundleFeatures: carried)
+        #expect(offByVariable.areExtensionsEnabled && !offByVariable.isPropertiesEnabled)
+
+        let suiteName = "test.flags.bundle.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            Issue.record("could not create test defaults")
+            return
+        }
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defaults.set(false, forKey: FeatureFlags.extensionsDefaultsKey)
+        let offByDefault = FeatureFlags.resolve(for: .live, defaults: defaults, processEnvironment: [:],
+                                                bundleFeatures: carried)
+        #expect(!offByDefault.areExtensionsEnabled && !offByDefault.isPropertiesEnabled,
+                "a stored default wins over the list, and extensions off takes Properties with it")
+    }
+
     @Test func stagingEnvironmentDisablesFeaturesByDefault() {
         let resolved = FeatureFlags.resolve(for: .staging, defaults: nil, processEnvironment: [:])
         #expect(!resolved.areExtensionsEnabled)
@@ -148,3 +195,6 @@ struct FeatureFlagsTests {
         #expect(!app.features.isWarTableEnabled)
     }
 }
+
+/// Names the test bundle for the Info.plist read.
+private final class BundleMarker {}
