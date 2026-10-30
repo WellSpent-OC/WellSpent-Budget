@@ -31,23 +31,9 @@ final class PhoneHousesTests: XCTestCase {
         let loft = PriceLabsMockService.cityLoft.name
         typealias Sheet = PriceLabsKeySheet.Words
 
-        let run = PhoneTestApp()
-        Self.dataRootPath = run.dataRoot.path
-        run.app.launchEnvironment[FeatureFlags.extensionsVariable] = "1"
-        run.app.launchEnvironment[FeatureFlags.propertiesVariable] = "1"
-        run.app.launchEnvironment[PriceLabsServiceChoice.variable] = PriceLabsServiceChoice.mockValue
-        run.launch()
-
         // Properties is turned on from the catalog, and Houses opens with no
         // houses yet.
-        run.openAddMenu()
-        let addExtension = run.app.buttons["Add an extension…"].firstMatch
-        XCTAssertTrue(addExtension.waitForExistence(timeout: 15), "no Add an extension…. On screen: \(run.visibleButtons())")
-        addExtension.tap()
-        let turnOn = run.app.buttons["Turn on"].firstMatch
-        XCTAssertTrue(turnOn.waitForExistence(timeout: 10), "no Turn on for Properties. On screen: \(run.visibleButtons())")
-        turnOn.tap()
-        XCTAssertTrue(run.has(AccessibilityID.housesEmpty), "Houses does not open empty. On screen: \(run.visibleTexts())")
+        let run = launched(.standard)
         XCTAssertTrue(run.shows(HousesScreen.Words.noHousesYet))
 
         // Scenario PROP-14
@@ -123,6 +109,113 @@ final class PhoneHousesTests: XCTestCase {
         for house in [pool, cabin, loft] {
             XCTAssertTrue(run.has(AccessibilityID.housesRowWheel(house)), "no wheel on \(house)'s row")
         }
+    }
+
+    // Scenario PROP-05
+    /// City Loft alone, with spending added while Properties is off, which
+    /// brings its group back into Budgets (PROP-02): back on, the house is
+    /// below break-even, its cash flow carries a minus sign, and Needs you
+    /// says so.
+    @MainActor
+    func testAHouseBelowBreakEven() throws {
+        let loft = PriceLabsMockService.cityLoft.name
+        let run = launched(.standard)
+        connect(run, keeping: [loft])
+        XCTAssertTrue(run.has(AccessibilityID.housesRow(loft), timeout: 15), "no \(loft). On screen: \(run.visibleTexts())")
+
+        setProperties(run, on: false)
+        run.openBudget(named: HousesFeed.bookingsBudget)
+        run.addEntry(merchant: "Plumber", amount: "500")
+        run.goBack()
+        setProperties(run, on: true)
+
+        let below = NeedsYou.Words.belowBreakEven(loft)
+        XCTAssertTrue(run.has(AccessibilityID.housesNeedsYou(below), timeout: 15),
+                      "Needs you does not say \(below). On screen: \(run.visibleTexts())")
+        let minus = MoneyWords.signedAmount(-50_000)
+        XCTAssertTrue(run.shows(minus), "no \(minus) on \(loft)'s row. On screen: \(run.visibleTexts())")
+    }
+
+    // Scenario PROP-08
+    /// No turnover, no check-in, no gap and no house below break-even:
+    /// Needs you says so in one plain sentence.
+    @MainActor
+    func testNothingNeedsYou() throws {
+        let run = launched(.quiet)
+        connect(run)
+        XCTAssertTrue(run.has(AccessibilityID.housesNothingNeedsYou, timeout: 15),
+                      "Needs you is not empty. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.shows(NeedsYou.Words.nothing))
+    }
+
+    // Scenario PROP-17
+    /// The key stops working after the listings came: the line says
+    /// PriceLabs is paused, the houses stay, and Reconnect opens the key
+    /// sheet.
+    @MainActor
+    func testAPausedConnection() throws {
+        let pool = PriceLabsMockService.poolHouse.name
+        let run = launched(.paused)
+        connect(run)
+        let line = run.element(AccessibilityID.housesBroughtIn)
+        XCTAssertTrue(run.wait(for: line, until: "label BEGINSWITH 'PriceLabs is paused'", timeout: 15),
+                      "the line does not say PriceLabs is paused: \(line.label)")
+        XCTAssertTrue(run.has(AccessibilityID.housesRow(pool)), "\(pool) was lost when PriceLabs paused")
+        run.tap(AccessibilityID.housesReconnect)
+        XCTAssertTrue(run.has(AccessibilityID.keySheetField), "Reconnect does not open the key sheet")
+        run.tap(AccessibilityID.keySheetCancel)
+    }
+
+    // MARK: - Steps
+
+    /// The app with Properties' flags on, the mock PriceLabs in the variant
+    /// given, and Properties turned on, opening on Houses with no houses.
+    @MainActor
+    private func launched(_ variant: PriceLabsMockService.Variant) -> PhoneTestApp {
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[FeatureFlags.extensionsVariable] = "1"
+        run.app.launchEnvironment[FeatureFlags.propertiesVariable] = "1"
+        run.app.launchEnvironment[PriceLabsServiceChoice.variable] = variant.rawValue
+        run.launch()
+        setProperties(run, on: true)
+        XCTAssertTrue(run.has(AccessibilityID.housesEmpty), "Houses does not open empty. On screen: \(run.visibleTexts())")
+        return run
+    }
+
+    /// Turns Properties on or off from the catalog, behind Home's +.
+    @MainActor
+    private func setProperties(_ run: PhoneTestApp, on: Bool) {
+        if !on { run.app.tabBars.buttons["Budgets"].firstMatch.tap() }
+        run.openAddMenu()
+        let addExtension = run.app.buttons["Add an extension…"].firstMatch
+        XCTAssertTrue(addExtension.waitForExistence(timeout: 15), "no Add an extension…. On screen: \(run.visibleButtons())")
+        addExtension.tap()
+        let toggle = run.app.buttons[on ? "Turn on" : "Turn off"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), "no \(on ? "Turn on" : "Turn off") for Properties. "
+                          + "On screen: \(run.visibleButtons())")
+        toggle.tap()
+        if !on, run.app.buttons["Done"].firstMatch.waitForExistence(timeout: 3) {
+            run.app.buttons["Done"].firstMatch.tap()
+        }
+    }
+
+    /// Connect PriceLabs from the empty Houses screen, keeping the listings
+    /// named, or all of them.
+    @MainActor
+    private func connect(_ run: PhoneTestApp, keeping kept: [String]? = nil) {
+        run.app.buttons[HousesScreen.Words.connectPriceLabs].firstMatch.tap()
+        run.paste("mock-key-for-tests", into: AccessibilityID.keySheetField)
+        run.tap(AccessibilityID.keySheetConnect)
+        XCTAssertTrue(run.shows(PriceLabsKeySheet.Words.chooseTitle, timeout: 15),
+                      "no listings offered. On screen: \(run.visibleTexts())")
+        if let kept {
+            for listing in PriceLabsMockService.houses where !kept.contains(listing.name) {
+                let row = run.element(AccessibilityID.keySheetListing(listing.name))
+                row.switches.firstMatch.exists ? row.switches.firstMatch.tap() : row.tap()
+            }
+        }
+        run.tap(AccessibilityID.keySheetAddHouses)
     }
 }
 #endif
