@@ -616,12 +616,19 @@ class App:
 
     def menu_items(self, menu):
         """The words of an open menu's items, top to bottom."""
+        last = []
         def read():
             # Sync can redraw a menu between fetching its children and reading
-            # their labels. Retry the read on the current tree, never an action.
+            # their labels, and a slow machine fills a menu an item at a time.
+            # So the words count once two reads in a row agree. Retry the read
+            # on the current tree, never an action.
             menu.node.clear_cache()
             words = [e.words for e in menu.all("menu item") if e.showing]
-            return words if words and all(words) else None
+            if not words or not all(words):
+                return None
+            agreed = words == last[-1:][0] if last else False
+            last[:] = [words]
+            return words if agreed else None
         return self.until(read, "the open menu's words")
 
     def question(self):
@@ -633,24 +640,51 @@ class App:
     def open_menu(self, button):
         """Presses a button that opens a menu, such as More or a group's ⋯,
         until its items show, and gives it back for `pick`. A press as a
-        window first draws can be lost, so a second one follows if needed."""
-        for _ in range(2):
-            button.press()
+        window first draws can be lost, so a second one follows, but only
+        when no menu is open at all: on GTK each press adds a menu of its own,
+        and a second press over an open one leaves two. A sync redraws an
+        open menu's items, and for a moment it has none, so the menu itself
+        is what says it is open, not its items.
+
+        A menu left open in any copy of the app keeps every other copy's
+        menus from opening on the test display, so those are closed first."""
+        close_open_menus()
+        button.press()
+        try:
+            self.until(lambda: _menu_open(button), "the menu to open", wait=4)
+        except ScreenError:
+            if not _menu_open(button):
+                button.press()
+        self.until(lambda: _has_items(button), f"{button!r}'s menu to open")
+        _OPEN_MENUS.append((self, button))
+        return button
+
+    def close_menu(self, button):
+        """Closes the open menu of `button` without picking anything, as
+        Escape does, and waits until it is gone. On a slow machine Escape can
+        come before the menu has the keyboard, so it is sent again."""
+        for _ in range(3):
+            if not _menu_open(button):
+                break
+            self.key("Escape")
             try:
-                self.until(lambda: any(e.showing for e in button.all("menu item")), "the menu to open", wait=4)
-                return button
+                self.until(lambda: not _menu_open(button), "the menu to close", wait=3)
+                break
             except ScreenError:
                 pass
-        self.until(lambda: any(e.showing for e in button.all("menu item")), f"{button!r}'s menu to open")
-        return button
+        else:
+            self.until(lambda: not _menu_open(button), f"{button!r}'s menu to close")
+        _forget_menu(button)
 
     def group_menu(self, name):
         """Opens a group's ⋯ menu, and gives back its button for `pick`."""
         return self.open_menu(self.near("push button", "⋯", to=self.group(name)))
 
     def pick(self, words, menu):
-        """Presses the item saying `words` in the open menu of `menu`."""
+        """Presses the item saying `words` in the open menu of `menu`, which
+        closes it."""
         self.find("menu item", words, within=menu).press()
+        _forget_menu(menu)
 
     # Keys and lists
 
@@ -1177,6 +1211,41 @@ _ACCOUNT_NUMBERS = itertools.count(1)
 # Each person's account, made once per run and signed into after that, since
 # staging limits how many accounts one computer may make in an hour.
 _ACCOUNTS = {}
+
+# The menus a step opened and has not closed yet, as (app, button): see
+# `App.open_menu`.
+_OPEN_MENUS = []
+
+
+def _menu_open(button):
+    # The tree caches a button's children from before its menu existed, so
+    # the cache is cleared on every look.
+    try:
+        button.node.clear_cache()
+        return any(e.showing for e in button.all("menu"))
+    except Exception:
+        return False
+
+
+def _has_items(button):
+    try:
+        button.node.clear_cache()
+        return any(e.showing for e in button.all("menu item"))
+    except Exception:
+        return False
+
+
+def _forget_menu(button):
+    _OPEN_MENUS[:] = [(app, b) for app, b in _OPEN_MENUS if b is not button]
+
+
+def close_open_menus():
+    """Closes every menu a step left open, in every copy of the app."""
+    for app, button in list(_OPEN_MENUS):
+        if app.process is None or app.process.poll() is not None:
+            _forget_menu(button)
+            continue
+        app.close_menu(button)
 # Names no earlier test in the run has used.
 _NAME_NUMBERS = itertools.count(1)
 

@@ -152,4 +152,18 @@ extension Request {
             try await enforceRateLimit(limit, scope: scope)
         }
     }
+
+    /// The limit on the apps' invite preview. A preview carries no address, so
+    /// it cannot be told apart by one. On a server with the test mailbox, which
+    /// is never live, every preview gets the tests' allowance: a UI test suite
+    /// joins groups dozens of times from one machine, past the 30 an hour a
+    /// person gets. On live the usual limit holds. An invite token is 256
+    /// random bits, so the larger allowance does not make guessing one work.
+    func enforceInvitePreviewLimit() async throws {
+        if application.hasTestMailbox {
+            try await enforceRateLimit(RateLimiter.Limit.inviteLookup.forTests, scope: "test-v2-invite-lookup")
+        } else {
+            try await enforceRateLimit(.inviteLookup, scope: "v2-invite-lookup")
+        }
+    }
 }

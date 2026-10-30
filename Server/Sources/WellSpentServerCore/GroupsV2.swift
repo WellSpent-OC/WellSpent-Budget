@@ -163,7 +163,7 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
     /// Anyone holding the link can see what it is for before joining. Asked
     /// in the body, not the path, so the token never lands in a request log.
     routes.on(.POST, "invites", "preview", body: small) { request async throws -> InvitePreview in
-        try await request.enforceRateLimit(.inviteLookup, scope: "v2-invite-lookup")
+        try await request.enforceInvitePreviewLimit()
         let token = try request.content.decode(InvitePreviewRequest.self).token
         guard let invite = try await InviteRow.query(on: request.db)
             .filter(\.$inviteHash == inviteTokenHash(token)).first(),
