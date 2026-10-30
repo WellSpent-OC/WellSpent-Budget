@@ -18,10 +18,15 @@ struct TodaysBudget {
     /// Today, as the app under test reads it for its wheels.
     let today: Date
 
-    init(_ name: String = "", limit: Int, spent: Int, pinnedDay: Int? = nil) {
+    /// `moneyIn`, `borrowed` and `fromSavings` are this period's income,
+    /// loan draws and savings draws, in cents.
+    init(_ name: String = "", limit: Int, spent: Int, moneyIn: Int = 0, borrowed: Int = 0, fromSavings: Int = 0,
+         pinnedDay: Int? = nil) {
         let budget = Budget(groupID: GroupID(), name: name, limit: Money(minorUnits: limit))
         summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: Date()),
-                                spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1)
+                                spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1,
+                                moneyIn: Money(minorUnits: moneyIn), borrowed: Money(minorUnits: borrowed),
+                                fromSavings: Money(minorUnits: fromSavings))
         today = Workspace.today(pinnedTo: pinnedDay)
     }
 
