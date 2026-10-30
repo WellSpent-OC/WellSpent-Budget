@@ -119,6 +119,7 @@ struct HousesFeedTests {
         #expect(priceLabsEntries(model).isEmpty, "every stay is still to come")
         #expect(feed.wheels.count == 3)
         #expect(Set(feed.houseGroups.compactMap { model.summaries[$0.id]?.first?.budget.name }) == ["Bookings"])
+        #expect(model.selectedBudget == nil, "making a house's Bookings opens nothing")
         #expect(feed.screen.needsYou.isEmpty, "the quiet mock leaves nothing needing the host")
     }
 

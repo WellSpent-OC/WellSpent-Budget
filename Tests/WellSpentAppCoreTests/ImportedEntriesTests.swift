@@ -31,6 +31,32 @@ struct ImportedEntriesTests {
         #expect(model.group(named: plain)?.claimedBy == nil)
     }
 
+    /// With nothing open, the Mac opens the first plain group's first
+    /// budget, never one in a group an extension claims.
+    @Test func aClaimedGroupsBudgetNeverOpensByItself() throws {
+        let model = try model()
+        let house = try #require(model.addGroup(named: "A House", claimedBy: "wellspent.properties"))
+        _ = model.addBudget(named: "Bookings", limit: Money(minorUnits: 0), in: house, select: false)
+        model.reload()
+        #expect(model.selectedBudget == nil, "only a claimed group's budget exists")
+        let plain = try #require(model.addGroup(named: "Household"))
+        let groceries = try #require(model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: plain,
+                                                     select: false))
+        model.reload()
+        #expect(model.selectedBudget == groceries)
+    }
+
+    @Test func aBudgetMadeForThePersonOpensNothing() throws {
+        let model = try model()
+        let group = try #require(model.addGroup(named: "Household"))
+        let groceries = try #require(model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: group))
+        #expect(model.selectedBudget == groceries, "a budget the person makes opens")
+        let made = try #require(model.addBudget(named: "Bookings", limit: Money(minorUnits: 0), in: group,
+                                                select: false))
+        #expect(model.selectedBudget == groceries, "what was open stays open")
+        #expect(model.budget(for: made)?.name == "Bookings")
+    }
+
     /// What an importer worked out is saved, changed and removed, and nothing
     /// lands in a group this person may not add to.
     @Test func anImportIsSavedChangedAndRemoved() throws {
