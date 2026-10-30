@@ -140,6 +140,18 @@ struct GroupMoneySection: View {
                     Text(GroupMoney.Words.card)
                         .font(.system(size: 13, weight: .semibold))
                     FiguresList(figures: money.wheel.figures)
+                    if let covered = money.wheel.overBudgetsCoveredLine {
+                        Text(covered)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color(PaletteValues.warning))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier(AccessibilityID.groupOverBudgetsCovered)
+                    }
+                    ForEach(money.otherMoneyLines, id: \.self) { line in
+                        Text(line)
+                            .font(.system(size: 12))
+                            .accessibilityIdentifier(AccessibilityID.groupOtherMoney)
+                    }
                     Text(money.note)
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)

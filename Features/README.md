@@ -261,6 +261,13 @@ It is not kept here, where every pull request would change the same lines.
 | WHEEL-11 | A group's page opens with its money for the month | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-13 | Home shows wheels only after opening a group or budget | iPhone | iPhone |
+| WHEEL-14 | Money in refills a group's wheel, never past full | Mac, Linux, iPhone | Mac |
+| WHEEL-15 | A group's wheel says money in against money out, and the cash flow | Mac, Linux, iPhone | Mac |
+| WHEEL-16 | With no money in, a group's wheel looks exactly as before | Mac, Linux, iPhone | Mac |
+| WHEEL-17 | Over the month's budgets while money in covers it, the wheel stays green and says so | Mac, Linux, iPhone | Mac |
+| WHEEL-18 | Out beyond the budgets and the money in together turns the group's wheel orange | Mac, Linux, iPhone | Mac |
+| WHEEL-19 | Refunds, loan draws, savings draws, transfers and card payments never count as money in | Mac, Linux, iPhone | Mac |
+| WHEEL-20 | The tick marks spending pace, and money in does not move it | Mac, Linux, iPhone | Mac |
 
 ### [Lifecycle.md](Lifecycle.md)
 

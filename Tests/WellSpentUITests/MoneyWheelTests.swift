@@ -141,6 +141,120 @@ final class MoneyWheelTests: XCTestCase {
         run.deleteGroup(named: groupName)
     }
 
+    /// The wheel's step 2 on a group's page: money in refills the group's
+    /// wheel toward full, its middle says money in against money out, and
+    /// borrowed money and savings draws are named without refilling it. One
+    /// group with one budget, Rent, $4,080.00 a month, on the 18th. Each
+    /// check expects what the shared code says for the same money.
+    @MainActor
+    func testMoneyInOnAGroupsWheel() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = Self.stamp()
+        let groupName = "Money in \(stamp)", rent = "Rent \(stamp)"
+        let day = Self.midMonth
+        func month(spent: Int, moneyIn: Int = 0, borrowed: Int = 0, fromSavings: Int = 0) throws -> GroupMoney {
+            try XCTUnwrap(TodaysBudget.group(groupName, [
+                TodaysBudget(rent, limit: 408_000, spent: spent, moneyIn: moneyIn, borrowed: borrowed,
+                             fromSavings: fromSavings, pinnedDay: day),
+            ]))
+        }
+        func expect(_ money: GroupMoney, _ what: String) {
+            run.openGroupPage(named: groupName)
+            run.expect(wheel: AccessibilityID.groupWheel, reads: money.wheel.spokenSummary, what)
+            run.expect(figures: money.wheel.figures, what)
+            XCTAssertTrue(run.listText(money.note).waitForExistence(timeout: 10),
+                          "\(what): no note saying \(money.note) On screen: \(run.visibleTexts())")
+        }
+        func addMoneyIn(_ merchant: String, _ amount: String) {
+            run.openBudget(named: rent)
+            run.click(AccessibilityID.budgetAdd)
+            run.type(merchant, into: AccessibilityID.entryMerchant)
+            run.type(amount, into: AccessibilityID.entryAmount)
+            run.click(AccessibilityID.entryMoneyIn)
+            run.click(AccessibilityID.entryAdd)
+            run.expectNoSheet()
+        }
+        func addSpending(_ merchant: String, _ amount: String) {
+            run.openBudget(named: rent)
+            run.addEntry(merchant: merchant, amount: amount)
+        }
+
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(day)
+        run.launch()
+        run.addGroup(named: groupName)
+        run.addBudget(named: rent, amount: "4080", inGroup: groupName)
+
+        // Scenario WHEEL-16
+        // 1. $2,777.96 spent and no money in: the wheel is step 1's, with no
+        // In figure, and the note ends "added up."
+        run.addEntry(merchant: "Landlord", amount: "2777.96")
+        let plain = try month(spent: 277_796)
+        expect(plain, "no money in")
+        XCTAssertFalse(run.listText(MoneyWheel.Words.moneyIn).exists, "an In figure with no money in")
+
+        // Scenario WHEEL-14, WHEEL-15, WHEEL-20
+        // 2. $1,230.00 of income: the wheel refills, the middle says money in,
+        // money out and the cash flow, In leads the figures, and Expected left
+        // by today is what it was, since money in never moves the tick.
+        addMoneyIn("Paycheck", "1230")
+        let refilled = try month(spent: 277_796, moneyIn: 123_000)
+        expect(refilled, "$1,230.00 in")
+        XCTAssertEqual(refilled.wheel.expectedLeft, plain.wheel.expectedLeft, "money in moved the tick")
+
+        // Scenario WHEEL-17
+        // 3. Spending to $4,500.00 passes the budgets, and the money in covers
+        // it: the wheel stays green and one line says so.
+        addSpending("Repairs", "1722.04")
+        let covered = try month(spent: 450_000, moneyIn: 123_000)
+        expect(covered, "over the budgets, covered")
+        let coveredLine = try XCTUnwrap(covered.wheel.overBudgetsCoveredLine, "money in covers it")
+        XCTAssertTrue(run.listText(coveredLine).waitForExistence(timeout: 10),
+                      "no line saying \(coveredLine) On screen: \(run.visibleTexts())")
+
+        // Scenario WHEEL-18
+        // 4. $1,030.00 more puts the spending past the budgets and the money
+        // in together: the wheel turns orange and says how far over.
+        addSpending("Plumber", "1030")
+        let over = try month(spent: 553_000, moneyIn: 123_000)
+        XCTAssertTrue(over.wheel.isOver, "the test's own numbers are over")
+        expect(over, "over the budgets and the money in")
+        XCTAssertFalse(run.listText(MoneyWheel.Words.expectedLeft).exists, "an expected figure while over")
+
+        // Scenario WHEEL-14, WHEEL-15
+        // 5. $5,000.00 more income: the wheel is full and no fuller, and the
+        // cash flow is ahead.
+        addMoneyIn("Bonus", "5000")
+        let full = try month(spent: 553_000, moneyIn: 623_000)
+        XCTAssertEqual(full.wheel.arc, 1, "the test's own numbers fill the wheel")
+        expect(full, "full")
+
+        // Scenario WHEEL-19
+        // 6. A loan draw and a savings draw from a statement are named under
+        // the figures and refill nothing.
+        run.openBudget(named: rent)
+        let loan = "CREDIT UNION LOAN", savings = "SAVINGS XFER"
+        let statement = try run.writeStatement([(loan, "500.00"), (savings, "300.00")])
+        run.importStatement(at: statement)
+        run.choose(EntryEditor.Words.borrowed, in: AccessibilityID.importLineKind(loan))
+        run.choose(EntryEditor.Words.fromSavings, in: AccessibilityID.importLineKind(savings))
+        run.choose(rent, in: AccessibilityID.importLineBudget(loan))
+        run.choose(rent, in: AccessibilityID.importLineBudget(savings))
+        run.click(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        let drawn = try month(spent: 553_000, moneyIn: 623_000, borrowed: 50_000, fromSavings: 30_000)
+        XCTAssertEqual(drawn.wheel, full.wheel, "borrowed money or a savings draw changed the wheel")
+        expect(drawn, "after the draws")
+        for line in drawn.otherMoneyLines {
+            XCTAssertTrue(run.listText(line).waitForExistence(timeout: 10),
+                          "no line saying \(line) On screen: \(run.visibleTexts())")
+        }
+
+        // 7. Tidy: the group goes, with its budget.
+        run.deleteGroup(named: groupName)
+    }
+
     /// The month's last week, in a launch of its own on the 26th.
     @MainActor
     func testTheLastWeekOffersToLowerABudget() throws {
