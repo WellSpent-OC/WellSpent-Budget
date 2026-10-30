@@ -17,8 +17,13 @@ static gboolean label_control_idle(gpointer widget) {
     g_object_set_data(G_OBJECT(widget), "wartable-label-pending", NULL);
     GtkWidget *control = named_control(GTK_WIDGET(widget));
     const char *label = g_object_get_data(G_OBJECT(widget), "wartable-control-label");
+    const char *description = g_object_get_data(G_OBJECT(widget), "wartable-control-description");
     if (control && label) gtk_accessible_update_property(GTK_ACCESSIBLE(control),
         GTK_ACCESSIBLE_PROPERTY_LABEL, label, GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, label, -1);
+    // A description alone keeps GTK's own name for the control, such as a
+    // list's chosen option, and says what the control is for after it.
+    if (control && description && !label) gtk_accessible_update_property(GTK_ACCESSIBLE(control),
+        GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, description, -1);
     return G_SOURCE_REMOVE;
 }
 void wellspent_wartable_control_label(void *widget, const char *label) {
@@ -27,6 +32,15 @@ void wellspent_wartable_control_label(void *widget, const char *label) {
     // actual control rather than the surrounding anonymous layout container.
     g_object_set_data_full(G_OBJECT(widget), "wartable-control-label", g_strdup(label), g_free);
     // Composite children can be attached after the inspection callback.
+    if (!g_object_get_data(G_OBJECT(widget), "wartable-label-pending")) {
+        g_object_set_data(G_OBJECT(widget), "wartable-label-pending", GINT_TO_POINTER(1));
+        g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, label_control_idle, g_object_ref(widget), g_object_unref);
+    }
+}
+
+void wellspent_control_description(void *widget, const char *description) {
+    if (!GTK_IS_WIDGET(widget)) return;
+    g_object_set_data_full(G_OBJECT(widget), "wartable-control-description", g_strdup(description), g_free);
     if (!g_object_get_data(G_OBJECT(widget), "wartable-label-pending")) {
         g_object_set_data(G_OBJECT(widget), "wartable-label-pending", GINT_TO_POINTER(1));
         g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, label_control_idle, g_object_ref(widget), g_object_unref);

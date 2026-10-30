@@ -215,9 +215,8 @@ class Import(unittest.TestCase):
         self.assertEqual("Income", payout.words)
         self.assertIsNone(app.kind_list(review, "CLEANING CO"), "money out offers no kind")
         app.choose("Refund", payout)
-        app.choose("Income", payout)
 
-        # 2. Taken as Income on Bookings, it lands with its plus sign.
+        # 2. Taken as a Refund on Bookings, it lands with its plus sign.
         app.file_line(review, "AIRBNB PAYOUT", "Bookings")
         app.file_line(review, "CLEANING CO", "Bookings")
         self.finish(review)
@@ -227,10 +226,11 @@ class Import(unittest.TestCase):
         self.assertEqual("+$1310.00", amounts["Airbnb Payout"])
         self.assertEqual("$120.00", amounts["Cleaning"])
 
-        # 3. The next payout from the same payer is offered the same way.
+        # 3. The next payout from the same payer is offered the same way:
+        # Refund, not the default.
         again = app.write_file("payout2.csv", statement((1, "AIRBNB PAYOUT", "980.00")))
         review = app.open_statement(again)
-        self.assertEqual("Income", app.kind_list(review, "AIRBNB PAYOUT").words)
+        self.assertEqual("Refund", app.kind_list(review, "AIRBNB PAYOUT").words)
         self.finish(review, "Cancel")
 
 if __name__ == "__main__":

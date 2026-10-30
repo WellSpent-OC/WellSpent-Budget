@@ -45,6 +45,16 @@ extension View {
         }
     }
 
+    /// What the control inside a composite view is for, said after GTK's
+    /// own name for it: a Picker keeps its chosen option as its name, as GTK
+    /// names a list, and a screen reader hears `description` after it. The
+    /// Mac names its pickers the same way for VoiceOver.
+    func controlDescription(_ description: String) -> some View {
+        inspect([.onCreate, .afterUpdate]) { (widget: Gtk.Widget) in
+            wellspent_control_description(widget.widgetPointer, description)
+        }
+    }
+
     /// A DatePicker's calendar, which is GTK's own: names its arrows, which
     /// GTK leaves unnamed (the Mac's date picker names its own), makes a move
     /// by them choose the day the calendar shows chosen, and lets the arrow

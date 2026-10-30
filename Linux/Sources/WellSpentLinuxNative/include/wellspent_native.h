@@ -87,6 +87,9 @@ void wellspent_new_entry_shortcut(void *widget);
 /// Names a multiline chat editor and marks it as the Ctrl+Enter target.
 void wellspent_wartable_composer(void *widget);
 void wellspent_wartable_control_label(void *widget, const char *label);
+/// The accessible description of the control inside a composite view, with
+/// GTK's own name for it kept, such as a list's chosen option.
+void wellspent_control_description(void *widget, const char *description);
 /// Ctrl+Enter in that editor activates this visible, enabled Send button.
 void wellspent_wartable_send(void *widget);
 /// Follow appended messages only while reading the bottom. A new conversation
