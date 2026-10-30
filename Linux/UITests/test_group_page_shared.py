@@ -162,7 +162,7 @@ class GroupPageShared(unittest.TestCase):
         leslie.sync()
         menu = leslie.group_menu(flat)
         self.assertIn("Delete…", leslie.menu_items(menu))
-        leslie.key("Escape")
+        leslie.close_menu(menu)
         self.open_page(leslie, flat)
         leslie.button("Leave Group…", within=leslie.main).press()
         question = leslie.question()

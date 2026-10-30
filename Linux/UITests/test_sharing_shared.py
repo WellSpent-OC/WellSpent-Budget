@@ -63,7 +63,7 @@ class SharingShared(unittest.TestCase):
     def menu_of(self, app, group):
         menu = app.group_menu(group)
         items = app.menu_items(menu)
-        app.key("Escape")
+        app.close_menu(menu)
         return items
 
     def test_who_may_invite_and_at_what_level(self):

@@ -149,6 +149,27 @@ struct TestMailboxTests {
         }
     }
 
+    /// With the mailbox, one machine previews invites past the 30 an hour a
+    /// person gets, as a UI test suite joining groups does.
+    @Test func withTheMailboxInvitePreviewsGetTheTestsAllowance() async throws {
+        try await withMailbox { app, _ async throws in
+            for _ in 0 ..< RateLimiter.Limit.inviteLookup.attempts + 5 {
+                #expect(try await previewStatus(on: app) == .notFound)
+            }
+        }
+    }
+
+    /// Without the mailbox, as on live, invite previews stop at the usual limit.
+    @Test func withoutTheMailboxInvitePreviewsGetTheUsualLimit() async throws {
+        try await withV2App { app, _ async throws in
+            let usual = RateLimiter.Limit.inviteLookup.attempts
+            for _ in 0 ..< usual {
+                #expect(try await previewStatus(on: app) == .notFound)
+            }
+            #expect(try await previewStatus(on: app) == .tooManyRequests)
+        }
+    }
+
     /// Without a token the server has no such route at all.
     @Test func withNoTokenThereIsNoRoute() async throws {
         try await withV2App { app, _ async throws in
@@ -177,6 +198,13 @@ struct TestMailboxTests {
     private func signUpStatus(_ email: String, on app: Application) async throws -> HTTPStatus {
         try await v2Status(.POST, "api/v2/signup",
                            body: V2SignUp(email: email, password: v2Password, deviceLabel: "Mac"), on: app)
+    }
+
+    /// A preview of an invite that does not exist: not found, unless limited.
+    private func previewStatus(on app: Application) async throws -> HTTPStatus {
+        struct Token: Content { let token: String }
+        return try await v2Status(.POST, "api/v2/invites/preview",
+                                  body: Token(token: String(repeating: "a", count: 43)), on: app)
     }
 
     private func path(_ address: String) -> String {
