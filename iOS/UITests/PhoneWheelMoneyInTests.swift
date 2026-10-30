@@ -83,6 +83,11 @@ final class PhoneWheelMoneyInTests: XCTestCase {
         let plain = try month(spent: 277_796)
         expect(plain, "no money in")
         XCTAssertFalse(plain.wheel.hasMoneyIn)
+        run.goBack()
+        run.openGroupPage(named: group)
+        XCTAssertFalse(run.shows(MoneyWheel.Words.moneyIn, timeout: 2), "an In figure is drawn with no money in")
+        run.goBack()
+        run.openBudget(named: rent)
 
         // Scenario WHEEL-14, WHEEL-15, WHEEL-20
         // 2. $1,230.00 of income: the wheel refills, the middle says money in,
