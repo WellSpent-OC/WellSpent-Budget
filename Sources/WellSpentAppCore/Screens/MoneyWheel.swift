@@ -84,12 +84,16 @@ public struct MoneyWheel: Equatable, Sendable {
     /// Nil for a budget that never resets: its wheel has no tick and no
     /// expected figure.
     public let day: PeriodDay?
+    /// Income, which refills a group's wheel toward full and never past it.
+    /// A budget's own wheel has none: its income is a line under it.
+    public let moneyIn: Money
 
-    public init(scope: Scope, budgeted: Money, spent: Money, day: PeriodDay?) {
+    public init(scope: Scope, budgeted: Money, spent: Money, day: PeriodDay?, moneyIn: Money? = nil) {
         self.scope = scope
         self.budgeted = budgeted
         self.spent = spent
         self.day = day
+        self.moneyIn = moneyIn ?? Money(minorUnits: 0, currency: budgeted.currency)
     }
 
     /// A budget's wheel, from its summary and its own period.
@@ -98,9 +102,24 @@ public struct MoneyWheel: Equatable, Sendable {
                   day: PeriodDay(period: summary.period, now: now, calendar: calendar))
     }
 
-    /// What is left. Below zero when over.
-    public var left: Money { budgeted - spent }
-    public var isOver: Bool { spent > budgeted }
+    /// What is left: the budgets less what is spent, plus money in. Below
+    /// zero when over.
+    public var left: Money { budgeted - spent + moneyIn }
+    /// Over when what is spent passes the budgets and the money in together.
+    public var isOver: Bool { left.minorUnits < 0 }
+    public var hasMoneyIn: Bool { moneyIn.minorUnits > 0 }
+    /// What is left as the wheel says it: money in fills it to full and no
+    /// further. With no money in it is `left`, as before money in existed.
+    public var leftShown: Money { hasMoneyIn && budgeted < left ? budgeted : left }
+    /// How far over, when over.
+    public var over: Money { Money(minorUnits: max(-left.minorUnits, 0), currency: budgeted.currency) }
+    /// Money in less money spent.
+    public var cashFlow: Money { moneyIn - spent }
+    /// Spent past the budgets while money in covers the gap: the wheel stays
+    /// green and one line says so.
+    public var isOverBudgetsCovered: Bool { !isOver && spent > budgeted }
+    /// A group's middle says money in against money out once there is any.
+    public var showsCashFlow: Bool { scope == .group && hasMoneyIn }
 
     /// How much of the ring is drawn, 0 to 1: all of it when over, in the
     /// warning colour. A refund larger than the spending keeps it full.
@@ -154,8 +173,7 @@ public struct MoneyWheel: Equatable, Sendable {
     /// Over by less than half a unit still shows one whole unit, so an
     /// orange wheel never says "Over $0".
     public var middleAmount: String {
-        guard isOver else { return left.wholeDisplay }
-        let over = spent - budgeted
+        guard isOver else { return leftShown.wholeDisplay }
         return Money(minorUnits: max(over.minorUnits, over.minorUnitsPerUnit), currency: over.currency).wholeDisplay
     }
     /// Under the amount in the wheel's middle: "of $1,000".
@@ -163,14 +181,36 @@ public struct MoneyWheel: Equatable, Sendable {
     /// Under the amount in Home's small wheel: "left" or "over".
     public var compactWord: String { isOver ? Words.compactOver : Words.compactLeft }
 
-    /// Beside the wheel: Spent, then Over or Left, then Expected left by
-    /// today when there is an even pace to measure.
+    /// With money in, the middle's first line: "$1,230 in".
+    public var middleIn: String { Words.inAmount(moneyIn.wholeDisplay) }
+    /// With money in, the middle's second line: "$2,778 out".
+    public var middleOut: String { Words.outAmount(spent.wholeDisplay) }
+    /// With money in, the middle's large amount: "−$1,548" or "+$2,022",
+    /// with a real minus sign. Under it, `Words.thisMonth`.
+    public var cashFlowAmount: String {
+        let sign = cashFlow.minorUnits < 0 ? "\u{2212}" : cashFlow.minorUnits > 0 ? "+" : ""
+        return sign + cashFlow.magnitude.wholeDisplay
+    }
+    /// Short of money out in the warning colour, ahead of it in ink.
+    public var cashFlowColor: ColorPair { cashFlow.minorUnits < 0 ? PaletteValues.warning : PaletteValues.ink }
+    /// Under the figures, in the warning colour, while money in covers
+    /// spending past the budgets: "Over the month's budgets by $420.00.
+    /// Money in covers it."
+    public var overBudgetsCoveredLine: String? {
+        isOverBudgetsCovered ? Words.overBudgetsCovered((spent - budgeted).display) : nil
+    }
+
+    /// Beside the wheel: In when there is money in, Spent, then Over or
+    /// Left, then Expected left by today when there is an even pace to
+    /// measure.
     public var figures: [Figure] {
-        var figures = [Figure(label: Words.spent, amount: spent.display)]
+        var figures: [Figure] = []
+        if hasMoneyIn { figures.append(Figure(label: Words.moneyIn, amount: "+" + moneyIn.display)) }
+        figures.append(Figure(label: Words.spent, amount: spent.display))
         if isOver {
-            figures.append(Figure(label: Words.over, amount: (spent - budgeted).display, isWarning: true))
+            figures.append(Figure(label: Words.over, amount: over.display, isWarning: true))
         } else {
-            figures.append(Figure(label: Words.left, amount: left.display))
+            figures.append(Figure(label: Words.left, amount: leftShown.display))
         }
         if let expectedLeft {
             figures.append(Figure(label: Words.expectedLeft, amount: expectedLeft.display))
@@ -178,8 +218,18 @@ public struct MoneyWheel: Equatable, Sendable {
         return figures
     }
 
-    /// The whole wheel for a screen reader: "Left $445 of $1,000".
-    public var spokenSummary: String { [middleKey, middleAmount, middleOf].joined(separator: " ") }
+    /// The whole wheel for a screen reader: "Left $445 of $1,000", or with
+    /// money in, "In $1,230, out $2,778, $1,548 behind this month, 62
+    /// percent of the month's budgets left".
+    public var spokenSummary: String {
+        guard showsCashFlow else { return [middleKey, middleAmount, middleOf].joined(separator: " ") }
+        let flow = Words.spokenFlow(moneyIn.wholeDisplay, spent.wholeDisplay, cashFlow.magnitude.wholeDisplay,
+                                    ahead: cashFlow.minorUnits >= 0)
+        if isOver { return flow + ". " + Words.spokenOver(middleAmount) }
+        let left = arc >= 1 ? Words.spokenFull : Words.spokenLeft(Int((arc * 100).rounded()))
+        guard isOverBudgetsCovered else { return flow + ", " + left }
+        return flow + ", " + left + ". " + Words.spokenCovered((spent - budgeted).wholeDisplay)
+    }
 
     public enum Words {
         public static let left = "Left"
@@ -193,6 +243,28 @@ public struct MoneyWheel: Equatable, Sendable {
         public static let compactOver = "over"
         /// "of $1,000".
         public static func of(_ amount: String) -> String { "of \(amount)" }
+        /// The figure for income beside a group's wheel.
+        public static let moneyIn = "In"
+        /// Under the cash flow in a group's middle.
+        public static let thisMonth = "this month"
+        /// "$1,230 in".
+        public static func inAmount(_ amount: String) -> String { "\(amount) in" }
+        /// "$2,778 out".
+        public static func outAmount(_ amount: String) -> String { "\(amount) out" }
+        /// "Over the month's budgets by $420.00. Money in covers it."
+        public static func overBudgetsCovered(_ amount: String) -> String {
+            "Over the month's budgets by \(amount). Money in covers it."
+        }
+        /// "In $1,230, out $2,778, $1,548 behind this month".
+        static func spokenFlow(_ moneyIn: String, _ out: String, _ flow: String, ahead: Bool) -> String {
+            "In \(moneyIn), out \(out), \(flow) \(ahead ? "ahead" : "behind") this month"
+        }
+        static let spokenFull = "full"
+        static func spokenLeft(_ percent: Int) -> String { "\(percent) percent of the month's budgets left" }
+        static func spokenOver(_ amount: String) -> String { "Over budget by \(amount)" }
+        static func spokenCovered(_ amount: String) -> String {
+            "Over the month's budgets by \(amount), money in covers it"
+        }
     }
 }
 

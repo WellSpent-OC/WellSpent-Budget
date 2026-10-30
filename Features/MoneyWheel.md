@@ -123,3 +123,69 @@ Platforms: iPhone
 - When Robin returns Home and opens a budget
 - Then that budget's wheel shows
 - And returning Home shows no wheel
+
+## WHEEL-14 Money in refills a group's wheel, never past full
+
+Platforms: Mac, Linux, iPhone
+
+- Given Household's budgets add up to $4,080.00, $2,777.96 is spent from them this month, and $1,230.00 of income has come in
+- When Robin looks at Household's wheel
+- Then it is green, filled to $2,532.04 of $4,080.00, with the tick where it was
+- And with $4,800.00 of income instead, it is full, and "Left" says $4080.00
+
+## WHEEL-15 A group's wheel says money in against money out, and the cash flow
+
+Platforms: Mac, Linux, iPhone
+
+- Given the same Household with $1,230.00 in
+- When Robin looks at the wheel's middle
+- Then it says "$1,230 in", "$2,778 out" and "−$1,548", with "this month" under it
+- And beside the wheel "In" says +$1230.00 above "Spent" $2777.96
+- And the note ends "added up, and money in."
+- And with $4,800.00 in, the cash flow reads "+$2,022" in the word colour
+
+## WHEEL-16 With no money in, a group's wheel looks exactly as before
+
+Platforms: Mac, Linux, iPhone
+
+- Given Household has no income this month
+- When Robin looks at Household's wheel
+- Then the middle says "Left this month", "$1,302" and "of $4,080", there is no "In" line, and the note ends "added up."
+- And nothing differs from release 0.2.0
+
+## WHEEL-17 Over the month's budgets while money in covers it, the wheel stays green and says so
+
+Platforms: Mac, Linux, iPhone
+
+- Given Household's budgets add up to $4,080.00, $4,500.00 is spent and $1,230.00 has come in
+- When Robin looks at Household's wheel
+- Then it is green, filled to $810.00, with its tick
+- And under the figures, in the warning colour, "Over the month's budgets by $420.00. Money in covers it."
+
+## WHEEL-18 Out beyond the budgets and the money in together turns the group's wheel orange
+
+Platforms: Mac, Linux, iPhone
+
+- Given $4,500.00 is spent and $200.00 has come in
+- When Robin looks at Household's wheel
+- Then it is orange all the way round with no tick
+- And its middle says "$200 in", "$4,500 out" and "−$4,300"
+- And beside it "Over" says $220.00 in the warning colour, and there is no "Expected left by today"
+
+## WHEEL-19 Refunds, loan draws, savings draws, transfers and card payments never count as money in
+
+Platforms: Mac, Linux, iPhone
+
+- Given Household has a $50.00 refund to Groceries, a $500.00 loan draw, a $300.00 savings draw, a $200.00 transfer and a $900.00 card payment this month, and no income
+- When Robin looks at Household's wheel
+- Then there is no "In" line and the middle reads as WHEEL-16
+- And Groceries' spent is $50.00 lower, as a refund does today
+- And under the figures it says "$500.00 borrowed this month" and "$300.00 from savings this month"
+
+## WHEEL-20 The tick marks spending pace, and money in does not move it
+
+Platforms: Mac, Linux, iPhone
+
+- Given it is day 18 of 31 and $4,800.00 has come in
+- When Robin looks at Household's wheel
+- Then the tick sits where it sits with no money in, and "Expected left by today" is unchanged

@@ -14,7 +14,9 @@ import SwiftUI
 /// what its middle says.
 struct MoneyWheelView: View {
     /// What the middle says: the key, the amount and "of" on a budget's or a
-    /// group's page, or the amount and one word in Home's small wheel.
+    /// group's page, or the amount and one word in Home's small wheel. A
+    /// group with money in says money in, money out and the cash flow
+    /// instead, and Home's small wheel the cash flow alone.
     enum Middle: Equatable {
         case full(amountSize: CGFloat)
         case compact
@@ -61,6 +63,36 @@ struct MoneyWheelView: View {
     @ViewBuilder
     private var middleWords: some View {
         switch middle {
+        case .full(let amountSize) where wheel.showsCashFlow:
+            VStack(spacing: 2) {
+                Text(wheel.middleIn)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.muted)
+                    .fitting()
+                Text(wheel.middleOut)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.muted)
+                    .fitting()
+                Text(wheel.cashFlowAmount)
+                    .font(.system(size: amountSize, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Color(wheel.cashFlowColor))
+                    .fitting()
+                Text(MoneyWheel.Words.thisMonth)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.muted)
+                    .fitting()
+            }
+        case .compact where wheel.showsCashFlow:
+            VStack(spacing: 0) {
+                Text(wheel.cashFlowAmount)
+                    .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Color(wheel.cashFlowColor))
+                    .fitting()
+                Text(MoneyWheel.Words.thisMonth)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.muted)
+                    .fitting()
+            }
         case .full(let amountSize):
             VStack(spacing: 2) {
                 Text(wheel.middleKey)
