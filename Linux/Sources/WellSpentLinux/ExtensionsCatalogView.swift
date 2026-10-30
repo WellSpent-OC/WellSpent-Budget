@@ -108,7 +108,12 @@ struct ExtensionsCatalogView: View {
 
     @ViewBuilder
     private func actionButton(for item: ExtensionCatalogItem) -> some View {
-        if item.id == "wellspent.wartable" {
+        // Only an extension the shared catalog calls available can be turned
+        // on or opened. With its flag off, a card says it is coming later and
+        // offers nothing (PROP-02).
+        if item.status != .available {
+            Note(item.status == .comingSoon ? "Planned" : "Under review")
+        } else if item.id == "wellspent.wartable" {
             if isWarTableEnabled {
                 Button("Open WarTable") {
                     openWarTable()
@@ -128,8 +133,6 @@ struct ExtensionsCatalogView: View {
                     turnOnProperties()
                 }
             }
-        } else if item.status == .comingSoon {
-            Note("Planned")
         } else {
             Note("Under review")
         }

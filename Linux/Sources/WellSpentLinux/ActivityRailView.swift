@@ -58,8 +58,10 @@ struct ActivityRailView: View {
                     }
                     .frame(width: 42, height: 40)
                 }
-                .help(syncHelp)
+                // The name before `.help`, which wraps the button (see
+                // `accessibility(label:)`), so a screen reader hears "Sync".
                 .accessibility(label: syncTitle)
+                .help(syncHelp)
                 .buttonStyle(.plain)
                 .disabled(isBusy)
             }
@@ -75,8 +77,8 @@ struct ActivityRailView: View {
                 }
                 .frame(width: 42, height: 40)
             }
-            .help(accountHelp)
             .accessibility(label: accountTitle)
+            .help(accountHelp)
             .buttonStyle(.plain)
         }
         .padding(.vertical, 10)
@@ -107,8 +109,10 @@ struct ActivityRailView: View {
             }
             .frame(width: 42, height: 42)
         }
-        .help(title)
+        // The name before `.help`, which wraps the button: otherwise GTK names
+        // it from its texts, "⬚ Extensions", symbol and all.
         .accessibility(label: title, selected: isSelected)
+        .help(title)
         .buttonStyle(.plain)
     }
 }

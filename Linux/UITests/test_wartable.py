@@ -50,12 +50,15 @@ def enroll_agent(app, name):
 class SignedOut(unittest.TestCase):
     # Scenario WARTABLE-01
     def test_extension_keeps_budgets_available(self):
-        app = launch_fresh(self)
+        app = launch_fresh(self, extensions=True, wartable=True)
         group = unique("WarTable local")
         app.new_group(group)
         app.new_budget("Local food", "300", group=group)
         open_board(app)
         app.wait_shows("Sign in and choose a synced group to use WarTable.", within=app.main)
+        # WarTable takes the place of the budgets; the rail's Budget brings
+        # them back, as it does for a person.
+        app.button("Budget", within=app.main).press()
         app.budget("Local food").press()
         app.until(app.budget_open, "the budget to remain available")
         open_board(app)
@@ -68,7 +71,7 @@ class SignedOut(unittest.TestCase):
 class Connected(unittest.TestCase):
     def setUp(self):
         needs_accounts(self)
-        self.app = launch_fresh(self)
+        self.app = launch_fresh(self, extensions=True, wartable=True)
         self.app.sign_in_as("Robin")
         self.group = unique("WarTable")
         self.app.new_group(self.group)
@@ -117,7 +120,7 @@ class Connected(unittest.TestCase):
         app = self.app
         leslie = launch_fresh(self)
         leslie.sign_in_as("Leslie")
-        leslie.join(app.share(self.group, "Robin", "Add"), "Leslie")
+        leslie.join(app.legacy_invite(self.group, "Robin", "Add"), "Leslie")
         app.sync()
         enable_board(app, self.group)
         app.button("People", within=app.main).press()
@@ -283,7 +286,7 @@ class Review(unittest.TestCase):
         self.assertEqual(STAGING, fixture["serverURL"])
         self.assertTrue(fixture["syntheticFixture"])
         self.assertFalse(fixture["published"])
-        app = launch_fresh(self)
+        app = launch_fresh(self, extensions=True, wartable=True)
         app.button("Sign in", within=app.main).press()
         sheet = app.wait_for_window(2, "review fixture sign in")
         app.field("Server", sheet).type(STAGING)
