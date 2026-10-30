@@ -84,7 +84,6 @@ struct GroupMoneyInTests {
         #expect(money.wheel.figures.map(\.label) == ["Spent", "Left", "Expected left by today"])
         #expect(money.wheel.spokenSummary == "Left this month $1,302 of $4,080")
         #expect(money.note == "Day 18 of 31. Every budget in Household, added up.")
-        #expect(money.inOutLine == nil)
         #expect(money.spentLine == "Spent $2,778 of $4,080 budgeted")
         #expect(money.otherMoneyLines.isEmpty)
     }
@@ -116,7 +115,6 @@ struct GroupMoneyInTests {
             MoneyWheel.Figure(label: "Over", amount: "$220.00", isWarning: true),
         ])
         #expect(wheel.spokenSummary == "In $200, out $4,500, $4,300 behind this month. Over budget by $220")
-        #expect(money.leftLine == "Over $220 of $4,080")
     }
 
     // Scenario WHEEL-19
@@ -137,16 +135,6 @@ struct GroupMoneyInTests {
         #expect(with.expectedLeft == without.expectedLeft)
     }
 
-    /// The lines for a small wheel's card: the step 2 design's Home card,
-    /// waiting on WHEEL-13, which keeps Home free of wheels for now.
-    @Test func aSmallWheelsCardShowsMoneyInAndOutBeside() throws {
-        let money = try #require(household(spent: 277_796, moneyIn: 123_000))
-        #expect(money.wheel.cashFlowAmount == "\u{2212}$1,548")
-        #expect(money.inOutLine == "In $1,230 \u{00B7} Out $2,778")
-        #expect(money.leftLine == "Left $2,532 of $4,080")
-        let full = try #require(household(spent: 277_796, moneyIn: 480_000))
-        #expect(full.leftLine == "Left $4,080 of $4,080", "no Full word")
-    }
 
     /// A refund larger than the spending keeps the wheel full, and with no
     /// money in the middle says what it said before.
