@@ -92,13 +92,60 @@ struct HousesFeedTests {
         }
         #expect(count > entries.count, "stays still to come are nights, not money")
         #expect(feed.connectionLine?.hasPrefix("PriceLabs brought in \(count) bookings") == true)
-        #expect(feed.wheels.count == 2)
+        #expect(feed.wheels.count == 2, "every house has a wheel, with income this month or not")
         #expect(feed.screen.tiles[0].value.hasPrefix("+"), "income with nothing spent is cash flow ahead")
 
         // The same stays again change nothing.
         let before = priceLabsEntries(model)
         await feed.refresh()
         #expect(priceLabsEntries(model).map(\.id) == before.map(\.id))
+    }
+
+    // Scenario PROP-04
+    /// A house whose only stay is still to come has its Bookings budget, and
+    /// so its wheel, from the moment it is added.
+    @Test func aHouseWithNoIncomeYetStillHasItsWheel() async throws {
+        let model = try model()
+        let today = self.today, calendar = self.calendar
+        let feed = HousesFeed(model: model, secrets: InMemorySecretStore(), defaults: isolatedDefaults(),
+                              calendar: calendar, now: { today }, makeService: { _ in
+                                  PriceLabsMockService(today: today, calendar: calendar, variant: .quiet)
+                              })
+        feed.openKeySheet()
+        feed.keySheet?.key = "k"
+        await feed.connect()
+        guard case .choosing(let offered) = feed.keySheet?.step else { Issue.record("no listings"); return }
+        await feed.addHouses(offered)
+        #expect(priceLabsEntries(model).isEmpty, "every stay is still to come")
+        #expect(feed.wheels.count == 3)
+        #expect(Set(feed.houseGroups.compactMap { model.summaries[$0.id]?.first?.budget.name }) == ["Bookings"])
+        #expect(feed.screen.needsYou.isEmpty, "the quiet mock leaves nothing needing the host")
+    }
+
+    // Scenario PROP-17
+    @Test func thePausedMockConnectsAndThenPauses() async throws {
+        let model = try model()
+        let today = self.today, calendar = self.calendar
+        let feed = HousesFeed(model: model, secrets: InMemorySecretStore(), defaults: isolatedDefaults(),
+                              calendar: calendar, now: { today }, makeService: { _ in
+                                  PriceLabsMockService(today: today, calendar: calendar, variant: .paused)
+                              })
+        feed.openKeySheet()
+        feed.keySheet?.key = "k"
+        await feed.connect()
+        guard case .choosing(let offered) = feed.keySheet?.step else { Issue.record("no listings"); return }
+        await feed.addHouses(offered)
+        #expect(feed.connection == .paused(lastBroughtIn: nil))
+        #expect(feed.connection.offersReconnect)
+        #expect(feed.screen.rows.count == 3)
+    }
+
+    @Test func eachMockVariantMakesTheFeedKeepItsKeyInMemory() throws {
+        for value in ["mock", "mock-paused", "mock-quiet"] {
+            let feed = HousesFeed(model: try model(), environment: [PriceLabsServiceChoice.variable: value],
+                                  defaults: isolatedDefaults(), calendar: calendar)
+            #expect(feed.connection == .notConnected, "\(value): a fresh in-memory store has no key")
+        }
     }
 
     /// A house already linked is not offered again, and with nothing new to
