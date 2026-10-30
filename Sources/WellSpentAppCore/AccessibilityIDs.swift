@@ -226,6 +226,22 @@ public enum AccessibilityID {
     public static let joinName = "join.name"
     public static let joinJoin = "join.join"
     public static let joinCancel = "join.cancel"
+
+    // MARK: Houses (the Properties extension)
+
+    /// Shown in place of the tiles and rows when no group is a house.
+    public static let housesEmpty = "houses.empty"
+    /// The line saying when PriceLabs last brought bookings in.
+    public static let housesBroughtIn = "houses.broughtIn"
+    /// A tile across the top, by its title.
+    public static func housesTile(_ title: String) -> String { "houses.tile.\(title)" }
+    /// One line under Needs you, by its words.
+    public static func housesNeedsYou(_ text: String) -> String { "houses.needsYou.\(text)" }
+    public static let housesNothingNeedsYou = "houses.needsYou.nothing"
+    /// A house's row, by the house's name. Its wheel says the cash flow.
+    public static func housesRow(_ name: String) -> String { "houses.row.\(name)" }
+    public static func housesRowWheel(_ name: String) -> String { "houses.row.\(name).wheel" }
+    public static let housesAdd = "houses.add"
 }
 
 #endif
