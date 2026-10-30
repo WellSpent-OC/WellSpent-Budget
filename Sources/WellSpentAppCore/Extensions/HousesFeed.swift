@@ -41,13 +41,13 @@ public final class HousesFeed {
     @ObservationIgnored private var bookings: [Booking] = []
     @ObservationIgnored private var lastBookingCount = 0
 
-    /// `WELLSPENT_PRICELABS=mock` gives the three example houses and a key
-    /// store in memory, so no UI test reaches PriceLabs or a real keychain.
+    /// `WELLSPENT_PRICELABS=mock` (or `mock-paused`, `mock-quiet`) gives the
+    /// three example houses and a key store in memory, so no UI test reaches
+    /// PriceLabs or a real keychain.
     public convenience init(model: AppModel,
                             environment: [String: String] = ProcessInfo.processInfo.environment,
                             defaults: UserDefaults = .standard, calendar: Calendar = AppLocale.calendar) {
-        let isMock = environment[PriceLabsServiceChoice.variable]?
-            .trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == PriceLabsServiceChoice.mockValue
+        let isMock = PriceLabsServiceChoice.mockVariant(in: environment) != nil
         let secrets: any SecretStore
         #if canImport(Security)
         secrets = isMock ? InMemorySecretStore() : KeychainSecretStore()
@@ -223,12 +223,14 @@ public final class HousesFeed {
     }
 
     /// Each chosen listing becomes a house: a new group named for it,
-    /// claimed by Properties, which the person can rename (PROP-14). Then
-    /// its stays come in.
+    /// claimed by Properties, which the person can rename (PROP-14), with its
+    /// Bookings budget, so every house has a wheel from the start (PROP-04).
+    /// Then its stays come in.
     public func addHouses(_ listings: [PriceLabsListing]) async {
         var links = self.links()
         for listing in listings where links[listing.id] == nil {
             guard let group = model.addGroup(named: listing.name, claimedBy: PropertiesRegistration.id) else { continue }
+            _ = bookingsBudget(in: group)
             links[listing.id] = Self.houseID(group)
         }
         saveLinks(links)
