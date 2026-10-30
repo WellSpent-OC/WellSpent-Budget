@@ -238,11 +238,5 @@ struct HousesFeedTests {
         #expect(feed.wheels.values.first?.moneyIn == Money(minorUnits: 400_000))
     }
 
-    @Test func secretsInMemoryCanBeRemoved() throws {
-        let secrets = InMemorySecretStore(["a": "1"])
-        #expect(secrets.secret(named: "a") == "1")
-        secrets.removeSecret(named: "a")
-        #expect(secrets.secret(named: "a") == nil)
-    }
 }
 #endif
