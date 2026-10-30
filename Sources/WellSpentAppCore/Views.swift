@@ -130,10 +130,14 @@ struct RootView: View {
                     budgetSplitView
                 case .properties:
                     if isPropertiesActive {
+                        #if canImport(WellSpentProperties)
+                        HousesTab(model: workspace.model)
+                        #else
                         HousesPlaceholderView(
                             openCatalog: { activeExtension = .catalog },
                             turnOff: { setProperties(on: false) }
                         )
+                        #endif
                     } else {
                         budgetSplitView
                     }
