@@ -121,8 +121,12 @@ public final class AppModel {
             if let open = selectedBudget, !loaded.values.contains(where: { $0.contains { $0.budget.id == open } }) {
                 selectedBudget = nil
             }
+            // The first budget of the first plain group, in the sidebar's
+            // order. A group an extension claims, such as a house, is not in
+            // Budgets, so none of its budgets opens here.
             if selectedBudget == nil, opensFirstBudget {
-                selectedBudget = loaded.values.flatMap(\.self).first?.budget.id
+                selectedBudget = groups.lazy.filter { $0.claimedBy == nil }
+                    .compactMap { loaded[$0.id]?.first }.first?.budget.id
             }
             reloadTransactions()
         } catch {
@@ -355,14 +359,17 @@ public final class AppModel {
 
     /// Adds a budget at the end of its group, in the next color, and selects it.
     @discardableResult
-    public func addBudget(named name: String, limit: Money, in group: GroupID) -> BudgetID? {
+    /// `select: false` is for a budget an extension makes on the person's
+    /// behalf, such as a house's Bookings: made without opening it, so what
+    /// the person has open stays open.
+    public func addBudget(named name: String, limit: Money, in group: GroupID, select: Bool = true) -> BudgetID? {
         do {
             let siblings = try store.budgets(in: group)
             let budget = Budget(groupID: group, name: Self.clean(name), limit: limit.magnitude,
                                 colorIndex: siblings.count,
                                 sortOrder: (siblings.map(\.sortOrder).max() ?? -1) + 1)
             try store.save(budget)
-            selectedBudget = budget.id
+            if select { selectedBudget = budget.id }
             changed()
             return budget.id
         } catch {

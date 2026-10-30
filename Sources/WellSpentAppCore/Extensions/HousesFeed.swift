@@ -186,12 +186,12 @@ public final class HousesFeed {
 
     /// The house's Bookings budget, made with no limit the first time, so
     /// income has somewhere to land without adding to what the house plans
-    /// to spend.
+    /// to spend. Made without opening it: a house is not in Budgets.
     private func bookingsBudget(in group: GroupID) -> BudgetID? {
         if let found = model.summaries[group]?.first(where: { $0.budget.name == Self.bookingsBudget }) {
             return found.budget.id
         }
-        return model.addBudget(named: Self.bookingsBudget, limit: Money(minorUnits: 0), in: group)
+        return model.addBudget(named: Self.bookingsBudget, limit: Money(minorUnits: 0), in: group, select: false)
     }
 
     // MARK: - The key sheet
