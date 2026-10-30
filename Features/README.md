@@ -285,6 +285,14 @@ They do not count as UI scenario coverage in this table.
 | - | - | - | - |
 | PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Linux |
 | PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Linux |
+| PROP-04 | All houses at a glance | Mac, Linux, iPhone | iPhone |
+| PROP-05 | A house below break-even reads as rust | Mac, Linux, iPhone | iPhone |
+| PROP-06 | Needs you lists today's turnover and tomorrow's check-in | Mac, Linux, iPhone | iPhone |
+| PROP-07 | Needs you names an empty night between two stays | Mac, Linux, iPhone | iPhone |
+| PROP-08 | Needs you is empty when nothing needs him | Mac, Linux, iPhone | iPhone |
+| PROP-14 | Connecting PriceLabs brings in bookings as income entries | Mac, Linux, iPhone | iPhone |
+| PROP-15 | The key stays on the person's devices, and WellSpent only reads | Mac, Linux, iPhone | None yet |
+| PROP-17 | A paused connection says so, calmly | Mac, Linux, iPhone | iPhone |
 
 ### [WarTable.md](WarTable.md)
 
