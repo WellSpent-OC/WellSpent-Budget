@@ -242,6 +242,17 @@ public enum AccessibilityID {
     public static func housesRow(_ name: String) -> String { "houses.row.\(name)" }
     public static func housesRowWheel(_ name: String) -> String { "houses.row.\(name).wheel" }
     public static let housesAdd = "houses.add"
+    public static let housesReconnect = "houses.reconnect"
+
+    // MARK: Connect PriceLabs
+
+    public static let keySheetField = "keySheet.field"
+    public static let keySheetFailure = "keySheet.failure"
+    public static let keySheetConnect = "keySheet.connect"
+    public static let keySheetCancel = "keySheet.cancel"
+    /// A listing's switch, by its name, while choosing which are houses.
+    public static func keySheetListing(_ name: String) -> String { "keySheet.listing.\(name)" }
+    public static let keySheetAddHouses = "keySheet.addHouses"
 }
 
 #endif

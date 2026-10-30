@@ -117,10 +117,14 @@ struct PhoneRootView: View {
 
                 if isPropertiesActive {
                     NavigationStack {
+                        #if canImport(WellSpentProperties)
+                        PhoneHousesTab(model: model)
+                        #else
                         HousesPlaceholderView(
                             openCatalog: { showingExtensionsCatalog = true },
                             turnOff: { setProperties(on: false) }
                         )
+                        #endif
                     }
                     .tabItem {
                         Label("Houses", systemImage: "house.fill")
