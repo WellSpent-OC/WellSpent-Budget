@@ -86,4 +86,16 @@ struct ImportedEntriesTests {
         model.applyImport(adds: [], changes: [], removes: [])
     }
 
+
+    /// A secret an extension keeps, here in memory as tests and the mock do:
+    /// set, replaced, read and removed.
+    @Test func aSecretIsKeptReplacedAndRemoved() throws {
+        let secrets = InMemorySecretStore(["a": "1"])
+        #expect(secrets.secret(named: "a") == "1")
+        try secrets.setSecret("2", named: "a")
+        try secrets.setSecret("x", named: "b")
+        #expect(secrets.secret(named: "a") == "2" && secrets.secret(named: "b") == "x")
+        secrets.removeSecret(named: "a")
+        #expect(secrets.secret(named: "a") == nil && secrets.secret(named: "b") == "x")
+    }
 }
