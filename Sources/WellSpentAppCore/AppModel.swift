@@ -399,10 +399,12 @@ public final class AppModel {
         }
     }
 
+    /// `claimedBy` is the extension that draws the group, such as Properties
+    /// for a house, or nil for a plain group.
     @discardableResult
-    public func addGroup(named name: String) -> GroupID? {
+    public func addGroup(named name: String, claimedBy: String? = nil) -> GroupID? {
         do {
-            let group = BudgetGroup(name: Self.clean(name))
+            let group = BudgetGroup(name: Self.clean(name), claimedBy: claimedBy)
             try store.save(group)
             changed()
             return group.id
@@ -485,6 +487,65 @@ public final class AppModel {
         budget.isDeleted = true
         budget.updatedAt = Date()
         try store.save(budget, queue: queue)
+    }
+
+    // MARK: - Entries an importer worked out
+
+    /// Every live entry in a group, in every budget and every period: what an
+    /// importer checks its own entries against.
+    public func entries(in group: GroupID) -> [Transaction] {
+        do {
+            return try store.budgets(in: group).flatMap { try store.transactions(in: $0.id) }
+        } catch {
+            errorMessage = String(describing: error)
+            return []
+        }
+    }
+
+    /// A change an importer worked out for an entry it wrote before.
+    public struct ImportedChange: Equatable, Sendable {
+        public let id: RecordID
+        public let amount: Money
+        public let date: Date
+        public let note: String
+
+        public init(id: RecordID, amount: Money, date: Date, note: String) {
+            self.id = id
+            self.amount = amount
+            self.date = date
+            self.note = note
+        }
+    }
+
+    /// Saves what an importer worked out, as one change: new entries, changed
+    /// ones and removed ones. Nothing is saved in a group this person may not
+    /// add to, and an entry deleted meanwhile is left deleted. Unlike a
+    /// person's own delete, an importer's offers no Undo: bringing the same
+    /// stays in again would make it again.
+    public func applyImport(adds: [Transaction], changes: [ImportedChange], removes: [RecordID]) {
+        guard !adds.isEmpty || !changes.isEmpty || !removes.isEmpty else { return }
+        do {
+            for entry in adds where mayAddEntries(entry.groupID) {
+                try store.save(entry)
+            }
+            for change in changes {
+                guard var entry = try store.transaction(change.id), !entry.isDeleted,
+                      mayAddEntries(entry.groupID) else { continue }
+                entry.amount = change.amount
+                entry.date = change.date
+                entry.note = change.note
+                entry.updatedAt = Date()
+                try store.save(entry)
+            }
+            for id in removes {
+                guard let entry = try store.transaction(id), !entry.isDeleted,
+                      mayAddEntries(entry.groupID) else { continue }
+                try store.trash(entry)
+            }
+            changed()
+        } catch {
+            errorMessage = String(describing: error)
+        }
     }
 
     private static func clean(_ name: String) -> String {
