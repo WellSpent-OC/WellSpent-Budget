@@ -874,14 +874,11 @@ class App:
         self.choose(budget, self.line_lists(review, bank_words)[-1])
 
     def kind_list(self, review, bank_words):
-        """A money-in line's kind list, named Money in for a screen reader,
-        or None when the line is money out and has none."""
-        lists = [e for e in self.line_lists(review, bank_words)
-                 if "Money in" in (e.words, e.value) or e.words in self.KINDS]
+        """A money-in line's kind list, which says its chosen kind and is
+        described as Money in for a screen reader, or None when the line is
+        money out and has none."""
+        lists = [e for e in self.line_lists(review, bank_words) if e.value == "Money in"]
         return lists[0] if lists else None
-
-    # What a money-in line can land as, the kind list's choices.
-    KINDS = ("Income", "Refund", "Borrowed", "From savings", "Transfer")
 
     def answer(self, button):
         """Presses `button` in the question in front, such as "Delete"."""

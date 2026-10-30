@@ -449,13 +449,15 @@ struct ImportReviewView: View {
                     .foregroundColor(Self.color(row.tone))
             }
             .frame(width: 140, alignment: .leading)
-            // A money-in line's kind list, read by its chosen kind as GTK names
-            // a list; a money-out line keeps the space so the budget lists
-            // line up.
+            // A money-in line's kind list: named by its chosen kind, as GTK
+            // names a list, and described as "Money in" for a screen reader, as
+            // the Mac's is. A money-out line keeps the space so the budget
+            // lists line up.
             if row.kind != nil {
                 Picker(of: kindChoices, selection: Binding(
                     get: { kindChoices.first { $0.value == chosenKind(row.id) } },
                     set: { if let chosen = $0?.value { screen.choose(chosen, for: row.id) } }))
+                    .controlDescription(Words.kind)
                     .frame(width: 110)
             } else {
                 Spacer()
