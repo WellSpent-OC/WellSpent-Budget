@@ -77,21 +77,45 @@ struct MoneyWheelView: View {
             }
             // Each on one line, inside the tick's inner end, so the words
             // never cross it.
-            VStack(spacing: 2) {
-                Text(wheel.middleKey)
-                    .font(.system(size: Self.fitting(wheel.middleKey, size: 12, in: g), weight: .semibold))
-                    .foregroundColor(Color(PaletteValues.muted))
-                    .fixedSize()
-                Text(wheel.middleAmount)
-                    .font(.money(Self.fitting(wheel.middleAmount, size: 28, in: g), weight: .medium))
-                    .foregroundColor(Color(wheel.amountColor))
-                    .fixedSize()
-                Text(wheel.middleOf)
-                    .font(.system(size: Self.fitting(wheel.middleOf, size: 11, in: g)))
-                    .foregroundColor(Color(PaletteValues.muted))
-                    .fixedSize()
+            if wheel.showsCashFlow {
+                // A group with money in: money in, money out, and the cash
+                // flow for this month, as on the Mac (WHEEL-15).
+                VStack(spacing: 2) {
+                    Text(wheel.middleIn)
+                        .font(.system(size: Self.fitting(wheel.middleIn, size: 12, in: g), weight: .semibold))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                    Text(wheel.middleOut)
+                        .font(.system(size: Self.fitting(wheel.middleOut, size: 12, in: g), weight: .semibold))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                    Text(wheel.cashFlowAmount)
+                        .font(.money(Self.fitting(wheel.cashFlowAmount, size: 28, in: g), weight: .medium))
+                        .foregroundColor(Color(wheel.cashFlowColor))
+                        .fixedSize()
+                    Text(MoneyWheel.Words.thisMonth)
+                        .font(.system(size: Self.fitting(MoneyWheel.Words.thisMonth, size: 11, in: g)))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                }
+                .frame(width: g.tickInner * 2)
+            } else {
+                VStack(spacing: 2) {
+                    Text(wheel.middleKey)
+                        .font(.system(size: Self.fitting(wheel.middleKey, size: 12, in: g), weight: .semibold))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                    Text(wheel.middleAmount)
+                        .font(.money(Self.fitting(wheel.middleAmount, size: 28, in: g), weight: .medium))
+                        .foregroundColor(Color(wheel.amountColor))
+                        .fixedSize()
+                    Text(wheel.middleOf)
+                        .font(.system(size: Self.fitting(wheel.middleOf, size: 11, in: g)))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                }
+                .frame(width: g.tickInner * 2)
             }
-            .frame(width: g.tickInner * 2)
         }
         .frame(width: g.size, height: g.size)
     }
@@ -293,6 +317,19 @@ struct GroupMoneySection: View {
                     Text(GroupMoney.Words.card)
                         .font(.system(size: 13, weight: .semibold))
                     FiguresList(figures: money.wheel.figures)
+                    // Over the budgets while money in covers it (WHEEL-17),
+                    // and money that came in without being income (WHEEL-19).
+                    if let covered = money.wheel.overBudgetsCoveredLine {
+                        Text(covered)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(PaletteValues.warning))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ForEach(money.otherMoneyLines, id: \.self) { line in
+                        Text(line)
+                            .font(.system(size: 12))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Text(money.note)
                         .font(.system(size: 12))
                         .foregroundColor(Color(PaletteValues.muted))

@@ -1379,22 +1379,38 @@ def days_in_words(count):
 
 class Wheel:
     """A budget's wheel on a day, as the app should put it in words. For a
-    group's, `group=True`, with every budget in it added up."""
+    group's, `group=True`, with every budget in it added up, and the money
+    that came in: income refills it toward full (`money_in_cents`), while
+    borrowed money and savings draws are only named under it."""
 
-    def __init__(self, name, limit_cents, spent_cents, day=None, may_edit=True, group=False):
+    def __init__(self, name, limit_cents, spent_cents, day=None, may_edit=True, group=False,
+                 money_in_cents=0, borrowed_cents=0, from_savings_cents=0):
         self.name, self.limit, self.spent, self.may_edit = name, limit_cents, spent_cents, may_edit
         self.group = group
+        self.money_in = money_in_cents if group else 0
+        self.borrowed, self.from_savings = borrowed_cents, from_savings_cents
         self.today = today(day)
         self.days = days_in_month(self.today)
         self.to_come = self.days - self.today.day
 
     @property
     def left(self):
-        return self.limit - self.spent
+        """The budgets less what is spent, plus money in. Below zero when over."""
+        return self.limit - self.spent + self.money_in
 
     @property
     def is_over(self):
-        return self.spent > self.limit
+        return self.left < 0
+
+    @property
+    def left_shown(self):
+        """What is left as the wheel says it: money in fills it to full and
+        no further."""
+        return self.limit if self.money_in > 0 and self.limit < self.left else self.left
+
+    @property
+    def cash_flow(self):
+        return self.money_in - self.spent
 
     @property
     def day_line(self):
@@ -1404,11 +1420,17 @@ class Wheel:
     @property
     def middle(self):
         """The wheel's middle, top to bottom: "Left", "$517", "of $1,000"."""
+        if self.group and self.money_in > 0:
+            # Money in, money out, and the cash flow with a real minus sign.
+            flow = self.cash_flow
+            sign = "\u2212" if flow < 0 else "+" if flow > 0 else ""
+            return [f"{whole_dollars(self.money_in)} in", f"{whole_dollars(self.spent)} out",
+                    sign + whole_dollars(abs(flow)), "this month"]
         of = f"of {whole_dollars(self.limit)}"
         month = " this month" if self.group else ""
         if self.is_over:
-            return ["Over" + month, whole_dollars(max(self.spent - self.limit, 100)), of]
-        return ["Left" + month, whole_dollars(self.left), of]
+            return ["Over" + month, whole_dollars(max(-self.left, 100)), of]
+        return ["Left" + month, whole_dollars(self.left_shown), of]
 
     @property
     def expected_left(self):
@@ -1420,11 +1442,12 @@ class Wheel:
     def figures(self):
         """Beside the wheel, in order: ("Spent", "$483.16"), then Left or
         Over, then Expected left by today when there is one."""
-        figures = [("Spent", dollars(self.spent))]
+        figures = [("In", "+" + dollars(self.money_in))] if self.money_in > 0 else []
+        figures.append(("Spent", dollars(self.spent)))
         if self.is_over:
-            figures.append(("Over", dollars(self.spent - self.limit)))
+            figures.append(("Over", dollars(-self.left)))
         else:
-            figures.append(("Left", dollars(self.left)))
+            figures.append(("Left", dollars(self.left_shown)))
         if self.expected_left is not None:
             figures.append(("Expected left by today", dollars(self.expected_left)))
         return figures
@@ -1450,7 +1473,25 @@ class Wheel:
     @property
     def note(self):
         """Under a group's figures: "Day 18 of 31. Every budget in Household, added up."."""
-        return f"Day {self.today.day} of {self.days}. Every budget in {self.name}, added up."
+        ending = ", and money in." if self.money_in > 0 else "."
+        return f"Day {self.today.day} of {self.days}. Every budget in {self.name}, added up{ending}"
+
+    @property
+    def covered_line(self):
+        """Spent past the budgets while money in covers it, or None."""
+        if self.is_over or self.spent <= self.limit:
+            return None
+        return f"Over the month's budgets by {dollars(self.spent - self.limit)}. Money in covers it."
+
+    @property
+    def other_money_lines(self):
+        """Money that came in without refilling the wheel, one line each."""
+        lines = []
+        if self.borrowed > 0:
+            lines.append(f"{dollars(self.borrowed)} borrowed this month")
+        if self.from_savings > 0:
+            lines.append(f"{dollars(self.from_savings)} from savings this month")
+        return lines
 
     @property
     def row(self):
