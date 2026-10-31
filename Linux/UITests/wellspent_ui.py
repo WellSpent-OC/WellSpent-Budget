@@ -924,30 +924,48 @@ class App:
         """Makes a fresh account on staging for this copy, as a person does:
         Sign in, Create an account, an email and a password, then the emailed
         code. Signed in afterwards. Gives back the email."""
+        self.button("Sign in", within=self.main).press()
+        return self.sign_up_on_sheet(name)
+
+    def sign_up_on_sheet(self, name):
+        """Makes a fresh account on the account sheet something opened, and
+        confirms its email with the code. Signed in afterwards."""
+        self.sign_up_unconfirmed(name)
+        self.confirm_on_sheet()
+        return self.email
+
+    def sign_up_unconfirmed(self, name, sheet_open=False):
+        """Makes a fresh account and stops before the code: signed in, with
+        the email not yet confirmed, the sheet asking for the code."""
         slug = "".join(ch for ch in name.lower() if ch.isalnum())
         self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
         self.password = secrets.token_urlsafe(18)
-        self.button("Sign in", within=self.main).press()
+        if len(self.windows()) < 2:
+            self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
         if SERVER_OVERRIDE:
             self.field("Server", sheet).type(STAGING)
         self.button("Create an account", within=sheet).press()
         self.wait_shows("Confirm password")
         sheet = self.front
-        asked = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+        self.asked_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
         self.field("Email", sheet).type(self.email)
         self.field("Password", sheet).type(self.password)
         self.field("Confirm password", sheet).type(self.password)
         self.button("Create account", within=sheet).press()
         self.wait_shows("Confirm your email")
-        self.field("Code", self.front).type(emailed_code(self.email, asked))
+        _ACCOUNTS[name.lower()] = (self.email, self.password)
+        return self.email
+
+    def confirm_on_sheet(self):
+        """Types the emailed code on the sheet asking for it, then Done."""
+        self.wait_shows("Confirm your email")
+        self.field("Code", self.front).type(emailed_code(self.email, self.asked_at))
         self.button("Confirm", within=self.front).press()
         self.wait_shows("Your email is confirmed.")
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the account sheet to close")
         self.button("Sync", within=self.main)
-        _ACCOUNTS[name.lower()] = (self.email, self.password)
-        return self.email
 
     def sign_in_as(self, name):
         """Signs this copy in to the person's account for this run, making it
