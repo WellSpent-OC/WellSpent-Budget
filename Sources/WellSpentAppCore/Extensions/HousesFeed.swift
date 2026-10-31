@@ -1,5 +1,6 @@
 #if canImport(WellSpentProperties)
 import Foundation
+import Observation
 import WellSpentCrypto
 import WellSpentModel
 import WellSpentProperties
