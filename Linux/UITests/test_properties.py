@@ -25,7 +25,7 @@ class Properties(unittest.TestCase):
         # Budgets exactly as before.
         app.button("Budget", within=app.main).press()
         app.wait_shows("Repairs", within=app.main)
-        app.wait_shows("Rentals", within=app.main)
+        app.group("Rentals")
 
         # Back in the catalog the card says it is on and opens Houses.
         app.button("Extensions", within=app.main).press()
