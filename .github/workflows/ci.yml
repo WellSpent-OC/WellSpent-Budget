@@ -340,7 +340,8 @@ jobs:
           restore-keys: spm-linux-properties-
 
       # The seam's own test checks that the registry offers Properties when,
-      # and only when, the package is linked.
+      # and only when, the package is linked. The Houses feed's tests need the
+      # package, so they run here and nowhere else.
       - name: Build and test with the package linked
         if: env.HAS_PROPERTIES_KEY == 'true'
         env:
@@ -348,7 +349,7 @@ jobs:
           WELLSPENT_PROPERTIES_LINKED: "1"
         run: |
           swift build --build-tests
-          swift test --skip-build --no-parallel --filter PropertiesRegistrationTests
+          swift test --skip-build --no-parallel --filter "PropertiesRegistrationTests|HousesFeedTests"
 
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
   # screen through GTK's accessibility tree and act as a person does. Not a

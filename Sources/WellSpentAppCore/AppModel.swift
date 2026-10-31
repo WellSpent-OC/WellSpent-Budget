@@ -121,8 +121,12 @@ public final class AppModel {
             if let open = selectedBudget, !loaded.values.contains(where: { $0.contains { $0.budget.id == open } }) {
                 selectedBudget = nil
             }
+            // The first budget of the first plain group, in the sidebar's
+            // order. A group an extension claims, such as a house, is not in
+            // Budgets, so none of its budgets opens here.
             if selectedBudget == nil, opensFirstBudget {
-                selectedBudget = loaded.values.flatMap(\.self).first?.budget.id
+                selectedBudget = groups.lazy.filter { $0.claimedBy == nil }
+                    .compactMap { loaded[$0.id]?.first }.first?.budget.id
             }
             reloadTransactions()
         } catch {
@@ -355,14 +359,17 @@ public final class AppModel {
 
     /// Adds a budget at the end of its group, in the next color, and selects it.
     @discardableResult
-    public func addBudget(named name: String, limit: Money, in group: GroupID) -> BudgetID? {
+    /// `select: false` is for a budget an extension makes on the person's
+    /// behalf, such as a house's Bookings: made without opening it, so what
+    /// the person has open stays open.
+    public func addBudget(named name: String, limit: Money, in group: GroupID, select: Bool = true) -> BudgetID? {
         do {
             let siblings = try store.budgets(in: group)
             let budget = Budget(groupID: group, name: Self.clean(name), limit: limit.magnitude,
                                 colorIndex: siblings.count,
                                 sortOrder: (siblings.map(\.sortOrder).max() ?? -1) + 1)
             try store.save(budget)
-            selectedBudget = budget.id
+            if select { selectedBudget = budget.id }
             changed()
             return budget.id
         } catch {
@@ -399,10 +406,12 @@ public final class AppModel {
         }
     }
 
+    /// `claimedBy` is the extension that draws the group, such as Properties
+    /// for a house, or nil for a plain group.
     @discardableResult
-    public func addGroup(named name: String) -> GroupID? {
+    public func addGroup(named name: String, claimedBy: String? = nil) -> GroupID? {
         do {
-            let group = BudgetGroup(name: Self.clean(name))
+            let group = BudgetGroup(name: Self.clean(name), claimedBy: claimedBy)
             try store.save(group)
             changed()
             return group.id
@@ -485,6 +494,65 @@ public final class AppModel {
         budget.isDeleted = true
         budget.updatedAt = Date()
         try store.save(budget, queue: queue)
+    }
+
+    // MARK: - Entries an importer worked out
+
+    /// Every live entry in a group, in every budget and every period: what an
+    /// importer checks its own entries against.
+    public func entries(in group: GroupID) -> [Transaction] {
+        do {
+            return try store.budgets(in: group).flatMap { try store.transactions(in: $0.id) }
+        } catch {
+            errorMessage = String(describing: error)
+            return []
+        }
+    }
+
+    /// A change an importer worked out for an entry it wrote before.
+    public struct ImportedChange: Equatable, Sendable {
+        public let id: RecordID
+        public let amount: Money
+        public let date: Date
+        public let note: String
+
+        public init(id: RecordID, amount: Money, date: Date, note: String) {
+            self.id = id
+            self.amount = amount
+            self.date = date
+            self.note = note
+        }
+    }
+
+    /// Saves what an importer worked out, as one change: new entries, changed
+    /// ones and removed ones. Nothing is saved in a group this person may not
+    /// add to, and an entry deleted meanwhile is left deleted. Unlike a
+    /// person's own delete, an importer's offers no Undo: bringing the same
+    /// stays in again would make it again.
+    public func applyImport(adds: [Transaction], changes: [ImportedChange], removes: [RecordID]) {
+        guard !adds.isEmpty || !changes.isEmpty || !removes.isEmpty else { return }
+        do {
+            for entry in adds where mayAddEntries(entry.groupID) {
+                try store.save(entry)
+            }
+            for change in changes {
+                guard var entry = try store.transaction(change.id), !entry.isDeleted,
+                      mayAddEntries(entry.groupID) else { continue }
+                entry.amount = change.amount
+                entry.date = change.date
+                entry.note = change.note
+                entry.updatedAt = Date()
+                try store.save(entry)
+            }
+            for id in removes {
+                guard let entry = try store.transaction(id), !entry.isDeleted,
+                      mayAddEntries(entry.groupID) else { continue }
+                try store.trash(entry)
+            }
+            changed()
+        } catch {
+            errorMessage = String(describing: error)
+        }
     }
 
     private static func clean(_ name: String) -> String {
