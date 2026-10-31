@@ -25,9 +25,21 @@ struct PhoneGroupMoneySections: View {
                 PhoneFigureRow(figure: figure)
             }
         } footer: {
-            Text(money.note)
-                .font(.footnote)
-                .foregroundStyle(Palette.muted)
+            VStack(alignment: .leading, spacing: 6) {
+                if let covered = money.wheel.overBudgetsCoveredLine {
+                    Text(covered)
+                        .foregroundStyle(Palette.warning)
+                        .accessibilityIdentifier(AccessibilityID.groupOverBudgetsCovered)
+                }
+                ForEach(money.otherMoneyLines, id: \.self) { line in
+                    Text(line)
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityIdentifier(AccessibilityID.groupOtherMoney)
+                }
+                Text(money.note)
+                    .foregroundStyle(Palette.muted)
+            }
+            .font(.footnote)
         }
         .listRowBackground(Palette.surface)
     }
