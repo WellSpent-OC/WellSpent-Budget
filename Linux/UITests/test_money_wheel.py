@@ -200,7 +200,8 @@ class MoneyWheel(unittest.TestCase):
         self.assertTrue(over.is_over, "the test's own numbers are over")
         expect(over)
         self.assertIsNone(over.covered_line)
-        self.assertFalse(app.shows("Over the month's budgets", within=app.main))
+        # The covered line goes on past these words, so match its start.
+        self.assertEqual([], app.main.all(starts="Over the month's budgets"))
 
         # Scenario WHEEL-14, WHEEL-15
         # 5. $5,000.00 more income: the wheel is full and no fuller, and the

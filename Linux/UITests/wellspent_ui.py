@@ -934,7 +934,7 @@ class App:
         self.confirm_on_sheet()
         return self.email
 
-    def sign_up_unconfirmed(self, name, sheet_open=False):
+    def sign_up_unconfirmed(self, name):
         """Makes a fresh account and stops before the code: signed in, with
         the email not yet confirmed, the sheet asking for the code."""
         slug = "".join(ch for ch in name.lower() if ch.isalnum())
