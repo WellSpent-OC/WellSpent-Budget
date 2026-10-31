@@ -93,7 +93,12 @@ class Element:
         self.node = node
 
     def __repr__(self):
-        return f"<{self.role} {self.words!r}>"
+        # Also used to describe a step before it waits, so a node a redraw
+        # replaced, or an app slow to answer, must not fail the step here.
+        try:
+            return f"<{self.role} {self.words!r}>"
+        except Exception:
+            return "<an element no longer on screen>"
 
     @property
     def role(self):

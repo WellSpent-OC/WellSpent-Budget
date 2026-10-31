@@ -130,7 +130,9 @@ class ImportShared(unittest.TestCase):
         robin.sync()
         robin.until(lambda: NOTICE_ROW in [l.words for l in robin.entry("Hilltop Grocery").all("label")],
                     "the line saying his change didn't go through")
-        row = next(r for r in robin.entries() if r[1] == "Hilltop Grocery")
+        # A sync can redraw the list mid-read, so the read is retried.
+        row = robin.until(lambda: next((r for r in robin.entries() if r[1] == "Hilltop Grocery"), None),
+                          "Hilltop Grocery's row")
         self.assertIn("two loaves", row)
         self.assertIn("$124.08", row)
         self.assertNotIn("$150.00", row)
