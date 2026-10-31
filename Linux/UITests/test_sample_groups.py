@@ -158,6 +158,49 @@ class SampleGroups(unittest.TestCase):
         app.sign_out()
         app.until(lambda: names(app) == SAMPLES, "the samples back")
 
+    def test_a_group_made_before_signing_in_comes_along(self):
+        needs_accounts(self)
+        maker = launch_fresh(self)
+        name = unique("Commuter")
+        maker.sign_up(name)
+        trip = unique("Trip")
+        maker.new_group(trip)
+        self.addCleanup(maker.remove_group, trip)
+        maker.sync()
+
+        # Scenario SAMP-08
+        # 1. On a fresh install, Household renamed Home, and Road trip made
+        # with Fuel and Gas station. Signing in to the account made elsewhere
+        # brings both, beside that account's own group. Side Business, which
+        # nobody changed, stays out.
+        app = launch_fresh(self)
+        app.pick("Rename…", app.group_menu("Household"))
+        sheet = app.wait_for_window(2, "the Rename Group sheet")
+        app.field("Name", sheet).type("Home")
+        app.button("Save", within=sheet).press()
+        app.wait_for_window(1, "the sheet to close")
+        app.new_group("Road trip")
+        app.new_budget("Fuel", "200", group="Road trip")
+        app.add_entry("Gas station", "45.00")
+        app.sign_in_as(name)
+        app.until(lambda: names(app) == ["HOME", "Groceries", "Eating out", "Utilities", "ROAD TRIP", "Fuel",
+                                         trip.upper()], "the account's group, Home and Road trip")
+        app.budget("Fuel").press()
+        app.until(lambda: [row[1] for row in app.entries()] == ["Gas station"], "Gas station")
+
+        # Scenario SAMP-08
+        # 2. Both synced: the computer that made the account gets them.
+        app.sync()
+        self.addCleanup(maker.remove_group, "Home")
+        self.addCleanup(maker.remove_group, "Road trip")
+        maker.sync()
+        maker.until(lambda: {"HOME", "ROAD TRIP"} <= set(names(maker)), "Home and Road trip on the other computer")
+
+        # Scenario SAMP-08
+        # 3. Signed out, only the untouched Side Business is left here.
+        app.sign_out()
+        app.until(lambda: names(app) == ["SIDE BUSINESS", "Materials"], "only Side Business")
+
     def test_the_samples_come_only_once(self):
         needs_accounts(self)
         app = launch_fresh(self)

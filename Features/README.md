@@ -86,6 +86,7 @@ It is not kept here, where every pull request would change the same lines.
 | SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-07 | The samples come only once | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| SAMP-08 | A group made before signing in comes along, and the samples do not | Mac, Linux, iPhone | Linux |
 
 ### [Budgets.md](Budgets.md)
 

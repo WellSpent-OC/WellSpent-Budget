@@ -21,7 +21,7 @@ A new install starts with two made-up groups, **HOUSEHOLD** and **SIDE BUSINESS*
 
 Do the same for **SIDE BUSINESS**. With both gone, you see **No budgets yet**. Deleted samples don't come back.
 
-If you sign in to an account you made on another computer, the samples hide. They show again when you sign out.
+If you sign in to an account you made on another computer, samples you haven't changed stay on this computer and hide. They show again when you sign out. A sample you changed comes into your account.
 
 ## On an iPhone
 

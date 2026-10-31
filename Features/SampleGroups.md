@@ -56,3 +56,13 @@ A fresh install opens with two made-up groups, so there is something to look at 
 - Then the list is empty, and the right side says "No budgets yet"
 - And the samples do not come back, even after WellSpent is quit and opened again
 - And an account Leslie then makes on this computer starts empty too
+
+## SAMP-08 A group made before signing in comes along, and the samples do not
+
+- Given a fresh install, where Robin renamed the sample "Household" to "Home", and made a group "Road trip" with a budget "Fuel" and an entry "Gas station"
+- When he signs in to the account he made on another computer
+- Then the list holds that account's groups, "Home" and "Road trip", with their budgets and entries
+- And "Home" and "Road trip" sync to his account, so his other devices get them
+- And "Side Business", which he did not change, stays out
+- When he signs out
+- Then the list holds only "Side Business"
