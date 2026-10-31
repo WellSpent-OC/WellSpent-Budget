@@ -93,7 +93,12 @@ class Element:
         self.node = node
 
     def __repr__(self):
-        return f"<{self.role} {self.words!r}>"
+        # Also used to describe a step before it waits, so a node a redraw
+        # replaced, or an app slow to answer, must not fail the step here.
+        try:
+            return f"<{self.role} {self.words!r}>"
+        except Exception:
+            return "<an element no longer on screen>"
 
     @property
     def role(self):
@@ -924,30 +929,48 @@ class App:
         """Makes a fresh account on staging for this copy, as a person does:
         Sign in, Create an account, an email and a password, then the emailed
         code. Signed in afterwards. Gives back the email."""
+        self.button("Sign in", within=self.main).press()
+        return self.sign_up_on_sheet(name)
+
+    def sign_up_on_sheet(self, name):
+        """Makes a fresh account on the account sheet something opened, and
+        confirms its email with the code. Signed in afterwards."""
+        self.sign_up_unconfirmed(name)
+        self.confirm_on_sheet()
+        return self.email
+
+    def sign_up_unconfirmed(self, name):
+        """Makes a fresh account and stops before the code: signed in, with
+        the email not yet confirmed, the sheet asking for the code."""
         slug = "".join(ch for ch in name.lower() if ch.isalnum())
         self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
         self.password = secrets.token_urlsafe(18)
-        self.button("Sign in", within=self.main).press()
+        if len(self.windows()) < 2:
+            self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
         if SERVER_OVERRIDE:
             self.field("Server", sheet).type(STAGING)
         self.button("Create an account", within=sheet).press()
         self.wait_shows("Confirm password")
         sheet = self.front
-        asked = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+        self.asked_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
         self.field("Email", sheet).type(self.email)
         self.field("Password", sheet).type(self.password)
         self.field("Confirm password", sheet).type(self.password)
         self.button("Create account", within=sheet).press()
         self.wait_shows("Confirm your email")
-        self.field("Code", self.front).type(emailed_code(self.email, asked))
+        _ACCOUNTS[name.lower()] = (self.email, self.password)
+        return self.email
+
+    def confirm_on_sheet(self):
+        """Types the emailed code on the sheet asking for it, then Done."""
+        self.wait_shows("Confirm your email")
+        self.field("Code", self.front).type(emailed_code(self.email, self.asked_at))
         self.button("Confirm", within=self.front).press()
         self.wait_shows("Your email is confirmed.")
         self.button("Done", within=self.front).press()
         self.wait_for_window(1, "the account sheet to close")
         self.button("Sync", within=self.main)
-        _ACCOUNTS[name.lower()] = (self.email, self.password)
-        return self.email
 
     def sign_in_as(self, name):
         """Signs this copy in to the person's account for this run, making it
@@ -1361,22 +1384,38 @@ def days_in_words(count):
 
 class Wheel:
     """A budget's wheel on a day, as the app should put it in words. For a
-    group's, `group=True`, with every budget in it added up."""
+    group's, `group=True`, with every budget in it added up, and the money
+    that came in: income refills it toward full (`money_in_cents`), while
+    borrowed money and savings draws are only named under it."""
 
-    def __init__(self, name, limit_cents, spent_cents, day=None, may_edit=True, group=False):
+    def __init__(self, name, limit_cents, spent_cents, day=None, may_edit=True, group=False,
+                 money_in_cents=0, borrowed_cents=0, from_savings_cents=0):
         self.name, self.limit, self.spent, self.may_edit = name, limit_cents, spent_cents, may_edit
         self.group = group
+        self.money_in = money_in_cents if group else 0
+        self.borrowed, self.from_savings = borrowed_cents, from_savings_cents
         self.today = today(day)
         self.days = days_in_month(self.today)
         self.to_come = self.days - self.today.day
 
     @property
     def left(self):
-        return self.limit - self.spent
+        """The budgets less what is spent, plus money in. Below zero when over."""
+        return self.limit - self.spent + self.money_in
 
     @property
     def is_over(self):
-        return self.spent > self.limit
+        return self.left < 0
+
+    @property
+    def left_shown(self):
+        """What is left as the wheel says it: money in fills it to full and
+        no further."""
+        return self.limit if self.money_in > 0 and self.limit < self.left else self.left
+
+    @property
+    def cash_flow(self):
+        return self.money_in - self.spent
 
     @property
     def day_line(self):
@@ -1386,11 +1425,17 @@ class Wheel:
     @property
     def middle(self):
         """The wheel's middle, top to bottom: "Left", "$517", "of $1,000"."""
+        if self.group and self.money_in > 0:
+            # Money in, money out, and the cash flow with a real minus sign.
+            flow = self.cash_flow
+            sign = "\u2212" if flow < 0 else "+" if flow > 0 else ""
+            return [f"{whole_dollars(self.money_in)} in", f"{whole_dollars(self.spent)} out",
+                    sign + whole_dollars(abs(flow)), "this month"]
         of = f"of {whole_dollars(self.limit)}"
         month = " this month" if self.group else ""
         if self.is_over:
-            return ["Over" + month, whole_dollars(max(self.spent - self.limit, 100)), of]
-        return ["Left" + month, whole_dollars(self.left), of]
+            return ["Over" + month, whole_dollars(max(-self.left, 100)), of]
+        return ["Left" + month, whole_dollars(self.left_shown), of]
 
     @property
     def expected_left(self):
@@ -1402,11 +1447,12 @@ class Wheel:
     def figures(self):
         """Beside the wheel, in order: ("Spent", "$483.16"), then Left or
         Over, then Expected left by today when there is one."""
-        figures = [("Spent", dollars(self.spent))]
+        figures = [("In", "+" + dollars(self.money_in))] if self.money_in > 0 else []
+        figures.append(("Spent", dollars(self.spent)))
         if self.is_over:
-            figures.append(("Over", dollars(self.spent - self.limit)))
+            figures.append(("Over", dollars(-self.left)))
         else:
-            figures.append(("Left", dollars(self.left)))
+            figures.append(("Left", dollars(self.left_shown)))
         if self.expected_left is not None:
             figures.append(("Expected left by today", dollars(self.expected_left)))
         return figures
@@ -1432,7 +1478,25 @@ class Wheel:
     @property
     def note(self):
         """Under a group's figures: "Day 18 of 31. Every budget in Household, added up."."""
-        return f"Day {self.today.day} of {self.days}. Every budget in {self.name}, added up."
+        ending = ", and money in." if self.money_in > 0 else "."
+        return f"Day {self.today.day} of {self.days}. Every budget in {self.name}, added up{ending}"
+
+    @property
+    def covered_line(self):
+        """Spent past the budgets while money in covers it, or None."""
+        if self.is_over or self.spent <= self.limit:
+            return None
+        return f"Over the month's budgets by {dollars(self.spent - self.limit)}. Money in covers it."
+
+    @property
+    def other_money_lines(self):
+        """Money that came in without refilling the wheel, one line each."""
+        lines = []
+        if self.borrowed > 0:
+            lines.append(f"{dollars(self.borrowed)} borrowed this month")
+        if self.from_savings > 0:
+            lines.append(f"{dollars(self.from_savings)} from savings this month")
+        return lines
 
     @property
     def row(self):

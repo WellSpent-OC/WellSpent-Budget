@@ -6,6 +6,7 @@ The app is launched with its wheels on the 18th of this month, or the 26th for
 the month's last week, whatever day the tests run, as the Mac's tests do. The
 words each step expects are worked out for that day (`Wheel`)."""
 
+import datetime
 import unittest
 
 from wellspent_ui import Wheel, launch_fresh
@@ -132,6 +133,104 @@ class MoneyWheel(unittest.TestCase):
         app.group("Empty").press()
         app.wait_shows("Empty", within=app.main, role="label")
         self.assertFalse(app.shows("MONEY", within=app.main))
+
+    def test_money_in_on_a_groups_wheel(self):
+        """The wheel's step 2 on a group's page: money in refills the group's
+        wheel toward full, its middle says money in against money out, and
+        borrowed money and savings draws are named without refilling it. One
+        group, Rentals, with one budget, Rent, $4,080.00 a month, on the 18th:
+        the Mac's test, with the same numbers."""
+        app = launch_fresh(self, day=MID_MONTH)
+        app.new_group("Rentals")
+        app.new_budget("Rent", "4080", group="Rentals")
+        limit = cents(4080)
+
+        def month(spent, money_in=0, borrowed=0, from_savings=0):
+            return Wheel("Rentals", limit, spent, MID_MONTH, group=True, money_in_cents=money_in,
+                         borrowed_cents=borrowed, from_savings_cents=from_savings)
+
+        def expect(wheel):
+            app.group("Rentals").press()
+            app.wait_shows("MONEY", within=app.main)
+            self.expect_wheel(app, wheel)
+            app.wait_shows(wheel.note, within=app.main)
+
+        def add(merchant, amount, money_in=False):
+            app.budget("Rent").press()
+            app.button("Add", within=app.main).press()
+            sheet = app.wait_for_window(2, "the New transaction sheet")
+            app.field("Merchant", sheet).type(merchant)
+            app.field("Amount", sheet).type(amount)
+            if money_in:
+                app.find("check box", "Money in", within=sheet).press()
+            app.button("Add", within=sheet).press()
+            app.wait_for_window(1, "the New transaction sheet to close")
+
+        # Scenario WHEEL-16
+        # 1. $2,777.96 spent and no money in: the wheel is step 1's, with no
+        # In figure, and the note ends "added up."
+        add("Landlord", "2777.96")
+        plain = month(cents(2777.96))
+        expect(plain)
+        self.assertFalse(app.shows("In", within=app.main, role="label"), "an In figure with no money in")
+
+        # Scenario WHEEL-14, WHEEL-15, WHEEL-20
+        # 2. $1,230.00 of income: the wheel refills, the middle says money in,
+        # money out and the cash flow, In leads the figures, and Expected left
+        # by today is what it was, since money in never moves the tick.
+        add("Paycheck", "1230", money_in=True)
+        refilled = month(cents(2777.96), cents(1230))
+        self.assertEqual(plain.expected_left, refilled.expected_left)
+        expect(refilled)
+
+        # Scenario WHEEL-17
+        # 3. Spending to $4,500.00 passes the budgets, and the money in covers
+        # it: the wheel stays green and one line says so.
+        add("Repairs", "1722.04")
+        covered = month(cents(4500), cents(1230))
+        self.assertIsNotNone(covered.covered_line, "the test's own numbers are covered")
+        expect(covered)
+        app.wait_shows(covered.covered_line, within=app.main)
+
+        # Scenario WHEEL-18
+        # 4. $1,030.00 more puts the spending past the budgets and the money
+        # in together: the wheel turns orange and says how far over.
+        add("Plumber", "1030")
+        over = month(cents(5530), cents(1230))
+        self.assertTrue(over.is_over, "the test's own numbers are over")
+        expect(over)
+        self.assertIsNone(over.covered_line)
+        # The covered line goes on past these words, so match its start.
+        self.assertEqual([], app.main.all(starts="Over the month's budgets"))
+
+        # Scenario WHEEL-14, WHEEL-15
+        # 5. $5,000.00 more income: the wheel is full and no fuller, and the
+        # cash flow is ahead.
+        add("Bonus", "5000", money_in=True)
+        full = month(cents(5530), cents(6230))
+        self.assertEqual(full.limit, full.left_shown, "the test's own numbers fill the wheel")
+        expect(full)
+
+        # Scenario WHEEL-19
+        # 6. A loan draw and a savings draw from a statement are named under
+        # the figures and refill nothing.
+        app.budget("Rent").press()
+        on = datetime.date.today().replace(day=MID_MONTH).isoformat()
+        path = app.write_file("draws.csv", "Date,Description,Amount\n"
+                              f"{on},CREDIT UNION LOAN,500.00\n{on},SAVINGS XFER,300.00\n")
+        review = app.open_statement(path)
+        app.choose("Borrowed", app.kind_list(review, "CREDIT UNION LOAN"))
+        app.choose("From savings", app.kind_list(review, "SAVINGS XFER"))
+        app.file_line(review, "CREDIT UNION LOAN", "Rent")
+        app.file_line(review, "SAVINGS XFER", "Rent")
+        app.button("Import", within=review).press()
+        app.wait_for_window(1, "the review to close")
+        drawn = month(cents(5530), cents(6230), borrowed=cents(500), from_savings=cents(300))
+        self.assertEqual(full.middle, drawn.middle)
+        self.assertEqual(full.figures, drawn.figures)
+        expect(drawn)
+        for line in drawn.other_money_lines:
+            app.wait_shows(line, within=app.main)
 
     def test_spending_faster_than_an_even_pace(self):
         app = launch_fresh(self, day=MID_MONTH)

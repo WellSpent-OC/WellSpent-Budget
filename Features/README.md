@@ -146,7 +146,7 @@ It is not kept here, where every pull request would change the same lines.
 | EDIT-11 | At Add, only what he added can be changed | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-12 | Someone else deletes or changes it while it is open | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-13 | Moved down while it is open, nothing is saved | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | Mac, iPhone |
+| EDIT-14 | A change that didn't go through is noted | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EDIT-15 | Right-click offers Edit… and Delete… where they are allowed | Mac | Mac |
 | EDIT-16 | The keyboard in the list and in the sheet | Mac | Mac |
 | EDIT-17 | A swipe or a long press offers Edit and Delete where they are allowed | iPhone | iPhone |
@@ -164,11 +164,11 @@ It is not kept here, where every pull request would change the same lines.
 | IMPORT-07 | Importing the same statement again adds nothing twice | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-08 | A deleted line stays deleted when its statement is imported again | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-09 | A line whose budget was deleted is offered again | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| IMPORT-10 | A statement one person imported counts as imported for the others | Mac, Linux, iPhone | Mac, iPhone |
+| IMPORT-10 | A statement one person imported counts as imported for the others | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-11 | Lines dated before this period go in, but the list shows this period only | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-12 | Cancel adds nothing | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | Mac, iPhone |
+| IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Sharing.md](Sharing.md)
 
@@ -220,14 +220,14 @@ It is not kept here, where every pull request would change the same lines.
 | CLICK-03 | The page gives the invite's own level and history | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-04 | Join takes the group in and opens its page | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-05 | Signed out, Sign in… stands in place of Join | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| CLICK-06 | Not confirmed yet, Confirm your email… stands in place of Join | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-07 | The page stays through making an account | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-06 | Not confirmed yet, Confirm your email… stands in place of Join | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-07 | The page stays through making an account | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-08 | A link cut short says part of it is missing | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| CLICK-09 | A used link says so | Mac, Linux, iPhone | Mac, iPhone |
-| CLICK-10 | A link to a group you are in already | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-09 | A used link says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| CLICK-10 | A link to a group you are in already | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-11 | Another link replaces the page | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | CLICK-12 | Picking a budget or a group takes the page down | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| CLICK-13 | A link from the other app says which app it is for | Mac, Linux, iPhone | Mac, iPhone |
+| CLICK-13 | A link from the other app says which app it is for | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Paste.md](Paste.md)
 
@@ -261,13 +261,13 @@ It is not kept here, where every pull request would change the same lines.
 | WHEEL-11 | A group's page opens with its money for the month | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-12 | Over the month's budgets, the group's wheel says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-13 | Home shows wheels only after opening a group or budget | iPhone | iPhone |
-| WHEEL-14 | Money in refills a group's wheel, never past full | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-15 | A group's wheel says money in against money out, and the cash flow | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-16 | With no money in, a group's wheel looks exactly as before | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-17 | Over the month's budgets while money in covers it, the wheel stays green and says so | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-18 | Out beyond the budgets and the money in together turns the group's wheel orange | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-19 | Refunds, loan draws, savings draws, transfers and card payments never count as money in | Mac, Linux, iPhone | Mac, iPhone |
-| WHEEL-20 | The tick marks spending pace, and money in does not move it | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-14 | Money in refills a group's wheel, never past full | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-15 | A group's wheel says money in against money out, and the cash flow | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-16 | With no money in, a group's wheel looks exactly as before | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-17 | Over the month's budgets while money in covers it, the wheel stays green and says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-18 | Out beyond the budgets and the money in together turns the group's wheel orange | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-19 | Refunds, loan draws, savings draws, transfers and card payments never count as money in | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-20 | The tick marks spending pace, and money in does not move it | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Lifecycle.md](Lifecycle.md)
 
