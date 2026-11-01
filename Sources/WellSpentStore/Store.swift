@@ -43,8 +43,9 @@ public struct Store: Sendable {
     /// Removes a group that never left this device, with everything filed
     /// under it, and queues nothing. Only for a group no server has seen.
     /// One that was sent is deleted with `save(_:queue:)` instead, so every
-    /// other device learns that it went away. Entries go first, and the
-    /// search index drops each one as it goes.
+    /// other device learns that it went away. Rows go in the reverse of the
+    /// order a copy inserts them, so entries go before their budgets, and
+    /// the search index drops each one as it goes.
     public func removeUnsentGroup(_ id: GroupID) throws {
         try database.write { db in
             let group = id.dbValue
