@@ -4,6 +4,7 @@ others (IMPORT-10), and at View there is nothing to import or add (IMPORT-14).
 And a change that did not go through is noted (Features/EditEntry.md,
 EDIT-14)."""
 
+import datetime
 import unittest
 
 from wellspent_ui import launch_fresh, needs_accounts, unique
@@ -13,7 +14,9 @@ NOTICE_SHEET = "Your last change to this didn't go through. This is the version 
 
 
 def statement(*lines):
-    return "Date,Description,Amount\n" + "".join(f"2026-10-{day:02d},{words},{amount}\n" for day, words, amount in lines)
+    """A bank's CSV, every line dated today, so it falls in this month."""
+    today = datetime.date.today().isoformat()
+    return "Date,Description,Amount\n" + "".join(f"{today},{words},{amount}\n" for words, amount in lines)
 
 
 class ImportShared(unittest.TestCase):
@@ -66,8 +69,8 @@ class ImportShared(unittest.TestCase):
         # syncs, its lines are in his list, each added by Leslie, from a
         # statement.
         self.open_budget(leslie, food)
-        path = leslie.write_file("statement.csv", statement((28, "TRADER JOES #123", "-54.20"),
-                                                             (28, "CORNER BAKERY", "-12.00")))
+        path = leslie.write_file("statement.csv", statement(("TRADER JOES #123", "-54.20"),
+                                                             ("CORNER BAKERY", "-12.00")))
         review = leslie.open_statement(path)
         leslie.file_line(review, "TRADER JOES #123", food)
         leslie.file_line(review, "CORNER BAKERY", food)
@@ -85,8 +88,8 @@ class ImportShared(unittest.TestCase):
         # Scenario IMPORT-10
         # 2. Robin imports the same statement: every line says Already
         # imported. Cancel adds nothing.
-        same = robin.write_file("statement.csv", statement((28, "TRADER JOES #123", "-54.20"),
-                                                            (28, "CORNER BAKERY", "-12.00")))
+        same = robin.write_file("statement.csv", statement(("TRADER JOES #123", "-54.20"),
+                                                            ("CORNER BAKERY", "-12.00")))
         review = robin.open_statement(same)
         self.assertEqual(["Already imported", "Already imported"], [row[-1] for row in robin.review_rows(review)])
         robin.button("Cancel", within=review).press()
