@@ -85,6 +85,11 @@ def _walk(node):
     return found
 
 
+# What the tree says about a node a redraw replaced, as against an app that
+# stopped answering.
+_REPLACED = ("No such interface", "does not exist")
+
+
 class Element:
     """One thing on screen: a button, a text, a text box, a menu item."""
 
@@ -687,8 +692,18 @@ class App:
 
     def pick(self, words, menu):
         """Presses the item saying `words` in the open menu of `menu`, which
-        closes it."""
-        self.find("menu item", words, within=menu).press()
+        closes it. A sync can rebuild the open menu between finding the item
+        and pressing it, and the old item then has no press. That item is
+        found again. An app that does not answer still fails here."""
+        for attempt in range(3):
+            item = self.find("menu item", words, within=menu)
+            try:
+                Atspi.Action.do_action(item.node, 0)
+                break
+            except GLib.GError as error:
+                if attempt == 2 or not any(gone in str(error) for gone in _REPLACED):
+                    raise self.failure(f"the app stopped answering when asked to press {words!r} ({error})") from None
+        self.settle()
         _forget_menu(menu)
 
     # Keys and lists
@@ -1013,6 +1028,12 @@ class App:
         """Takes a group a test made off this person's computer and, for its
         owner, off the server: Delete… where they may, else Leave…. For a
         test's clean-up."""
+        # The groups are listed only beside the budgets. A test that ends on
+        # another page, such as an extension's, goes back there first, or
+        # the group looks gone and stays on the account.
+        if self.shows("Budget", role="push button", within=self.main):
+            self.button("Budget", within=self.main).press()
+            self.settle()
         # A sync can replace GTK nodes while this scan reads them. Retry a
         # failed scan instead of turning a stale accessibility object into a
         # cleanup failure. The tuple makes an absent group a completed scan.
