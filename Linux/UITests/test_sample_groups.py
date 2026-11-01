@@ -115,6 +115,9 @@ class SampleGroups(unittest.TestCase):
         # (SAMP-01), so the ones listed before signing up are the measure.
         app.budget("Groceries").press()
         app.until(lambda: app.reads(["Groceries"], within=app.main), "Groceries to open")
+        # The title can draw before the rows, so wait for a row or the empty line.
+        app.until(lambda: app.entries() or app.shows("Nothing spent in this budget this period.", within=app.main),
+                  "Groceries' rows, or none")
         shown = {row[1] for row in app.entries()}
         app.add_entry("Farmers market", "18.00")
         app.sign_up(unique("Gardener"))
