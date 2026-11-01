@@ -3,7 +3,7 @@ a group of its own, Kitchen, with Food and Dining: the review, what each line
 will do, filing lines, importing again, and files that aren't statements.
 
 The statements are written by each test, dated from today, so "within 4
-days" and "last month" hold whatever day the tests run. What a second person
+days", "this month" and "last month" hold whatever day the tests run. What a second person
 changes (IMPORT-10, 14) is in test_import_shared.py."""
 
 import datetime
@@ -15,12 +15,19 @@ HEADER = "Date,Description,Amount\n"
 
 
 def day(days_ago):
-    return datetime.date.today() - datetime.timedelta(days=days_ago)
+    """That many days ago, but no earlier than the 1st, so a line meant for
+    this month stays in it on the 1st and 2nd too."""
+    today = datetime.date.today()
+    return today - datetime.timedelta(days=min(days_ago, today.day - 1))
+
+
+LAST_MONTH = datetime.date.today().replace(day=1) - datetime.timedelta(days=5)
 
 
 def statement(*lines):
-    """A bank's CSV: each line (days ago, the bank's words, amount)."""
-    return HEADER + "".join(f"{day(ago).isoformat()},{words},{amount}\n" for ago, words, amount in lines)
+    """A bank's CSV: each line (days ago or a date, the bank's words, amount)."""
+    return HEADER + "".join(f"{(when if isinstance(when, datetime.date) else day(when)).isoformat()},{words},{amount}\n"
+                            for when, words, amount in lines)
 
 
 class Import(unittest.TestCase):
@@ -165,12 +172,11 @@ class Import(unittest.TestCase):
 
     def test_lines_from_before_this_period(self):
         app = self.app
-        last_month = datetime.date.today().day + 5
 
         # Scenario IMPORT-11
         # 1. Lines from last month go in, but Food's list and total leave
         # them out. Importing again shows them as already imported.
-        path = app.write_file("september.csv", statement((last_month, "MARKET", "-9.50")))
+        path = app.write_file("september.csv", statement((LAST_MONTH, "MARKET", "-9.50")))
         review = app.open_statement(path)
         app.file_line(review, "MARKET", "Food")
         self.finish(review)
