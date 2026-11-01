@@ -48,14 +48,58 @@ public struct Store: Sendable {
     public func removeUnsentGroup(_ id: GroupID) throws {
         try database.write { db in
             let group = id.dbValue
-            for table in ["transactionRecord", "budget", "receipt", "importedStatement", "memberProfile",
-                          "outbox", "syncState"] {
+            for table in Self.groupTables.reversed() {
                 try db.execute(sql: "DELETE FROM \(table) WHERE budgetGroupId = ?", arguments: [group])
             }
             let (kind, scope) = KeyScope.group(id).parts
             _ = try ScopedKeyRow.filter(Column("scopeKind") == kind && Column("scopeId") == scope).deleteAll(db)
             _ = try GroupRow.deleteOne(db, key: group)
         }
+    }
+
+    /// The tables that file a group's rows under its `budgetGroupId`, in an
+    /// order a copy can insert them: a budget before its entries.
+    static let groupTables = ["budget", "transactionRecord", "receipt", "importedStatement", "memberProfile",
+                              "outbox", "syncState"]
+
+    /// Moves a group that never left this device, with everything filed under
+    /// it, into another database, and removes it here. Nothing new is queued:
+    /// its waiting changes go with it, so the other database sends the group
+    /// up at its next sync, as this one would have. A group the other database
+    /// already holds is only removed here, so a move cut short and run again
+    /// copies nothing twice.
+    public func moveUnsentGroup(_ id: GroupID, to target: Store) throws {
+        if try target.group(id) == nil {
+            let rows = try database.read { db in try Self.rows(filedUnder: id, db) }
+            try target.database.write { db in
+                for (table, tableRows) in rows {
+                    for row in tableRows { try Self.insert(row, into: table, db) }
+                }
+            }
+        }
+        try removeUnsentGroup(id)
+    }
+
+    /// Every row of one group, table by table, the group's own row first.
+    private static func rows(filedUnder id: GroupID, _ db: Database) throws -> [(String, [Row])] {
+        let group = id.dbValue
+        var rows = [("budgetGroup", try Row.fetchAll(db, sql: "SELECT * FROM budgetGroup WHERE id = ?",
+                                                     arguments: [group]))]
+        for table in groupTables {
+            rows.append((table, try Row.fetchAll(db, sql: "SELECT * FROM \(table) WHERE budgetGroupId = ?",
+                                                 arguments: [group])))
+        }
+        let (kind, scope) = KeyScope.group(id).parts
+        rows.append(("scopedKey", try Row.fetchAll(db, sql: "SELECT * FROM scopedKey WHERE scopeKind = ? AND scopeId = ?",
+                                                   arguments: [kind, scope])))
+        return rows
+    }
+
+    private static func insert(_ row: Row, into table: String, _ db: Database) throws {
+        let columns = Array(row.columnNames)
+        let names = columns.map { "\"\($0)\"" }.joined(separator: ", ")
+        try db.execute(sql: "INSERT INTO \(table) (\(names)) VALUES (\(databaseQuestionMarks(count: columns.count)))",
+                       arguments: StatementArguments(Array(row.databaseValues)))
     }
 
     // MARK: - Budgets

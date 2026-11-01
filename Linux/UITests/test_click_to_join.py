@@ -57,9 +57,9 @@ class ClickToJoin(Clicking):
         leslie.new_budget("Snacks", "50", group="Mine")
         # The test server is not the build's own, and a signed-out copy asks
         # the server it last signed in to, so her copy learns it once. Her own
-        # account for this test, made now, so "Mine" comes along (SAMP-03):
-        # signing in to an account made earlier leaves it on this computer
-        # (SAMP-06), and the sidebar would not show it once she signs in.
+        # account for this test, made now, so "Mine" comes along (SAMP-03)
+        # into an account no other test uses. Signing in to the shared
+        # "Leslie" account would bring it there too (SAMP-08).
         leslie.sign_in_as("Leslie click")
         leslie.sign_out()
 

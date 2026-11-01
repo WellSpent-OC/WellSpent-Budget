@@ -8,6 +8,8 @@ title: "Side quest: Sign in"
 
 **Before you start:** your account's email and password.
 
+Groups you made while signed out come into your account. Sample groups you haven't changed stay out.
+
 1. ![A hand presses Sign in at the bottom of the sidebar](../assets/shots/sign-in-1.svg)
    Press **Sign in** at the bottom of the sidebar.
 

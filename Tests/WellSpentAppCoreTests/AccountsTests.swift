@@ -553,4 +553,75 @@ struct SampleBudgetTests {
         try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
         #expect(app.model.groups.map(\.name) == ["Pottery"], "the untouched Household stayed behind")
     }
+
+    /// SAMP-08: signing in to an account made on another computer brings what
+    /// was made here while signed out, the way signing up does. An untouched
+    /// sample stays here, and shows again after signing out (SAMP-06).
+    @Test func aGroupMadeBeforeSigningInComesAlongAndTheSamplesDoNot() async throws {
+        let laptop = Mac()
+        let first = try laptop.launch()
+        try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        first.model.addGroup(named: "Holiday")
+        await first.sync.syncAll()
+
+        let desktop = Mac()
+        let transport = StubReadableTransport(server: laptop.transport.server)
+        let app = try Workspace.launch(accounts: desktop.accounts, defaults: desktop.defaults,
+                                       makeTransport: { _ in transport })
+        let business = try #require(app.model.groups.first { $0.name == "Side Business" })
+        let household = try #require(app.model.groups.first { $0.name == "Household" })
+        app.model.renameGroup(household.id, to: "Home")
+        let trip = try #require(app.model.addGroup(named: "Road trip"))
+        app.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip)
+        app.model.addTransaction(merchant: "Gas station", amount: .dollars(45), date: Date(), note: "")
+
+        try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await app.sync.syncAll()
+        #expect(app.model.groups.map(\.name).sorted() == ["Holiday", "Home", "Road trip"])
+        #expect(try app.model.store.searchTransactions("Gas").map(\.merchant) == ["Gas station"],
+                "the entry came along, and search finds it")
+        let listed = Set(try await transport.groups().map(\.id))
+        #expect(listed.contains(trip) && listed.contains(household.id), "both went up to the account")
+        #expect(!listed.contains(business.id), "the untouched sample did not")
+        #expect(laptop.transport.server.records(in: trip).contains { $0.type == .transaction }, "with its entry")
+
+        await app.sync.signOut()
+        #expect(app.model.groups.map(\.id) == [business.id], "only the untouched sample is left here")
+    }
+
+    /// The account may already hold budgets on this computer. What was made
+    /// while signed out joins them, and nothing of theirs is lost.
+    @Test func aGroupMadeWhileSignedOutJoinsTheAccountsBudgetsHere() async throws {
+        let mac = Mac()
+        let app = try mac.launch()
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        app.model.addGroup(named: "Holiday")
+        await app.sync.signOut()
+
+        app.model.addGroup(named: "Garden")
+        try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
+        #expect(app.model.groups.map(\.name).sorted() == ["Garden", "Holiday"])
+
+        await app.sync.signOut()
+        #expect(app.model.groups.isEmpty, "nothing is left behind signed out")
+    }
+
+    /// A move cut short, with the group already copied, is finished by the
+    /// next one without a second copy.
+    @Test func aMoveRunTwiceCopiesNothingTwice() throws {
+        let thisMac = Store(database: try WellSpentDatabase.inMemory())
+        let account = Store(database: try WellSpentDatabase.inMemory())
+        let group = BudgetGroup(name: "Garden")
+        try thisMac.save(group)
+        let budget = Budget(groupID: group.id, name: "Seeds", limit: .dollars(40))
+        try thisMac.save(budget)
+
+        try thisMac.moveUnsentGroup(group.id, to: account)
+        try thisMac.save(group)
+        try thisMac.moveUnsentGroup(group.id, to: account)
+        #expect(try thisMac.group(group.id) == nil)
+        #expect(try account.groups().map(\.id) == [group.id])
+        #expect(try account.budgets(in: group.id).map(\.id) == [budget.id])
+        #expect(try account.outboxCount(in: group.id) == 2, "its waiting changes came with it, once")
+    }
 }

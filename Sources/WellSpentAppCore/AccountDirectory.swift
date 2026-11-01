@@ -172,6 +172,31 @@ public final class AccountDirectory {
         defaults.saveNow()
     }
 
+    /// Moves the groups made while signed out into an account that already
+    /// existed, at sign-in. They are this person's own, so they come along as
+    /// they would at sign-up (SAMP-08). A sample nobody touched stays in "This
+    /// Mac", and shows again after signing out (SAMP-06). One at a time, not
+    /// the whole file as `moveThisMacData` copies it, because the account may
+    /// already hold budgets on this computer. A group a server has seen, or
+    /// one deleted here, stays where it is.
+    public func moveOwnGroups(into namespace: String) throws {
+        let thisMac = Store(database: try database(for: nil))
+        let target = Store(database: try database(for: namespace))
+        var samples = sampleNote()
+        let untouched = try untouchedSamples(samples, in: thisMac)
+        for group in try thisMac.groups() where !untouched.contains(group.id) {
+            guard try thisMac.serverGroup(group.id) == nil, try !thisMac.hasSealedHistory(group.id) else { continue }
+            try thisMac.moveUnsentGroup(group.id, to: target)
+            samples[group.id] = nil
+        }
+        if samples.isEmpty {
+            defaults.removeObject(forKey: Self.sampleGroupsKey)
+        } else {
+            defaults.set(try JSONEncoder().encode(samples), forKey: Self.sampleGroupsKey)
+        }
+        defaults.saveNow()
+    }
+
     /// A sample whose count still reads as seeding left it was never touched,
     /// and is removed. One the person changed or added to is theirs, and moves
     /// with the rest. While signed out nothing else moves the count, because
@@ -182,17 +207,26 @@ public final class AccountDirectory {
     /// A note that cannot be read is treated the same way. A group is never
     /// judged by its name. The note is cleared after every move.
     private func removeUntouchedSamples(from thisMac: Store) throws {
-        var counts: [GroupID: UInt64] = [:]
-        if let note = defaults.data(forKey: Self.sampleGroupsKey) {
-            counts = (try? JSONDecoder().decode([GroupID: UInt64].self, from: note)) ?? [:]
-        }
-        for (group, count) in counts {
-            if try thisMac.syncState(for: group).lamport == count {
-                try thisMac.removeUnsentGroup(group)
-            }
+        for group in try untouchedSamples(sampleNote(), in: thisMac) {
+            try thisMac.removeUnsentGroup(group)
         }
         defaults.removeObject(forKey: Self.sampleGroupsKey)
         defaults.saveNow()
+    }
+
+    /// The samples and their change counts as seeding left them. Empty when
+    /// there is no note, or it cannot be read.
+    private func sampleNote() -> [GroupID: UInt64] {
+        guard let note = defaults.data(forKey: Self.sampleGroupsKey) else { return [:] }
+        return (try? JSONDecoder().decode([GroupID: UInt64].self, from: note)) ?? [:]
+    }
+
+    private func untouchedSamples(_ counts: [GroupID: UInt64], in thisMac: Store) throws -> Set<GroupID> {
+        var untouched: Set<GroupID> = []
+        for (group, count) in counts where try thisMac.syncState(for: group).lamport == count {
+            untouched.insert(group)
+        }
+        return untouched
     }
 
     /// Hands the keys from before accounts had their own to this account, if it

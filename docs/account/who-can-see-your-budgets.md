@@ -12,7 +12,7 @@ Your budgets sync through WellSpent's server. Connections and backups are encryp
 - In a shared group, everyone sees every budget and transaction in it, whatever their level. Each transaction shows who added it.
 - People in one group don't see your other groups.
 - Someone you invite with **Only from now on** sees the group's budgets, but only the transactions added after they join.
-- Budgets you make while signed out stay on that computer only, unless you then make an account on it. Making an account takes them into it.
+- Budgets you make while signed out stay on that computer only, until you make an account or sign in on it. Either one takes them into your account.
 
 ## Your bank, and the code
 

@@ -257,7 +257,9 @@ public final class SyncCoordinator {
         }
     }
 
-    /// Signs in on any device, new or not.
+    /// Signs in on any device, new or not. Groups made while signed out come
+    /// along; sample budgets nobody touched stay behind
+    /// (`AccountDirectory.moveOwnGroups`).
     public func signIn(email typed: String, password: String) async throws {
         state = .busy("Signing in")
         let email = Self.normalised(email: typed)
@@ -289,6 +291,8 @@ public final class SyncCoordinator {
                 try accounts.moveThisMacData(into: namespace)
             } else if try accounts.claimOlderKeys(for: namespace) {
                 try accounts.moveThisMacData(into: namespace)
+            } else {
+                try accounts.moveOwnGroups(into: namespace)
             }
             keys = accounts.keyStore(for: namespace)
             target = Store(database: try accounts.database(for: namespace))
