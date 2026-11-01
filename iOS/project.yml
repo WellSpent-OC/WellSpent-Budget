@@ -116,9 +116,13 @@ targets:
   WellSpentPhoneUITests:
     type: bundle.ui-testing
     platform: iOS
+    # A paid extension's UI tests live in its private repo and join only when
+    # that checkout is linked (WELLSPENT_PROPERTIES_PATH), as its package does.
     sources:
       - path: UITests
       - path: ../Tests/UITestShared
+      - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/iPhone
+        optional: true
     dependencies:
       - target: WellSpentPhone
       - package: WellSpentBudget

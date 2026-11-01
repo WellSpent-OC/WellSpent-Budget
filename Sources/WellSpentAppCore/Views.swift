@@ -12,6 +12,9 @@ import WellSpentCrypto
 import WellSpentImport
 import WellSpentModel
 import WellSpentStore
+#if canImport(WellSpentPropertiesViews)
+import WellSpentPropertiesViews
+#endif
 
 // MARK: - Look
 
@@ -85,10 +88,14 @@ struct RootView: View {
                     budgetSplitView
                 case .properties:
                     if isPropertiesActive {
+                        #if canImport(WellSpentPropertiesViews) && os(macOS)
+                        HousesTab(host: AppExtensionHost(model: workspace.model))
+                        #else
                         HousesPlaceholderView(
                             openCatalog: { activeExtension = .catalog },
                             turnOff: { setProperties(on: false) }
                         )
+                        #endif
                     } else {
                         budgetSplitView
                     }
