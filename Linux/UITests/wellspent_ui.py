@@ -1028,15 +1028,17 @@ class App:
         """Takes a group a test made off this person's computer and, for its
         owner, off the server: Delete… where they may, else Leave…. For a
         test's clean-up."""
+        # A sync can replace GTK nodes while a scan reads them. Retry a
+        # failed scan instead of turning a stale accessibility object into a
+        # cleanup failure. The tuple makes an absent thing a completed scan.
         # The groups are listed only beside the budgets. A test that ends on
         # another page, such as an extension's, goes back there first, or
         # the group looks gone and stays on the account.
-        if self.shows("Budget", role="push button", within=self.main):
+        on_rail, = self.until(lambda: (self.shows("Budget", role="push button", within=self.main),),
+                              "the rail's Budget button, or none")
+        if on_rail:
             self.button("Budget", within=self.main).press()
             self.settle()
-        # A sync can replace GTK nodes while this scan reads them. Retry a
-        # failed scan instead of turning a stale accessibility object into a
-        # cleanup failure. The tuple makes an absent group a completed scan.
         present, = self.until(lambda: (self.shows(name.upper(), within=self.main),),
                               f"{name!r}'s presence before cleanup")
         if not present:
