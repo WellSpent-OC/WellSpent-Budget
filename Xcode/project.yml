@@ -80,10 +80,14 @@ targets:
   WellSpentUITests:
     type: bundle.ui-testing
     platform: macOS
-    # The Mac's own tests, and what they share with the iPhone's.
+    # The Mac's own tests, and what they share with the iPhone's. A paid
+    # extension's UI tests live in its private repo and join only when that
+    # checkout is linked (WELLSPENT_PROPERTIES_PATH), as its package does.
     sources:
       - path: ../Tests/WellSpentUITests
       - path: ../Tests/UITestShared
+      - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/Mac
+        optional: true
     # The host, and the package products the headless second account uses.
     # WellSpentCrypto names the IDs a test builds the screens' words with.
     dependencies:
