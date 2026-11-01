@@ -528,21 +528,10 @@ struct BudgetDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
-                HStack(spacing: 4) {
-                    Text(screen.title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Palette.ink)
-                    Text("Budget")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Palette.ink)
-                }
-                Spacer()
-                Text("Current month")
-                    .font(.system(size: 10, weight: .semibold))
+                Text(screen.title)
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Palette.ink)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 5).stroke(Palette.line, style: StrokeStyle(width: 1)))
+                Spacer()
                 if screen.mayAdd {
                     Button(Words.importStatement) {
                         Task {
