@@ -32,6 +32,10 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "WarTable", path: "Extensions/WarTable"),
+        // What the app and every extension share: the colours, the secret
+        // store and the extension host contract. Its own repo, so a private
+        // extension can use it without depending on the app.
+        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.1.0"),
     ] + propertiesDependencies + [
         // `import Crypto` re-exports CryptoKit on Apple platforms and uses
         // swift-crypto's own implementation on Linux. One call site, both platforms.
@@ -102,7 +106,9 @@ let package = Package(
             name: "WellSpentAppCore",
             dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto",
                            "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions",
-                           .product(name: "WarTableCore", package: "WarTable")] + propertiesProducts
+                           .product(name: "WarTableCore", package: "WarTable"),
+                           .product(name: "WellSpentExtensionKit", package: "WellSpent-ExtensionKit")]
+                + propertiesProducts
         ),
         // The SwiftUI shell: views and the AppKit entry point. Deliberately thin,
         // because nothing in here can be unit tested without a UI harness.

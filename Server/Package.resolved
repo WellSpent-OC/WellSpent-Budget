@@ -1,5 +1,5 @@
 {
-  "originHash" : "18f9f7f10af36182ec63c0e329eab65382cd0f53548cb6fc9640d6e7e6b5edd4",
+  "originHash" : "0fe0c453d6b4f886602f4a974cceab72cc02db66dfa8daada7b7021fafbbade2",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -350,6 +350,15 @@
       "state" : {
         "revision" : "90bbbdab3ede12c803cfbe91646f291c092517a3",
         "version" : "2.16.2"
+      }
+    },
+    {
+      "identity" : "wellspent-extensionkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git",
+      "state" : {
+        "revision" : "d894a01052bf17cd41cbae0bd7150948a79dd736",
+        "version" : "0.1.0"
       }
     }
   ],

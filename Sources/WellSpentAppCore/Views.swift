@@ -15,53 +15,8 @@ import WellSpentStore
 
 // MARK: - Look
 
-/// The tokens from the design canvas, in one place so a change lands everywhere.
-/// Their light and dark values live in `PaletteValues`, shared with every app.
-/// On a phone each one follows the device's light or dark setting.
-public enum Palette {
-    static let ground = Color(PaletteValues.ground)
-    static let surface = Color(PaletteValues.surface)
-    static let sidebar = Color(PaletteValues.sidebar)
-    static let ink = Color(PaletteValues.ink)
-    static let muted = Color(PaletteValues.muted)
-    static let line = Color(PaletteValues.line)
-    static let track = Color(PaletteValues.track)
-    static let accent = Color(PaletteValues.accent)
-    static let warning = Color(PaletteValues.warning)
-    static let blue = Color(PaletteValues.blue)
-
-    /// The same values as `PaletteValues.budgetColors`, made once, so a budget
-    /// keeps the very colour its index names.
-    private static let budgetColors = [accent, blue, Color(PaletteValues.purple), warning]
-
-    static func budgetColor(_ index: Int) -> Color {
-        budgetColors[abs(index) % budgetColors.count]
-    }
-}
-
-extension Color {
-    /// On a phone, the pair's light value in light mode and its dark value in
-    /// dark mode. The system picks one each time it draws, so a change of
-    /// setting shows at once. The Mac draws the light value in both, as it
-    /// always has, until dark mode is placed in a Mac build.
-    init(_ pair: ColorPair) {
-        #if os(macOS)
-        self.init(red: pair.light.red, green: pair.light.green, blue: pair.light.blue)
-        #else
-        self.init(uiColor: UIColor { traits in
-            let rgb = traits.userInterfaceStyle == .dark ? pair.dark : pair.light
-            return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
-        })
-        #endif
-    }
-}
-
-extension Font {
-    /// Tabular figures, so columns of money line up.
-    static func money(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
-    }
-}
+// The colours (`Palette`, `PaletteValues`) and `Font.money` come from the
+// Extension Kit, so an extension draws with the very same ones.
 
 extension View {
     /// A button that reads as a link: the Mac's link style. iOS has no link
