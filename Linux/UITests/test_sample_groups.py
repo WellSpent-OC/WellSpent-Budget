@@ -111,14 +111,17 @@ class SampleGroups(unittest.TestCase):
         # Scenario SAMP-04
         # 1. Farmers market added to Groceries: Household comes along whole,
         # with its sample entries, and Side Business stays out.
+        # Early in a month some samples are last month's and not listed
+        # (SAMP-01), so the ones listed before signing up are the measure.
         app.budget("Groceries").press()
+        app.until(lambda: app.reads(["Groceries"], within=app.main), "Groceries to open")
+        shown = {row[1] for row in app.entries()}
         app.add_entry("Farmers market", "18.00")
         app.sign_up(unique("Gardener"))
         app.until(lambda: names(app) == ["HOUSEHOLD", "Groceries", "Eating out", "Utilities"], "only Household")
         app.budget("Groceries").press()
         listed = app.until(lambda: {row[1] for row in app.entries()} or None, "Groceries' entries")
-        self.assertIn("Farmers market", listed)
-        self.assertTrue(listed & {"Hilltop Grocery", "Costco", "Sunny's"}, "the sample entries came along")
+        self.assertEqual(shown | {"Farmers market"}, listed, "the sample entries came along")
 
     def test_a_renamed_sample_comes_along_under_its_new_name(self):
         needs_accounts(self)
