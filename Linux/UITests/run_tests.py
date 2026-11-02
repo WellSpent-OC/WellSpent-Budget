@@ -24,9 +24,12 @@ if names:
     suite = loader.loadTestsFromNames(names)
 else:
     left_out = os.environ.get("WELLSPENT_UI_LEAVE_OUT", "").split()
+    # A module that fails to import comes back as unittest's own stand-in,
+    # whose id ends in the module name, so both ends of the id are checked.
     suite = unittest.TestSuite(
         module for module in loader.discover(".", pattern="test_*.py")
-        if not any(test.id().split(".")[0] in left_out for test in _flatten(module)))
+        if not any(test.id().split(".")[0] in left_out or test.id().split(".")[-1] in left_out
+                   for test in _flatten(module)))
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 if os.environ.get("WELLSPENT_UI_NO_SKIPS") == "true" and result.skipped:
     for test, why in result.skipped:

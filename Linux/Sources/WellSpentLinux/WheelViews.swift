@@ -227,10 +227,6 @@ struct BudgetWheelPanel: View {
                     if let pace = screen.pace {
                         PaceLine(pace: pace, editBudget: editBudget)
                     }
-                    Text("The budget extension runs smoothly inside its own pane, isolated from add ons.")
-                        .font(.system(size: 11))
-                        .foregroundColor(Color(PaletteValues.muted))
-                        .fixedSize(horizontal: false, vertical: true)
                     FiguresList(figures: screen.wheel.figures)
                 }
                 // A floor as well as a ceiling, as on the Mac. The pace words
