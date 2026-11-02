@@ -94,6 +94,10 @@ public struct ActivityRailView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Palette.accent.opacity(0.18) : Color.clear)
             )
+            // A plain button takes clicks only where something is drawn, and
+            // an unselected item's background is clear: the gap between its
+            // symbol and its title did nothing. The whole rounded shape counts.
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         // Rail buttons change views, they do not take typed input, so the
