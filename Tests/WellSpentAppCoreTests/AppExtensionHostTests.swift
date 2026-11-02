@@ -73,6 +73,39 @@ struct AppExtensionHostTests {
         #expect(host.entries(in: "not an id").isEmpty)
     }
 
+    /// A transfer can go either way, so a change keeps the way it went.
+    @Test func aChangedTransferKeepsItsOwnSign() throws {
+        let (model, host) = try host()
+        let group = try #require(host.addGroup(named: "Studio", claimedBy: claimer))
+        let budget = try #require(host.budget(named: "Income", in: group))
+        let groupID = try #require(UUID(uuidString: group).map(GroupID.init))
+        let budgetID = try #require(UUID(uuidString: budget).map(BudgetID.init))
+        func transfer(_ minorUnits: Int) -> WellSpentModel.Transaction {
+            .init(budgetID: budgetID, groupID: groupID, date: today, merchant: "Savings", note: "",
+                  amount: Money(minorUnits: minorUnits, currency: .usd), kind: .transfer, source: .manual)
+        }
+        model.applyImport(adds: [transfer(300), transfer(-700)], changes: [], removes: [])
+        let entries = host.entries(in: group)
+        #expect(entries.count == 2 && entries.allSatisfy { !$0.isIncome })
+        host.apply(HostImport(change: entries.map {
+            .init(entry: $0.id, amountMinorUnits: $0.amountMinorUnits + 100, currency: "USD", date: today, note: "")
+        }))
+        let saved = model.entries(in: groupID).map(\.amount.minorUnits).sorted()
+        #expect(saved == [-800, 400], "in stays in, out stays out")
+    }
+
+    @Test func anAddForAnotherGroupsBudgetIsSkipped() throws {
+        let (_, host) = try host()
+        let studio = try #require(host.addGroup(named: "Studio", claimedBy: claimer))
+        let other = try #require(host.addGroup(named: "Loft", claimedBy: claimer))
+        let otherBudget = try #require(host.budget(named: "Income", in: other))
+        host.apply(HostImport(add: [.init(budget: otherBudget, group: studio, date: today, merchant: "A guest",
+                                          note: "", amountMinorUnits: 100, currency: "USD", isIncome: true,
+                                          importFingerprint: "example:crossed")]))
+        #expect(host.entries(in: studio).isEmpty)
+        #expect(host.entries(in: other).isEmpty)
+    }
+
     @Test func aGroupsPeriodSaysWhatItSpentAndWhereTodayFalls() throws {
         // A budget's totals count this real month, so this test does too.
         let (model, host) = try host()

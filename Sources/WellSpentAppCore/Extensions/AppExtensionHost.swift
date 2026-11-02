@@ -54,12 +54,15 @@ public final class AppExtensionHost: ExtensionHost {
         }
     }
 
-    /// Amounts come in as sizes. The sign follows the kind, as when a person
-    /// edits an entry: money in is positive, money out negative.
+    /// Amounts come in as sizes. A new entry's sign follows its kind: money in
+    /// is positive, money out negative. A changed entry keeps its own sign, so
+    /// a transfer, which can go either way, stays the way it went. An add for
+    /// a budget outside its group is skipped.
     public func apply(_ batch: HostImport) {
         let adds = batch.add.compactMap { add -> WellSpentModel.Transaction? in
             guard let budget = Self.id(add.budget).map(BudgetID.init), let group = Self.id(add.group).map(GroupID.init),
-                  let currency = Currency(rawValue: add.currency) else { return nil }
+                  let currency = Currency(rawValue: add.currency),
+                  model.summaries[group]?.contains(where: { $0.budget.id == budget }) == true else { return nil }
             return WellSpentModel.Transaction(budgetID: budget, groupID: group, date: add.date, merchant: add.merchant,
                                note: add.note, amount: Money(minorUnits: add.isIncome ? abs(add.amountMinorUnits)
                                                                                    : -abs(add.amountMinorUnits),
@@ -72,7 +75,7 @@ public final class AppExtensionHost: ExtensionHost {
                   let currency = Currency(rawValue: change.currency),
                   let entry = try? model.store.transaction(id) else { return nil }
             let size = abs(change.amountMinorUnits)
-            return .init(id: id, amount: Money(minorUnits: entry.kind.isMoneyIn ? size : -size, currency: currency),
+            return .init(id: id, amount: Money(minorUnits: entry.amount.minorUnits >= 0 ? size : -size, currency: currency),
                          date: change.date, note: change.note)
         }
         model.applyImport(adds: adds, changes: changes, removes: batch.remove.compactMap { Self.id($0).map(RecordID.init) })
