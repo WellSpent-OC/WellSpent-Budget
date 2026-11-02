@@ -844,6 +844,20 @@ jobs:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
         run: make iphone-ui-test IPHONE_UI_TEST_ONLY=WellSpentPhoneUITests/PhoneHousesTests
 
+      # Each run must show it tested something: four Houses tests on the
+      # Mac, and four in each iPhone look. Nothing skipped, as for every
+      # UI job.
+      - name: The Houses tests ran, and nothing was skipped
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        run: |
+          if [ "${{ matrix.platform }}" = mac ]; then
+            bundles=".build/xcode/ui-test.xcresult"
+          else
+            bundles=".build/xcode-iphone/ui-test-light.xcresult .build/xcode-iphone/ui-test-dark.xcresult"
+          fi
+          scripts/passed-at-least.sh 4 $bundles
+          scripts/skipped-tests.sh $bundles
+
       - name: Pull the screenshots out of a failed Mac run
         if: failure() && matrix.platform == 'mac'
         run: |
