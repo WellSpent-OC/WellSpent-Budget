@@ -15,7 +15,8 @@ let propertiesPath = Context.environment["WELLSPENT_PROPERTIES_PATH"]
 let propertiesDependencies: [Package.Dependency] =
     propertiesPath.map { [.package(name: "WellSpentProperties", path: $0)] } ?? []
 let propertiesProducts: [Target.Dependency] =
-    propertiesPath == nil ? [] : [.product(name: "WellSpentProperties", package: "WellSpentProperties")]
+    propertiesPath == nil ? [] : [.product(name: "WellSpentProperties", package: "WellSpentProperties"),
+                                  .product(name: "WellSpentPropertiesViews", package: "WellSpentProperties")]
 
 let package = Package(
     name: "WellSpentBudget",

@@ -5,6 +5,9 @@
 import SwiftUI
 import WellSpentCrypto
 import WellSpentModel
+#if canImport(WellSpentPropertiesViews)
+import WellSpentPropertiesViews
+#endif
 
 /// The iPhone's one stack of screens: Home, then a budget, a group's page or
 /// the invitation page a clicked invite link opens. It holds the sheets, the
@@ -117,10 +120,14 @@ struct PhoneRootView: View {
 
                 if isPropertiesActive {
                     NavigationStack {
+                        #if canImport(WellSpentPropertiesViews)
+                        PhoneHousesTab(host: AppExtensionHost(model: model))
+                        #else
                         HousesPlaceholderView(
                             openCatalog: { showingExtensionsCatalog = true },
                             turnOff: { setProperties(on: false) }
                         )
+                        #endif
                     }
                     .tabItem {
                         Label("Houses", systemImage: "house.fill")
