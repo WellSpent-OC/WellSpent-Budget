@@ -421,6 +421,24 @@ public final class AppModel {
         }
     }
 
+    /// Makes a group an extension claimed a plain group again, synced like
+    /// any change to the group. Its budgets and entries stay. False when the
+    /// group is not there or `claimedBy` did not claim it.
+    @discardableResult
+    public func releaseGroup(_ id: GroupID, claimedBy: String) -> Bool {
+        do {
+            guard var group = try store.group(id), group.claimedBy == claimedBy else { return false }
+            group.claimedBy = nil
+            group.updatedAt = Date()
+            try store.save(group)
+            changed()
+            return true
+        } catch {
+            errorMessage = String(describing: error)
+            return false
+        }
+    }
+
     public func renameGroup(_ id: GroupID, to name: String) {
         do {
             guard var group = try store.group(id) else { return }

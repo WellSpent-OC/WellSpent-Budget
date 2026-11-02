@@ -29,6 +29,24 @@ struct AppExtensionHostTests {
         #expect(host.today() == today)
     }
 
+    @Test func aReleasedGroupStaysAsAPlainGroupWithItsEntries() throws {
+        let (model, host) = try host()
+        let group = try #require(host.addGroup(named: "Studio", claimedBy: claimer))
+        let budget = try #require(host.budget(named: "Income", in: group))
+        host.apply(HostImport(add: [.init(budget: budget, group: group, date: today, merchant: "A guest", note: "",
+                                          amountMinorUnits: 100, currency: "USD", isIncome: true,
+                                          importFingerprint: "example:100")]))
+        #expect(!host.releaseGroup(group, claimedBy: "wellspent.other"), "only the extension that claimed it")
+        #expect(host.releaseGroup(group, claimedBy: claimer))
+        #expect(host.groups(claimedBy: claimer).isEmpty)
+        let plain = try #require(model.groups.first { $0.name == "Studio" })
+        #expect(plain.claimedBy == nil)
+        #expect(model.entries(in: plain.id).map(\.amount.minorUnits) == [100], "its money stays")
+        #expect(!host.releaseGroup(group, claimedBy: claimer), "already plain")
+        #expect(!host.releaseGroup("not an id", claimedBy: claimer))
+        #expect(!host.releaseGroup(UUID().uuidString, claimedBy: claimer), "no such group")
+    }
+
     @Test func aBudgetIsFoundOrMadeOnce() throws {
         let (model, host) = try host()
         let group = try #require(host.addGroup(named: "Studio", claimedBy: claimer))

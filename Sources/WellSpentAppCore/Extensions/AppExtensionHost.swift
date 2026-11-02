@@ -30,6 +30,11 @@ public final class AppExtensionHost: ExtensionHost {
 
     /// Made with no limit, so money brought in has somewhere to land without
     /// adding to what the group plans to spend.
+    public func releaseGroup(_ group: String, claimedBy extensionID: String) -> Bool {
+        guard let id = Self.id(group).map(GroupID.init) else { return false }
+        return model.releaseGroup(id, claimedBy: extensionID)
+    }
+
     public func budget(named name: String, in group: String) -> String? {
         guard let group = Self.id(group).map(GroupID.init), model.group(named: group) != nil else { return nil }
         if let found = model.summaries[group]?.first(where: { $0.budget.name == name }) {
