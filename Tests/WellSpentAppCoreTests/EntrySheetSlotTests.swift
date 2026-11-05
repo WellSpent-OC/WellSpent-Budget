@@ -130,6 +130,13 @@ struct AppExtensionHostSlotTests {
         #expect(slots.groupPageSection(for: "g") != nil)
     }
 
+    @Test func theTestExtensionTurnsOnOnlyInAStagingBuild() {
+        let on = [TestExtensionSlots.environmentKey: "1"]
+        #expect(TestExtensionSlots.isOn(environment: .staging, processEnvironment: on))
+        #expect(!TestExtensionSlots.isOn(environment: .live, processEnvironment: on))
+        #expect(!TestExtensionSlots.isOn(environment: .staging, processEnvironment: [:]))
+    }
+
     @Test func withoutSlotsTheLinkRowIsGoneAgain() throws {
         let setup = try Slotted()
         setup.model.install(nil)
