@@ -106,7 +106,11 @@ public final class Workspace {
     /// switch. Called on turning it on or off, and for each account's model.
     func installExtensionSlots() {
         if TestExtensionSlots.isOn() {
-            model.install(TestExtensionSlots())
+            let model = self.model
+            model.install(TestExtensionSlots { [weak model] group in
+                guard let model else { return }
+                AppExtensionHost(model: model).newEntry(linkedTo: nil, in: group)
+            })
             return
         }
         #if canImport(WellSpentPropertiesViews)
