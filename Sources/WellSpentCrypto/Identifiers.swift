@@ -55,10 +55,11 @@ public extension RecordID {
     }
 
     /// The ID of the transaction a repeat rule makes for one month, "yyyy-MM".
-    /// Two devices making the same month make one record.
-    static func repeatMade(rule: RecordID, month: String) -> RecordID {
+    /// Two devices making the same month make one record. IDs are global, so the
+    /// group is part of it: nobody can take a month from another group.
+    static func repeatMade(group: GroupID, rule: RecordID, month: String) -> RecordID {
         let name = Data("wellspent.repeat-made\0\(month)".utf8)
-        return nameBased(SHA256.hash(data: rule.bytes + name))
+        return nameBased(SHA256.hash(data: group.bytes + rule.bytes + name))
     }
 
     private static func nameBased(_ digest: SHA256.Digest) -> RecordID {

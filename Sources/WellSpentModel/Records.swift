@@ -212,7 +212,7 @@ public struct Transaction: SyncedRecord, Equatable {
     /// and the month work out to it, and a repeat only with that ID.
     public var idIsRight: Bool {
         switch (repeatRuleID, repeatMonth) {
-        case let (rule?, month?): return id == RecordID.repeatMade(rule: rule, month: month)
+        case let (rule?, month?): return id == RecordID.repeatMade(group: groupID, rule: rule, month: month)
         case (nil, nil): return !id.isNameBased
         default: return false
         }

@@ -353,14 +353,14 @@ struct ExtensionRecordServerTests {
         var made = home.spend(-500, by: nil)
         made.repeatRuleID = rule
         made.repeatMonth = "2026-11"
-        made.id = .repeatMade(rule: rule, month: "2026-11")
+        made.id = .repeatMade(group: home.group.id, rule: rule, month: "2026-11")
         var wrongMonth = made
         wrongMonth.repeatMonth = "2026-12"
         var noMonth = made
-        noMonth.id = .repeatMade(rule: rule, month: "2027-01")
+        noMonth.id = .repeatMade(group: home.group.id, rule: rule, month: "2027-01")
         noMonth.repeatMonth = nil
         var plainButShaped = home.spend(-500, by: nil)
-        plainButShaped.id = .repeatMade(rule: rule, month: "2027-02")
+        plainButShaped.id = .repeatMade(group: home.group.id, rule: rule, month: "2027-02")
         let result = try await home.founder.push(
             [try wire(made, budget: home.budget.id, lamport: 3),
              try wire(noMonth, budget: home.budget.id, lamport: 4),

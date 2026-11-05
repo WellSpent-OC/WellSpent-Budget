@@ -642,7 +642,7 @@ struct ExtensionRecordSyncTests {
         let home = try await Household()
         let link = RecordID(), rule = RecordID()
         var bill = home.spend(-900, by: home.founder.user)
-        bill.id = .repeatMade(rule: rule, month: "2026-11")
+        bill.id = .repeatMade(group: home.group.id, rule: rule, month: "2026-11")
         bill.extensionLink = link
         bill.repeatRuleID = rule
         bill.repeatMonth = "2026-11"
@@ -690,9 +690,9 @@ struct TransactionOptionalFieldTests {
     }
 
     @Test func anIDIsRightOnlyForItsRuleAndMonth() {
-        let rule = RecordID(), id = RecordID.repeatMade(rule: rule, month: "2026-11")
-        func entry(_ id: RecordID, _ rule: RecordID?, _ month: String?) -> Transaction {
-            Transaction(id: id, budgetID: BudgetID(), groupID: GroupID(), date: noon, merchant: "M",
+        let group = GroupID(), rule = RecordID(), id = RecordID.repeatMade(group: group, rule: rule, month: "2026-11")
+        func entry(_ id: RecordID, _ rule: RecordID?, _ month: String?, in home: GroupID? = nil) -> Transaction {
+            Transaction(id: id, budgetID: BudgetID(), groupID: home ?? group, date: noon, merchant: "M",
                         amount: Money(minorUnits: -1), repeatRuleID: rule, repeatMonth: month)
         }
         #expect(entry(id, rule, "2026-11").idIsRight)
@@ -700,6 +700,8 @@ struct TransactionOptionalFieldTests {
         #expect(!entry(id, nil, nil).idIsRight)
         #expect(!entry(id, rule, nil).idIsRight)
         #expect(!entry(RecordID(), rule, "2026-11").idIsRight)
+        // Knowing a rule's ID doesn't let anyone take its month in another group.
+        #expect(!entry(id, rule, "2026-11", in: GroupID()).idIsRight)
     }
 
     @Test func namesDoNotCollide() {
