@@ -616,7 +616,9 @@ struct BudgetDetailView: View {
             }
         }
         .navigationTitle(summary.budget.name)
+        #if os(macOS)
         .sheet(isPresented: $showingRepeats) { RepeatsListSheet(budget: summary.budget, model: model) }
+        #endif
     }
 
     /// The budget's words and rows, shared with every desktop.

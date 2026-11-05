@@ -59,7 +59,7 @@ struct BudgetWheelPanel: View {
                 if let repeats = screen.repeatsWords {
                     Text("\u{00B7}")
                     Button(repeats, action: openRepeats)
-                        .buttonStyle(.link)
+                        .linkButtonStyle()
                         .accessibilityIdentifier(AccessibilityID.budgetRepeats)
                 }
             }
