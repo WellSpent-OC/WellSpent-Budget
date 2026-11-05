@@ -114,6 +114,24 @@ struct RepeatViewsTests {
         #expect(BudgetScreen(summary: summary, model: model, me: owner).repeatsWords == "1 repeat")
     }
 
+    // Scenario REPEAT-08
+    @Test func aStoppedRepeatLeavesTheCountAtOnceAndUndoBringsItBack() throws {
+        let id = rule.id
+        let made = try #require(try model.store.transactions(in: budget, period: nil).first)
+        let editor = try #require(EntryEditor(model: model, entry: made.id))
+        editor.stopRepeating()
+        model.reload()
+        #expect(model.repeats(in: budget, group: group).isEmpty)
+        let summary = try #require(model.summaries[group]?.first)
+        #expect(BudgetScreen(summary: summary, model: model, me: owner).repeatsWords == nil)
+        #expect(try model.store.transactions(in: budget, period: nil).contains { $0.id == made.id },
+                "this month's bill stays")
+        #expect(model.undoOffer?.stoppedRule == id)
+        model.undoDelete()
+        model.reload()
+        #expect(model.repeats(in: budget, group: group).map(\.id) == [id])
+    }
+
     @Test func wordsForEveryDay() {
         #expect(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "31st"]
             == [1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31].map(RepeatsList.Words.ordinal))

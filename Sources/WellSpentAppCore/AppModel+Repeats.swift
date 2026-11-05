@@ -40,7 +40,7 @@ public extension AppModel {
     func repeats(in budget: BudgetID, group: GroupID) -> [RepeatRule] {
         let month = RepeatRule.month(of: today(), calendar: AppLocale.calendar)
         let rules = (try? store.repeatRules(in: group)) ?? []
-        return rules.filter { $0.terms(in: month).budgetID == budget && $0.runs(in: month) }
+        return rules.filter { $0.terms(in: month).budgetID == budget && $0.runs(in: month) && $0.stopMonth == nil }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
