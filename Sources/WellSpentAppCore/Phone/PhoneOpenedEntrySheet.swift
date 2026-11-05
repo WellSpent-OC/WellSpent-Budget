@@ -143,6 +143,8 @@ struct PhoneOpenedEntrySheet: View {
 /// An entry's fields, the same for adding one and for one opened from the
 /// list: Merchant, Amount, Date, Note, and for an opened entry its Budget,
 /// with a line under the date when it moves the entry out of this period.
+/// Adding in a group an extension named offers Budget too, with a new
+/// budget's fields when one is being made. An extension's link row is last.
 struct PhoneEntryFields: View {
     @Bindable var editor: EntryEditor
     private typealias Words = EntryEditor.Words
@@ -197,14 +199,45 @@ struct PhoneEntryFields: View {
             TextField(Words.note, text: $editor.note)
                 .accessibilityIdentifier(AccessibilityID.entryNote)
         }
-        if editor.editing != nil {
-            Picker(Words.budget, selection: $editor.budgetID) {
+        if editor.offersBudgetChoice, editor.noBudgetLine == nil {
+            Picker(Words.budget, selection: $editor.budgetSelection) {
                 ForEach(editor.budgetChoices) { budget in
                     Text(budget.name).tag(BudgetID?.some(budget.id))
+                }
+                if editor.offersNewBudget {
+                    Text(Words.newBudget).tag(BudgetID?.none)
                 }
             }
             .pickerStyle(.menu)
             .accessibilityIdentifier(AccessibilityID.entryBudget)
+        }
+        if editor.isNewBudget {
+            PhoneField(Words.newBudgetName) {
+                TextField(Words.newBudgetName, text: $editor.newBudgetName)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityIdentifier(AccessibilityID.entryNewBudgetName)
+            }
+            PhoneField(Words.newBudgetAmount) {
+                TextField(Words.newBudgetAmount, text: $editor.newBudgetAmountText)
+                    .keyboardType(.decimalPad)
+                    .accessibilityIdentifier(AccessibilityID.entryNewBudgetAmount)
+            }
+        }
+        if let line = editor.noBudgetLine {
+            Text(line)
+                .font(.footnote)
+                .foregroundStyle(Palette.ink)
+                .accessibilityIdentifier(AccessibilityID.entryNoBudgetLine)
+        }
+        if editor.showsLinkRow, let offered = editor.linkChoices {
+            Picker(offered.label, selection: $editor.linkSelection) {
+                Text(Words.noLink).tag(RecordID?.none)
+                ForEach(offered.choices) { choice in
+                    Text(choice.name).tag(RecordID?.some(choice.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier(AccessibilityID.entryLink)
         }
     }
 }

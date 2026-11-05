@@ -25,6 +25,9 @@ struct PhoneRootView: View {
     @State private var accountAfterSheet = false
     @State private var showingAccount = false
     @State private var addingEntry = false
+    /// The entry sheet an extension asked for. Kept here, not made while
+    /// drawing, so what is typed stays through a redraw.
+    @State private var requestedEntry: EntryEditor?
     @State private var activeExtension: ActiveExtension = .budgets
     @State private var isWarTableInstalled = false
     @State private var isPropertiesInstalled = false
@@ -78,6 +81,14 @@ struct PhoneRootView: View {
         // last account's open budget.
         .id(ObjectIdentifier(model))
         .sheet(isPresented: $addingEntry) { PhoneEntrySheet(model: model) }
+        .sheet(item: $requestedEntry) { editor in
+            if editor.editing == nil {
+                PhoneEntrySheet(editor: editor)
+            } else {
+                PhoneOpenedEntrySheet(editor: editor)
+            }
+        }
+        .onChange(of: model.entrySheetRequest) { _, request in openRequestedEntry(request) }
         // Outside the part rebuilt when an account signs in, so the sheet
         // keeps its step through signing in.
         .sheet(isPresented: $showingAccount) { PhoneAccountSheet(sync: sync) }
@@ -296,6 +307,19 @@ struct PhoneRootView: View {
     /// A staging build asked to open on one screen opens on it, once, when
     /// the window first appears. Never in `init`, which SwiftUI may run many
     /// times.
+    /// Opens the sheet an extension asked for, from any tab, and clears the
+    /// request. One for an entry that has gone since opens nothing.
+    private func openRequestedEntry(_ request: EntrySheetRequest?) {
+        guard let request else { return }
+        model.entrySheetRequest = nil
+        switch request {
+        case .add(let group, let link):
+            requestedEntry = EntryEditor(model: model, addingIn: group, link: link)
+        case .open(let id):
+            requestedEntry = EntryEditor(model: model, entry: id)
+        }
+    }
+
     private func applyStart() {
         guard !startApplied else { return }
         startApplied = true
