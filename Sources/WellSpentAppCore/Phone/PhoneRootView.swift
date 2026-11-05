@@ -80,13 +80,17 @@ struct PhoneRootView: View {
         // A different account means different budgets: a fresh stack, not the
         // last account's open budget.
         .id(ObjectIdentifier(model))
-        .sheet(isPresented: $addingEntry) { PhoneEntrySheet(model: model) }
+        // These two sit after the tint above, so each brings its own.
+        .sheet(isPresented: $addingEntry) { PhoneEntrySheet(model: model).tint(Palette.accent) }
         .sheet(item: $requestedEntry) { editor in
-            if editor.editing == nil {
-                PhoneEntrySheet(editor: editor)
-            } else {
-                PhoneOpenedEntrySheet(editor: editor)
+            Group {
+                if editor.editing == nil {
+                    PhoneEntrySheet(editor: editor)
+                } else {
+                    PhoneOpenedEntrySheet(editor: editor)
+                }
             }
+            .tint(Palette.accent)
         }
         .onChange(of: model.entrySheetRequest) { _, request in openRequestedEntry(request) }
         // Outside the part rebuilt when an account signs in, so the sheet
