@@ -113,6 +113,30 @@ struct AppExtensionHostSlotTests {
         #expect(host.records(kind: "note", .everyMember, in: group, extensionID: "e").map(\.body) == ["2"])
     }
 
+    /// The store saves by ID alone, so someone else's record must not be overwritten.
+    @Test func anIDOnlySavesOverTheCallersOwnRecord() throws {
+        let setup = try Slotted()
+        let host = AppExtensionHost(model: setup.model)
+        let home = setup.home.uuid.uuidString, other = setup.empty.uuid.uuidString
+        func save(_ kind: String = "note", _ visibility: HostRecord.Visibility = .everyMember, id: String?,
+                  in group: String? = nil, extensionID: String = "e", body: String = "2") -> String? {
+            host.saveRecord(kind: kind, visibility, sourceKey: nil, id: id, body: body, in: group ?? home,
+                            extensionID: extensionID)
+        }
+        let id = try #require(save(id: nil, body: "1"))
+        #expect(save(id: id, in: other) == nil, "another group")
+        #expect(save(id: id, extensionID: "someone.else") == nil, "another extension")
+        #expect(save("other", id: id) == nil, "another kind")
+        #expect(save("note", .followsHistory, id: id) == nil, "another visibility")
+        #expect(save(id: UUID().uuidString) == nil, "nothing held there")
+        #expect(save(id: "not an id") == nil)
+        let named = RecordID.extensionRecord(group: setup.home, extensionID: "e", kind: "note", sourceKey: "k")
+        #expect(save(id: named.uuid.uuidString) == nil, "a name-based ID with no source key")
+        #expect(host.records(kind: "note", .everyMember, in: home, extensionID: "e").map(\.body) == ["1"])
+        #expect(save(id: id) == id)
+        #expect(host.records(kind: "note", .everyMember, in: home, extensionID: "e").map(\.body) == ["2"])
+    }
+
     @Test func aWheelIsDrawnFromPlainValuesAtEachSize() throws {
         let setup = try Slotted()
         let host = AppExtensionHost(model: setup.model)

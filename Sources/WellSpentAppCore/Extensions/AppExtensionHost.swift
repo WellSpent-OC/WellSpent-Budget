@@ -122,19 +122,32 @@ public final class AppExtensionHost: ExtensionHost {
     public func saveRecord(kind: String, _ visibility: HostRecord.Visibility, sourceKey: String?, id: String?,
                            body: String, in group: String, extensionID: String) -> String? {
         guard let group = Self.id(group).map(GroupID.init) else { return nil }
-        let known = id.flatMap(Self.id).map(RecordID.init)
         switch visibility {
         case .everyMember:
-            var record = ExtensionSetting(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
+            let record = ExtensionSetting(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
                                           body: body)
-            if let known, sourceKey == nil { record.id = known }
-            return model.save(record).map { Self.text($0.uuid) }
+            return saving(record, over: sourceKey == nil ? id : nil)
         case .followsHistory:
-            var record = ExtensionEntry(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
+            let record = ExtensionEntry(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
                                         body: body)
-            if let known, sourceKey == nil { record.id = known }
-            return model.save(record).map { Self.text($0.uuid) }
+            return saving(record, over: sourceKey == nil ? id : nil)
         }
+    }
+
+    /// Saves `record`, or with an id, over the record held there. That has to be
+    /// the caller's own, of the same type, group, extension and kind. The store
+    /// saves by ID alone, so another one would be replaced here while the server
+    /// refused it, and this device would stay wrong until a full pull.
+    private func saving<V>(_ record: ExtensionRecord<V>, over id: String?) -> String? {
+        var record = record
+        if let id {
+            guard let known = Self.id(id).map(RecordID.init), !known.isNameBased,
+                  let held: ExtensionRecord<V> = try? model.store.extensionRecord(known),
+                  held.groupID == record.groupID, held.extensionID == record.extensionID, held.kind == record.kind
+            else { return nil }
+            record.id = known
+        }
+        return model.save(record).map { Self.text($0.uuid) }
     }
 
     public func removeRecord(_ id: String, _ visibility: HostRecord.Visibility) {
