@@ -50,7 +50,10 @@ public final class AppExtensionHost: ExtensionHost {
         guard let group = Self.id(group).map(GroupID.init) else { return [] }
         return model.entries(in: group).map {
             HostEntry(id: Self.text($0.id.uuid), date: $0.date, amountMinorUnits: abs($0.amount.minorUnits),
-                      isIncome: $0.kind == .income, importFingerprint: $0.importFingerprint)
+                      isIncome: $0.kind == .income, importFingerprint: $0.importFingerprint,
+                      budget: Self.text($0.budgetID.uuid), link: $0.extensionLink.map { Self.text($0.uuid) },
+                      signedMinorUnits: $0.amount.minorUnits, isSpendingOrRefund: $0.kind == .spending || $0.kind == .refund,
+                      merchant: $0.merchant, addedBy: model.addedBy($0, me: model.me()))
         }
     }
 
@@ -81,7 +84,113 @@ public final class AppExtensionHost: ExtensionHost {
         model.applyImport(adds: adds, changes: changes, removes: batch.remove.compactMap { Self.id($0).map(RecordID.init) })
     }
 
+    public var revision: Int { model.revision }
+
+    public func groups() -> [HostGroup] {
+        model.groups.map { group in
+            HostGroup(id: Self.text(group.id.uuid), name: group.name, canManage: model.mayManageEntries(group.id),
+                      canAddEntries: model.mayAddEntries(group.id), sharingLine: model.sharingLine(of: group.id))
+        }
+    }
+
+    public func addGroup(named name: String) -> String? {
+        model.addGroup(named: name).map { Self.text($0.uuid) }
+    }
+
+    public func budgets(in group: String) -> [HostBudget] {
+        guard let group = Self.id(group).map(GroupID.init) else { return [] }
+        return (model.summaries[group] ?? []).map {
+            HostBudget(id: Self.text($0.budget.id.uuid), name: $0.budget.name, limitMinorUnits: $0.budget.limit.minorUnits,
+                       currency: $0.budget.limit.currency.rawValue)
+        }
+    }
+
+    public func records(kind: String, _ visibility: HostRecord.Visibility, in group: String,
+                        extensionID: String) -> [HostRecord] {
+        guard let group = Self.id(group).map(GroupID.init) else { return [] }
+        switch visibility {
+        case .everyMember:
+            let found: [ExtensionSetting] = model.extensionRecords(in: group, extensionID: extensionID, kind: kind)
+            return found.map(Self.hostRecord)
+        case .followsHistory:
+            let found: [ExtensionEntry] = model.extensionRecords(in: group, extensionID: extensionID, kind: kind)
+            return found.map(Self.hostRecord)
+        }
+    }
+
+    @discardableResult
+    public func saveRecord(kind: String, _ visibility: HostRecord.Visibility, sourceKey: String?, id: String?,
+                           body: String, in group: String, extensionID: String) -> String? {
+        guard let group = Self.id(group).map(GroupID.init) else { return nil }
+        switch visibility {
+        case .everyMember:
+            let record = ExtensionSetting(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
+                                          body: body)
+            return saving(record, over: sourceKey == nil ? id : nil)
+        case .followsHistory:
+            let record = ExtensionEntry(groupID: group, extensionID: extensionID, kind: kind, sourceKey: sourceKey,
+                                        body: body)
+            return saving(record, over: sourceKey == nil ? id : nil)
+        }
+    }
+
+    /// Saves `record`, or with an id, over the record held there. That has to be
+    /// the caller's own, of the same type, group, extension and kind. The store
+    /// saves by ID alone, so another one would be replaced here while the server
+    /// refused it, and this device would stay wrong until a full pull.
+    private func saving<V>(_ record: ExtensionRecord<V>, over id: String?) -> String? {
+        var record = record
+        if let id {
+            guard let known = Self.id(id).map(RecordID.init), !known.isNameBased,
+                  let held: ExtensionRecord<V> = try? model.store.extensionRecord(known),
+                  held.groupID == record.groupID, held.extensionID == record.extensionID, held.kind == record.kind
+            else { return nil }
+            record.id = known
+        }
+        return model.save(record).map { Self.text($0.uuid) }
+    }
+
+    public func removeRecord(_ id: String, _ visibility: HostRecord.Visibility) {
+        guard let id = Self.id(id).map(RecordID.init) else { return }
+        switch visibility {
+        case .everyMember:
+            let found: ExtensionSetting? = try? model.store.extensionRecord(id)
+            if var found { found.isDeleted = true; found.updatedAt = Date(); _ = model.save(found) }
+        case .followsHistory:
+            let found: ExtensionEntry? = try? model.store.extensionRecord(id)
+            if var found { found.isDeleted = true; found.updatedAt = Date(); _ = model.save(found) }
+        }
+    }
+
+    public func newEntry(linkedTo record: String?, in group: String) {
+        guard let group = Self.id(group).map(GroupID.init) else { return }
+        model.entrySheetRequest = .add(group: group, link: record.flatMap(Self.id).map(RecordID.init))
+    }
+
+    public func openEntry(_ id: String) {
+        guard let id = Self.id(id).map(RecordID.init) else { return }
+        model.entrySheetRequest = .open(id)
+    }
+
+    private static func hostRecord<V>(_ record: ExtensionRecord<V>) -> HostRecord {
+        HostRecord(id: text(record.id.uuid), group: text(record.groupID.uuid), kind: record.kind,
+                   sourceKey: record.sourceKey, body: record.body)
+    }
+
     #if canImport(SwiftUI)
+    public func wheel(_ values: HostWheel, size: HostWheelSize) -> AnyView? {
+        guard let currency = Currency(rawValue: values.currency) else { return nil }
+        let wheel = MoneyWheel(scope: .group, budgeted: Money(minorUnits: values.coversMinorUnits, currency: currency),
+                               spent: Money(minorUnits: values.plannedMinorUnits, currency: currency), day: nil)
+        let geometry: WheelGeometry
+        switch size {
+        case .homeCard: geometry = .homeCard
+        case .budgetPage: geometry = .groupDesktop
+        case .budgetPhone: geometry = .budgetPhone
+        }
+        return AnyView(MoneyWheelView(wheel: wheel, geometry: geometry, middle: .compact))
+    }
+
     public func smallWheel(for group: String) -> AnyView? {
         guard let money = money(of: group) else { return nil }
         return AnyView(MoneyWheelView(wheel: money.wheel, geometry: .homeCard, middle: .compact))

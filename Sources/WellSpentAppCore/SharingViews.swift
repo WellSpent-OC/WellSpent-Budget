@@ -354,6 +354,11 @@ struct GroupPage: View {
                     if let money = main.money(of: group.id) {
                         GroupMoneySection(money: money)
                     }
+                    // What an extension adds, below the money and above the
+                    // people. Nothing with no extension on.
+                    if let section = main.extensionSlots?.groupPageSection(for: group.id.uuid.uuidString) {
+                        section
+                    }
                     if !screen.rows.isEmpty {
                         people
                     }

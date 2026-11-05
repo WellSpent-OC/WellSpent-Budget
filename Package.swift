@@ -36,7 +36,7 @@ let package = Package(
         // What the app and every extension share: the colours, the secret
         // store and the extension host contract. Its own repo, so a private
         // extension can use it without depending on the app.
-        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.1.0"),
+        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.2.0"),
     ] + propertiesDependencies + [
         // `import Crypto` re-exports CryptoKit on Apple platforms and uses
         // swift-crypto's own implementation on Linux. One call site, both platforms.

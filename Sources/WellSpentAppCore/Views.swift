@@ -145,6 +145,9 @@ struct RootView: View {
         .sheet(isPresented: $showingAddTransaction) {
             EntrySheet(model: model)
         }
+        .sheet(item: Binding(get: { model.entrySheetRequest }, set: { model.entrySheetRequest = $0 })) { request in
+            EntrySheet(model: model, request: request)
+        }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(sync: sync)
         }
@@ -735,6 +738,16 @@ struct EntrySheet: View {
         _editor = State(initialValue: editor)
     }
 
+    /// The sheet an extension asked for.
+    init(model: AppModel, request: EntrySheetRequest) {
+        switch request {
+        case .add(let group, let link):
+            _editor = State(initialValue: EntryEditor(model: model, addingIn: group, link: link))
+        case .open(let id):
+            _editor = State(initialValue: EntryEditor(model: model, entry: id) ?? EntryEditor(model: model))
+        }
+    }
+
     static func canAdd(merchant: String, amountText: String) -> Bool {
         EntryEditor.canAdd(merchant: merchant, amountText: amountText)
     }
@@ -821,13 +834,36 @@ struct EntrySheet: View {
             }
             TextField(Words.note, text: Bindable(editor).note)
                 .accessibilityIdentifier(AccessibilityID.entryNote)
-            if editor.editing != nil {
-                Picker(Words.budget, selection: Bindable(editor).budgetID) {
+            if editor.offersBudgetChoice, editor.noBudgetLine == nil {
+                Picker(Words.budget, selection: Bindable(editor).budgetSelection) {
                     ForEach(editor.budgetChoices) { budget in
                         Text(budget.name).tag(BudgetID?.some(budget.id))
                     }
+                    if editor.offersNewBudget {
+                        Text(Words.newBudget).tag(BudgetID?.none)
+                    }
                 }
                 .accessibilityIdentifier(AccessibilityID.entryBudget)
+            }
+            if editor.isNewBudget {
+                TextField(Words.newBudgetName, text: Bindable(editor).newBudgetName)
+                    .accessibilityIdentifier(AccessibilityID.entryNewBudgetName)
+                TextField(Words.newBudgetAmount, text: Bindable(editor).newBudgetAmountText)
+                    .accessibilityIdentifier(AccessibilityID.entryNewBudgetAmount)
+            }
+            if let line = editor.noBudgetLine {
+                Text(line)
+                    .font(.system(size: 12))
+                    .accessibilityIdentifier(AccessibilityID.entryNoBudgetLine)
+            }
+            if editor.showsLinkRow, let offered = editor.linkChoices {
+                Picker(offered.label, selection: Bindable(editor).linkSelection) {
+                    Text(Words.noLink).tag(RecordID?.none)
+                    ForEach(offered.choices) { choice in
+                        Text(choice.name).tag(RecordID?.some(choice.id))
+                    }
+                }
+                .accessibilityIdentifier(AccessibilityID.entryLink)
             }
         }
         .formStyle(.grouped)
