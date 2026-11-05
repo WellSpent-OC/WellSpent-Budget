@@ -61,14 +61,14 @@ enum SyncRulesV2 {
     static let maxBodyBytes = 64 * 1024
 
     /// Records every member sees whatever their history: the group, its
-    /// budgets and who is in it. A "from now on" member needs these to make
-    /// sense of anything.
+    /// budgets, who is in it and an extension's settings. A "from now on"
+    /// member needs these to make sense of anything.
     static let alwaysVisible: [String] = [RecordType.groupMeta.rawValue, RecordType.budget.rawValue,
-                                          RecordType.memberProfile.rawValue]
+                                          RecordType.memberProfile.rawValue, RecordType.extensionSetting.rawValue]
 
     /// Records that belong to whoever first stored them: someone at Add may
     /// change only their own, a manager anyone's.
-    static let owned: Set<RecordType> = [.transaction, .receipt, .statement]
+    static let owned: Set<RecordType> = [.transaction, .receipt, .statement, .repeatRule]
 
     static let groupDeletedRefusal = "the group has been deleted"
 }
@@ -102,8 +102,30 @@ private struct ReadableBinding {
         case .memberProfile:
             guard let value = try? decoder.decode(MemberProfile.self, from: body) else { return nil }
             (id, group, budget, profileUser) = (value.id.uuid, value.groupID, nil, value.userID)
+        case .extensionSetting:
+            guard let value = try? decoder.decode(ExtensionSetting.self, from: body) else { return nil }
+            (id, group, budget, profileUser) = (value.id.uuid, value.groupID, nil, nil)
+        case .extensionEntry:
+            guard let value = try? decoder.decode(ExtensionEntry.self, from: body) else { return nil }
+            (id, group, budget, profileUser) = (value.id.uuid, value.groupID, nil, nil)
+        case .repeatRule:
+            guard let value = try? decoder.decode(RepeatRule.self, from: body) else { return nil }
+            (id, group, budget, profileUser) = (value.id.uuid, value.groupID, value.budgetID, nil)
         default:
             return nil
+        }
+    }
+
+    /// Whether a record may use its ID. A name-based ID is taken only where the
+    /// record's own plain fields work out to it, so nobody can take one from
+    /// another group. Every other type keeps a random ID.
+    static func idIsRight(_ body: Data, type: RecordType) -> Bool {
+        let decoder = RecordCodec.decoder
+        switch type {
+        case .transaction: return (try? decoder.decode(Transaction.self, from: body))?.idIsRight == true
+        case .extensionSetting: return (try? decoder.decode(ExtensionSetting.self, from: body))?.idIsRight == true
+        case .extensionEntry: return (try? decoder.decode(ExtensionEntry.self, from: body))?.idIsRight == true
+        default: return false
         }
     }
 }
@@ -241,6 +263,10 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
                   RecordID(record.id) == RecordID.memberProfile(group: GroupID(groupID), user: UserID(user)) else {
                 refuse("that ID belongs to a member profile"); continue
             }
+        } else if type == .transaction || type == .extensionSetting || type == .extensionEntry {
+            guard ReadableBinding.idIsRight(Data(record.body.utf8), type: type) else {
+                refuse("that ID does not match the record"); continue
+            }
         } else if RecordID(record.id).isNameBased {
             refuse("that ID belongs to a member profile"); continue
         }
@@ -285,6 +311,8 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
             }
         case .budget:
             guard level.allows(.manage) else { refuse("only a manager can change a budget"); continue }
+        case .extensionSetting, .extensionEntry:
+            guard level.allows(.manage) else { refuse("only a manager can change it"); continue }
         default:
             break
         }
@@ -296,15 +324,35 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
         // name the owner the server holds, or nobody yet.
         var body = record.body
         if type == .transaction {
-            guard var transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
+            guard let transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
                 refuse("the record does not match where it was sent"); continue
             }
             if let claimed = transaction.createdBy, claimed.uuid != owner {
                 refuse("a transaction keeps the owner it was made with"); continue
             }
+            // Set in the JSON as sent, so fields this build does not know
+            // survive, and a new field needs no server deploy first.
             if transaction.createdBy == nil {
-                transaction.createdBy = UserID(owner)
-                body = String(decoding: try RecordCodec.encoder.encode(transaction), as: UTF8.self)
+                guard let stamped = RecordCodec.stampingOwner(Data(body.utf8), owner: UserID(owner)) else {
+                    refuse("the record does not match where it was sent"); continue
+                }
+                body = String(decoding: stamped, as: UTF8.self)
+            }
+        }
+        // A repeat belongs to whoever first stores it, the same way, since only
+        // its owner's devices make its transactions.
+        if type == .repeatRule {
+            guard let rule = try? RecordCodec.decoder.decode(RepeatRule.self, from: Data(body.utf8)) else {
+                refuse("the record does not match where it was sent"); continue
+            }
+            if let claimed = rule.createdBy, claimed.uuid != owner {
+                refuse("a repeat keeps the owner it was made with"); continue
+            }
+            if rule.createdBy == nil {
+                guard let stamped = RecordCodec.stampingOwner(Data(body.utf8), owner: UserID(owner)) else {
+                    refuse("the record does not match where it was sent"); continue
+                }
+                body = String(decoding: stamped, as: UTF8.self)
             }
         }
         // A transaction or receipt is shown in the budget it names, so that
