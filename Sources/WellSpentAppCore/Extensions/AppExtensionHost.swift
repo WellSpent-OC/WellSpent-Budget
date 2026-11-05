@@ -150,15 +150,18 @@ public final class AppExtensionHost: ExtensionHost {
         return model.save(record).map { Self.text($0.uuid) }
     }
 
+    /// The record stays as a mark that it was removed, with its body cleared,
+    /// so its details don't stay on the server. Saving the same key again
+    /// brings it back with a new body.
     public func removeRecord(_ id: String, _ visibility: HostRecord.Visibility) {
         guard let id = Self.id(id).map(RecordID.init) else { return }
         switch visibility {
         case .everyMember:
             let found: ExtensionSetting? = try? model.store.extensionRecord(id)
-            if var found { found.isDeleted = true; found.updatedAt = Date(); _ = model.save(found) }
+            if var found { found.isDeleted = true; found.body = ""; found.updatedAt = Date(); _ = model.save(found) }
         case .followsHistory:
             let found: ExtensionEntry? = try? model.store.extensionRecord(id)
-            if var found { found.isDeleted = true; found.updatedAt = Date(); _ = model.save(found) }
+            if var found { found.isDeleted = true; found.body = ""; found.updatedAt = Date(); _ = model.save(found) }
         }
     }
 
