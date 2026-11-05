@@ -274,7 +274,9 @@ public actor ReadableSyncEngine {
             } ?? (record.isDeleted || !groupIsDeletedHere)
         }
         if !incomingWins {
-            if record.type.losesQuietly { return .echo }
+            // A made repeat at Lamport 0 is one its owner's other device made
+            // too. Nobody loses anything.
+            if record.type.losesQuietly || record.lamport == 0 { return .echo }
             try store.recordConflict(recordID: record.id, recordType: record.type, payloadJSON: record.body,
                                      lamport: record.lamport, device: record.clientID)
             return .conflict
@@ -285,7 +287,7 @@ public actor ReadableSyncEngine {
             // An edit made here that loses, or that this Mac would never
             // send, is kept as a conflict copy. A row that only sends the
             // version on file again has nothing of its own to keep.
-            if !queued.isReseal, !queued.recordType.losesQuietly,
+            if !queued.isReseal, !queued.recordType.losesQuietly, !queued.isMade,
                let mine = try store.outgoingPayload(for: queued, userID: userID) {
                 try store.recordConflict(recordID: queued.recordID, recordType: queued.recordType,
                                          payloadJSON: String(decoding: mine, as: UTF8.self),
@@ -369,6 +371,10 @@ public actor ReadableSyncEngine {
             // this Mac kept showing an edit nobody else would ever see.
             guard try budgetIsInItsGroup(inside, type: item.recordType),
                   try mayPush(item, level: level, in: store) else {
+                if item.isMade {
+                    try store.dropMade(item)
+                    continue
+                }
                 if !item.isReseal {
                     try keepAsConflict(item, body: String(decoding: payload, as: UTF8.self), into: &report)
                 }
@@ -406,6 +412,18 @@ public actor ReadableSyncEngine {
 
         for (item, record) in zip(sent, records) {
             guard let reason = result.rejected[item.recordID] else { continue }
+            // A made repeat refused goes quietly, with no conflict copy and no
+            // full pull. Refused as older, the newer version comes on the next
+            // pull, so the row stays until it does.
+            if item.isMade, reason != RecordEnvelope.lamportTooFarAheadRefusal,
+               reason != RecordEnvelope.lamportTooLargeRefusal {
+                if reason == RecordEnvelope.olderVersionRefusal {
+                    try store.clearOutbox([item])
+                } else {
+                    try store.dropMade(item)
+                }
+                continue
+            }
             switch reason {
             case RecordEnvelope.lamportTooFarAheadRefusal, RecordEnvelope.lamportTooLargeRefusal:
                 // Stays queued. The group's highest value moves on as others

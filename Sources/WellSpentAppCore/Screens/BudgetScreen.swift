@@ -58,12 +58,13 @@ public struct BudgetScreen {
                 calendar: Calendar = AppLocale.calendar) {
         self.summary = summary
         let group = summary.budget.groupID
+        repeatsWords = RepeatsList(budget: summary.budget, model: model).countWords
         // Asked once for the whole list: every entry is in this group.
         let mayAdd = model.mayAddEntries(group)
         let mayManage = model.mayManageEntries(group)
         rows = model.transactions.map { transaction in
             Row(id: transaction.id, date: transaction.date, merchant: transaction.merchant, note: transaction.note,
-                addedBy: model.addedBy(transaction, me: me), source: transaction.source.rawValue.capitalized,
+                addedBy: model.addedBy(transaction, me: me), source: transaction.repeatRuleID == nil ? transaction.source.rawValue.capitalized : Words.repeatSource,
                 amount: Self.amountText(transaction.amount),
                 mayChange: model.access(to: transaction, mayAdd: mayAdd, mayManage: mayManage).mayChange,
                 notice: model.notices.contains(transaction.id) ? Words.notice : nil)
@@ -101,6 +102,9 @@ public struct BudgetScreen {
     public var fraction: Double { summary.fraction }
 
     /// "3 transactions since Oct 1".
+    /// "2 repeats" after the count line, which opens the list. Nil with none.
+    public let repeatsWords: String?
+
     public var countLine: String {
         let count = summary.transactionCount
         let since = summary.period.start.formatted(.dateTime.day().month(.abbreviated).locale(AppLocale.current))
@@ -126,6 +130,7 @@ public struct BudgetScreen {
         public static let source = "Source"
         public static let amount = "Amount"
         public static let add = "Add"
+        public static let repeatSource = "Repeat"
         public static let importStatement = "Import statement"
         public static let notice = "Your change didn't go through."
         /// The period's money in, after the count line. Placeholder words.
