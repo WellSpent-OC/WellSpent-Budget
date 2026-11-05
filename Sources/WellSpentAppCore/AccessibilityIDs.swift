@@ -171,6 +171,7 @@ public enum AccessibilityID {
     public static let groupMoney = "group.money"
     /// The group's wheel in it, one element, labelled like a budget's wheel.
     public static let groupWheel = "group.wheel"
+    public static let groupTopLine = "group.topLine"
     /// Under the group's figures, while money in covers spending past the
     /// month's budgets.
     public static let groupOverBudgetsCovered = "group.wheel.overBudgetsCovered"

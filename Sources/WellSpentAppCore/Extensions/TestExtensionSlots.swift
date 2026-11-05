@@ -12,10 +12,18 @@ public final class TestExtensionSlots: ExtensionSlots {
     public static let environmentKey = "WELLSPENT_TEST_EXTENSION"
     public static let label = "Test link"
     public static let sectionWords = "Test extension section"
+    public static let addWords = "Test add"
     /// The same every run, so a UI test can find it.
     public static let choice = HostLinkChoices.Choice(id: "6F0C0B52-0F8D-4C55-9D1A-2B1C3E4F5A6B", name: "Test choice")
 
-    public init() {}
+    /// What Test add does, with the group it was tapped in. The app gives it
+    /// the real host's `newEntry`, so a test reaches the sheet the way an
+    /// extension does.
+    private let newEntry: (String) -> Void
+
+    public init(newEntry: @escaping (String) -> Void = { _ in }) {
+        self.newEntry = newEntry
+    }
 
     public static func isOn(environment: AppEnvironment = .current,
                             processEnvironment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
@@ -32,7 +40,15 @@ public final class TestExtensionSlots: ExtensionSlots {
 
     #if canImport(SwiftUI)
     public func groupPageSection(for group: String) -> AnyView? {
-        AnyView(Text(Self.sectionWords).id(HostScrollID.groupPageSection))
+        AnyView(Group {
+            Text(Self.sectionWords).id(HostScrollID.groupPageSection)
+            Button(Self.addWords) { [newEntry] in newEntry(group) }
+            #if os(iOS)
+            // Long enough that the phone's page must scroll, so a test can
+            // tell the top line really moved it.
+            Color.clear.frame(height: 900)
+            #endif
+        })
     }
     #endif
 }

@@ -92,7 +92,12 @@ public final class Workspace {
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
         model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
-        if TestExtensionSlots.isOn() { model.install(TestExtensionSlots()) }
+        if TestExtensionSlots.isOn() {
+            model.install(TestExtensionSlots { [weak model] group in
+                guard let model else { return }
+                AppExtensionHost(model: model).newEntry(linkedTo: nil, in: group)
+            })
+        }
     }
 
     // MARK: - The day the money wheel reads
