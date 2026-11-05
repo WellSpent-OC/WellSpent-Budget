@@ -157,9 +157,20 @@ public final class EntryEditor {
     /// amount is typed. On, it is money in: income when added here, and an
     /// opened refund stays a refund (INC-01).
     public var isMoneyIn: Bool
-    /// Where an opened entry is filed. Adding files into the budget on
-    /// screen, and offers no choice.
+    /// Where an opened entry is filed, or where one added in a group goes.
+    /// Adding from a budget's page files into the budget on screen, and
+    /// offers no choice.
     public var budgetID: BudgetID?
+    /// The group this sheet adds to, when an extension asked for it. Nil when
+    /// adding from a budget's page, or for an opened entry.
+    public let addingIn: GroupID?
+    /// What the entry is linked to. Kept as it is when that isn't on offer
+    /// any more, so a mark on a removed house survives until someone changes it.
+    public var linkID: RecordID?
+    /// Whether Add also makes a new budget, from the two fields below.
+    public var isNewBudget: Bool
+    public var newBudgetName = ""
+    public var newBudgetAmountText = ""
     /// What this person may do with the entry, as of opening it.
     public let access: EntryAccess
     /// Said once, when this device's last change to the entry didn't go
@@ -177,7 +188,7 @@ public final class EntryEditor {
     /// With `editing`, the entry fills the form, and only the fields changed
     /// from it are saved.
     public init(model: AppModel, editing: Transaction? = nil, date: Date = Date(),
-                locale: Locale = AppLocale.current) {
+                locale: Locale = AppLocale.current, addingIn group: GroupID? = nil, link: RecordID? = nil) {
         self.model = model
         self.editing = editing
         self.locale = locale
@@ -186,7 +197,11 @@ public final class EntryEditor {
         note = editing?.note ?? ""
         self.date = editing?.date ?? date
         isMoneyIn = editing.map { $0.kind.isMoneyIn || ($0.kind == .transfer && $0.amount.minorUnits > 0) } ?? false
-        budgetID = editing?.budgetID
+        addingIn = editing == nil ? group : nil
+        linkID = editing?.extensionLink ?? link
+        let offered = group.flatMap { model.summaries[$0]?.map(\.budget) } ?? []
+        budgetID = editing?.budgetID ?? offered.first { $0.id == model.selectedBudget }?.id ?? offered.first?.id
+        isNewBudget = editing == nil && group != nil && offered.isEmpty && group.map(model.mayManageEntries) == true
         access = editing.map { model.access(to: $0) } ?? .change
         noticeLine = editing.flatMap { model.takeNotice(of: $0.id) ? Words.notice : nil }
     }
@@ -208,7 +223,77 @@ public final class EntryEditor {
             && TypedAmount(amountText, locale: locale).money != nil
     }
 
-    public var canAdd: Bool { Self.canAdd(merchant: merchant, amountText: amountText, locale: locale) }
+    public var canAdd: Bool {
+        guard Self.canAdd(merchant: merchant, amountText: amountText, locale: locale) else { return false }
+        guard addingIn != nil else { return true }
+        return isNewBudget ? newBudgetLimit != nil : budgetID != nil
+    }
+
+    private var newBudgetLimit: Money? {
+        guard !newBudgetName.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return TypedAmount(newBudgetAmountText, locale: locale).money?.magnitude
+    }
+
+    /// The group the entry is in, or will go in.
+    private var group: GroupID? {
+        editing?.groupID ?? addingIn ?? model.selectedBudget.flatMap { model.budget(for: $0)?.groupID }
+    }
+
+    // MARK: - The link row
+
+    /// What the row offers. Nil with nothing to offer, and the row isn't drawn.
+    public var linkChoices: EntryLinkChoices? {
+        group.flatMap(model.linkChoices).flatMap { $0.choices.isEmpty ? nil : $0 }
+    }
+
+    /// The kind Save would write, so the row follows the Money in switch.
+    private var kindToWrite: TransactionKind {
+        guard let editing else { return isMoneyIn ? .income : .spending }
+        return switchedKind ?? editing.kind
+    }
+
+    private var kindTakesALink: Bool { kindToWrite == .spending || kindToWrite == .refund }
+
+    /// Only spending and refunds can be linked.
+    public var showsLinkRow: Bool { linkChoices != nil && kindTakesALink && !isReadOnly }
+
+    /// What the row shows and sets. A link to something no longer on offer
+    /// shows as nil, and stays stored until someone picks.
+    public var linkSelection: RecordID? {
+        get { linkChoices?.choices.first { $0.id == linkID }?.id }
+        set { linkID = newValue }
+    }
+
+    private var linkChange: LinkChange? {
+        guard let editing else { return nil }
+        let wanted = kindTakesALink ? linkID : nil
+        guard wanted != editing.extensionLink else { return nil }
+        return wanted.map(LinkChange.to) ?? .cleared
+    }
+
+    // MARK: - Choosing a budget when adding in a group
+
+    /// Whether Budget is a row on the sheet.
+    public var offersBudgetChoice: Bool { editing != nil || addingIn != nil }
+
+    /// What the Budget row shows and sets, as one choice: a budget, or nil for
+    /// "+ New budget". So each platform's picker is layout only.
+    public var budgetSelection: BudgetID? {
+        get { isNewBudget ? nil : budgetID }
+        set {
+            isNewBudget = newValue == nil && offersNewBudget
+            if let newValue { budgetID = newValue }
+        }
+    }
+
+    /// Only a manager can make a budget.
+    public var offersNewBudget: Bool { addingIn.map(model.mayManageEntries) ?? false }
+
+    /// In place of the row, for someone who can't add to a group with no budgets.
+    public var noBudgetLine: String? {
+        guard addingIn != nil, budgetChoices.isEmpty, !offersNewBudget else { return nil }
+        return Words.askForABudget
+    }
 
     /// The empty amount field's example, written the region's way.
     public var amountPrompt: String { TypedAmount.text(Money(minorUnits: 0), locale: locale) }
@@ -267,6 +352,9 @@ public final class EntryEditor {
         if let budget = try? model.store.budget(editing.budgetID) {
             shown.append(Detail(label: Words.budget, value: budget.name))
         }
+        if let offered = linkChoices, let name = offered.choices.first(where: { $0.id == editing.extensionLink })?.name {
+            shown.append(Detail(label: offered.label, value: name))
+        }
         return shown
     }
 
@@ -274,7 +362,13 @@ public final class EntryEditor {
     /// budget the entry goes in, by that budget's name. Nil while the switch
     /// is off, or when no budget is known yet.
     public var moneyInLine: String? {
-        guard isMoneyIn, let id = budgetID ?? model.selectedBudget,
+        guard isMoneyIn else { return nil }
+        // Adding in a group never names a budget from somewhere else.
+        if addingIn != nil, isNewBudget {
+            let name = newBudgetName.trimmingCharacters(in: .whitespaces)
+            return name.isEmpty ? nil : Words.moneyInHelp(budget: name)
+        }
+        guard let id = addingIn == nil ? budgetID ?? model.selectedBudget : budgetID,
               let budget = model.budget(for: id) else { return nil }
         return Words.moneyInHelp(budget: budget.name)
     }
@@ -309,8 +403,8 @@ public final class EntryEditor {
     /// The budgets an opened entry may move to: the live ones in its own
     /// group. A group is what is shared, so an entry never leaves it.
     public var budgetChoices: [Budget] {
-        guard let editing else { return [] }
-        return model.summaries[editing.groupID]?.map(\.budget) ?? []
+        guard let group = editing?.groupID ?? addingIn else { return [] }
+        return model.summaries[group]?.map(\.budget) ?? []
     }
 
     /// Under the date, when it falls outside the period the list shows, so
@@ -335,6 +429,7 @@ public final class EntryEditor {
         if note != editing.note { changes.note = note }
         if let budgetID, budgetID != editing.budgetID { changes.budget = budgetID }
         if let kind = switchedKind { changes.kind = kind }
+        changes.link = linkChange
         return changes == EntryChange() ? nil : changes
     }
 
@@ -342,10 +437,19 @@ public final class EntryEditor {
     /// is added.
     @discardableResult
     public func add() -> Bool {
-        guard canAdd, let amount = TypedAmount(amountText, locale: locale).money,
-              let budget = model.selectedBudget, model.budget(for: budget) != nil else { return false }
+        guard canAdd, let amount = TypedAmount(amountText, locale: locale).money else { return false }
+        let target: BudgetID?
+        if let addingIn {
+            target = isNewBudget
+                ? newBudgetLimit.flatMap { model.addBudget(named: newBudgetName, limit: $0, in: addingIn, select: false) }
+                : budgetID
+        } else {
+            target = model.selectedBudget
+        }
+        guard let target, model.budget(for: target) != nil else { return false }
         model.addTransaction(merchant: merchant, amount: amount, date: date, note: note,
-                             kind: isMoneyIn ? .income : .spending)
+                             kind: isMoneyIn ? .income : .spending, budget: target,
+                             link: kindTakesALink ? linkID : nil)
         return model.errorMessage == nil
     }
 
@@ -393,6 +497,12 @@ public final class EntryEditor {
         public static let date = "Date"
         public static let note = "Note"
         public static let budget = "Budget"
+        public static let newBudget = "+ New budget"
+        public static let newBudgetName = "Budget name"
+        public static let newBudgetAmount = "Monthly amount"
+        /// Placeholder words until the word check.
+        public static let askForABudget = "Ask a manager to add a budget first."
+        public static let noLink = "None"
         public static let add = "Add"
         public static let save = "Save"
         public static let cancel = "Cancel"

@@ -1,4 +1,5 @@
 import Foundation
+import WellSpentExtensionKit
 import Observation
 import Crypto
 import WellSpentCrypto
@@ -24,6 +25,16 @@ public final class AppModel {
     /// Whether this person may change anyone's entries in a group, which
     /// takes Manage. The workspace answers it the same way.
     public var mayManageEntries: (GroupID) -> Bool = { _ in true }
+    /// What an extension offers to link an entry to in a group. Nil, the
+    /// entry sheet has no such row, as with no extension on.
+    public var linkChoices: (GroupID) -> EntryLinkChoices? = { _ in nil }
+    /// A sheet an extension asked for, until a platform's root opens it.
+    public var entrySheetRequest: EntrySheetRequest?
+    /// What an extension adds to the app's own screens.
+    public private(set) var extensionSlots: (any ExtensionSlots)?
+    /// Goes up with every reload, from a sync or an edit here, so an
+    /// extension's screens redraw.
+    public private(set) var revision = 0
     /// Who is signed in, so the entries they added count as their own. Nil
     /// on a model on its own.
     public var me: () -> UserID? = { nil }
@@ -109,6 +120,7 @@ public final class AppModel {
     // MARK: - Loading
 
     public func reload() {
+        revision += 1
         do {
             groups = try store.groups()
             var loaded: [GroupID: [BudgetSummary]] = [:]
@@ -164,9 +176,11 @@ public final class AppModel {
 
     // MARK: - Editing
 
+    /// Into `budget`, or the budget on screen when nil.
     public func addTransaction(merchant: String, amount: Money, date: Date, note: String,
-                               kind: TransactionKind = .spending) {
-        guard let selectedBudget, let budget = budget(for: selectedBudget) else { return }
+                               kind: TransactionKind = .spending, budget chosen: BudgetID? = nil,
+                               link: RecordID? = nil) {
+        guard let target = chosen ?? selectedBudget, let budget = budget(for: target) else { return }
         // A button left showing cannot add what the server would refuse.
         guard mayAddEntries(budget.groupID) else {
             errorMessage = SyncWording.viewOnly
@@ -178,7 +192,8 @@ public final class AppModel {
             let size = abs(amount.minorUnits)
             let signed = Money(minorUnits: kind.isMoneyIn ? size : -size, currency: amount.currency)
             try store.save(Transaction(budgetID: budget.id, groupID: budget.groupID, date: date,
-                                       merchant: merchant, note: note, amount: signed, kind: kind))
+                                       merchant: merchant, note: note, amount: signed, kind: kind,
+                                       extensionLink: link))
             changed()
         } catch {
             errorMessage = String(describing: error)
@@ -224,6 +239,11 @@ public final class AppModel {
             }
             if let date = change.date { entry.date = date }
             if let note = change.note { entry.note = note }
+            switch change.link {
+            case .to(let id): entry.extensionLink = id
+            case .cleared: entry.extensionLink = nil
+            case nil: break
+            }
             entry.updatedAt = Date()
             try store.save(entry)
             changed()
@@ -562,7 +582,9 @@ public final class AppModel {
     public func dismissError() { errorMessage = nil }
 
     /// After an edit: the Undo bar goes, the edit shows, then it says so.
-    private func changed() {
+    func setExtensionSlots(_ slots: (any ExtensionSlots)?) { extensionSlots = slots }
+
+    func changed() {
         withdrawUndo()
         reload()
         didChange?()

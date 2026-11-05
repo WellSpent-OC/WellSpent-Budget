@@ -80,6 +80,49 @@ public enum EntrySaveResult: Equatable, Sendable {
     case failed
 }
 
+public enum LinkChange: Equatable, Sendable {
+    case to(RecordID)
+    /// Not "none": on an optional, that would read as no change at all.
+    case cleared
+}
+
+/// What a person can link an entry to in a group: what an extension offered.
+public struct EntryLinkChoices: Equatable, Sendable {
+    public struct Choice: Equatable, Sendable, Identifiable {
+        public let id: RecordID
+        public let name: String
+
+        public init(id: RecordID, name: String) {
+            self.id = id
+            self.name = name
+        }
+    }
+
+    /// The row's title. The app has no word of its own for what is linked.
+    public let label: String
+    public let choices: [Choice]
+
+    public init(label: String, choices: [Choice]) {
+        self.label = label
+        self.choices = choices
+    }
+}
+
+/// A sheet an extension asked for. Each platform's root watches for one, and
+/// opens its own entry sheet.
+public enum EntrySheetRequest: Equatable, Sendable, Identifiable {
+    /// Add a bill in this group, with what it is for filled in, or left to choose.
+    case add(group: GroupID, link: RecordID?)
+    case open(RecordID)
+
+    public var id: String {
+        switch self {
+        case .add(let group, let link): return "add-\(group.uuid)-\(link?.uuid.uuidString ?? "")"
+        case .open(let entry): return "open-\(entry.uuid)"
+        }
+    }
+}
+
 /// The fields a person changed in an entry. Nil leaves a field as stored,
 /// so a change someone else made to it meanwhile stays.
 public struct EntryChange: Equatable, Sendable {
@@ -94,15 +137,18 @@ public struct EntryChange: Equatable, Sendable {
     public var budget: BudgetID?
     /// What the entry is. The amount's sign follows it.
     public var kind: TransactionKind?
+    /// What it is linked to now.
+    public var link: LinkChange?
 
     public init(merchant: String? = nil, amount: Money? = nil, date: Date? = nil, note: String? = nil,
-                budget: BudgetID? = nil, kind: TransactionKind? = nil) {
+                budget: BudgetID? = nil, kind: TransactionKind? = nil, link: LinkChange? = nil) {
         self.merchant = merchant
         self.amount = amount
         self.date = date
         self.note = note
         self.budget = budget
         self.kind = kind
+        self.link = link
     }
 }
 

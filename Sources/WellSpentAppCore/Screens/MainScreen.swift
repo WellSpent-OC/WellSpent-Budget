@@ -1,4 +1,5 @@
 import Foundation
+import WellSpentExtensionKit
 import Observation
 import WellSpentCrypto
 import WellSpentModel
@@ -95,6 +96,9 @@ public final class MainScreen {
     /// Signing in to another account swaps the workspace's budgets, so they
     /// are read from it each time, never kept.
     public let workspace: Workspace
+    /// What an extension adds to the app's own screens.
+    var extensionSlots: (any ExtensionSlots)? { model.extensionSlots }
+
     private var model: AppModel { workspace.model }
     private var sync: SyncCoordinator { workspace.sync }
     private let defaults: UserDefaults

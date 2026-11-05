@@ -116,6 +116,10 @@ public enum AccessibilityID {
     public static let entryDone = "entry.done"
     /// The Budget list, on an opened entry.
     public static let entryBudget = "entry.budget"
+    public static let entryLink = "entry.link"
+    public static let entryNewBudgetName = "entry.newBudgetName"
+    public static let entryNewBudgetAmount = "entry.newBudgetAmount"
+    public static let entryNoBudgetLine = "entry.noBudgetLine"
     /// Above the details: who added it, where it came from, and Refund.
     public static let entryTopLine = "entry.topLine"
     /// The Money in switch, on a new or opened entry.
