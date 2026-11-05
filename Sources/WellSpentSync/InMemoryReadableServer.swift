@@ -814,33 +814,31 @@ public final class InMemoryReadableServer: @unchecked Sendable {
                 }
                 var body = record.body
                 if type == .transaction {
-                    guard var transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
+                    guard let transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
                         refuse("the record does not match where it was sent"); continue
                     }
                     if let claimed = transaction.createdBy, claimed != owner {
                         refuse("a transaction keeps the owner it was made with"); continue
                     }
                     if transaction.createdBy == nil {
-                        transaction.createdBy = owner
-                        guard let encoded = try? RecordCodec.encoder.encode(transaction) else {
+                        guard let stamped = RecordCodec.stampingOwner(Data(body.utf8), owner: owner) else {
                             refuse("the record does not match where it was sent"); continue
                         }
-                        body = String(decoding: encoded, as: UTF8.self)
+                        body = String(decoding: stamped, as: UTF8.self)
                     }
                 }
                 if type == .repeatRule {
-                    guard var rule = try? RecordCodec.decoder.decode(RepeatRule.self, from: Data(body.utf8)) else {
+                    guard let rule = try? RecordCodec.decoder.decode(RepeatRule.self, from: Data(body.utf8)) else {
                         refuse("the record does not match where it was sent"); continue
                     }
                     if let claimed = rule.createdBy, claimed != owner {
                         refuse("a repeat keeps the owner it was made with"); continue
                     }
                     if rule.createdBy == nil {
-                        rule.createdBy = owner
-                        guard let encoded = try? RecordCodec.encoder.encode(rule) else {
+                        guard let stamped = RecordCodec.stampingOwner(Data(body.utf8), owner: owner) else {
                             refuse("the record does not match where it was sent"); continue
                         }
-                        body = String(decoding: encoded, as: UTF8.self)
+                        body = String(decoding: stamped, as: UTF8.self)
                     }
                 }
                 if type != .budget, let budgetID = record.budgetID, let budget = records[RecordID(budgetID.uuid)],

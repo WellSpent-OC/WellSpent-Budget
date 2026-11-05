@@ -314,7 +314,7 @@ struct SyncV2Tests {
                                        budgetID: budget.id, groupID: GroupID(groupID), date: Date(),
                                        merchant: "Squatter", amount: Money(minorUnits: -1))
             #expect(try await push([try record(squatter, lamport: 5, on: writer)], to: groupID, from: writer, on: app)
-                .1?.rejected[squatter.id.uuid.uuidString] == "that ID belongs to a member profile")
+                .1?.rejected[squatter.id.uuid.uuidString] == "that ID does not match the record")
         }
     }
 
@@ -498,4 +498,132 @@ private func pullRaw(_ groupID: UUID, _ query: String, as device: Device, on app
         if response.status == .ok { reply = try response.content.decode(PullReply.self) }
     })
     return reply
+}
+
+private func record<V>(_ value: ExtensionRecord<V>, lamport: UInt64, on device: Device) throws -> Rec {
+    Rec(id: value.id.uuid, type: V.recordType.rawValue, budgetID: nil, lamport: lamport, clientID: device.clientID,
+        isDeleted: value.isDeleted, body: try json(value))
+}
+private func record(_ value: RepeatRule, lamport: UInt64, on device: Device) throws -> Rec {
+    Rec(id: value.id.uuid, type: "repeatRule", budgetID: value.budgetID.uuid, lamport: lamport,
+        clientID: device.clientID, isDeleted: value.isDeleted, body: try json(value))
+}
+private func setting(in groupID: UUID, sourceKey: String? = "listing-1") -> ExtensionSetting {
+    ExtensionSetting(groupID: GroupID(groupID), extensionID: "test.extension", kind: "house", sourceKey: sourceKey,
+                     body: #"{"name":"Studio"}"#)
+}
+private func stay(in groupID: UUID, _ key: String) -> ExtensionEntry {
+    ExtensionEntry(groupID: GroupID(groupID), extensionID: "test.extension", kind: "stay", sourceKey: key, body: "{}")
+}
+
+/// The server's side of extension records and repeat rules: the same rules as
+/// the in-memory server the apps test against.
+@Suite("Server, extension records and repeat rules", .serialized)
+struct ExtensionRecordsV2Tests {
+    @Test func aRecordIsTakenOnlyOnTheIDItsFieldsWorkOutTo() async throws {
+        try await withV2App { app, _ in
+            let (mac, groupID, _) = try await setUp("v2-ext-ids", on: app)
+            let good = setting(in: groupID)
+            var random = setting(in: groupID, sourceKey: "listing-2")
+            random.id = RecordID()
+            var otherGroups = setting(in: groupID, sourceKey: "listing-3")
+            otherGroups.id = .extensionRecord(group: GroupID(), extensionID: "test.extension", kind: "house",
+                                              sourceKey: "listing-3")
+            var shapedLikeOne = setting(in: groupID, sourceKey: nil)
+            shapedLikeOne.id = .extensionRecord(group: GroupID(groupID), extensionID: "test.extension", kind: "house",
+                                                sourceKey: "listing-4")
+            let reply = try #require(try await push(
+                [try record(good, lamport: 3, on: mac), try record(random, lamport: 4, on: mac),
+                 try record(otherGroups, lamport: 5, on: mac), try record(shapedLikeOne, lamport: 6, on: mac)],
+                to: groupID, from: mac, on: app).1)
+            #expect(reply.accepted == [good.id.uuid])
+            #expect(Set(reply.rejected.values) == ["that ID does not match the record"])
+            #expect(reply.rejected.count == 3)
+        }
+    }
+
+    @Test func onlyAManagerWritesAnExtensionsRecords() async throws {
+        try await withV2App { app, _ in
+            let (founder, groupID, _) = try await setUp("v2-ext-manage", on: app)
+            let member = try await join("v2-ext-manage-member@example.com", level: .write, group: groupID,
+                                        invitedBy: founder, on: app)
+            let manager = try await join("v2-ext-manage-manager@example.com", level: .manage, group: groupID,
+                                         invitedBy: founder, on: app)
+            let house = setting(in: groupID)
+            let refused = try #require(try await push([try record(house, lamport: 3, on: member)], to: groupID,
+                                                      from: member, on: app).1)
+            #expect(refused.rejected[house.id.uuid.uuidString] == "only a manager can change it")
+            try await pushAll([try record(house, lamport: 3, on: manager)], to: groupID, from: manager, on: app)
+        }
+    }
+
+    @Test func aFromNowOnMemberSeesSettingsButNotEarlierEntries() async throws {
+        try await withV2App { app, _ in
+            let (founder, groupID, _) = try await setUp("v2-ext-floor", on: app)
+            let house = setting(in: groupID), early = stay(in: groupID, "stay-1")
+            try await pushAll([try record(house, lamport: 3, on: founder), try record(early, lamport: 4, on: founder)],
+                              to: groupID, from: founder, on: app)
+            let late = try await join("v2-ext-floor-late@example.com", level: .read, history: "fromNow",
+                                      group: groupID, invitedBy: founder, on: app)
+            let later = stay(in: groupID, "stay-2")
+            try await pushAll([try record(later, lamport: 5, on: founder)], to: groupID, from: founder, on: app)
+            let ids = Set(try #require(try await pull(groupID, as: late, on: app).1).records.map(\.id))
+            #expect(ids.contains(house.id.uuid) && ids.contains(later.id.uuid))
+            #expect(!ids.contains(early.id.uuid), "a stay from before they joined stays hidden")
+        }
+    }
+
+    @Test func aMadeTransactionIsTakenOnlyOnItsGroupRuleAndMonthsID() async throws {
+        try await withV2App { app, _ in
+            let (mac, groupID, budget) = try await setUp("v2-ext-made", on: app)
+            let rule = RecordID()
+            var made = spend("Phone", 4_000, in: budget)
+            made.repeatRuleID = rule
+            made.repeatMonth = "2026-11"
+            made.id = .repeatMade(group: GroupID(groupID), rule: rule, month: "2026-11")
+            var noMonth = made
+            noMonth.id = .repeatMade(group: GroupID(groupID), rule: rule, month: "2027-01")
+            noMonth.repeatMonth = nil
+            var plainButShaped = spend("Phone", 4_000, in: budget)
+            plainButShaped.id = .repeatMade(group: GroupID(groupID), rule: rule, month: "2027-02")
+            var fromElsewhere = made
+            fromElsewhere.id = .repeatMade(group: GroupID(), rule: rule, month: "2026-11")
+            let reply = try #require(try await push(
+                [try record(made, lamport: 3, on: mac), try record(noMonth, lamport: 4, on: mac),
+                 try record(plainButShaped, lamport: 5, on: mac), try record(fromElsewhere, lamport: 6, on: mac)],
+                to: groupID, from: mac, on: app).1)
+            #expect(reply.accepted == [made.id.uuid])
+            #expect(reply.rejected.count == 3)
+        }
+    }
+
+    @Test func aRepeatRuleBelongsToWhoeverFirstStoresIt() async throws {
+        try await withV2App { app, _ in
+            let (founder, groupID, budget) = try await setUp("v2-ext-rule", on: app)
+            let member = try await join("v2-ext-rule-member@example.com", level: .write, group: groupID,
+                                        invitedBy: founder, on: app)
+            let other = try await join("v2-ext-rule-other@example.com", level: .write, group: groupID,
+                                       invitedBy: founder, on: app)
+            var rule = RepeatRule(groupID: budget.groupID, budgetID: budget.id, name: "Phone",
+                                  amount: Money(minorUnits: -4_000), day: 5, firstMonth: "2026-11")
+            var sent = try record(rule, lamport: 3, on: member)
+            var object = try #require(try JSONSerialization.jsonObject(with: Data(sent.body.utf8)) as? [String: Any])
+            object["aFieldFromLater"] = 7
+            sent.body = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            try await pushAll([sent], to: groupID, from: member, on: app)
+
+            let stored = try #require(try await pull(groupID, as: member, on: app).1?.records.first {
+                $0.id == rule.id.uuid
+            })
+            #expect(try RecordCodec.decoder.decode(RepeatRule.self, from: Data(stored.body.utf8)).createdBy
+                    == UserID(member.user))
+            let kept = try #require(try JSONSerialization.jsonObject(with: Data(stored.body.utf8)) as? [String: Any])
+            #expect(kept["aFieldFromLater"] as? Int == 7, "the owner is written in place")
+
+            rule.name = "Taken"
+            let refused = try #require(try await push([try record(rule, lamport: 4, on: other)], to: groupID,
+                                                      from: other, on: app).1)
+            #expect(refused.rejected[rule.id.uuid.uuidString] == "only its owner or a manager can change it")
+        }
+    }
 }
