@@ -836,7 +836,7 @@ jobs:
           WELLSPENT_UI_TEST_PASSWORD: unused
           WELLSPENT_UI_TEST_EMAIL_2: unused
           WELLSPENT_UI_TEST_PASSWORD_2: unused
-        run: make ui-test UI_TEST_ONLY=WellSpentUITests/HousesTests
+        run: make ui-test UI_TEST_ONLY="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests"
 
       - name: Run the iPhone Houses UI tests, light and dark
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'iphone'
