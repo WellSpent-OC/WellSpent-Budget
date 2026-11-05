@@ -61,7 +61,7 @@ public struct Store: Sendable {
     /// The tables that file a group's rows under its `budgetGroupId`, in an
     /// order a copy can insert them: a budget before its entries.
     static let groupTables = ["budget", "transactionRecord", "receipt", "importedStatement", "memberProfile",
-                              "outbox", "syncState"]
+                              "extensionRecord", "repeatRule", "outbox", "syncState"]
 
     /// Moves a group that never left this device, with everything filed under
     /// it, into another database, and removes it here. Nothing new is queued:
@@ -759,7 +759,12 @@ public extension Store {
                 (.receipt, "receipt", "budgetGroupId"),
                 (.statement, "importedStatement", "budgetGroupId"),
                 (.memberProfile, "memberProfile", "budgetGroupId"),
+                (.repeatRule, "repeatRule", "budgetGroupId"),
             ]
+            if let row = try Row.fetchOne(db, sql: "SELECT recordType, budgetGroupId FROM extensionRecord WHERE id = ?",
+                                          arguments: [id.dbValue]) {
+                return (RecordType(rawValue: row["recordType"]), GroupID(try RowCoding.uuid(row["budgetGroupId"])))
+            }
             for (type, table, groupColumn) in tables {
                 if let group = try String.fetchOne(
                     db, sql: "SELECT \(groupColumn) FROM \(table) WHERE id = ?", arguments: [id.dbValue]) {

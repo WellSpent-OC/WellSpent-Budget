@@ -578,3 +578,136 @@ struct ReadableSyncTests {
         #expect(try desktop.store.transactions(in: home.budget.id).count == 450)
     }
 }
+
+@Suite("Syncing extension records and repeats")
+struct ExtensionRecordSyncTests {
+    private func house(_ home: Household, body: String = #"{"percent":100}"#) -> ExtensionSetting {
+        ExtensionSetting(groupID: home.group.id, extensionID: "test.extension", kind: "house", sourceKey: "listing-1",
+                         body: body, updatedAt: noon)
+    }
+
+    @Test func aRecordReachesAMemberWithItsBodyUntouched() async throws {
+        let home = try await Household()
+        let record = house(home)
+        try home.founder.store.save(record)
+        try await home.founder.sync(home.group.id)
+        let member = try await home.member("member@example.com", level: .read)
+        try await member.sync(home.group.id, level: .read)
+        let held: ExtensionSetting? = try member.store.extensionRecord(record.id)
+        #expect(held == record)
+        let listed: [ExtensionSetting] = try member.store.extensionRecords(in: home.group.id, extensionID: "test.extension",
+                                                                           kind: "house")
+        #expect(listed == [record])
+    }
+
+    @Test func savingWithNothingChangedSendsNothing() async throws {
+        let home = try await Household()
+        let record = house(home)
+        try home.founder.store.save(record)
+        try await home.founder.sync(home.group.id)
+        var again = record
+        again.updatedAt = noon.addingTimeInterval(60)
+        try home.founder.store.save(again)
+        #expect(try home.founder.store.pendingPushes(in: home.group.id, following: nil, limit: 10).isEmpty)
+    }
+
+    @Test func aLosingVersionLeavesNoConflictCopy() async throws {
+        let home = try await Household()
+        let first = home.founder
+        let second = try await home.founderAgain()
+        try first.store.save(house(home, body: #"{"percent":50}"#))
+        try second.store.save(house(home, body: #"{"percent":20}"#))
+        let one = try await first.sync(home.group.id)
+        let two = try await second.sync(home.group.id)
+        let three = try await first.sync(home.group.id)
+        #expect(one.conflicts + two.conflicts + three.conflicts == 0)
+        #expect(try first.store.conflicts(for: house(home).id).isEmpty)
+        #expect(try second.store.conflicts(for: house(home).id).isEmpty)
+        let a: ExtensionSetting? = try first.store.extensionRecord(house(home).id)
+        let b: ExtensionSetting? = try second.store.extensionRecord(house(home).id)
+        #expect(a?.body == b?.body)
+    }
+
+    @Test func aMemberBelowManageIsHeldBackWithNoConflictCopy() async throws {
+        let home = try await Household()
+        let member = try await home.member("member@example.com", level: .write)
+        try member.store.save(house(home))
+        let report = try await member.sync(home.group.id, level: .write)
+        #expect(report.conflicts == 0)
+        #expect(try member.store.conflicts(for: house(home).id).isEmpty)
+        #expect(try member.store.pendingPushes(in: home.group.id, following: nil, limit: 10).isEmpty)
+    }
+
+    @Test func aMarkAndARepeatSurviveAnotherMembersEdit() async throws {
+        let home = try await Household()
+        let link = RecordID(), rule = RecordID()
+        var bill = home.spend(-900, by: home.founder.user)
+        bill.id = .repeatMade(rule: rule, month: "2026-11")
+        bill.extensionLink = link
+        bill.repeatRuleID = rule
+        bill.repeatMonth = "2026-11"
+        try home.founder.store.save(bill)
+        try await home.founder.sync(home.group.id)
+        let manager = try await home.member("manager@example.com", level: .manage)
+        try await manager.sync(home.group.id, level: .manage)
+        var edit = try #require(try manager.store.transaction(bill.id))
+        #expect(edit.extensionLink == link)
+        edit.note = "Paid early"
+        try manager.store.save(edit)
+        try await manager.sync(home.group.id, level: .manage)
+        try await home.founder.sync(home.group.id)
+        let back = try #require(try home.founder.store.transaction(bill.id))
+        #expect(back.note == "Paid early")
+        #expect(back.extensionLink == link)
+        #expect(back.repeatRuleID == rule)
+        #expect(back.repeatMonth == "2026-11")
+    }
+
+    @Test func aRepeatRuleSyncsAndItsFirstSenderOwnsIt() async throws {
+        let home = try await Household()
+        let rule = RepeatRule(groupID: home.group.id, budgetID: home.budget.id, name: "Phone",
+                              amount: Money(minorUnits: -4_000), day: 31, firstMonth: "2026-11",
+                              createdAt: noon, updatedAt: noon)
+        try home.founder.store.save(rule)
+        try await home.founder.sync(home.group.id)
+        #expect(try home.founder.store.repeatRule(rule.id)?.createdBy == home.founder.user)
+        let member = try await home.member("member@example.com", level: .read)
+        try await member.sync(home.group.id, level: .read)
+        #expect(try member.store.repeatRules(in: home.group.id).map(\.createdBy) == [home.founder.user])
+    }
+}
+
+@Suite("Transaction fields an older app does not know")
+struct TransactionOptionalFieldTests {
+    @Test func aPlainEntryWritesNoNewKeysAndAnOldBodyReadsBack() throws {
+        let plain = Transaction(budgetID: BudgetID(), groupID: GroupID(), date: noon, merchant: "Market",
+                                amount: Money(minorUnits: -100))
+        let text = String(decoding: try RecordCodec.encoder.encode(plain), as: UTF8.self)
+        for key in ["extensionLink", "repeatRuleID", "repeatMonth"] { #expect(!text.contains(key)) }
+        let back = try RecordCodec.decoder.decode(Transaction.self, from: Data(text.utf8))
+        #expect(back.extensionLink == nil && back.repeatRuleID == nil && back.repeatMonth == nil)
+        #expect(back.idIsRight)
+    }
+
+    @Test func anIDIsRightOnlyForItsRuleAndMonth() {
+        let rule = RecordID(), id = RecordID.repeatMade(rule: rule, month: "2026-11")
+        func entry(_ id: RecordID, _ rule: RecordID?, _ month: String?) -> Transaction {
+            Transaction(id: id, budgetID: BudgetID(), groupID: GroupID(), date: noon, merchant: "M",
+                        amount: Money(minorUnits: -1), repeatRuleID: rule, repeatMonth: month)
+        }
+        #expect(entry(id, rule, "2026-11").idIsRight)
+        #expect(!entry(id, rule, "2026-12").idIsRight)
+        #expect(!entry(id, nil, nil).idIsRight)
+        #expect(!entry(id, rule, nil).idIsRight)
+        #expect(!entry(RecordID(), rule, "2026-11").idIsRight)
+    }
+
+    @Test func namesDoNotCollide() {
+        let group = GroupID()
+        let house = RecordID.extensionRecord(group: group, extensionID: "e", kind: "a", sourceKey: "b/c")
+        #expect(house.isNameBased)
+        #expect(house != .extensionRecord(group: group, extensionID: "e", kind: "a/b", sourceKey: "c"))
+        #expect(house != .extensionRecord(group: GroupID(), extensionID: "e", kind: "a", sourceKey: "b/c"))
+        #expect(house == .extensionRecord(group: group, extensionID: "e", kind: "a", sourceKey: "b/c"))
+    }
+}

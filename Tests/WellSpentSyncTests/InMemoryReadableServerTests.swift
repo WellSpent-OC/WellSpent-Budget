@@ -295,3 +295,96 @@ struct InMemoryReadableServerTests {
         #expect(levels[writerID] == .read && levels[home.founderID] == .superadmin)
     }
 }
+
+@Suite("Extension records and repeats on the in-memory server")
+struct ExtensionRecordServerTests {
+    private func setting(_ home: Household, sourceKey: String? = "listing-1", body: String = "{}") -> ExtensionSetting {
+        ExtensionSetting(groupID: home.group.id, extensionID: "test.extension", kind: "house", sourceKey: sourceKey,
+                         body: body)
+    }
+
+    @Test func aRecordIsTakenOnlyOnTheIDItsFieldsWorkOutTo() async throws {
+        let home = try await Household()
+        let good = setting(home)
+        var random = setting(home, sourceKey: "listing-2")
+        random.id = RecordID()
+        var taken = setting(home, sourceKey: "listing-3")
+        taken.id = .extensionRecord(group: GroupID(), extensionID: "test.extension", kind: "house", sourceKey: "listing-3")
+        var shapedLikeOne = setting(home, sourceKey: nil)
+        shapedLikeOne.id = .extensionRecord(group: home.group.id, extensionID: "test.extension", kind: "house",
+                                            sourceKey: "listing-4")
+        let result = try await home.founder.push(
+            [try wire(good, lamport: 3), try wire(random, lamport: 4), try wire(taken, lamport: 5),
+             try wire(shapedLikeOne, lamport: 6)], group: home.group.id)
+        #expect(result.accepted == [good.id])
+        #expect(result.rejected.count == 3)
+    }
+
+    @Test func onlyAManagerWritesAnExtensionsRecords() async throws {
+        let home = try await Household()
+        let (member, _) = try await home.member("member@example.com", level: .write)
+        let (manager, _) = try await home.member("manager@example.com", level: .manage)
+        let record = setting(home)
+        let refused = try await member.push([try wire(record, lamport: 3)], group: home.group.id)
+        #expect(refused.rejected[record.id] != nil)
+        let taken = try await manager.push([try wire(record, lamport: 3)], group: home.group.id)
+        #expect(taken.accepted == [record.id])
+    }
+
+    @Test func aFromNowOnMemberSeesSettingsButNotEarlierEntries() async throws {
+        let home = try await Household()
+        let house = setting(home)
+        let stay = ExtensionEntry(groupID: home.group.id, extensionID: "test.extension", kind: "stay",
+                                  sourceKey: "stay-1", body: "{}")
+        _ = try await home.founder.push([try wire(house, lamport: 3), try wire(stay, lamport: 4)], group: home.group.id)
+        let (late, _) = try await home.member("late@example.com", level: .read, history: .fromNow)
+        let later = ExtensionEntry(groupID: home.group.id, extensionID: "test.extension", kind: "stay",
+                                   sourceKey: "stay-2", body: "{}")
+        _ = try await home.founder.push([try wire(later, lamport: 5)], group: home.group.id)
+        let ids = Set(try await late.pull(group: home.group.id, since: 0, limit: 100).records.map(\.id))
+        #expect(ids.contains(house.id))
+        #expect(!ids.contains(stay.id))
+        #expect(ids.contains(later.id))
+    }
+
+    @Test func aMadeTransactionIsTakenOnlyOnItsRuleAndMonthsID() async throws {
+        let home = try await Household()
+        let rule = RecordID()
+        var made = home.spend(-500, by: nil)
+        made.repeatRuleID = rule
+        made.repeatMonth = "2026-11"
+        made.id = .repeatMade(rule: rule, month: "2026-11")
+        var wrongMonth = made
+        wrongMonth.repeatMonth = "2026-12"
+        var noMonth = made
+        noMonth.id = .repeatMade(rule: rule, month: "2027-01")
+        noMonth.repeatMonth = nil
+        var plainButShaped = home.spend(-500, by: nil)
+        plainButShaped.id = .repeatMade(rule: rule, month: "2027-02")
+        let result = try await home.founder.push(
+            [try wire(made, budget: home.budget.id, lamport: 3),
+             try wire(noMonth, budget: home.budget.id, lamport: 4),
+             try wire(plainButShaped, budget: home.budget.id, lamport: 5)], group: home.group.id)
+        #expect(result.accepted == [made.id])
+        #expect(result.rejected.count == 2)
+        let lying = try await home.founder.push([try wire(wrongMonth, budget: home.budget.id, lamport: 6)],
+                                                group: home.group.id)
+        #expect(lying.rejected[made.id] != nil)
+    }
+
+    @Test func aRepeatRuleBelongsToWhoeverFirstStoresIt() async throws {
+        let home = try await Household()
+        let (member, memberID) = try await home.member("member@example.com", level: .write)
+        let (other, _) = try await home.member("other@example.com", level: .write)
+        var rule = RepeatRule(groupID: home.group.id, budgetID: home.budget.id, name: "Phone",
+                              amount: Money(minorUnits: -4_000), day: 5, firstMonth: "2026-11")
+        let first = try await member.push([try wire(rule, budget: home.budget.id, lamport: 3)], group: home.group.id)
+        #expect(first.accepted == [rule.id])
+        let stored = try await member.pull(group: home.group.id, since: 0, limit: 100).records.first { $0.id == rule.id }
+        let body = try #require(stored?.body)
+        #expect(try RecordCodec.decoder.decode(RepeatRule.self, from: Data(body.utf8)).createdBy == memberID)
+        rule.name = "Taken"
+        let refused = try await other.push([try wire(rule, budget: home.budget.id, lamport: 4)], group: home.group.id)
+        #expect(refused.rejected[rule.id] != nil)
+    }
+}
