@@ -9,7 +9,7 @@ import WellSpentModel
 
 private struct Rec: Content {
     let id: UUID; let type: String; let budgetID: UUID?; let lamport: UInt64; let clientID: UUID
-    let isDeleted: Bool; let body: String
+    let isDeleted: Bool; var body: String
     var createdBy: UUID? = nil; var updatedBy: UUID? = nil; var serverSeq: Int? = nil
 }
 private struct PushBody: Content { let records: [Rec] }
@@ -135,6 +135,26 @@ struct SyncV2Tests {
             #expect(decoded.merchant == "Hilltop" && decoded.createdBy == UserID(mac.user),
                     "the server writes the owner into a transaction that had none")
             #expect(try await pull(groupID, since: 3, as: desktop, on: app).1?.records.isEmpty == true)
+        }
+    }
+
+    /// A transaction field this server's build does not know is kept when the
+    /// server writes in the owner, so an app can add a field before the
+    /// server is deployed again.
+    @Test func stampingTheOwnerKeepsFieldsTheServerDoesNotKnow() async throws {
+        try await withV2App { app, _ in
+            let (mac, groupID, budget) = try await setUp("v2-sync-unknown-field", on: app)
+            var sent = try record(spend("Hilltop", 1_420, in: budget), lamport: 3, on: mac)
+            var object = try #require(try JSONSerialization.jsonObject(with: Data(sent.body.utf8)) as? [String: Any])
+            object["aFieldFromLater"] = ["kept": true]
+            sent.body = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+            try await pushAll([sent], to: groupID, from: mac, on: app)
+
+            let pulled = try #require(try await pull(groupID, as: mac, on: app).1?.records.last)
+            let stored = try #require(try JSONSerialization.jsonObject(with: Data(pulled.body.utf8)) as? [String: Any])
+            #expect((stored["aFieldFromLater"] as? [String: Any])?["kept"] as? Bool == true)
+            let decoded = try RecordCodec.decoder.decode(Transaction.self, from: Data(pulled.body.utf8))
+            #expect(decoded.createdBy == UserID(mac.user) && decoded.merchant == "Hilltop")
         }
     }
 

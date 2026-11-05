@@ -296,15 +296,19 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
         // name the owner the server holds, or nobody yet.
         var body = record.body
         if type == .transaction {
-            guard var transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
+            guard let transaction = try? RecordCodec.decoder.decode(Transaction.self, from: Data(body.utf8)) else {
                 refuse("the record does not match where it was sent"); continue
             }
             if let claimed = transaction.createdBy, claimed.uuid != owner {
                 refuse("a transaction keeps the owner it was made with"); continue
             }
+            // Set in the JSON as sent, so fields this build does not know
+            // survive, and a new field needs no server deploy first.
             if transaction.createdBy == nil {
-                transaction.createdBy = UserID(owner)
-                body = String(decoding: try RecordCodec.encoder.encode(transaction), as: UTF8.self)
+                guard let stamped = RecordCodec.stampingOwner(Data(body.utf8), owner: UserID(owner)) else {
+                    refuse("the record does not match where it was sent"); continue
+                }
+                body = String(decoding: stamped, as: UTF8.self)
             }
         }
         // A transaction or receipt is shown in the budget it names, so that
