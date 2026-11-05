@@ -254,6 +254,16 @@ struct EntryLinkTests {
         #expect(home.canAddEntries)
     }
 
+    @Test func aGroupsSharingLineNamesTheOthers() throws {
+        let setup = try Setup()
+        let me = UserID(), leslie = UserID()
+        setup.model.me = { me }
+        try setup.model.store.replaceMembers([me: .superadmin, leslie: .write], in: setup.home)
+        #expect(setup.model.sharingLine(of: setup.home) == AppModel.SharingWords.shared, "no name yet")
+        try setup.model.store.save(MemberProfile(groupID: setup.home, userID: leslie, displayName: "Leslie"), queue: false)
+        #expect(setup.model.sharingLine(of: setup.home) == AppModel.SharingWords.sharedWith("Leslie"))
+    }
+
     @Test func installingSlotsReachesTheEntrySheet() throws {
         let setup = try Setup()
         setup.model.install(TestExtensionSlots())
