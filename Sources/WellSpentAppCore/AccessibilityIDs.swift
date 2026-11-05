@@ -117,6 +117,13 @@ public enum AccessibilityID {
     /// The Budget list, on an opened entry.
     public static let entryBudget = "entry.budget"
     public static let entryLink = "entry.link"
+    public static let entryRepeats = "entry.repeats"
+    public static let entryWhichMonths = "entry.whichMonths"
+    public static let entryStopRepeating = "entry.stopRepeating"
+    public static let budgetRepeats = "budget.repeats"
+    public static let repeatStop = "repeat.stop"
+    public static let repeatSave = "repeat.save"
+    public static func repeatRow(_ name: String) -> String { "repeat.row.\(name)" }
     public static let entryNewBudgetName = "entry.newBudgetName"
     public static let entryNewBudgetAmount = "entry.newBudgetAmount"
     public static let entryNoBudgetLine = "entry.noBudgetLine"

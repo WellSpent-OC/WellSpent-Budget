@@ -381,6 +381,9 @@ struct SidebarView: View {
                                                  set: { if !$0 { screen.keepIt() } }),
                             presenting: screen.pendingDelete) { pending in
             Button(pending.confirmLabel, role: .destructive) { screen.confirm(pending) }
+            if screen.offersStop(pending) {
+                Button(PendingDelete.deleteAndStop, role: .destructive) { screen.confirmAndStop(pending) }
+            }
             Button(MainScreen.Words.cancel, role: .cancel) { screen.keepIt() }
         } message: { pending in
             Text(screen.message(for: pending))
@@ -561,6 +564,7 @@ struct BudgetRow: View {
 // MARK: - Budget detail
 
 struct BudgetDetailView: View {
+    @State private var showingRepeats = false
     @Bindable var model: AppModel
     @Bindable var sync: SyncCoordinator
     let summary: BudgetSummary
@@ -581,7 +585,8 @@ struct BudgetDetailView: View {
                 UndoBar(offer: undo, undo: { model.undoDelete() })
                 Divider()
             }
-            BudgetWheelPanel(screen: screen, editBudget: { editor = .editBudget(summary.budget) })
+            BudgetWheelPanel(screen: screen, editBudget: { editor = .editBudget(summary.budget) },
+                             openRepeats: { showingRepeats = true })
             Divider()
             transactionTable
         }
@@ -611,6 +616,9 @@ struct BudgetDetailView: View {
             }
         }
         .navigationTitle(summary.budget.name)
+        #if os(macOS)
+        .sheet(isPresented: $showingRepeats) { RepeatsListSheet(budget: summary.budget, model: model) }
+        #endif
     }
 
     /// The budget's words and rows, shared with every desktop.
@@ -725,6 +733,7 @@ struct BudgetDetailView: View {
 /// saying why, and the only button is Done.
 struct EntrySheet: View {
     @State private var editor: EntryEditor
+    @State private var confirmsStop = false
     @Environment(\.dismiss) private var dismiss
     private typealias Words = EntryEditor.Words
 
@@ -770,6 +779,15 @@ struct EntrySheet: View {
         }
         .padding(20)
         .frame(width: 420)
+        .confirmationDialog(RepeatEditor.Words.stopTitle, isPresented: $confirmsStop) {
+            Button(RepeatEditor.Words.stopConfirm, role: .destructive) {
+                editor.stopRepeating()
+                dismiss()
+            }
+            Button(Words.cancel, role: .cancel) {}
+        } message: {
+            Text(RepeatEditor.Words.stopMessage)
+        }
         // The sheet asks its own delete question, so it shows over the sheet.
         .confirmationDialog(editor.pendingDelete?.title ?? "",
                             isPresented: Binding(get: { editor.pendingDelete != nil },
@@ -777,6 +795,11 @@ struct EntrySheet: View {
                             presenting: editor.pendingDelete) { pending in
             Button(pending.confirmLabel, role: .destructive) {
                 if editor.confirmDelete() { dismiss() }
+            }
+            if editor.offersStop(pending) {
+                Button(PendingDelete.deleteAndStop, role: .destructive) {
+                    if editor.confirmDeleteAndStop() { dismiss() }
+                }
             }
             Button(Words.cancel, role: .cancel) { editor.cancelDelete() }
         } message: { pending in
@@ -865,6 +888,27 @@ struct EntrySheet: View {
                 }
                 .accessibilityIdentifier(AccessibilityID.entryLink)
             }
+            if editor.showsRepeatRow {
+                Toggle(Words.repeatsRow, isOn: Bindable(editor).repeats)
+                    .accessibilityIdentifier(AccessibilityID.entryRepeats)
+                if let line = editor.repeatLine {
+                    Text(line)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.muted)
+                }
+            }
+            if editor.showsWhichMonths {
+                Picker(Words.whichMonths, selection: Bindable(editor).reach) {
+                    Text(Words.thisMonthOnly).tag(AppModel.RepeatReach.thisMonthOnly)
+                    Text(Words.thisMonthAndLater).tag(AppModel.RepeatReach.thisMonthAndLater)
+                }
+                .accessibilityIdentifier(AccessibilityID.entryWhichMonths)
+                if let line = editor.whichMonthsLine(editor.reach) {
+                    Text(line)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.muted)
+                }
+            }
         }
         .formStyle(.grouped)
     }
@@ -886,6 +930,10 @@ struct EntrySheet: View {
     /// and Save, or Add, on the right, or Done alone when read-only.
     private var buttons: some View {
         HStack {
+            if editor.offersStopRepeating {
+                Button(Words.stopRepeating) { confirmsStop = true }
+                    .accessibilityIdentifier(AccessibilityID.entryStopRepeating)
+            }
             if editor.offersDelete {
                 Button {
                     editor.askDelete()

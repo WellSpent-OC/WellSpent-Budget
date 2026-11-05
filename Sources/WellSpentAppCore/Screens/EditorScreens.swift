@@ -167,6 +167,10 @@ public final class EntryEditor {
     /// What the entry is linked to. Kept as it is when that isn't on offer
     /// any more, so a mark on a removed house survives until someone changes it.
     public var linkID: RecordID?
+    /// The Repeats every month row: on Add, or to start one from an entry.
+    public var repeats = false
+    /// Which months a change to a made bill reaches.
+    public var reach: AppModel.RepeatReach = .thisMonthOnly
     /// Whether Add also makes a new budget, from the two fields below.
     public var isNewBudget: Bool
     public var newBudgetName = ""
@@ -271,6 +275,45 @@ public final class EntryEditor {
         return wanted.map(LinkChange.to) ?? .cleared
     }
 
+    // MARK: - Repeats
+
+    /// Money in doesn't repeat, and a bill a repeat made already does.
+    public var showsRepeatRow: Bool {
+        !isReadOnly && kindToWrite == .spending && editing?.repeatRuleID == nil
+    }
+
+    /// "Shows up on the 14th of each month. You can change any month."
+    public var repeatLine: String? {
+        repeats ? Words.repeatLine(day: AppLocale.calendar.component(.day, from: date)) : nil
+    }
+
+    private var madeRule: RepeatRule? { editing.flatMap(model.rule(of:)) }
+
+    /// Only the rule's owner or a manager gets "and later", or stops it.
+    public var showsWhichMonths: Bool { !isReadOnly && madeRule.map(model.mayChangeRule) ?? false }
+    public var offersStopRepeating: Bool { showsWhichMonths && madeRule?.stopMonth == nil }
+
+    /// What each choice would do, with this amount: "November is $92.00.
+    /// December goes back to $85.00."
+    public func whichMonthsLine(_ choice: AppModel.RepeatReach) -> String? {
+        guard let editing, let month = editing.repeatMonth, let rule = madeRule else { return nil }
+        let typed = TypedAmount(amountText, currency: editing.amount.currency, locale: locale).money?.magnitude.display
+            ?? editing.amount.magnitude.display
+        let name = Words.monthName(month)
+        switch choice {
+        case .thisMonthOnly:
+            let next = RepeatRule.month(after: month)
+            return Words.onlyThisMonth(name, typed, next: Words.monthName(next), back: rule.terms(in: next).amount.magnitude.display)
+        case .thisMonthAndLater:
+            return Words.andLater(name, typed)
+        }
+    }
+
+    public func stopRepeating() {
+        guard let rule = madeRule, offersStopRepeating else { return }
+        model.stopRepeating(rule.id)
+    }
+
     // MARK: - Choosing a budget when adding in a group
 
     /// Whether Budget is a row on the sheet.
@@ -306,7 +349,7 @@ public final class EntryEditor {
     /// Add's rule, and for an opened entry, at least one field changed.
     public var canSave: Bool {
         guard !isReadOnly, canAdd else { return false }
-        return editing == nil || changes != nil
+        return editing == nil || changes != nil || repeats
     }
 
     /// When this person may not change it, or a Save or Delete just found
@@ -385,7 +428,7 @@ public final class EntryEditor {
             let name = editing.createdBy.flatMap { model.memberName($0, in: editing.groupID) }
             parts.append(Words.addedBy(mine ? Words.you : name ?? Words.aMember))
         }
-        parts.append(editing.source.rawValue.capitalized)
+        parts.append(editing.repeatRuleID == nil ? editing.source.rawValue.capitalized : BudgetScreen.Words.repeatSource)
         if editing.kind != .spending { parts.append(Words.name(of: editing.kind)) }
         return parts.joined(separator: " \u{00B7} ")
     }
@@ -447,6 +490,11 @@ public final class EntryEditor {
             target = model.selectedBudget
         }
         guard let target, model.budget(for: target) != nil else { return false }
+        if repeats, showsRepeatRow {
+            model.addRepeatingTransaction(merchant: merchant, amount: amount, date: date, note: note, budget: target,
+                                          link: linkID)
+            return model.errorMessage == nil
+        }
         model.addTransaction(merchant: merchant, amount: amount, date: date, note: note,
                              kind: isMoneyIn ? .income : .spending, budget: target,
                              link: kindTakesALink ? linkID : nil)
@@ -458,8 +506,15 @@ public final class EntryEditor {
     @discardableResult
     public func save() -> Bool {
         guard let editing else { return add() }
-        guard canSave, let changes else { return false }
-        result = model.updateEntry(editing.id, changes)
+        guard canSave else { return false }
+        if let changes {
+            result = editing.repeatRuleID == nil ? model.updateEntry(editing.id, changes)
+                : model.updateMadeEntry(editing.id, changes, reach: showsWhichMonths ? reach : .thisMonthOnly)
+        }
+        if repeats, showsRepeatRow, result == nil || result == .saved {
+            model.startRepeating(from: editing.id)
+            result = model.errorMessage == nil ? .saved : .failed
+        }
         return result == .saved
     }
 
@@ -482,6 +537,17 @@ public final class EntryEditor {
     /// not the question is still up: a dialog may close before its button's
     /// action runs. True when the sheet may close.
     @discardableResult
+    /// Whether the question also offers Delete and Stop Repeating.
+    public func offersStop(_ pending: PendingDelete) -> Bool { pending.offersStop(model: model) }
+
+    /// Deletes this month's bill and makes no later month.
+    public func confirmDeleteAndStop() -> Bool {
+        pendingDelete = nil
+        guard let editing, !isReadOnly else { return false }
+        result = model.deleteAndStopRepeating(editing.id)
+        return result == .saved
+    }
+
     public func confirmDelete() -> Bool {
         pendingDelete = nil
         guard let editing, !isReadOnly else { return false }
@@ -490,6 +556,27 @@ public final class EntryEditor {
     }
 
     public enum Words {
+        public static let repeatsRow = "Repeats every month"
+        public static func repeatLine(day: Int) -> String {
+            "Shows up on the \(RepeatsList.Words.ordinal(day)) of each month. You can change any month."
+        }
+        public static let whichMonths = "Which months?"
+        public static let thisMonthOnly = "This month only"
+        public static let thisMonthAndLater = "This month and later"
+        public static let stopRepeating = RepeatEditor.Words.stop
+        public static func onlyThisMonth(_ month: String, _ amount: String, next: String, back: String) -> String {
+            "\(month) is \(amount). \(next) goes back to \(back)."
+        }
+        public static func andLater(_ month: String, _ amount: String) -> String {
+            "\(month) and every month after are \(amount)."
+        }
+        /// "2026-11" as "November".
+        public static func monthName(_ month: String) -> String {
+            let number = month.split(separator: "-").last.flatMap { Int($0) } ?? 1
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.locale = Locale(identifier: "en_US")
+            return calendar.standaloneMonthSymbols[max(min(number, 12), 1) - 1]
+        }
         public static let title = "New transaction"
         public static let editTitle = "Transaction"
         public static let merchant = "Merchant"

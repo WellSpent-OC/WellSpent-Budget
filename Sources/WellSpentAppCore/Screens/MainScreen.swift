@@ -390,6 +390,15 @@ public final class MainScreen {
 
     public func keepIt() { pendingDelete = nil }
 
+    /// Whether the question also offers Delete and Stop Repeating.
+    public func offersStop(_ pending: PendingDelete) -> Bool { pending.offersStop(model: model) }
+
+    /// Deletes a made bill and makes no later month.
+    public func confirmAndStop(_ pending: PendingDelete) {
+        pendingDelete = nil
+        if case .entry(let entry, _, _, _) = pending { model.deleteAndStopRepeating(entry.id) }
+    }
+
     /// What the question says. A leave by someone at View promises nothing
     /// about changes, since they can send none.
     public func message(for pending: PendingDelete) -> String {
