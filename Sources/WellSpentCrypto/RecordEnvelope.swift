@@ -20,13 +20,22 @@ public struct RecordType: RawRepresentable, Codable, Hashable, Sendable, CustomS
     public static let receipt = RecordType(rawValue: "receipt")
     public static let statement = RecordType(rawValue: "statement")
     public static let memberProfile = RecordType(rawValue: "memberProfile")
+    /// An extension's record that every member sees, whatever their history.
+    public static let extensionSetting = RecordType(rawValue: "extensionSetting")
+    /// An extension's record that follows a member's history, as a transaction does.
+    public static let extensionEntry = RecordType(rawValue: "extensionEntry")
+    public static let repeatRule = RecordType(rawValue: "repeatRule")
 
     /// Every type this build knows how to read.
     public static let known: Set<RecordType> = [
         .groupMeta, .budget, .transaction, .receipt, .statement, .memberProfile,
+        .extensionSetting, .extensionEntry, .repeatRule,
     ]
 
     public var isKnown: Bool { Self.known.contains(self) }
+    /// Whether a losing version goes away with no conflict copy. Nobody could
+    /// read or settle a copy of a record whose body only an extension understands.
+    public var losesQuietly: Bool { self == .extensionSetting || self == .extensionEntry }
     public var description: String { rawValue }
 }
 

@@ -417,6 +417,38 @@ public final class WellSpentDatabase: Sendable {
             }
         }
 
+        // An extension's records, which only it reads, and repeat expenses.
+        // An entry can name the extension record it is for and the repeat
+        // that made it.
+        m.registerMigration("v13-extension-records-repeat-rules") { db in
+            try db.create(table: "extensionRecord") { t in
+                t.primaryKey("id", .text)
+                t.belongsTo("budgetGroup", onDelete: .cascade).notNull()
+                t.column("recordType", .text).notNull()
+                t.column("extensionId", .text).notNull()
+                t.column("kind", .text).notNull()
+                t.column("sourceKey", .text)
+                t.column("body", .text).notNull()
+                t.column("updatedAt", .datetime).notNull()
+                t.column("isDeleted", .boolean).notNull().defaults(to: false)
+            }
+            try db.create(index: "extensionRecord_on_group_kind", on: "extensionRecord",
+                          columns: ["budgetGroupId", "extensionId", "kind"])
+            try db.create(table: "repeatRule") { t in
+                t.primaryKey("id", .text)
+                t.belongsTo("budgetGroup", onDelete: .cascade).notNull()
+                t.belongsTo("budget", onDelete: .cascade).notNull()
+                t.column("createdBy", .text)
+                t.column("body", .text).notNull()
+                t.column("isDeleted", .boolean).notNull().defaults(to: false)
+            }
+            try db.alter(table: "transactionRecord") { t in
+                t.add(column: "extensionLink", .text)
+                t.add(column: "repeatRuleId", .text)
+                t.add(column: "repeatMonth", .text)
+            }
+        }
+
         return m
     }
 }

@@ -168,6 +168,14 @@ public struct Transaction: SyncedRecord, Equatable {
     /// Nil until the record is first pushed, which stamps it with the signed-in
     /// person, so transactions made before signing in still get an owner.
     public var createdBy: UserID?
+    /// The extension record this entry is for, such as a house. The core keeps
+    /// it through edits and never reads it, so a member without the extension
+    /// doesn't lose someone else's mark.
+    public var extensionLink: RecordID?
+    /// The repeat rule that made this entry, and the month it made it for,
+    /// "yyyy-MM". Both or neither. With them, the ID must be `RecordID.repeatMade`.
+    public var repeatRuleID: RecordID?
+    public var repeatMonth: String?
     public var createdAt: Date
     public var updatedAt: Date
     public var isDeleted: Bool
@@ -178,6 +186,7 @@ public struct Transaction: SyncedRecord, Equatable {
                 merchant: String, note: String = "", amount: Money, kind: TransactionKind? = nil,
                 source: TransactionSource = .manual, receiptID: RecordID? = nil,
                 importFingerprint: String? = nil, createdBy: UserID? = nil,
+                extensionLink: RecordID? = nil, repeatRuleID: RecordID? = nil, repeatMonth: String? = nil,
                 createdAt: Date = Date(), updatedAt: Date = Date(), isDeleted: Bool = false) {
         self.id = id
         self.budgetID = budgetID
@@ -191,9 +200,22 @@ public struct Transaction: SyncedRecord, Equatable {
         self.receiptID = receiptID
         self.importFingerprint = importFingerprint
         self.createdBy = createdBy
+        self.extensionLink = extensionLink
+        self.repeatRuleID = repeatRuleID
+        self.repeatMonth = repeatMonth
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isDeleted = isDeleted
+    }
+
+    /// Whether this entry may use its ID: a name-based one only if the rule
+    /// and the month work out to it, and a repeat only with that ID.
+    public var idIsRight: Bool {
+        switch (repeatRuleID, repeatMonth) {
+        case let (rule?, month?): return id == RecordID.repeatMade(group: groupID, rule: rule, month: month)
+        case (nil, nil): return !id.isNameBased
+        default: return false
+        }
     }
 
     /// A body written before `kind` existed has no such key. It decodes with
@@ -214,11 +236,135 @@ public struct Transaction: SyncedRecord, Equatable {
         receiptID = try c.decodeIfPresent(RecordID.self, forKey: .receiptID)
         importFingerprint = try c.decodeIfPresent(String.self, forKey: .importFingerprint)
         createdBy = try c.decodeIfPresent(UserID.self, forKey: .createdBy)
+        extensionLink = try c.decodeIfPresent(RecordID.self, forKey: .extensionLink)
+        repeatRuleID = try c.decodeIfPresent(RecordID.self, forKey: .repeatRuleID)
+        repeatMonth = try c.decodeIfPresent(String.self, forKey: .repeatMonth)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
         isDeleted = try c.decode(Bool.self, forKey: .isDeleted)
     }
 }
+
+// MARK: - Repeat rule
+
+/// An expense that shows up every month as a normal transaction.
+public struct RepeatRule: SyncedRecord, Equatable {
+    /// What changes from a month on, for "this month and later".
+    public struct Change: Codable, Sendable, Equatable {
+        /// "yyyy-MM".
+        public var fromMonth: String
+        public var budgetID: BudgetID
+        public var amount: Money
+        public var day: Int
+
+        public init(fromMonth: String, budgetID: BudgetID, amount: Money, day: Int) {
+            self.fromMonth = fromMonth
+            self.budgetID = budgetID
+            self.amount = amount
+            self.day = day
+        }
+    }
+
+    public var id: RecordID
+    public var groupID: GroupID
+    public var budgetID: BudgetID
+    public var name: String
+    /// Negative is money out, as on a transaction.
+    public var amount: Money
+    /// The day of the month. One past a month's end means its last day.
+    public var day: Int
+    /// Copied to what it makes. See `Transaction.extensionLink`.
+    public var extensionLink: RecordID?
+    /// "yyyy-MM", the first month it makes.
+    public var firstMonth: String
+    /// "yyyy-MM", the first month it no longer makes. Nil while it runs.
+    public var stopMonth: String?
+    public var changes: [Change]
+    /// Who owns it. Only their devices make its transactions, because the
+    /// server gives a transaction to whoever stores it first.
+    public var createdBy: UserID?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var isDeleted: Bool
+
+    public static var recordType: RecordType { .repeatRule }
+
+    public init(id: RecordID = RecordID(), groupID: GroupID, budgetID: BudgetID, name: String, amount: Money,
+                day: Int, extensionLink: RecordID? = nil, firstMonth: String, stopMonth: String? = nil,
+                changes: [Change] = [], createdBy: UserID? = nil, createdAt: Date = Date(),
+                updatedAt: Date = Date(), isDeleted: Bool = false) {
+        self.id = id
+        self.groupID = groupID
+        self.budgetID = budgetID
+        self.name = name
+        self.amount = amount
+        self.day = day
+        self.extensionLink = extensionLink
+        self.firstMonth = firstMonth
+        self.stopMonth = stopMonth
+        self.changes = changes
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.isDeleted = isDeleted
+    }
+}
+
+// MARK: - Extension record
+
+/// Who sees an extension's record, which decides its record type.
+public protocol ExtensionRecordVisibility: Sendable {
+    static var recordType: RecordType { get }
+}
+
+public enum EveryMember: ExtensionRecordVisibility {
+    public static var recordType: RecordType { .extensionSetting }
+}
+
+public enum FollowsHistory: ExtensionRecordVisibility {
+    public static var recordType: RecordType { .extensionEntry }
+}
+
+/// A record that belongs to an extension. The core and the server store and
+/// sync it and never read `body`, so what it holds stays the extension's own.
+public struct ExtensionRecord<Visibility: ExtensionRecordVisibility>: SyncedRecord, Equatable {
+    public var id: RecordID
+    public var groupID: GroupID
+    public var extensionID: String
+    public var kind: String
+    /// What outside the app this record stands for. The ID is worked out from
+    /// it, so two devices bringing in the same thing write one record. Nil for
+    /// a record with a random ID.
+    public var sourceKey: String?
+    /// JSON only the extension reads.
+    public var body: String
+    public var updatedAt: Date
+    public var isDeleted: Bool
+
+    public static var recordType: RecordType { Visibility.recordType }
+
+    public init(groupID: GroupID, extensionID: String, kind: String, sourceKey: String? = nil, body: String,
+                updatedAt: Date = Date(), isDeleted: Bool = false) {
+        id = sourceKey.map { .extensionRecord(group: groupID, extensionID: extensionID, kind: kind, sourceKey: $0) }
+            ?? RecordID()
+        self.groupID = groupID
+        self.extensionID = extensionID
+        self.kind = kind
+        self.sourceKey = sourceKey
+        self.body = body
+        self.updatedAt = updatedAt
+        self.isDeleted = isDeleted
+    }
+
+    /// Whether this record may use its ID.
+    public var idIsRight: Bool {
+        guard let sourceKey else { return !id.isNameBased }
+        return id == .extensionRecord(group: groupID, extensionID: extensionID, kind: kind, sourceKey: sourceKey)
+    }
+}
+
+public typealias ExtensionSetting = ExtensionRecord<EveryMember>
+public typealias ExtensionEntry = ExtensionRecord<FollowsHistory>
 
 // MARK: - Member profile
 

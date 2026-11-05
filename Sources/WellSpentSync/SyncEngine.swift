@@ -795,6 +795,15 @@ struct RecordBinding: Equatable {
         case .memberProfile:
             let value = try decoder.decode(MemberProfile.self, from: payload)
             (id, group, budget) = (value.id.uuid, value.groupID, nil)
+        case .extensionSetting:
+            let value = try decoder.decode(ExtensionSetting.self, from: payload)
+            (id, group, budget) = (value.id.uuid, value.groupID, nil)
+        case .extensionEntry:
+            let value = try decoder.decode(ExtensionEntry.self, from: payload)
+            (id, group, budget) = (value.id.uuid, value.groupID, nil)
+        case .repeatRule:
+            let value = try decoder.decode(RepeatRule.self, from: payload)
+            (id, group, budget) = (value.id.uuid, value.groupID, value.budgetID)
         default:
             return nil
         }

@@ -59,6 +59,18 @@ extension Store {
             var value = try decoder.decode(MemberProfile.self, from: payload)
             value.isDeleted = isDeleted
             try save(value, queue: false)
+        case .extensionSetting:
+            var value = try decoder.decode(ExtensionSetting.self, from: payload)
+            value.isDeleted = isDeleted
+            try save(value, queue: false)
+        case .extensionEntry:
+            var value = try decoder.decode(ExtensionEntry.self, from: payload)
+            value.isDeleted = isDeleted
+            try save(value, queue: false)
+        case .repeatRule:
+            var value = try decoder.decode(RepeatRule.self, from: payload)
+            value.isDeleted = isDeleted
+            try save(value, queue: false)
         default:
             // Unreachable: both engines set aside any type this build cannot
             // read before it gets here.
@@ -105,6 +117,19 @@ extension Store {
         case .memberProfile:
             guard let value = try profile(push.recordID) else { return nil }
             return try encoder.encode(value)
+        case .extensionSetting:
+            let value: ExtensionSetting? = try extensionRecord(push.recordID)
+            return try value.map { try encoder.encode($0) }
+        case .extensionEntry:
+            let value: ExtensionEntry? = try extensionRecord(push.recordID)
+            return try value.map { try encoder.encode($0) }
+        case .repeatRule:
+            guard var value = try repeatRule(push.recordID) else { return nil }
+            if value.createdBy == nil {
+                value.createdBy = userID
+                try save(value, queue: false)
+            }
+            return try encoder.encode(value)
         default:
             // This build only ever queues types it knows.
             return nil
@@ -140,6 +165,9 @@ extension Store {
                 try statements(in: value.groupID).first { $0.id == value.id }
             }
         case .memberProfile: return try same(MemberProfile.self) { try profile($0.id) }
+        case .extensionSetting: return try same(ExtensionSetting.self) { try extensionRecord($0.id) }
+        case .extensionEntry: return try same(ExtensionEntry.self) { try extensionRecord($0.id) }
+        case .repeatRule: return try same(RepeatRule.self) { try repeatRule($0.id) }
         default: return false
         }
     }

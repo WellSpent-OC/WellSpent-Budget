@@ -151,6 +151,9 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
     var receiptId: String?
     var importFingerprint: String?
     var createdBy: String?
+    var extensionLink: String?
+    var repeatRuleId: String?
+    var repeatMonth: String?
     var createdAt: Date
     var updatedAt: Date
     var isDeleted: Bool
@@ -169,6 +172,9 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
         receiptId = model.receiptID?.dbValue
         importFingerprint = model.importFingerprint
         createdBy = model.createdBy?.dbValue
+        extensionLink = model.extensionLink?.dbValue
+        repeatRuleId = model.repeatRuleID?.dbValue
+        repeatMonth = model.repeatMonth
         createdAt = model.createdAt
         updatedAt = model.updatedAt
         isDeleted = model.isDeleted
@@ -195,6 +201,9 @@ struct TransactionRow: Codable, FetchableRecord, PersistableRecord {
             receiptID: try receiptId.map { RecordID(try RowCoding.uuid($0)) },
             importFingerprint: importFingerprint,
             createdBy: try createdBy.map { UserID(try RowCoding.uuid($0)) },
+            extensionLink: try extensionLink.map { RecordID(try RowCoding.uuid($0)) },
+            repeatRuleID: try repeatRuleId.map { RecordID(try RowCoding.uuid($0)) },
+            repeatMonth: repeatMonth,
             createdAt: createdAt, updatedAt: updatedAt, isDeleted: isDeleted
         )
     }

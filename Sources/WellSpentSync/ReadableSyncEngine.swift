@@ -134,7 +134,9 @@ public actor ReadableSyncEngine {
                   let record = try? JSONDecoder().decode(WireRecord.self, from: Data(aside.recordJSON.utf8)) else {
                 continue
             }
-            if record.type == .transaction, let budget = record.budgetID, try store.budget(budget) == nil { continue }
+            if Self.savedUnderABudget(record.type), let budget = record.budgetID, try store.budget(budget) == nil {
+                continue
+            }
             let outcome = try apply(record, group: group, level: level, serverSeq: aside.serverSeq)
             count(outcome, into: &report)
             if outcome != .deferred && outcome != .unsaved {
@@ -187,7 +189,7 @@ public actor ReadableSyncEngine {
 
         // A transaction is saved under its budget, so the budget must be here
         // first. Set aside, it is applied once the budget is in.
-        if record.type == .transaction, let budget = record.budgetID, try store.budget(budget) == nil {
+        if Self.savedUnderABudget(record.type), let budget = record.budgetID, try store.budget(budget) == nil {
             try setAside(record, group: group, serverSeq: serverSeq, unreadable: false)
             return .deferred
         }
@@ -272,6 +274,7 @@ public actor ReadableSyncEngine {
             } ?? (record.isDeleted || !groupIsDeletedHere)
         }
         if !incomingWins {
+            if record.type.losesQuietly { return .echo }
             try store.recordConflict(recordID: record.id, recordType: record.type, payloadJSON: record.body,
                                      lamport: record.lamport, device: record.clientID)
             return .conflict
@@ -282,7 +285,8 @@ public actor ReadableSyncEngine {
             // An edit made here that loses, or that this Mac would never
             // send, is kept as a conflict copy. A row that only sends the
             // version on file again has nothing of its own to keep.
-            if !queued.isReseal, let mine = try store.outgoingPayload(for: queued, userID: userID) {
+            if !queued.isReseal, !queued.recordType.losesQuietly,
+               let mine = try store.outgoingPayload(for: queued, userID: userID) {
                 try store.recordConflict(recordID: queued.recordID, recordType: queued.recordType,
                                          payloadJSON: String(decoding: mine, as: UTF8.self),
                                          lamport: queued.weighedLamport, device: clientID)
@@ -440,9 +444,14 @@ public actor ReadableSyncEngine {
     }
 
     private func keepAsConflict(_ item: PendingPush, body: String, into report: inout SyncReport) throws {
+        guard !item.recordType.losesQuietly else { return }
         try store.recordConflict(recordID: item.recordID, recordType: item.recordType, payloadJSON: body,
                                  lamport: item.lamport, device: clientID)
         report.conflicts += 1
+    }
+
+    private static func savedUnderABudget(_ type: RecordType) -> Bool {
+        type == .transaction || type == .repeatRule
     }
 
     /// Whether a queued row is an edit made here that this Mac will send.
@@ -464,6 +473,11 @@ public actor ReadableSyncEngine {
         case .transaction:
             guard let owner = try store.transaction(item.recordID)?.createdBy else { return true }
             return owner == userID || level.allows(.manage)
+        case .repeatRule:
+            guard let owner = try store.repeatRule(item.recordID)?.createdBy else { return true }
+            return owner == userID || level.allows(.manage)
+        case .extensionSetting, .extensionEntry:
+            return level.allows(.manage)
         default:
             return true
         }

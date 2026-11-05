@@ -151,8 +151,8 @@ public final class InMemoryReadableServer: @unchecked Sendable {
     private static let minPassword = 10, maxPassword = 128
     private static let maxInviteDays = 30, defaultInviteDays = 7
     private static let maxRecordsPerPush = 500, maxPullPage = 500, maxBodyBytes = 64 * 1024
-    private static let alwaysVisible: Set<RecordType> = [.groupMeta, .budget, .memberProfile]
-    private static let owned: Set<RecordType> = [.transaction, .receipt, .statement]
+    private static let alwaysVisible: Set<RecordType> = [.groupMeta, .budget, .memberProfile, .extensionSetting]
+    private static let owned: Set<RecordType> = [.transaction, .receipt, .statement, .repeatRule]
     private static let grantable: Set<AccessLevel> = [.read, .write, .manage, .admin]
     static let groupDeletedRefusal = "the group has been deleted"
 
@@ -696,8 +696,30 @@ public final class InMemoryReadableServer: @unchecked Sendable {
         case .memberProfile:
             guard let value = try? decoder.decode(MemberProfile.self, from: data) else { return nil }
             return (value.id.uuid, value.groupID, nil, value.userID)
+        case .extensionSetting:
+            guard let value = try? decoder.decode(ExtensionSetting.self, from: data) else { return nil }
+            return (value.id.uuid, value.groupID, nil, nil)
+        case .extensionEntry:
+            guard let value = try? decoder.decode(ExtensionEntry.self, from: data) else { return nil }
+            return (value.id.uuid, value.groupID, nil, nil)
+        case .repeatRule:
+            guard let value = try? decoder.decode(RepeatRule.self, from: data) else { return nil }
+            return (value.id.uuid, value.groupID, value.budgetID, nil)
         default:
             return nil
+        }
+    }
+
+    /// Whether a record may use its ID. A name-based ID is taken only where
+    /// the record's own plain fields work out to it, so nobody can take one
+    /// from another group.
+    private static func idIsRight(_ body: String, type: RecordType) -> Bool {
+        let decoder = RecordCodec.decoder, data = Data(body.utf8)
+        switch type {
+        case .transaction: return (try? decoder.decode(Transaction.self, from: data))?.idIsRight == true
+        case .extensionSetting: return (try? decoder.decode(ExtensionSetting.self, from: data))?.idIsRight == true
+        case .extensionEntry: return (try? decoder.decode(ExtensionEntry.self, from: data))?.idIsRight == true
+        default: return false
         }
     }
 
@@ -744,6 +766,10 @@ public final class InMemoryReadableServer: @unchecked Sendable {
                           record.id == RecordID.memberProfile(group: groupID, user: user.id) else {
                         refuse("that ID belongs to a member profile"); continue
                     }
+                } else if type == .transaction || type == .extensionSetting || type == .extensionEntry {
+                    guard Self.idIsRight(record.body, type: type) else {
+                        refuse("that ID does not match the record"); continue
+                    }
                 } else if record.id.isNameBased {
                     refuse("that ID belongs to a member profile"); continue
                 }
@@ -777,6 +803,8 @@ public final class InMemoryReadableServer: @unchecked Sendable {
                     }
                 case .budget:
                     guard level.allows(.manage) else { refuse("only a manager can change a budget"); continue }
+                case .extensionSetting, .extensionEntry:
+                    guard level.allows(.manage) else { refuse("only a manager can change it"); continue }
                 default:
                     break
                 }
@@ -795,6 +823,21 @@ public final class InMemoryReadableServer: @unchecked Sendable {
                     if transaction.createdBy == nil {
                         transaction.createdBy = owner
                         guard let encoded = try? RecordCodec.encoder.encode(transaction) else {
+                            refuse("the record does not match where it was sent"); continue
+                        }
+                        body = String(decoding: encoded, as: UTF8.self)
+                    }
+                }
+                if type == .repeatRule {
+                    guard var rule = try? RecordCodec.decoder.decode(RepeatRule.self, from: Data(body.utf8)) else {
+                        refuse("the record does not match where it was sent"); continue
+                    }
+                    if let claimed = rule.createdBy, claimed != owner {
+                        refuse("a repeat keeps the owner it was made with"); continue
+                    }
+                    if rule.createdBy == nil {
+                        rule.createdBy = owner
+                        guard let encoded = try? RecordCodec.encoder.encode(rule) else {
                             refuse("the record does not match where it was sent"); continue
                         }
                         body = String(decoding: encoded, as: UTF8.self)

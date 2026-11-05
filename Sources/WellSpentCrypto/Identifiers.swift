@@ -42,7 +42,28 @@ public extension RecordID {
     /// the two, so a name set twice updates one record rather than making two,
     /// and so the server can check that a profile sits on its sender's own ID.
     static func memberProfile(group: GroupID, user: UserID) -> RecordID {
-        var bytes = Array(SHA256.hash(data: group.bytes + user.bytes).prefix(16))
+        nameBased(SHA256.hash(data: group.bytes + user.bytes))
+    }
+
+    /// The ID of an extension's record that comes from something outside the
+    /// app, such as a booking system's own ID. Two devices bringing in the same
+    /// thing write one record, and the server can work the ID out again from
+    /// the record's plain fields, so nobody can take it from another group.
+    static func extensionRecord(group: GroupID, extensionID: String, kind: String, sourceKey: String) -> RecordID {
+        let name = Data("wellspent.extension-record\0\(extensionID)\0\(kind)\0\(sourceKey)".utf8)
+        return nameBased(SHA256.hash(data: group.bytes + name))
+    }
+
+    /// The ID of the transaction a repeat rule makes for one month, "yyyy-MM".
+    /// Two devices making the same month make one record. IDs are global, so the
+    /// group is part of it: nobody can take a month from another group.
+    static func repeatMade(group: GroupID, rule: RecordID, month: String) -> RecordID {
+        let name = Data("wellspent.repeat-made\0\(month)".utf8)
+        return nameBased(SHA256.hash(data: group.bytes + rule.bytes + name))
+    }
+
+    private static func nameBased(_ digest: SHA256.Digest) -> RecordID {
+        var bytes = Array(digest.prefix(16))
         bytes[6] = (bytes[6] & 0x0F) | 0x50   // version 5 style: name based
         bytes[8] = (bytes[8] & 0x3F) | 0x80   // RFC 4122 variant
         return RecordID(UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
@@ -50,8 +71,8 @@ public extension RecordID {
                                     bytes[12], bytes[13], bytes[14], bytes[15])))
     }
 
-    /// Whether this ID is worked out from names, as only a member profile's is.
-    /// Every other record gets a random one.
+    /// Whether this ID is worked out from names, as a member profile's is, and
+    /// an extension record's or a repeat's. Every other record gets a random one.
     var isNameBased: Bool { uuid.uuid.6 >> 4 == 5 }
 }
 
