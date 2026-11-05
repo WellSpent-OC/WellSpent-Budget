@@ -12,6 +12,7 @@ import WellSpentModel
 /// Cancel and Done do.
 struct PhoneOpenedEntrySheet: View {
     @Bindable var editor: EntryEditor
+    @State private var confirmsStop = false
     @Environment(\.dismiss) private var dismiss
     private typealias Words = EntryEditor.Words
 
@@ -48,6 +49,30 @@ struct PhoneOpenedEntrySheet: View {
                     .listRowBackground(Palette.surface)
                 }
 
+                if editor.offersStopRepeating {
+                    Section {
+                        Button {
+                            confirmsStop = true
+                        } label: {
+                            Text(PhoneWording.button(Words.stopRepeating))
+                                .foregroundStyle(Palette.warning)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .accessibilityIdentifier(AccessibilityID.entryStopRepeating)
+                        .confirmationDialog(RepeatEditor.Words.stopTitle, isPresented: $confirmsStop,
+                                            titleVisibility: .visible) {
+                            Button(RepeatEditor.Words.stopConfirm, role: .destructive) {
+                                editor.stopRepeating()
+                                dismiss()
+                            }
+                            Button(Words.cancel, role: .cancel) {}
+                        } message: {
+                            Text(RepeatEditor.Words.stopMessage)
+                        }
+                    }
+                    .listRowBackground(Palette.surface)
+                }
+
                 if editor.offersDelete {
                     Section {
                         Button {
@@ -70,6 +95,11 @@ struct PhoneOpenedEntrySheet: View {
                                             presenting: editor.pendingDelete) { pending in
                             Button(pending.confirmLabel, role: .destructive) {
                                 if editor.confirmDelete() { dismiss() }
+                            }
+                            if editor.offersStop(pending) {
+                                Button(PendingDelete.deleteAndStop, role: .destructive) {
+                                    if editor.confirmDeleteAndStop() { dismiss() }
+                                }
                             }
                             Button(Words.cancel, role: .cancel) { editor.cancelDelete() }
                         } message: { pending in
@@ -239,6 +269,53 @@ struct PhoneEntryFields: View {
             .pickerStyle(.menu)
             .accessibilityIdentifier(AccessibilityID.entryLink)
         }
+        if editor.showsRepeatRow {
+            Toggle(Words.repeatsRow, isOn: $editor.repeats)
+                .tint(Palette.accent)
+                .accessibilityIdentifier(AccessibilityID.entryRepeats)
+            if let line = editor.repeatLine {
+                Text(line)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.muted)
+            }
+        }
+        if editor.showsWhichMonths {
+            Text(Words.whichMonths)
+                .font(.subheadline.weight(.semibold))
+            whichMonths(.thisMonthOnly, Words.thisMonthOnly)
+            whichMonths(.thisMonthAndLater, Words.thisMonthAndLater)
+        }
+    }
+
+    /// One choice of which months a change reaches, with what it would do.
+    private func whichMonths(_ reach: AppModel.RepeatReach, _ title: String) -> some View {
+        Button {
+            editor.reach = reach
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .foregroundStyle(Palette.ink)
+                    if let line = editor.whichMonthsLine(reach) {
+                        Text(line)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.muted)
+                    }
+                }
+                Spacer(minLength: 8)
+                if editor.reach == reach {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Palette.accent)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(editor.whichMonthsLine(reach) ?? "")
+        .accessibilityAddTraits(editor.reach == reach ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier(AccessibilityID.entryWhichMonth(title))
     }
 }
 
