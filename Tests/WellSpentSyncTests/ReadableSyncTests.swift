@@ -713,3 +713,98 @@ struct TransactionOptionalFieldTests {
         #expect(house == .extensionRecord(group: group, extensionID: "e", kind: "a", sourceKey: "b/c"))
     }
 }
+
+@Suite("Repeats made at Lamport 0")
+struct MadeRepeatSyncTests {
+    private func rule(_ home: Household, owner: UserID?) -> RepeatRule {
+        RepeatRule(groupID: home.group.id, budgetID: home.budget.id, name: "Phone", amount: Money(minorUnits: -8_500),
+                   day: 14, firstMonth: "2026-11", createdBy: owner, createdAt: noon, updatedAt: noon)
+    }
+
+    @Test func aMadeBillIsTheSameBytesFromEveryDevice() throws {
+        let group = GroupID(), budget = BudgetID(), id = RecordID()
+        let rule = RepeatRule(id: id, groupID: group, budgetID: budget, name: "Phone", amount: Money(minorUnits: -8_500),
+                              day: 14, firstMonth: "2026-11", createdAt: noon, updatedAt: noon)
+        let one = try #require(rule.made(in: "2026-12")), two = try #require(rule.made(in: "2026-12"))
+        #expect(one == two)
+        #expect(one.idIsRight)
+        #expect(one.createdAt == noon && one.updatedAt == noon)
+    }
+
+    // Scenario REPEAT-05
+    @Test func twoDevicesMakeOneBillAndNeitherConflicts() async throws {
+        let home = try await Household()
+        let other = try await home.founderAgain()
+        let rule = rule(home, owner: home.founder.user)
+        try home.founder.store.save(rule)
+        try await home.founder.sync(home.group.id)
+        try await other.sync(home.group.id)
+        let made = try #require(rule.made(in: "2026-12"))
+        #expect(try home.founder.store.saveMade(made))
+        #expect(try other.store.saveMade(made))
+        let first = try await home.founder.sync(home.group.id)
+        let second = try await other.sync(home.group.id)
+        let third = try await home.founder.sync(home.group.id)
+        #expect(first.rejected == 0 && first.conflicts == 0)
+        #expect(second.conflicts == 0)
+        #expect(third.conflicts == 0)
+        #expect(try home.founder.store.outboxCount(in: home.group.id) == 0)
+        #expect(try other.store.outboxCount(in: home.group.id) == 0)
+        #expect(home.server.records(in: home.group.id).filter { $0.id == made.id }.count == 1)
+        #expect(try home.founder.store.transaction(made.id) == other.store.transaction(made.id))
+    }
+
+    /// An offline device's made copy can't undo an edit made anywhere.
+    @Test func aRealEditBeatsAMadeCopyAndNobodyGetsAConflict() async throws {
+        let home = try await Household()
+        let offline = try await home.founderAgain()
+        let rule = rule(home, owner: home.founder.user)
+        try home.founder.store.save(rule)
+        try await home.founder.sync(home.group.id)
+        try await offline.sync(home.group.id)
+        var edited = try #require(rule.made(in: "2026-12"))
+        #expect(try home.founder.store.saveMade(edited))
+        edited.amount = Money(minorUnits: -9_200)
+        try home.founder.store.save(edited)
+        try await home.founder.sync(home.group.id)
+
+        #expect(try offline.store.saveMade(try #require(rule.made(in: "2026-12"))))
+        let report = try await offline.sync(home.group.id)
+        #expect(report.conflicts == 0)
+        #expect(try offline.store.transaction(edited.id)?.amount == Money(minorUnits: -9_200))
+        #expect(try offline.store.outboxCount(in: home.group.id) == 0)
+        #expect(try offline.store.conflicts(for: edited.id).isEmpty)
+    }
+
+    // Scenario REPEAT-09
+    @Test func aDeletedMonthIsNeverMadeAgain() async throws {
+        let home = try await Household()
+        let rule = rule(home, owner: home.founder.user)
+        let made = try #require(rule.made(in: "2026-12"))
+        #expect(try home.founder.store.saveMade(made))
+        #expect(try !home.founder.store.saveMade(made), "already held")
+        try home.founder.store.trash(made)
+        #expect(try !home.founder.store.saveMade(made), "a delete counts as made")
+        let held = try home.founder.store.transaction(made.id)
+        #expect(held?.isDeleted == true)
+    }
+
+    /// Someone else already stored this month's bill. A member's made copy goes
+    /// quietly, with no conflict, and the owner's bill is what they end up with.
+    @Test func aMadeBillTheServerWontTakeGoesQuietly() async throws {
+        let home = try await Household()
+        let member = try await home.member("member@example.com", level: .write)
+        try await member.sync(home.group.id, level: .write)
+        let made = try #require(rule(home, owner: home.founder.user).made(in: "2026-12"))
+        #expect(try home.founder.store.saveMade(made))
+        try await home.founder.sync(home.group.id)
+        #expect(try member.store.saveMade(made))
+        let report = try await member.sync(home.group.id, level: .write)
+        #expect(report.conflicts == 0)
+        #expect(try member.store.outboxCount(in: home.group.id) == 0)
+        #expect(try member.store.conflicts(for: made.id).isEmpty)
+        try await member.sync(home.group.id, level: .write)
+        #expect(try member.store.transaction(made.id) != nil, "the owner's copy")
+        #expect(home.server.records(in: home.group.id).filter { $0.id == made.id }.count == 1)
+    }
+}

@@ -28,6 +28,8 @@ struct BudgetWheelPanel: View {
     let screen: BudgetScreen
     /// Opens the Edit Budget sheet, from Edit Budget… beside the pace words.
     let editBudget: () -> Void
+    /// Opens the budget's repeats.
+    var openRepeats: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -52,9 +54,17 @@ struct BudgetWheelPanel: View {
                 // grew taller than the screen, and its sheets went off it.
                 .frame(minWidth: Self.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
-            Text(screen.countLine)
-                .font(.system(size: 11))
-                .foregroundStyle(Palette.muted)
+            HStack(spacing: 4) {
+                Text(screen.countLine)
+                if let repeats = screen.repeatsWords {
+                    Text("\u{00B7}")
+                    Button(repeats, action: openRepeats)
+                        .buttonStyle(.link)
+                        .accessibilityIdentifier(AccessibilityID.budgetRepeats)
+                }
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(Palette.muted)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
