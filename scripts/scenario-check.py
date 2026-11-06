@@ -2,6 +2,7 @@
 """Checks that the UI tests name the scenarios in Features/ the way its README says.
 
     python3 -I scripts/scenario-check.py [--require-all] [--list]
+        [--root DIR] [--tests PLATFORM=FOLDER ...] [--also DIR]
 
 Each scenario is a "## ID Title" heading in a Features/*.md file. A "Platforms:" line
 right under it says where it applies; no line means Mac, Linux and iPhone. A UI test
@@ -18,6 +19,12 @@ request changed was a merge conflict every time two were open.
 
 With --require-all it also fails while any scenario has no test on a platform it
 names (the Definition of Done, item 3). --list prints those scenarios.
+
+Another repo, such as a private extension's, is checked the same way:
+--root is that repo, and each --tests says where one platform's UI tests live in
+it, relative to the root; only those platforms' tests are read. --also reads
+the scenarios in another repo's Features/ too, so an ID written in both fails,
+and a tag may name one of them. Those are not counted and need no row here.
 """
 
 import pathlib
@@ -25,17 +32,18 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FEATURES = ROOT / "Features"
 APP_PLATFORMS = ("Mac", "Linux", "iPhone")
 PLATFORMS = APP_PLATFORMS + ("Server", "Connector")
-# Where each platform's UI tests live, and the files that hold them.
+# Where each platform's UI tests live in this repo, and the files that hold them.
 TESTS = {
-    "Mac": [(ROOT / "Tests" / "WellSpentUITests", "*.swift")],
-    "Linux": [(ROOT / "Linux" / "UITests", "*.py"), (ROOT / "Linux" / "UITests", "*.swift")],
-    "iPhone": [(ROOT / "iOS" / "UITests", "*.swift")],
-    "Server": [(ROOT / "Server" / "Tests", "*.swift")],
-    "Connector": [(ROOT / "Extensions" / "WarTable" / "adapter" / "tests", "test_*.py")],
+    "Mac": [("Tests/WellSpentUITests", "*.swift")],
+    "Linux": [("Linux/UITests", "*.py"), ("Linux/UITests", "*.swift")],
+    "iPhone": [("iOS/UITests", "*.swift")],
+    "Server": [("Server/Tests", "*.swift")],
+    "Connector": [("Extensions/WarTable/adapter/tests", "test_*.py")],
 }
+# The files a --tests folder is read for.
+PATTERNS = ("*.swift", "*.py")
 HEADING = re.compile(r"^## ([A-Z]+-\d+) (.+?)\s*$")
 TAG = re.compile(r"^\s*(?://|#)\s*Scenario\s+(.+?)\s*$")
 ID = re.compile(r"[A-Z]+-\d+")
@@ -48,9 +56,9 @@ def platforms_named(text):
     return names, unknown
 
 
-def read_scenarios(problems):
-    scenarios = {}  # ID: (title, set of platforms, file)
-    for path in sorted(FEATURES.glob("*.md")):
+def read_scenarios(features, problems, scenarios=None):
+    scenarios = {} if scenarios is None else scenarios  # ID: (title, set of platforms, file)
+    for path in sorted(features.glob("*.md")):
         if path.name == "README.md":
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -73,10 +81,11 @@ def read_scenarios(problems):
     return scenarios
 
 
-def read_tags(scenarios, problems):
+def read_tags(root, tests, scenarios, own, problems):
     tested = {name: set() for name in PLATFORMS}
-    for platform, places in TESTS.items():
+    for platform, places in tests.items():
         for folder, pattern in places:
+            folder = root / folder
             if not folder.is_dir():
                 continue
             for path in sorted(folder.rglob(pattern)):
@@ -84,19 +93,19 @@ def read_tags(scenarios, problems):
                     match = TAG.match(line)
                     if not match:
                         continue
-                    where = f"{path.relative_to(ROOT)}:{number}"
+                    where = f"{path.relative_to(root)}:{number}"
                     for identifier in ID.findall(match.group(1)):
                         if identifier not in scenarios:
                             problems.append(f"{where}: no scenario {identifier} in Features/")
                         elif platform not in scenarios[identifier][1]:
                             problems.append(f"{where}: {identifier} is not on {platform}")
-                        else:
+                        elif identifier in own:
                             tested[platform].add(identifier)
     return tested
 
 
-def check_readme(scenarios, tested, problems):
-    readme = (FEATURES / "README.md").read_text(encoding="utf-8").splitlines()
+def check_readme(features, scenarios, tested, problems):
+    readme = (features / "README.md").read_text(encoding="utf-8").splitlines()
     rows = {}
     for line in readme:
         if match := ROW.match(line):
@@ -122,12 +131,39 @@ def check_readme(scenarios, tested, problems):
         problems.append(f"Features/README.md: a row for {identifier}, which is not a scenario")
 
 
+def options(arguments):
+    """--root, every --tests and --also, read from the arguments."""
+    root, also, tests = ROOT, None, {}
+    for index, argument in enumerate(arguments):
+        value = arguments[index + 1] if index + 1 < len(arguments) else None
+        if argument in ("--root", "--also", "--tests") and (value is None or value.startswith("--")):
+            raise SystemExit(f"scenario check: {argument} needs a value after it")
+        if argument == "--root":
+            root = pathlib.Path(value).resolve()
+        elif argument == "--also":
+            also = pathlib.Path(value).resolve()
+        elif argument == "--tests":
+            platform, _, folder = (value or "").partition("=")
+            if platform not in PLATFORMS or not folder:
+                raise SystemExit(f"scenario check: --tests wants PLATFORM=FOLDER, one of {', '.join(PLATFORMS)}")
+            tests.setdefault(platform, []).extend((folder, pattern) for pattern in PATTERNS)
+    return root, also, tests or TESTS
+
+
 def main(arguments):
     require_all = "--require-all" in arguments
+    root, also, tests = options(arguments)
     problems = []
-    scenarios = read_scenarios(problems)
-    tested = read_tags(scenarios, problems)
-    check_readme(scenarios, tested, problems)
+    own = read_scenarios(root / "Features", problems)
+    scenarios = dict(own)
+    if also:
+        theirs = read_scenarios(also / "Features", [])
+        for identifier in sorted(set(theirs) & set(own)):
+            problems.append(f"{own[identifier][2]}: {identifier} is also written in {also.name}")
+        scenarios = {**theirs, **own}
+    tested = read_tags(root, tests, scenarios, own, problems)
+    check_readme(root / "Features", own, tested, problems)
+    scenarios = own
 
     missing = {name: sorted(i for i, (_, where, _) in scenarios.items() if name in where and i not in tested[name])
                for name in PLATFORMS}
