@@ -376,16 +376,31 @@ class Accounts(unittest.TestCase):
         app.button("Start over", within=app.front)
 
         # Scenario ACCT-10
-        # 2. The code and a new password twice sign in, and every other
-        # device is signed out.
+        # 2. The code and a new password twice say every other device will be
+        # signed out, then the sheet closes, signed in.
         sheet = app.front
         new_password = secrets.token_urlsafe(18)
         app.field("Code", sheet).type(emailed_code(address, asked))
         app.field("New password", sheet).type(new_password)
         app.field("Confirm password", sheet).type(new_password)
+        app.wait_shows("Every other device will be signed out.", within=sheet)
         app.button("Set password", within=sheet).press()
-        app.wait_shows("Your password is changed, and you are signed in. Every other device was signed out.")
-        self.done(app)
+        app.wait_for_window(1, "the account sheet to close")
+        self.foot(app, SYNCED)
+
+        # Scenario ACCT-17
+        # Change password says the same words, and setting it closes the sheet.
+        sheet = self.open_sheet(app)
+        app.button("Change password\u2026", within=sheet).press()
+        app.wait_shows("Change your password")
+        sheet = app.front
+        app.wait_shows("Every other device will be signed out.", within=sheet)
+        changed = secrets.token_urlsafe(18)
+        app.field("Current password", sheet).type(new_password)
+        app.field("New password", sheet).type(changed)
+        app.field("Confirm password", sheet).type(changed)
+        app.button("Set password", within=sheet).press()
+        app.wait_for_window(1, "the account sheet to close")
         self.foot(app, SYNCED)
 
         # Scenario ACCT-10

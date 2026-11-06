@@ -21,6 +21,7 @@ final class PhoneAccountTests: XCTestCase {
 
     static let password = "a-long-password-1"
     static let newPassword = "another-long-password-2"
+    static let changedPassword = "a-third-long-password-3"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -166,8 +167,8 @@ final class PhoneAccountTests: XCTestCase {
         // 8. Forgot your password, with the address typed: Reset your password
         // has it filled in. Send code says a code is on its way, and asks for
         // the code and a new password twice, with Start over. The emailed
-        // code and the new password sign him in and say every other device
-        // was signed out.
+        // code and the new password say every other device will be signed
+        // out, then the sheet closes with him signed in.
         run.paste(address, into: AccessibilityID.accountEmail)
         run.tap(AccessibilityID.accountForgotPassword)
         XCTAssertTrue(run.app.navigationBars[AccountFlow.Step.forgotPassword.title].waitForExistence(timeout: 10), "no reset")
@@ -187,9 +188,22 @@ final class PhoneAccountTests: XCTestCase {
         run.paste(Self.newPassword, into: AccessibilityID.accountConfirmation)
         XCTAssertTrue(run.button(AccessibilityID.accountSubmit).isEnabled, "Set password did not light once pasted")
         run.tap(AccessibilityID.accountSubmit)
-        XCTAssertTrue(run.text(PasswordResetScreen.finished).waitForExistence(timeout: 30),
-                      "the reset did not finish. On screen: \(run.visibleTexts())")
-        run.tap(AccessibilityID.accountClose)
+        XCTAssertTrue(run.wait(for: run.app.navigationBars[AccountFlow.Step.forgotPassword.title], until: "exists == false", timeout: 30),
+                      "the sheet stayed open after Set password. On screen: \(run.visibleTexts())")
+
+        // Scenario ACCT-17
+        // 8b. Change password says every other device will be signed out, and
+        // setting it closes the sheet, signed in.
+        run.tap(AccessibilityID.toolbarAccount)
+        run.tap(AccessibilityID.accountChangePassword)
+        XCTAssertTrue(run.text(AccountFlow.Words.otherDevicesSignedOut).waitForExistence(timeout: 10),
+                      "no words above the button. On screen: \(run.visibleTexts())")
+        run.paste(Self.newPassword, into: AccessibilityID.accountCurrentPassword)
+        run.paste(Self.changedPassword, into: AccessibilityID.accountNewPassword)
+        run.paste(Self.changedPassword, into: AccessibilityID.accountConfirmation)
+        run.tap(AccessibilityID.accountSubmit)
+        XCTAssertTrue(run.wait(for: run.app.navigationBars[AccountFlow.Step.changePassword.title], until: "exists == false", timeout: 30),
+                      "the sheet stayed open after changing the password. On screen: \(run.visibleTexts())")
 
         // Scenario ACCT-13
         // 9. Signed in on another device too, which signs out everywhere: at
@@ -197,14 +211,14 @@ final class PhoneAccountTests: XCTestCase {
         // address filled in and why. Signed in again, the account's group is
         // back.
         let otherDevice = try SecondAccount(server: mailbox.server, settingsSuite: "app.wellspent.uitest.robin")
-        try await otherDevice.signIn(email: address, password: Self.newPassword)
+        try await otherDevice.signIn(email: address, password: Self.changedPassword)
         try await otherDevice.sync.signOutEverywhere()
         run.pullDown()
         let signedOut = "You were signed out on this device. Sign in again. Your budgets are still here."
         XCTAssertTrue(run.text(signedOut).waitForExistence(timeout: 30),
                       "the sign-in did not open by itself. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.fieldText(AccessibilityID.accountEmail), address, "the address is not filled in")
-        run.paste(Self.newPassword, into: AccessibilityID.accountPassword)
+        run.paste(Self.changedPassword, into: AccessibilityID.accountPassword)
         run.tap(AccessibilityID.accountSubmit)
         XCTAssertTrue(run.text(SyncWording.footer(signedIn: true)).waitForExistence(timeout: 30), "signing in again did not finish")
         XCTAssertTrue(run.scrollTo(AccessibilityID.sidebarGroup("Mine")).exists, "the account's group did not come back")

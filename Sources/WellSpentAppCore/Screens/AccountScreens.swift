@@ -186,8 +186,6 @@ public final class PasswordResetScreen {
         It lasts 30 minutes.
         """
 
-    nonisolated public static let finished = "Your password is changed, and you are signed in. Every other device was signed out."
-
     public var canSubmit: Bool {
         guard !isWorking else { return false }
         switch step {
@@ -264,8 +262,6 @@ public final class ChangePasswordScreen {
     public init(actions: any AccountActions) {
         self.actions = actions
     }
-
-    nonisolated public static let finished = "Your password is changed. Every other device was signed out."
 
     public var canSubmit: Bool { !isWorking && !current.isEmpty && !password.isEmpty && !confirmation.isEmpty }
 

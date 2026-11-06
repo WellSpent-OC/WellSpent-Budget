@@ -94,8 +94,18 @@ An account keeps Robin's budgets on WellSpent's server, so they sync to his othe
 - Then it says "If robin@example.com has an account and has been confirmed, a code is on its way. It lasts 30 minutes."
 - And it asks for "Code", "New password" and "Confirm password", with "Start over" to go back to the email
 - When he types the code from the email and a new password twice, and presses "Set password"
-- Then the sheet moves to "Your account" and says "Your password is changed, and you are signed in. Every other device was signed out."
+- Then the sheet closes, and he is on his budget, signed in
+- And above "Set password", while he typed, it said "Every other device will be signed out."
 - And an email that was never confirmed gets no code, though the sheet says the same words
+
+## ACCT-17 Change password
+
+- Given Robin is signed in, and "Account" is open
+- When he presses "Change password…"
+- Then it asks for "Current password", "New password" and "Confirm password", and says "Every other device will be signed out."
+- When he fills them in and presses "Set password"
+- Then the sheet closes, and he is on his budget, signed in
+- And every other device is signed out
 
 ## ACCT-11 Sign out
 

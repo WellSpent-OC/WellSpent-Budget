@@ -74,6 +74,7 @@ It is not kept here, where every pull request would change the same lines.
 | ACCT-14 | Each device is listed by its own name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-16 | On a Mac, the Dock says STAGING too | Mac | Mac |
+| ACCT-17 | Change password | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [SampleGroups.md](SampleGroups.md)
 
