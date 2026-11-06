@@ -34,7 +34,8 @@ Platforms: Mac, iPhone
 - And when he opens the bill again, the switch is off
 - When he turns it on and saves
 - Then that same repeat starts again from this month, and the months it was stopped aren't made
-- And someone who may not change the repeat sees the switch, dimmed
+- And someone who may change the bill but not the repeat sees the switch, dimmed
+- And on a read-only sheet, a repeat's bill has a plain row, "Repeats every month" with "On", or "Off" once it has stopped
 
 ## REPEAT-02 It shows up each month
 
