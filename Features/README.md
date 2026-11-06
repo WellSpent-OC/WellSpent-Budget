@@ -171,6 +171,25 @@ It is not kept here, where every pull request would change the same lines.
 | IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
+### [RepeatExpenses.md](RepeatExpenses.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| REPEAT-01 | Setting a repeat | Mac, iPhone | Mac |
+| REPEAT-02 | It shows up each month | Mac, iPhone | None yet |
+| REPEAT-03 | Catching up after time away | Mac, iPhone | None yet |
+| REPEAT-04 | A short month | Mac, iPhone | None yet |
+| REPEAT-05 | Two devices make one bill | Mac, iPhone | None yet |
+| REPEAT-06 | This month only | Mac, iPhone | Mac |
+| REPEAT-07 | This month and later | Mac, iPhone | Mac |
+| REPEAT-08 | Stopping | Mac, iPhone | Mac |
+| REPEAT-09 | Deleting a made bill asks | Mac, iPhone | Mac |
+| REPEAT-10 | Undo | Mac, iPhone | Mac |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, iPhone | None yet |
+| REPEAT-12 | Finding them all | Mac, iPhone | Mac |
+| REPEAT-13 | Money in doesn't repeat | Mac, iPhone | Mac |
+| REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
+
 ### [Sharing.md](Sharing.md)
 
 | ID | Scenario | Platforms | Has a test on |
