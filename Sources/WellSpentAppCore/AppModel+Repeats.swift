@@ -22,7 +22,7 @@ public extension AppModel {
         do {
             let me = me()
             for group in try store.groups() where mayAddEntries(group.id) {
-                for rule in try store.repeatRules(in: group.id) where rule.createdBy == nil || rule.createdBy == me {
+                for rule in try store.repeatRules(in: group.id) where rule.createdBy == me {
                     for month in rule.monthsDue(today: today(), calendar: AppLocale.calendar) {
                         guard let made = rule.made(in: month),
                               let budget = try store.budget(made.budgetID), !budget.isDeleted else { continue }

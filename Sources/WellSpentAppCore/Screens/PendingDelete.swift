@@ -96,8 +96,8 @@ public enum PendingDelete: Identifiable {
             }
         // Undo follows a delete, so the question no longer says it can't be undone.
         case .entry(let entry, _, _, _) where entry.repeatRuleID != nil:
-            return "This month only: later months still come. Stop repeating: no later month is made. "
-                + "Earlier months stay either way."
+            return "This month only: later bills still come. Stop repeating: no more bills come. "
+                + "Earlier bills stay either way."
         case .entry(_, let budget, let group, let shared):
             return shared ? "It comes out of \(budget) for everyone in \(group)." : "It comes out of \(budget)."
         }
