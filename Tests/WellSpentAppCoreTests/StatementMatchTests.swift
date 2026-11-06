@@ -154,14 +154,58 @@ struct StatementMatchTests {
         #expect(model.pendingImport?.proposals.first?.decision == .add(other))
     }
 
-    /// Replacing deletes the bill, so someone who may not delete it gets no match.
-    @Test func noMatchForABillThisPersonMayNotChange() throws {
-        _ = try aPhoneBill()
+    /// Replacing deletes the bill, so someone who may not delete it can't. The line
+    /// is still that bill, so it's skipped, and the money counts once.
+    @Test func aBillThisPersonMayNotChangeIsSkippedNotAdded() throws {
+        let bill = try aPhoneBill()
         model.me = { UserID() }
         model.mayManageEntries = { _ in false }
         try statement("12/15/2026,\"ACME\",-85.00")
-        let decision = try #require(model.pendingImport?.proposals.first?.decision)
-        if case .replacesMade = decision { Issue.record("offered to replace another person's bill") }
+        #expect(model.pendingImport?.proposals.first?.decision == .matchesTransaction(bill.id))
+
+        screen.commit()
+        #expect(try model.store.transaction(bill.id)?.isDeleted == false)
+        #expect(try spent() == -8_500, "counted once")
+    }
+
+    /// Moved down while the review was open: the bill stays and the line is skipped.
+    @Test func movedDownDuringTheReviewLeavesTheBill() throws {
+        let bill = try aPhoneBill()
+        try statement("12/15/2026,\"ACME\",-85.40")
+        #expect(model.pendingImport?.proposals.first?.decision == .replacesMade(bill.id))
+
+        model.me = { UserID() }
+        model.mayManageEntries = { _ in false }
+        screen.commit()
+        #expect(try model.store.transaction(bill.id)?.isDeleted == false)
+        #expect(try spent() == -8_500, "counted once, as the bill")
+    }
+
+    // Scenario REPEAT-14
+    /// The bank's date wins, across a month's end too. December reads light and
+    /// January carries the line, and the total for the year doesn't move.
+    @Test func aLineInTheNextMonthStillTakesTheBillsPlace() throws {
+        let january3 = AppLocale.calendar.date(from: DateComponents(year: 2027, month: 1, day: 3, hour: 12))!
+        model.today = { january3 }
+        model.addRepeatingTransaction(merchant: "Phone bill", amount: Money(minorUnits: 8_500), date: Self.day(11, 30),
+                                      note: "", budget: budget)
+        model.reload()
+        let bill = try #require(try bills().first { $0.repeatMonth == "2026-12" })
+        let total = { [self] in
+            try model.store.transactions(in: budget, period: nil).filter { !$0.isDeleted }
+                .reduce(0) { $0 + $1.amount.minorUnits }
+        }
+        let before = try total()
+
+        try statement("01/02/2027,\"VERIZON WIRELESS\",-85.00")
+        #expect(screen.rows.first?.status == "Replaces December's Phone bill, $85.00")
+        screen.commit()
+        model.reload()
+
+        #expect(try model.store.transaction(bill.id)?.isDeleted != false)
+        #expect(try total() == before, "the year's total is unchanged")
+        let line = try #require(try model.store.transactions(in: budget, period: nil).first { $0.source == .statement })
+        #expect(AppLocale.calendar.component(.month, from: line.date) == 1, "the bank's date")
     }
 
     @Test func twoLinesDoNotClaimOneBill() throws {

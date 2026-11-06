@@ -749,9 +749,15 @@ public final class AppModel {
                         skipped += 1
                         continue
                     }
+                    let isKept = pending.keptBoth.contains(index)
+                    // The person may have been moved down while the review was open.
+                    // Then the bill stays and the line is skipped, so it counts once.
+                    guard isKept || access(to: bill).mayChange else {
+                        skipped += 1
+                        continue
+                    }
                     // In the bill's budget, with its mark, so what it counts toward
                     // doesn't change. The repeat doesn't make a deleted month again.
-                    let isKept = pending.keptBoth.contains(index)
                     try write(proposal, into: bill.budgetID, group: pending.groupID,
                               kind: pending.chosenKinds[index], link: isKept ? nil : bill.extensionLink)
                     if !isKept { try store.trash(bill) }

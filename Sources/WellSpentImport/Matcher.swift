@@ -107,7 +107,11 @@ public struct StatementMatcher: Sendable {
             // real date and amount win and the bill counts once.
             if let bill = bestMadeBill(for: line, in: context, excluding: claimedTransactions) {
                 claimedTransactions.insert(bill.id)
-                return ImportProposal(line: line, decision: .replacesMade(bill.id), fingerprint: fingerprint)
+                // Someone who may not delete the bill can't replace it. The line
+                // is still that bill, so it's skipped and the money counts once.
+                let decision: ImportDecision = context.mayReplace(bill)
+                    ? .replacesMade(bill.id) : .matchesTransaction(bill.id)
+                return ImportProposal(line: line, decision: decision, fingerprint: fingerprint)
             }
 
             // Then a transaction someone typed in before the statement arrived.
@@ -197,8 +201,7 @@ public struct StatementMatcher: Sendable {
                 if let ruled, ruled != bill.budgetID { return false }
                 let gap = abs(bill.amount.minorUnits - line.amount.minorUnits)
                 guard gap <= max(abs(bill.amount.minorUnits) / 10, 500) else { return false }
-                guard abs(bill.date.timeIntervalSince(line.date)) <= Self.dateTolerance else { return false }
-                return context.mayReplace(bill)
+                return abs(bill.date.timeIntervalSince(line.date)) <= Self.dateTolerance
             }
             .min { abs($0.date.timeIntervalSince(line.date)) < abs($1.date.timeIntervalSince(line.date)) }
     }
