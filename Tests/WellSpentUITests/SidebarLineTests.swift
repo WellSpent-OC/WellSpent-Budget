@@ -64,10 +64,11 @@ final class SidebarLineTests: XCTestCase {
         XCTAssertFalse(run.wait(forBudgetRows: "Utilities", timeout: 2) { $0 < shown }, "the name hid the budgets")
     }
 
-    /// One arrow only. With the pointer on the line, nothing shows at its right
-    /// end: not an arrow of ours, nor the one a sidebar's list adds on hover.
+    /// We draw one arrow, and nothing of ours at the line's right end. This does
+    /// not prove anything about a control the list might add on hover: that was
+    /// never seen in a test run, and this passes with or without `.collapsible`.
     @MainActor
-    func testNoSecondArrowWithThePointerOnTheLine() throws {
+    func testWeDrawOneArrowOnTheLine() throws {
         let run = try started()
         let line = run.element(AccessibilityID.sidebarGroup("Home"))
         XCTAssertTrue(line.waitForExistence(timeout: 10), "no Home")
