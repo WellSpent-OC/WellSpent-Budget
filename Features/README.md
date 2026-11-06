@@ -284,8 +284,8 @@ They do not count as UI scenario coverage in this table.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Mac, Linux |
-| PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Mac, Linux |
+| PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [WarTable.md](WarTable.md)
 

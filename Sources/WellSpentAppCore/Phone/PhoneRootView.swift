@@ -81,7 +81,7 @@ struct PhoneRootView: View {
         // A different account means different budgets: a fresh stack, not the
         // last account's open budget.
         .id(ObjectIdentifier(model))
-        // These two sit after the tint above, so each brings its own.
+        // The sheets from here on sit after the tint above, so each brings its own.
         .sheet(isPresented: $addingEntry) { PhoneEntrySheet(model: model).tint(Palette.accent) }
         .sheet(item: $requestedEntry) { editor in
             Group {
@@ -96,8 +96,8 @@ struct PhoneRootView: View {
         .onChange(of: model.entrySheetRequest) { _, request in openRequestedEntry(request) }
         // Outside the part rebuilt when an account signs in, so the sheet
         // keeps its step through signing in.
-        .sheet(isPresented: $showingAccount) { PhoneAccountSheet(sync: sync) }
-        .sheet(isPresented: $showingExtensionsCatalog) { extensionsCatalogSheet }
+        .sheet(isPresented: $showingAccount) { PhoneAccountSheet(sync: sync).tint(Palette.accent) }
+        .sheet(isPresented: $showingExtensionsCatalog) { extensionsCatalogSheet.tint(Palette.accent) }
         .confirmationDialog(screen.pendingDelete?.title ?? "",
                             isPresented: Binding(get: { screen.pendingDelete != nil },
                                                  set: { if !$0 { screen.keepIt() } }),
@@ -309,9 +309,6 @@ struct PhoneRootView: View {
         perform(action)
     }
 
-    /// A staging build asked to open on one screen opens on it, once, when
-    /// the window first appears. Never in `init`, which SwiftUI may run many
-    /// times.
     /// Opens the sheet an extension asked for, from any tab, and clears the
     /// request. One for an entry that has gone since opens nothing.
     private func openRequestedEntry(_ request: EntrySheetRequest?) {
@@ -325,6 +322,9 @@ struct PhoneRootView: View {
         }
     }
 
+    /// A staging build asked to open on one screen opens on it, once, when
+    /// the window first appears. Never in `init`, which SwiftUI may run many
+    /// times.
     private func applyStart() {
         guard !startApplied else { return }
         startApplied = true

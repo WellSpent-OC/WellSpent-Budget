@@ -41,6 +41,7 @@ final class PhonePropertiesTabTests: XCTestCase {
 
         // Extensions on, with Properties still off in the catalog.
         run.app.terminate()
+        try? FileManager.default.removeItem(at: run.dataRoot)
         let again = launched(extensionsOn: true)
         XCTAssertTrue(again.has(AccessibilityID.sidebarAdd), "Home did not open")
         XCTAssertFalse(again.app.tabBars.buttons["Houses"].exists, "Houses shows before it is turned on")
