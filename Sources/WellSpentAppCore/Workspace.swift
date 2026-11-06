@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import WellSpentCrypto
 import WellSpentStore
 import WellSpentSync
 #if canImport(WellSpentPropertiesViews)
@@ -32,6 +33,8 @@ public final class Workspace {
     /// budgets are: a screen holding something they can take away, such as
     /// a group's page (`MainScreen`).
     @ObservationIgnored var afterReload: [@MainActor () -> Void] = []
+    /// Told when a person adds a budget, whichever account's model is showing.
+    @ObservationIgnored var afterBudgetAdded: [@MainActor (GroupID) -> Void] = []
     /// The day of the month a staging UI test put the money wheel on
     /// (`pinnedDayVariable`), or nil, so the wheel reads the clock.
     public let pinnedDay: Int?
@@ -93,6 +96,7 @@ public final class Workspace {
     /// another account brings a new one.
     private func watchForEdits() {
         model.didChange = { [weak self] in self?.autoSync.localChange() }
+        model.didAddBudget = { [weak self] group in self?.afterBudgetAdded.forEach { $0(group) } }
         model.mayAddEntries = { [sync] group in sync.mayAddEntries(in: group) }
         // Changing anyone's entries takes Manage, the same level as budgets.
         model.mayManageEntries = { [sync] group in sync.mayManageBudgets(in: group) }

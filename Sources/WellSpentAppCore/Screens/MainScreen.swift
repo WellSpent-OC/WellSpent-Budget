@@ -119,6 +119,8 @@ public final class MainScreen {
         // Someone else deleting the group, or taking this person out of it,
         // closes its page for good.
         workspace.afterReload.append { [weak self] in self?.closePageIfItsGroupIsGone() }
+        // A budget saved into a hidden group would have no row, and look lost.
+        workspace.afterBudgetAdded.append { [weak self] group in self?.show(group) }
     }
 
     // MARK: - The left side
@@ -147,6 +149,11 @@ public final class MainScreen {
         collapsed = SidebarRules.toggling(group, in: collapsed)
         defaults.set(collapsed, forKey: Self.collapsedKey)
         defaults.saveNow()
+    }
+
+    /// Shows a group's budgets if they're hidden.
+    private func show(_ group: GroupID) {
+        if SidebarRules.isCollapsed(group, in: collapsed) { toggle(group) }
     }
 
     /// The budget picked on the left, and none while a group's page or an

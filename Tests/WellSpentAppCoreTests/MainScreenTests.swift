@@ -638,6 +638,23 @@ struct MainScreenTests {
         #expect(device.screen.money(of: GroupID()) == nil, "nor does a group that is not here")
     }
 
+    /// A budget saved into a hidden group would save with no row anywhere, and
+    /// look lost. So adding one shows its group, and leaves the others as they were.
+    @Test func addingABudgetShowsItsGroup() async throws {
+        let device = try await Device()
+        let household = try #require(device.model.addGroup(named: "Household"))
+        let club = try #require(device.model.addGroup(named: "Club"))
+        device.screen.toggle(household)
+        device.screen.toggle(club)
+
+        _ = try #require(device.model.addBudget(named: "Groceries", limit: .dollars(100), in: household))
+
+        let household_ = try #require(device.screen.sections.first { $0.id == household })
+        #expect(!household_.isCollapsed)
+        #expect(household_.budgets.map(\.budget.name) == ["Groceries"])
+        #expect(device.screen.sections.first { $0.id == club }?.isCollapsed == true, "another group stays hidden")
+    }
+
     // Scenario WHEEL-06
     @Test func aGroupsMoneyFollowsANewTransactionAtOnce() async throws {
         let device = try await Device()

@@ -618,14 +618,16 @@ final class TestApp {
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
     }
 
-    /// Toggles a group's expansion by clicking its name in the sidebar.
+    /// The arrow at the end of a group's line in the sidebar, which hides or
+    /// shows its budgets. The list makes the whole line one element, so the
+    /// click goes to its right end, where the arrow is.
     func clickGroupArrow(_ name: String) {
         let identifier = AccessibilityID.sidebarGroup(name)
         let line = element(identifier)
         XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
         revealInSidebar(line)
         waitUntilHittable(line, identifier)
-        line.click()
+        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
     }
 
     /// How many elements in the sidebar carry a budget's identifier, across
