@@ -136,6 +136,8 @@ def options(arguments):
     root, also, tests = ROOT, None, {}
     for index, argument in enumerate(arguments):
         value = arguments[index + 1] if index + 1 < len(arguments) else None
+        if argument in ("--root", "--also", "--tests") and (value is None or value.startswith("--")):
+            raise SystemExit(f"scenario check: {argument} needs a value after it")
         if argument == "--root":
             root = pathlib.Path(value).resolve()
         elif argument == "--also":
