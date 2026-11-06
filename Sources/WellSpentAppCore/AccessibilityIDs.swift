@@ -154,6 +154,7 @@ public enum AccessibilityID {
     public static func importLineBudget(_ bankText: String) -> String { "import.budget.\(bankText)" }
     /// A money-in line's kind list (Income, Refund, …), by the bank's text.
     public static func importLineKind(_ bankText: String) -> String { "import.kind.\(bankText)" }
+    public static func importLineKeepBoth(_ bankText: String) -> String { "import.keepBoth.\(bankText)" }
     public static let importConfirm = "import.import"
     public static let importCancel = "import.cancel"
     /// A line's row on a phone, by the bank's text: its date and name, its

@@ -88,6 +88,8 @@ public final class AppModel {
         /// and whatever the person picks in the review. Lines that are money
         /// out have no entry here.
         public var chosenKinds: [Int: TransactionKind] = [:]
+        /// Lines the person said aren't the bill they match: both stay.
+        public var keptBoth: Set<Int> = []
     }
 
     /// Whether a budget opens by itself while none is open: one at launch,
@@ -668,14 +670,17 @@ public final class AppModel {
                 return
             }
 
+            let replaceable = Set(allTransactions.filter { access(to: $0).mayChange }.map(\.id))
             let context = StatementMatcher.Context(
                 budgetKey: budgetKey,
                 existingFingerprints: try store.existingFingerprints(
                     lines.map { $0.fingerprint(budgetKey: budgetKey) }, in: group.id),
                 receipts: try store.receipts(in: group.id),
                 recentTransactions: allTransactions,
-                merchantRules: StatementMatcher.merchantRules(from: allTransactions),
-                defaultBudget: nil
+                merchantRules: StatementMatcher.merchantRules(
+                    from: allTransactions.filter { $0.repeatRuleID == nil }),
+                defaultBudget: nil,
+                mayReplace: { [replaceable] in replaceable.contains($0.id) }
             )
 
             let matcher = StatementMatcher()
@@ -739,6 +744,19 @@ public final class AppModel {
                     // that matters.
                     skipped += 1
 
+                case .replacesMade(let id):
+                    guard let bill = try store.transaction(id), !bill.isDeleted else {
+                        skipped += 1
+                        continue
+                    }
+                    // In the bill's budget, with its mark, so what it counts toward
+                    // doesn't change. The repeat doesn't make a deleted month again.
+                    let isKept = pending.keptBoth.contains(index)
+                    try write(proposal, into: bill.budgetID, group: pending.groupID,
+                              kind: pending.chosenKinds[index], link: isKept ? nil : bill.extensionLink)
+                    if !isKept { try store.trash(bill) }
+                    added += 1
+
                 case .add(let budgetID):
                     try write(proposal, into: budgetID, group: pending.groupID, kind: pending.chosenKinds[index])
                     added += 1
@@ -786,7 +804,7 @@ public final class AppModel {
     /// another group, and filed under the group being imported into, was
     /// shown here and refused by every other member.
     private func write(_ proposal: ImportProposal, into budgetID: BudgetID, group: GroupID,
-                       kind: TransactionKind? = nil) throws {
+                       kind: TransactionKind? = nil, link: RecordID? = nil) throws {
         let home = try store.budget(budgetID)?.groupID ?? group
         try store.saveImported(Transaction(
             budgetID: budgetID, groupID: home, date: proposal.line.date,
@@ -795,7 +813,8 @@ public final class AppModel {
             amount: proposal.line.amount,
             kind: kind ?? .inferred(from: proposal.line.amount),
             source: .statement,
-            importFingerprint: proposal.fingerprint
+            importFingerprint: proposal.fingerprint,
+            extensionLink: link
         ))
     }
 
