@@ -1,6 +1,6 @@
 # Adding a transaction
 
-Add puts money spent into the budget that is open. A transaction has a merchant, an amount, a date and a note, and it counts against its budget in the period its date falls in. In a shared group, everyone in it sees what each person adds, and who added it.
+Add puts money spent into the budget that is open. A transaction has a merchant, an amount, a date and a note, and it counts against its budget in the period its date falls in, once its date has arrived. In a shared group, everyone in it sees what each person adds, and who added it.
 
 ## ENTRY-01 Add puts a transaction in the open budget
 

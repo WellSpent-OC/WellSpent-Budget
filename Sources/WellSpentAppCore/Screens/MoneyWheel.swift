@@ -62,7 +62,8 @@ public struct MoneyWheel: Equatable, Sendable {
     public struct Figure: Equatable, Sendable, Identifiable {
         public let label: String
         public let amount: String
-        /// True for the Over figure, whose amount shows in the warning colour.
+        /// True for the Over figure, and for Coming by when it's more than
+        /// what's left. The amount shows in the warning colour.
         public let isWarning: Bool
 
         public init(label: String, amount: String, isWarning: Bool = false) {
@@ -73,8 +74,7 @@ public struct MoneyWheel: Equatable, Sendable {
 
         public var id: String { label }
 
-        /// The amount's colour: warning for the Over figure, whose label
-        /// says Over too, and ink for the rest.
+        /// The amount's colour: warning where `isWarning` says, ink for the rest.
         public var amountColor: ColorPair { isWarning ? PaletteValues.warning : PaletteValues.ink }
     }
 
@@ -88,7 +88,10 @@ public struct MoneyWheel: Equatable, Sendable {
     /// A budget's own wheel has none: its income is a line under it.
     public let moneyIn: Money
 
-    public init(scope: Scope, budgeted: Money, spent: Money, day: PeriodDay?, moneyIn: Money? = nil) {
+    public init(scope: Scope, budgeted: Money, spent: Money, day: PeriodDay?, moneyIn: Money? = nil,
+                coming: Money? = nil, comingBy: Date? = nil) {
+        self.coming = coming ?? Money(minorUnits: 0, currency: budgeted.currency)
+        self.comingBy = comingBy
         self.scope = scope
         self.budgeted = budgeted
         self.spent = spent
@@ -99,7 +102,22 @@ public struct MoneyWheel: Equatable, Sendable {
     /// A budget's wheel, from its summary and its own period.
     public init(budget summary: BudgetSummary, now: Date = Date(), calendar: Calendar = AppLocale.calendar) {
         self.init(scope: .budget, budgeted: summary.budget.limit, spent: summary.spent,
-                  day: PeriodDay(period: summary.period, now: now, calendar: calendar))
+                  day: PeriodDay(period: summary.period, now: now, calendar: calendar),
+                  coming: summary.coming, comingBy: summary.comingBy)
+    }
+
+    /// Dated later this period, not counted yet, and the latest date among them.
+    public let coming: Money
+    public let comingBy: Date?
+
+    /// "Coming by Nov 30", while there are bills still to come.
+    public var comingFigure: Figure? {
+        guard coming.minorUnits > 0, let comingBy else { return nil }
+        let calendar = AppLocale.calendar
+        let style = Date.FormatStyle(locale: calendar.locale ?? AppLocale.current, calendar: calendar,
+                                     timeZone: calendar.timeZone)
+        return Figure(label: Words.comingBy(comingBy.formatted(style.month(.abbreviated).day())),
+                      amount: coming.display, isWarning: coming > left)
     }
 
     /// What is left: the budgets less what is spent, plus money in. Below
@@ -201,8 +219,8 @@ public struct MoneyWheel: Equatable, Sendable {
     }
 
     /// Beside the wheel: In when there is money in, Spent, then Over or
-    /// Left, then Expected left by today when there is an even pace to
-    /// measure.
+    /// Left, then Coming by when bills are dated later, then Expected left by
+    /// today when there is an even pace to measure.
     public var figures: [Figure] {
         var figures: [Figure] = []
         if hasMoneyIn { figures.append(Figure(label: Words.moneyIn, amount: "+" + moneyIn.display)) }
@@ -212,6 +230,7 @@ public struct MoneyWheel: Equatable, Sendable {
         } else {
             figures.append(Figure(label: Words.left, amount: leftShown.display))
         }
+        if let comingFigure { figures.append(comingFigure) }
         if let expectedLeft {
             figures.append(Figure(label: Words.expectedLeft, amount: expectedLeft.display))
         }
@@ -238,6 +257,8 @@ public struct MoneyWheel: Equatable, Sendable {
         public static let overThisMonth = "Over this month"
         public static let spent = "Spent"
         public static let expectedLeft = "Expected left by today"
+        /// "Coming by Nov 30".
+        public static func comingBy(_ date: String) -> String { "Coming by \(date)" }
         /// Under the amount in Home's small wheel.
         public static let compactLeft = "left"
         public static let compactOver = "over"

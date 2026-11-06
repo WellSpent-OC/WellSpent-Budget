@@ -130,7 +130,7 @@ public final class AppModel {
             groups = try store.groups()
             var loaded: [GroupID: [BudgetSummary]] = [:]
             for group in groups {
-                loaded[group.id] = try store.summaries(in: group.id)
+                loaded[group.id] = try store.summaries(in: group.id, on: today())
             }
             summaries = loaded
             // A budget deleted on another device closes here, as one

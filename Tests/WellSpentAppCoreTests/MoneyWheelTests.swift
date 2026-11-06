@@ -119,6 +119,31 @@ struct PeriodDayTests {
 struct MoneyWheelTests {
     private let october18 = WheelCalendar.date(2026, 10, 18)
 
+    // Scenario WHEEL-21
+    @Test func aBillStillToComeIsItsOwnFigureAndNotSpent() {
+        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: nil,
+                              coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
+        #expect(pool.arc == 1 && !pool.isOver)
+        #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
+        #expect(pool.figures.map(\.amount) == ["$0.00", "$500.00", "$475.00"])
+        #expect(pool.figures.last?.isWarning == false, "$475.00 is less than $500.00 left")
+    }
+
+    // Scenario WHEEL-22
+    @Test func comingMoreThanLeftIsInTheWarningColour() {
+        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 30_000), day: nil,
+                              coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
+        #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
+        #expect(pool.figures.last?.isWarning == true)
+        #expect(pool.figures.last?.amountColor == PaletteValues.warning)
+    }
+
+    /// Nothing still to come, no line.
+    @Test func noBillStillToComeHasNoLine() {
+        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: nil)
+        #expect(pool.comingFigure == nil)
+    }
+
     // Scenario WHEEL-05
     @Test func groceriesOnOctober18SaysWhatIsSpentLeftAndExpected() {
         let groceries = wheel(limit: 100_000, spent: 55_536, on: october18)

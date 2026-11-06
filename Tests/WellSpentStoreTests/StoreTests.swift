@@ -186,6 +186,43 @@ struct LocalStoreTests {
     /// refund does. Borrowed money and money from savings have their own
     /// lines. A transfer and a card payment count as nothing, but every
     /// entry counts toward the entry count.
+    // Scenario WHEEL-21
+    /// A bill counts on its date: not the day before, and on the day itself.
+    @Test func summaryCountsABillOnItsDate() throws {
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let group = BudgetGroup(name: "Home")
+        try store.save(group)
+        let budget = Budget(groupID: group.id, name: "Pool", limit: Money(minorUnits: 50_000))
+        try store.save(budget)
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        func at(_ d: Int) -> Date { utc.date(from: DateComponents(year: 2026, month: 11, day: d, hour: 12))! }
+        func add(_ amount: Int, _ d: Int, kind: TransactionKind = .spending) throws {
+            try store.save(Transaction(budgetID: budget.id, groupID: group.id, date: at(d), merchant: "Bill",
+                                       amount: Money(minorUnits: amount), kind: kind))
+        }
+        try add(-47_500, 28)
+        try add(-2_000, 15)
+        try add(100_000, 28, kind: .income)
+
+        let early = try store.summary(for: budget, on: at(6), calendar: utc)
+        #expect(early.spent.minorUnits == 0)
+        #expect(early.moneyIn.minorUnits == 0, "money in waits for its date too")
+        #expect(early.coming.minorUnits == 49_500, "and isn't on the line")
+        #expect(early.comingBy == at(28), "the latest still to come")
+        #expect(early.transactionCount == 3, "the list still has them")
+
+        let middle = try store.summary(for: budget, on: at(15), calendar: utc)
+        #expect(middle.spent.minorUnits == 2_000)
+        #expect(middle.coming.minorUnits == 47_500)
+
+        let onTheDay = try store.summary(for: budget, on: at(28), calendar: utc)
+        #expect(onTheDay.spent.minorUnits == 49_500)
+        #expect(onTheDay.moneyIn.minorUnits == 100_000)
+        #expect(onTheDay.coming.minorUnits == 0)
+        #expect(onTheDay.comingBy == nil)
+    }
+
     @Test func summarySplitsMoneyInFromSpending() throws {
         let store = try makeStore()
         let (group, budget) = try seedHousehold(store)

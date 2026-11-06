@@ -81,9 +81,15 @@ public struct BudgetSummary: Equatable, Sendable {
     public let fromSavings: Money
     /// Every entry in the period, whatever its kind.
     public let transactionCount: Int
+    /// Spending less refunds dated after today, in this period. It counts once
+    /// its date arrives (WHEEL-21). Everything above is today or earlier.
+    public let coming: Money
+    /// The latest bill still to come, when there is one.
+    public let comingBy: Date?
 
     public init(budget: Budget, period: BudgetPeriod, spent: Money, transactionCount: Int,
-                moneyIn: Money? = nil, borrowed: Money? = nil, fromSavings: Money? = nil) {
+                moneyIn: Money? = nil, borrowed: Money? = nil, fromSavings: Money? = nil,
+                coming: Money? = nil, comingBy: Date? = nil) {
         let zero = Money(minorUnits: 0, currency: spent.currency)
         self.budget = budget
         self.period = period
@@ -92,6 +98,8 @@ public struct BudgetSummary: Equatable, Sendable {
         self.borrowed = borrowed ?? zero
         self.fromSavings = fromSavings ?? zero
         self.transactionCount = transactionCount
+        self.coming = coming ?? zero
+        self.comingBy = comingBy
     }
 
     /// Money in less money spent.

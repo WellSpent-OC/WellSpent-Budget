@@ -590,6 +590,44 @@ final class BudgetGapTests: XCTestCase {
         return try XCTUnwrap(calendar.date(from: parts))
     }
 
+    // Scenario WHEEL-21
+    /// On the 6th a bill dated the 28th isn't spent yet. It's on the Coming by
+    /// line, and in the list with its own date. On the 28th it's spent.
+    @MainActor
+    func testABillDatedLaterCountsWhenItsDateArrives() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = "6"
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Pool", amount: "500", inGroup: "Home")
+        var parts = AppLocale.calendar.dateComponents([.year, .month], from: Date())
+        parts.day = 28
+        parts.hour = 12
+        let later = try XCTUnwrap(AppLocale.calendar.date(from: parts))
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMM d"
+        let coming = "Coming by \(formatter.string(from: later))"
+
+        run.addEntry(merchant: "Pool service", amount: "475.00", dated: later)
+        XCTAssertTrue(run.listText("Pool service").waitForExistence(timeout: 10), "the bill is not in the list")
+        let spent = run.element(AccessibilityID.budgetWheel)
+        XCTAssertTrue(spent.waitForExistence(timeout: 10), "no wheel")
+        run.expect(figures: [.init(label: MoneyWheel.Words.spent, amount: "$0.00"),
+                             .init(label: MoneyWheel.Words.left, amount: "$500.00"),
+                             .init(label: coming, amount: "$475.00")], "on the 6th")
+        run.expect(pace: nil, "on the 6th")
+
+        // Scenario WHEEL-21
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = "28"
+        run.quitAndOpenAgain()
+        run.openBudget(named: "Pool")
+        run.expect(figures: [.init(label: MoneyWheel.Words.spent, amount: "$475.00"),
+                             .init(label: MoneyWheel.Words.left, amount: "$25.00")], "on the 28th")
+        XCTAssertFalse(run.listText(coming).exists, "still coming on its own date")
+    }
+
     /// The six commands the scenario names, by the actions AppKit gives
     /// them: Undo, Redo, Cut, Copy, Paste and Select All.
     private static let editActions = ["undo:", "redo:", "cut:", "copy:", "paste:", "selectAll:"]

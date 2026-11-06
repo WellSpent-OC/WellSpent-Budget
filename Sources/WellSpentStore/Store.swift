@@ -229,24 +229,35 @@ public struct Store: Sendable {
     /// positive amount and reduces what was spent, so their sum is flipped.
     /// Income is money in and never lowers spending. Borrowed money and money
     /// from savings are kept on their own lines. Transfers and card payments
-    /// count as nothing, but every row counts toward the entry count.
+    /// count as nothing, but every row counts toward the entry count. Only what's
+    /// dated today or earlier counts. A later date in the period is on `coming`.
     public func summary(for budget: Budget, on date: Date = Date(),
                         calendar: Calendar = .autoupdatingCurrent) throws -> BudgetSummary {
         let period = budget.reset.period(containing: date, calendar: calendar)
-        let rows = try database.read { db -> [(kind: String, total: Int, count: Int)] in
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) ?? period.end
+        let rows = try database.read { db -> [(kind: String, isLater: Bool, total: Int, count: Int, last: Date?)] in
             try Row.fetchAll(db, sql: """
-                SELECT kind, COALESCE(SUM(amountMinorUnits), 0) AS total, COUNT(*) AS count
+                SELECT kind, date >= ? AS isLater, COALESCE(SUM(amountMinorUnits), 0) AS total, COUNT(*) AS count,
+                       MAX(date) AS last
                 FROM transactionRecord
                 WHERE budgetId = ? AND isDeleted = 0 AND date >= ? AND date < ?
-                GROUP BY kind
-                """, arguments: [budget.id.dbValue, period.start, period.end])
-                .map { ($0["kind"], $0["total"], $0["count"]) }
+                GROUP BY kind, isLater
+                """, arguments: [tomorrow, budget.id.dbValue, period.start, period.end])
+                .map { ($0["kind"], $0["isLater"], $0["total"], $0["count"], $0["last"]) }
         }
         let currency = budget.limit.currency
-        var spent = 0, moneyIn = 0, borrowed = 0, fromSavings = 0, count = 0
+        var spent = 0, moneyIn = 0, borrowed = 0, fromSavings = 0, count = 0, coming = 0
+        var comingBy: Date?
         for row in rows {
             count += row.count
-            switch TransactionKind(rawValue: row.kind) {
+            let kind = TransactionKind(rawValue: row.kind)
+            if row.isLater {
+                // Money in dated later waits too, and isn't on the Coming by line.
+                if kind == .spending || kind == .refund { coming -= row.total }
+                if kind == .spending, let last = row.last { comingBy = max(comingBy ?? last, last) }
+                continue
+            }
+            switch kind {
             case .spending, .refund: spent -= row.total
             case .income: moneyIn += row.total
             case .loanDraw: borrowed += row.total
@@ -260,7 +271,9 @@ public struct Store: Sendable {
             transactionCount: count,
             moneyIn: Money(minorUnits: moneyIn, currency: currency),
             borrowed: Money(minorUnits: borrowed, currency: currency),
-            fromSavings: Money(minorUnits: fromSavings, currency: currency)
+            fromSavings: Money(minorUnits: fromSavings, currency: currency),
+            coming: Money(minorUnits: max(coming, 0), currency: currency),
+            comingBy: coming > 0 ? comingBy : nil
         )
     }
 
