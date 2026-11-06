@@ -554,6 +554,37 @@ struct SampleBudgetTests {
         #expect(app.model.groups.map(\.name) == ["Pottery"], "the untouched Household stayed behind")
     }
 
+    /// The server's stamp doesn't come back to the device that pushed, because
+    /// a record of its own is an echo. So the push stamps this device's copy too
+    /// (`outgoingPayload`), or a repeat made signed out would stop coming here.
+    @Test func aRepeatMadeBeforeSigningInKeepsComingOnThisDevice() async throws {
+        let laptop = Mac()
+        let first = try laptop.launch()
+        try await first.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        await first.sync.syncAll()
+
+        let calendar = AppLocale.calendar
+        let day: (Int, Int) -> Date = { calendar.date(from: DateComponents(year: 2026, month: $0, day: $1, hour: 12))! }
+        let desktop = Mac()
+        let transport = StubReadableTransport(server: laptop.transport.server)
+        let app = try Workspace.launch(accounts: desktop.accounts, defaults: desktop.defaults,
+                                       makeTransport: { _ in transport })
+        let trip = try #require(app.model.addGroup(named: "Road trip"))
+        let fuel = try #require(app.model.addBudget(named: "Fuel", limit: .dollars(300), in: trip))
+        app.model.today = { day(11, 14) }
+        app.model.addRepeatingTransaction(merchant: "Parking", amount: .dollars(20), date: day(11, 14), note: "", budget: fuel)
+        #expect(try app.model.store.repeatRules(in: trip).first?.createdBy == nil, "signed out, it has no owner yet")
+
+        try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await app.sync.syncAll()
+        let me = try #require(app.sync.userID)
+        #expect(try app.model.store.repeatRules(in: trip).first?.createdBy == me)
+
+        app.model.today = { day(12, 20) }
+        #expect(app.model.makeDueRepeats(), "December's bill comes on this device")
+        #expect(try app.model.store.transactions(in: fuel, period: nil).filter { $0.merchant == "Parking" }.count == 2)
+    }
+
     /// SAMP-08: signing in to an account made on another computer brings what
     /// was made here while signed out, the way signing up does. An untouched
     /// sample stays here, and shows again after signing out (SAMP-06).
