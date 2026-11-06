@@ -39,9 +39,12 @@ final class ReleaseTwinTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(groupName)).waitForExistence(timeout: 30),
                       "the group did not come back after a quit. On screen: \(run.visibleTexts())")
 
-        // 5. Tidy: the group goes for everyone, and the session ends.
+        // 5. Tidy: the group goes for everyone, and the session ends, so the
+        // next run starts signed out. The account is reachable with no budgets left.
         run.deleteGroup(named: groupName)
         run.signOut()
+        XCTAssertTrue(run.app.staticTexts[SyncWording.footer(signedIn: false)].waitForExistence(timeout: 15),
+                      "the twin is still signed in. On screen: \(run.visibleTexts())")
     }
 
     /// Part of the group's name, so runs never share one. The "UI Test" start
