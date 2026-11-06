@@ -37,9 +37,11 @@ public struct BudgetPace: Equatable, Sendable {
             text = Words.runsOut(budgetName, around: date.formatted(style.month(.abbreviated).day()),
                                  daysEarly: max(day.days - runsOut, 1))
             offersEdit = mayEdit
-        } else if left > expected, day.isLastWeek, mayEdit, (left - expected).wholeUnits >= 1 {
+        } else if day.isLastWeek, mayEdit, (left - wheel.coming) > expected,
+                  (left - wheel.coming - expected).wholeUnits >= 1 {
+            // Money a bill still to come will take isn't more left (WHEEL-09).
             kind = .underPace
-            text = Words.moreLeft((left - expected).wholeDisplay)
+            text = Words.moreLeft((left - wheel.coming - expected).wholeDisplay)
             offersEdit = true
         } else {
             return nil
