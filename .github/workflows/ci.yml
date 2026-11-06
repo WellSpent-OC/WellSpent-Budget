@@ -797,7 +797,9 @@ jobs:
     # locally on the exact commit before its pull request.
     if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
     runs-on: macos-latest
-    timeout-minutes: 60
+    # The iPhone run takes about 80 minutes: 13 Houses tests, about 33 minutes
+    # in each look, plus the build.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
