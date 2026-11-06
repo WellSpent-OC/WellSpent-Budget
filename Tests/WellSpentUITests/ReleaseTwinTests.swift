@@ -39,6 +39,27 @@ final class ReleaseTwinTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(groupName)).waitForExistence(timeout: 30),
                       "the group did not come back after a quit. On screen: \(run.visibleTexts())")
 
+        // Houses opens and draws its heading in the build a release uses, which
+        // is the only place a resource the release script leaves behind would
+        // show. It can't say the font looks right, only that the screen comes up.
+        let features = ProcessInfo.processInfo.environment["WELLSPENT_TWIN_FEATURES"] ?? ""
+        if features.contains("properties") {
+            let extensions = run.app.buttons["Extensions"].firstMatch
+            XCTAssertTrue(extensions.waitForExistence(timeout: 15), "no Extensions on the rail, in a build with Properties")
+            extensions.click()
+            let turnOn = run.app.buttons["Turn on"].firstMatch
+            XCTAssertTrue(turnOn.waitForExistence(timeout: 10), "no Turn on. On screen: \(run.visibleTexts())")
+            turnOn.click()
+            // The empty page, whose heading is the first thing drawn in the font.
+            XCTAssertTrue(run.app.buttons["Connect PriceLabs"].firstMatch.waitForExistence(timeout: 15),
+                          "Houses did not open in the release build. Tree: \(run.app.debugDescription.prefix(2500))")
+            XCTAssertEqual(run.app.state, .runningForeground, "the app stopped on Houses")
+            run.app.buttons["Extensions"].firstMatch.click()
+            let turnOff = run.app.buttons["Turn off"].firstMatch
+            XCTAssertTrue(turnOff.waitForExistence(timeout: 10), "no Turn off")
+            turnOff.click()
+        }
+
         // 5. Tidy: the group goes for everyone, and the session ends, so the
         // next run starts signed out. The account is reachable with no budgets left.
         run.deleteGroup(named: groupName)

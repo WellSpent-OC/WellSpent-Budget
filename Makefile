@@ -376,8 +376,10 @@ release-twin: ui-test-project
 	@$(UI_TEST_VARS_SET)
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=staging SIGN=development VERSION=$(or $(TESTFLIGHT_VERSION),0.0.0-twin) \
 		BUILD=$(TESTFLIGHT_BUILD) OUT=$(TWIN_OUT) SCRATCH=.build/twin-scratch TWIN_PROFILE="$(TWIN_PROFILE)" \
+		WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" WELLSPENT_PROPERTIES_PATH="$(TESTFLIGHT_PROPERTIES_PATH)" \
 		KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	$(UI_TEST_XCODEBUILD) build-for-testing
 	rm -rf .build/xcode/release-twin.xcresult
-	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" $(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
+	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" TEST_RUNNER_WELLSPENT_TWIN_FEATURES="$(TESTFLIGHT_FEATURES)" \
+		$(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
 		-only-testing:WellSpentUITests/ReleaseTwinTests -resultBundlePath .build/xcode/release-twin.xcresult
