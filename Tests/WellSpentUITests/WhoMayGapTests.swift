@@ -868,6 +868,10 @@ private extension TestApp {
         _ = wait(for: button, until: "isEnabled == false", timeout: 3)
         XCTAssertTrue(wait(for: button, until: "isEnabled == true", timeout: 60), "the sync never finished",
                       file: file, line: line)
+        // A sync that failed leaves this app with what it knew before, and the
+        // steps after it would fail on something else.
+        XCTAssertNotEqual(button.label, SyncWording.syncTitle(for: .failed("")),
+                          "the sync failed: \(button.label)", file: file, line: line)
     }
 
     /// Waits for an entry's row in the budget's list to show each of
