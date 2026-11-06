@@ -568,11 +568,11 @@ final class TestApp {
 
     /// A statement in the run's folder, with today's date on every line, so
     /// the lines land in this period. Removed with the folder.
-    func writeStatement(_ lines: [(bank: String, amount: String)]) throws -> URL {
+    func writeStatement(_ lines: [(bank: String, amount: String)], dated date: Date = Date()) throws -> URL {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "MM/dd/yyyy"
-        let today = formatter.string(from: Date())
+        let today = formatter.string(from: date)
         let rows = ["Date,Description,Amount"] + lines.map { "\(today),\"\($0.bank)\",\($0.amount)" }
         let url = dataRoot.appendingPathComponent("statement.csv")
         try rows.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
@@ -661,6 +661,20 @@ final class TestApp {
         }.max() ?? 1
     }
 
+    /// Every one of a row's words can be read. It measures them all before it
+    /// fails, so the failure names every one that can't.
+    func expectReadable(_ texts: [XCUIElement], file: StaticString = #filePath, line: UInt = #line) throws {
+        var measured: [String] = [], unreadable: [String] = []
+        for text in texts {
+            let name = text.label.isEmpty ? (text.value as? String) ?? "" : text.label
+            let contrast = try contrast(of: text)
+            measured.append("\(name): \(String(format: "%.2f", contrast))")
+            if contrast < 3 { unreadable.append(name) }
+        }
+        print("contrast on the selected row: \(measured)")
+        XCTAssertTrue(unreadable.isEmpty, "can't be read on the selected row: \(unreadable). All: \(measured)", file: file, line: line)
+    }
+
     /// The same, for the right quarter of a picture of a line: 1 when nothing
     /// but one colour is there.
     func contrastAtRightEnd(of image: NSImage) throws -> Double {
@@ -687,10 +701,13 @@ final class TestApp {
     /// leaves the row selected. The selected row's words, for `contrast(of:)`.
     func selectedRowTexts(after merchant: String) throws -> [XCUIElement] {
         clickRow(merchant)
-        expectSheet(for: merchant)
+        let sheet = element(AccessibilityID.entryDone)
+        let form = element(AccessibilityID.entryCancel)
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10) || form.exists, "no sheet opened. On screen: \(visibleTexts())")
         app.typeKey(.escape, modifierFlags: [])
         expectNoSheet()
-        let row = app.tables.firstMatch.tableRows.matching(NSPredicate(format: "isSelected == true")).firstMatch
+        // The Mac's table reaches a test as an outline.
+        let row = app.outlineRows.matching(NSPredicate(format: "isSelected == true")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "no row is selected")
         return row.staticTexts.allElementsBoundByIndex
     }

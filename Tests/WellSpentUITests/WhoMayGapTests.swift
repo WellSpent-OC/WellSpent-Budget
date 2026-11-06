@@ -293,12 +293,7 @@ final class WhoMayGapTests: XCTestCase {
 
         let texts = try run.selectedRowTexts(after: hilltop)
         XCTAssertTrue(texts.contains { $0.label == "Leslie" || ($0.value as? String) == "Leslie" }, "no Added by on the row")
-        for text in texts {
-            let name = text.label.isEmpty ? String(describing: text.value) : text.label
-            let contrast = try run.contrast(of: text)
-            print("contrast \(name): \(contrast)")
-            XCTAssertGreaterThanOrEqual(contrast, 3, "\(name) can't be read on the selected row")
-        }
+        try run.expectReadable(texts)
         run.signOut()
         await second.deleteGroup(named: shared)
         await second.cleanUp()

@@ -362,7 +362,9 @@ struct SidebarView: View {
                     header(section)
                 }
                 // The list's own hide and show control would be a second arrow.
+                #if os(macOS)
                 .collapsible(false)
+                #endif
             }
             if let note = screen.waitingNote {
                 Text(note)
