@@ -214,11 +214,15 @@ struct RootView: View {
                                      editor: $editor, main: screen)
                 case .noBudgets:
                     noBudgets.toolbar { accountButtons }
+                        // With nothing open, not the last budget's name.
+                        .navigationTitle(AppEnvironment.current.appName)
                 case .noneSelected:
                     ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
                                            systemImage: "tray",
                                            description: Text(MainScreen.Words.noneSelectedText))
                         .toolbar { accountButtons }
+                        // With nothing open, not the last budget's name.
+                        .navigationTitle(AppEnvironment.current.appName)
                 }
             }
         }

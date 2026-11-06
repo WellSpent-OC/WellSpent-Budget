@@ -244,6 +244,9 @@ final class AccountGapTests: XCTestCase {
         // Scenario ACCT-11
         XCTAssertTrue(run.shows(MainScreen.Words.noBudgetsTitle, timeout: 30),
                       "this account should have no budgets. On screen: \(run.visibleTexts())")
+        // The title bar doesn't keep the name of the budget that was open before.
+        let window = run.app.windows.firstMatch
+        XCTAssertNotEqual(window.title, "Groceries", "the title bar still says Groceries with no budgets")
         run.signOut()
         run.expectSignedOut("Signed out with no budgets")
     }
