@@ -141,7 +141,7 @@ app:
 # using this Mac for anything else. The first run asks once to let Xcode's test
 # manager control the app.
 #
-# UI_TEST_ONLY runs one test class or test, such as
+# UI_TEST_ONLY runs the test classes or tests it lists, with spaces between, such as
 # WellSpentUITests/MoneyWheelTests, as IPHONE_UI_TEST_ONLY does for the iPhone.
 # UI_TEST_SHARD=2/3 runs the second of three parts of the test classes, as CI
 # does to run the parts at once. scripts/ui-test-shard.sh picks each part's
@@ -190,7 +190,7 @@ UI_TEST_ACCOUNTS = TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAI
 ui-test: ui-test-project
 	@$(UI_TEST_VARS_SET)
 	rm -rf .build/xcode/ui-test.xcresult
-	only="$(if $(UI_TEST_ONLY),-only-testing:$(UI_TEST_ONLY))"; \
+	only="$(foreach test,$(UI_TEST_ONLY),-only-testing:$(test))"; \
 	if [ -n "$(UI_TEST_SHARD)" ]; then \
 		only=$$(scripts/ui-test-shard.sh Tests/WellSpentUITests WellSpentUITests "$(UI_TEST_SHARD)") || exit 1; \
 		echo "This part's classes:" $$only; \
@@ -237,7 +237,7 @@ iphone-ui-test-build: iphone-project
 # CI's on-screen keyboard otherwise opens with it over the keys, and the tests
 # stall reading the screen. The simulator is the newest numbered iPhone the
 # machine has, unless IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17".
-# IPHONE_UI_TEST_ONLY runs one test class or test, such as
+# IPHONE_UI_TEST_ONLY runs the test classes or tests it lists, with spaces between, such as
 # WellSpentPhoneUITests/PhoneSignInSyncTests.
 # IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
 # UI_TEST_SHARD does for the Mac. Each look's result bundle,
@@ -247,7 +247,7 @@ IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
-	only="$(if $(IPHONE_UI_TEST_ONLY),-only-testing:$(IPHONE_UI_TEST_ONLY))"; \
+	only="$(foreach test,$(IPHONE_UI_TEST_ONLY),-only-testing:$(test))"; \
 	if [ -n "$(IPHONE_UI_TEST_SHARD)" ]; then \
 		only=$$(scripts/ui-test-shard.sh iOS/UITests WellSpentPhoneUITests "$(IPHONE_UI_TEST_SHARD)") || exit 1; \
 		echo "This part's classes:" $$only; \

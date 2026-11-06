@@ -58,7 +58,7 @@ struct BudgetWheelPanel: View {
                 Text(screen.countLine)
                 if let repeats = screen.repeatsWords {
                     Text("\u{00B7}")
-                    Button(repeats, action: openRepeats)
+                    Button(action: openRepeats) { Text(repeats).underline() }
                         .linkButtonStyle()
                         .accessibilityIdentifier(AccessibilityID.budgetRepeats)
                 }
