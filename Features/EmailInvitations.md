@@ -26,6 +26,7 @@ Invite someone by email from a group's Share menu. An invitation waits separatel
 - And she cannot yet open its budgets or transactions
 - And it does not affect her totals
 - And another account cannot see or accept her invitation
+- And on the Mac the window stays the same size, and several invitations scroll in their own space
 
 ## EMAIL-03 Accept adds the recipient and the group's budgets
 

@@ -119,6 +119,8 @@ public enum AccessibilityID {
     public static let entryLink = "entry.link"
     public static let entryRepeats = "entry.repeats"
     public static let entryWhichMonths = "entry.whichMonths"
+    /// One of the iPhone's two rows for which months, by its words.
+    public static func entryWhichMonth(_ title: String) -> String { "entry.whichMonths.\(title)" }
     public static let entryStopRepeating = "entry.stopRepeating"
     public static let budgetRepeats = "budget.repeats"
     public static let repeatStop = "repeat.stop"

@@ -43,6 +43,7 @@ final class PhoneExtensionSlotTests: XCTestCase {
 
         run.openGroupPage(named: "Home")
 
+        XCTAssertTrue(run.drawsTitle("Home"), "the page's title is not drawn")
         XCTAssertTrue(run.has(AccessibilityID.groupWheel), "the money wheel stays")
         XCTAssertTrue(run.lacks(AccessibilityID.groupTopLine), "no extension, no top line")
         XCTAssertFalse(run.text(TestExtensionSlots.sectionWords).exists, "no extension, no section")
