@@ -82,22 +82,74 @@ public extension AppModel {
         }
     }
 
-    /// Turns the row on for an entry already there: it stays as it is, and the
-    /// rule starts next month.
+    /// Turns the row on for an entry already there: it becomes the rule's first
+    /// bill, as a new one does when the row is on at Add, so the month has one
+    /// bill. A repeat's bill has to carry the ID its rule works out, so the entry
+    /// moves to that ID, and everything a person sees stays. Its import mark stays
+    /// on the old row, which still keeps that line from being imported again.
     func startRepeating(from id: RecordID) {
         do {
             guard let entry = try store.transaction(id), !entry.isDeleted, entry.repeatRuleID == nil,
-                  mayAddEntries(entry.groupID) else { return }
+                  mayAddEntries(entry.groupID), access(to: entry).mayChange else { return }
             let calendar = AppLocale.calendar
-            let month = RepeatRule.month(after: RepeatRule.month(of: entry.date, calendar: calendar))
-            try store.save(RepeatRule(groupID: entry.groupID, budgetID: entry.budgetID, name: entry.merchant,
-                                      amount: Money(minorUnits: -abs(entry.amount.minorUnits), currency: entry.amount.currency),
-                                      day: calendar.component(.day, from: entry.date), extensionLink: entry.extensionLink,
-                                      firstMonth: month, createdBy: me()))
+            let month = RepeatRule.month(of: entry.date, calendar: calendar)
+            let signed = Money(minorUnits: -abs(entry.amount.minorUnits), currency: entry.amount.currency)
+            let day = calendar.component(.day, from: entry.date)
+            let rule = try ruleStartedFromThisEntry(entry, month: month, amount: signed, day: day)
+                ?? RepeatRule(groupID: entry.groupID, budgetID: entry.budgetID, name: entry.merchant, amount: signed,
+                              day: day, extensionLink: entry.extensionLink, firstMonth: month, createdBy: me())
+            var bill = entry
+            bill.id = .repeatMade(group: entry.groupID, rule: rule.id, month: month)
+            bill.repeatRuleID = rule.id
+            bill.repeatMonth = month
+            bill.importFingerprint = nil
+            bill.updatedAt = Date()
+            try store.startRepeat(rule, firstBill: bill, replacing: entry)
             changed()
         } catch {
             errorMessage = String(describing: error)
         }
+    }
+
+    /// Starts a stopped repeat again, from this month. The months it was stopped
+    /// count as deleted, so they aren't made after the fact.
+    func restartRepeating(_ id: RecordID) {
+        do {
+            guard var rule = try store.repeatRule(id), !rule.isDeleted, mayChangeRule(rule),
+                  let stopped = rule.stopMonth else { return }
+            rule.stopMonth = nil
+            rule.updatedAt = Date()
+            let thisMonth = RepeatRule.month(of: today(), calendar: AppLocale.calendar)
+            var skipped: [Transaction] = []
+            var month = stopped
+            while month < thisMonth {
+                if var bill = rule.made(in: month) {
+                    bill.isDeleted = true
+                    bill.updatedAt = rule.updatedAt
+                    skipped.append(bill)
+                }
+                month = RepeatRule.month(after: month)
+            }
+            try store.restartRepeat(rule, skipping: skipped)
+            changed()
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    /// A build before this one left the entry as it was and started the rule the
+    /// next month, so the row read off and could be turned on twice. That rule is
+    /// used again, starting a month earlier, rather than making a second one. The
+    /// amount has to match too: two same-day bills of one name can be two bills.
+    private func ruleStartedFromThisEntry(_ entry: Transaction, month: String, amount: Money, day: Int) throws -> RepeatRule? {
+        let next = RepeatRule.month(after: month)
+        guard var rule = try store.repeatRules(in: entry.groupID).first(where: {
+            !$0.isDeleted && $0.stopMonth == nil && $0.firstMonth == next && $0.budgetID == entry.budgetID
+                && $0.name == entry.merchant && $0.day == day && $0.amount == amount && mayChangeRule($0)
+        }) else { return nil }
+        rule.firstMonth = month
+        rule.updatedAt = Date()
+        return rule
     }
 
     /// Saves a change to a made bill, and with "this month and later" adds it to

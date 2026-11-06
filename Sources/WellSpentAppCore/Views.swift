@@ -929,6 +929,7 @@ struct EntrySheet: View {
             }
             if editor.showsRepeatRow {
                 Toggle(Words.repeatsRow, isOn: Bindable(editor).repeats)
+                    .disabled(!editor.repeatRowIsEnabled)
                     .accessibilityIdentifier(AccessibilityID.entryRepeats)
                 if let line = editor.repeatLine {
                     Text(line)

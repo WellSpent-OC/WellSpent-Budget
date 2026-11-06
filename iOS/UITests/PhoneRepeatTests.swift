@@ -46,6 +46,42 @@ final class PhoneRepeatTests: XCTestCase {
     }
 
     @MainActor
+    func testTurningItOnForABillAlreadyThereReadsAsARepeat() throws {
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.launch(pinnedDay: 18)
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
+        run.addEntry(merchant: "Water", amount: "40.00")
+
+        // Scenario REPEAT-17
+        run.openEntry("Water")
+        run.turnOnRepeats()
+        run.tap(AccessibilityID.entrySave)
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
+
+        // Scenario REPEAT-18
+        // Reopened it reads on. Off and saved, it stops and reads off.
+        run.openEntry("Water")
+        run.bringUpInSheet(AccessibilityID.entryRepeats)
+        XCTAssertEqual(run.switchValue(), "1", "not on when reopened")
+        run.flipRepeats()
+        run.tap(AccessibilityID.entrySave)
+        XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "a stopped repeat is still counted")
+        run.openEntry("Water")
+        run.bringUpInSheet(AccessibilityID.entryRepeats)
+        XCTAssertEqual(run.switchValue(), "0", "not off after stopping")
+
+        // Scenario REPEAT-18
+        // On again is the same repeat: the count is one, not two.
+        run.flipRepeats()
+        run.tap(AccessibilityID.entrySave)
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
+    }
+
+    @MainActor
     func testSettingARepeatShowsInTheListAndOnTheCountLine() throws {
         let run = launchedWithARepeat()
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
@@ -144,6 +180,17 @@ private extension PhoneTestApp {
         let row = element(AccessibilityID.entryRepeats)
         (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
         XCTAssertTrue(wait(for: row, until: "value == '1'", timeout: 5), "Repeats did not turn on")
+    }
+
+    func switchValue() -> String? {
+        let row = element(AccessibilityID.entryRepeats)
+        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
+    }
+
+    func flipRepeats() {
+        bringUpInSheet(AccessibilityID.entryRepeats)
+        let row = element(AccessibilityID.entryRepeats)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
     }
 
     /// The number pad can cover a sheet's lower rows. A drag from the screen

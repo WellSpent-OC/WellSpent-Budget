@@ -180,10 +180,9 @@ public final class AccountFlow {
         failure = nil
         switch next {
         case .forgotPassword:
-            // A reset that finished starts over. One still asking for the
-            // address takes the address just typed, over one a sign-in prompt
-            // filled in; one waiting for its code keeps the address it went to.
-            if reset.step == .done { reset.startOver() }
+            // One still asking for the address takes the address just typed,
+            // over one a sign-in prompt filled in; one waiting for its code
+            // keeps the address it went to.
             if reset.step == .enterEmail, !signIn.email.isEmpty { reset.email = signIn.email }
         case .confirmEmail:
             confirm = ConfirmEmailScreen(actions: actions)

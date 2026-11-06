@@ -69,6 +69,46 @@ final class RepeatTests: XCTestCase {
     }
 
     @MainActor
+    func testTheSwitchTellsTheTruthOnSaveAndReopen() throws {
+        let run = try started()
+        run.addEntry(merchant: "Water", amount: "40.00")
+        let repeats = run.element(AccessibilityID.budgetRepeats)
+
+        // Scenario REPEAT-17
+        run.clickRow("Water")
+        run.expectSheet(for: "Water")
+        run.expectSwitch(on: false, "before turning it on")
+        run.click(AccessibilityID.entryRepeats)
+        run.click(AccessibilityID.entrySave)
+        run.expectNoSheet()
+        XCTAssertTrue(repeats.waitForExistence(timeout: 10), "no count of repeats")
+        XCTAssertEqual(run.text(of: repeats), RepeatsList.Words.count(1))
+        XCTAssertEqual(run.app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", "Water", "Water")).count, 1,
+                       "the bill is not in the list once. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-18
+        // Reopened it reads on. Off and saved, the repeat stops and it reads off.
+        run.clickRow("Water")
+        run.expectSheet(for: "Water")
+        run.expectSwitch(on: true, "reopened after turning it on")
+        run.click(AccessibilityID.entryRepeats)
+        run.click(AccessibilityID.entrySave)
+        run.expectNoSheet()
+        XCTAssertTrue(run.wait(for: repeats, until: "exists == false", timeout: 10), "a stopped repeat is still counted")
+        run.clickRow("Water")
+        run.expectSheet(for: "Water")
+        run.expectSwitch(on: false, "reopened after stopping")
+
+        // Scenario REPEAT-18
+        // On again is the same repeat: the count is one, not two.
+        run.click(AccessibilityID.entryRepeats)
+        run.click(AccessibilityID.entrySave)
+        run.expectNoSheet()
+        XCTAssertTrue(repeats.waitForExistence(timeout: 10), "no count after starting it again")
+        XCTAssertEqual(run.text(of: repeats), RepeatsList.Words.count(1))
+    }
+
+    @MainActor
     func testMoneyInDoesNotRepeat() throws {
         let run = try started()
         run.click(AccessibilityID.budgetAdd)
@@ -157,6 +197,12 @@ final class RepeatTests: XCTestCase {
 
 private extension TestApp {
     /// Adds a bill that repeats every month to the open budget.
+    func expectSwitch(on: Bool, _ when: String) {
+        let row = element(AccessibilityID.entryRepeats)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no Repeats row, \(when)")
+        XCTAssertEqual((row.value as? Int) == 1 || (row.value as? String) == "1", on, "the switch reads wrong, \(when)")
+    }
+
     func addRepeat(merchant: String, amount: String) {
         click(AccessibilityID.budgetAdd)
         type(merchant, into: AccessibilityID.entryMerchant)

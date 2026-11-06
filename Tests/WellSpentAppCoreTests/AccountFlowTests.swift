@@ -363,8 +363,7 @@ struct AccountFlowTests {
     }
 
     /// A reset waiting for its code keeps the address the code went to,
-    /// whatever is typed on the sign-in step meanwhile. A finished reset
-    /// starts over.
+    /// whatever is typed on the sign-in step meanwhile.
     @Test func aResetKeepsTheAddressItsCodeWentTo() async throws {
         let server = InMemoryReadableServer()
         server.seedAccount(email: "robin@example.com", password: "the-old-password", verified: true)
@@ -387,10 +386,7 @@ struct AccountFlowTests {
         flow.reset.confirmation = "the-new-password"
         await flow.submit()
         await flow.syncing?.value
-        sync.endSession(reason: SyncCoordinator.sessionEndedReason)
-        flow.go(to: .forgotPassword)
-        #expect(flow.reset.step == .enterEmail, "a finished reset starts over")
-        #expect(flow.canSubmit)
+        #expect(flow.isFinished, "a finished reset closes the sheet, and the next sheet starts over")
     }
 
     /// An address typed on the sign-in step goes to the reset, over one a

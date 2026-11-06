@@ -224,7 +224,7 @@ struct RepeatsTests {
         addPhone()
         let made = try bills()[0]
         let editor = try #require(EntryEditor(model: model, entry: made.id))
-        #expect(editor.showsWhichMonths && !editor.showsRepeatRow)
+        #expect(editor.showsWhichMonths && editor.showsRepeatRow && editor.repeats)
         editor.amountText = "92.00"
         #expect(editor.whichMonthsLine(.thisMonthOnly)?.hasPrefix("November is $92.00. December goes back to $85.00") == true,
                 "\(String(describing: editor.whichMonthsLine(.thisMonthOnly)))")
@@ -236,15 +236,189 @@ struct RepeatsTests {
         #expect(question.offersStop(model: model))
     }
 
-    @Test func turningTheRowOnForAnOldEntryStartsNextMonth() throws {
-        model.addTransaction(merchant: "Gym", amount: Money(minorUnits: 3_000), date: Self.day(2026, 11, 2), note: "", budget: budget)
-        let editor = try #require(EntryEditor(model: model, entry: try bills()[0].id))
+    /// An entry already there, with what a person sees on it.
+    private func aWaterBill(on date: Date? = nil) throws -> Transaction {
+        let me = UserID()
+        model.me = { me }
+        model.addTransaction(merchant: "Water", amount: Money(minorUnits: 4_000), date: date ?? Self.day(2026, 11, 5),
+                             note: "Meter 12", budget: budget, link: RecordID())
+        return try #require(try bills().first { $0.merchant == "Water" })
+    }
+
+    private func turnOn(_ id: RecordID) throws {
+        let editor = try #require(EntryEditor(model: model, entry: id))
+        #expect(!editor.repeats)
+        #expect(editor.showsRepeatRow)
         editor.repeats = true
-        #expect(editor.repeatLine == "Shows up on the 2nd of each month. You can change any month.")
         #expect(editor.save())
-        model.today = { Self.day(2026, 12, 2) }
+    }
+
+    private func water() throws -> [Transaction] { try bills().filter { $0.merchant == "Water" } }
+
+    // Scenario REPEAT-17
+    @Test func turningItOnMakesTheEntryTheRulesFirstBill() throws {
+        let entry = try aWaterBill()
+        try turnOn(entry.id)
         model.reload()
-        #expect(try bills().count == 2)
-        #expect(try bills()[0].repeatRuleID == nil)
+
+        let bill = try #require(try water().first)
+        #expect(try water().count == 1, "one bill this month")
+        #expect(bill.idIsRight)
+        #expect(bill.repeatMonth == "2026-11")
+        #expect(bill.date == entry.date && bill.note == entry.note && bill.createdBy == entry.createdBy)
+        #expect(bill.createdAt == entry.createdAt && bill.extensionLink == entry.extensionLink && bill.amount == entry.amount)
+        #expect(try model.store.transaction(entry.id)?.isDeleted == true, "the old row is gone")
+
+        let reopened = try #require(EntryEditor(model: model, entry: bill.id))
+        #expect(reopened.showsRepeatRow && reopened.repeats && reopened.repeatRowIsEnabled, "it reads as on")
+        #expect(model.repeats(in: budget, group: group).count == 1, "the count line finds it")
+        let open = try #require(model.summaries.values.flatMap { $0 }.first { $0.budget.id == budget })
+        let row = try #require(BudgetScreen(summary: open, model: model, me: model.me()).rows.first { $0.merchant == "Water" })
+        #expect(row.source == BudgetScreen.Words.repeatSource)
+    }
+
+    // Scenario REPEAT-17
+    @Test func nothingIsMadeTwice() throws {
+        let entry = try aWaterBill()
+        try turnOn(entry.id)
+        model.makeDueRepeats()
+        #expect(try water().count == 1, "this month keeps one bill")
+
+        model.today = { Self.day(2026, 12, 14) }
+        model.makeDueRepeats()
+        #expect(try water().map(\.repeatMonth) == ["2026-11", "2026-12"], "next month makes one")
+        #expect(try model.store.repeatRules(in: group).count == 1)
+    }
+
+    /// A build before this left the entry as it was and started the rule next
+    /// month. Turned on again, that rule is used, not a second one.
+    @Test func aRuleFromAnEarlierBuildIsUsedAgain() throws {
+        let entry = try aWaterBill()
+        let old = RepeatRule(groupID: group, budgetID: budget, name: "Water", amount: Money(minorUnits: -4_000), day: 5,
+                             extensionLink: entry.extensionLink, firstMonth: "2026-12", createdBy: model.me())
+        try model.store.save(old)
+        try turnOn(entry.id)
+
+        let rules = try model.store.repeatRules(in: group)
+        #expect(rules.map(\.id) == [old.id])
+        #expect(rules.first?.firstMonth == "2026-11")
+        #expect(try water().first?.repeatRuleID == old.id)
+        model.today = { Self.day(2026, 12, 14) }
+        model.makeDueRepeats()
+        #expect(try water().map(\.repeatMonth) == ["2026-11", "2026-12"])
+    }
+
+    /// Two same-day bills of one name at different amounts are two bills.
+    @Test func aRuleAtAnotherAmountStaysSeparate() throws {
+        let entry = try aWaterBill()
+        let other = RepeatRule(groupID: group, budgetID: budget, name: "Water", amount: Money(minorUnits: -9_900), day: 5,
+                               firstMonth: "2026-12", createdBy: model.me())
+        try model.store.save(other)
+        try turnOn(entry.id)
+
+        let rules = try model.store.repeatRules(in: group)
+        #expect(rules.count == 2)
+        #expect(rules.first { $0.id == other.id }?.firstMonth == "2026-12", "that rule isn't touched")
+    }
+
+    /// A line from a statement stays imported, so the same file doesn't add it again.
+    @Test func aStatementLineStaysImportedAfterTurningOn() throws {
+        var entry = try aWaterBill()
+        entry.importFingerprint = "line-1"
+        try model.store.save(entry)
+        try turnOn(entry.id)
+        #expect(try model.store.existingFingerprints(["line-1"], in: group) == ["line-1"])
+    }
+
+    private func giveIt(_ entry: Transaction, _ owner: UserID) throws {
+        var owned = entry
+        owned.createdBy = owner
+        try model.store.save(owned)
+    }
+
+    @Test func someoneWhoMayNotChangeTheEntryCannotTurnItOn() throws {
+        let entry = try aWaterBill()
+        try giveIt(entry, UserID())
+        model.mayManageEntries = { _ in false }
+        model.startRepeating(from: entry.id)
+        #expect(try model.store.repeatRules(in: group).isEmpty)
+        #expect(try model.store.transaction(entry.id)?.isDeleted == false)
+    }
+
+    private func reopen(_ id: RecordID) throws -> EntryEditor { try #require(EntryEditor(model: model, entry: id)) }
+
+    /// Turned on, off and on again, it's one repeat all the way through.
+    @Test func theSwitchTellsTheTruthAndThereIsOneRepeat() throws {
+        let entry = try aWaterBill()
+        try turnOn(entry.id)
+        let id = try #require(try water().first?.id)
+        #expect(try reopen(id).repeats, "reads on")
+        #expect(try !reopen(id).canSave, "nothing changed yet")
+
+        let off = try reopen(id)
+        off.repeats = false
+        #expect(off.canSave)
+        #expect(off.save())
+        #expect(try !reopen(id).repeats, "reads off")
+        #expect(model.repeats(in: budget, group: group).isEmpty, "it leaves the count")
+        #expect(try water().map(\.id) == [id], "the bill stays")
+
+        let on = try reopen(id)
+        on.repeats = true
+        #expect(on.save())
+        #expect(try reopen(id).repeats, "reads on again")
+        #expect(try model.store.repeatRules(in: group).count == 1, "the same repeat")
+        #expect(model.repeats(in: budget, group: group).count == 1)
+    }
+
+    /// Every bill a repeat made opens with the switch on, in any month.
+    @Test func everyMadeBillOpensOn() throws {
+        addPhone()
+        model.today = { Self.day(2026, 12, 14) }
+        model.makeDueRepeats()
+        for bill in try bills() { #expect(try reopen(bill.id).repeats) }
+    }
+
+    /// Stopped in November, started again in February: December and January
+    /// aren't made after the fact, and February is.
+    @Test func startingAgainDoesNotMakeTheMonthsItWasStopped() throws {
+        addPhone()
+        let id = try #require(try bills().first?.id)
+        let off = try reopen(id)
+        off.repeats = false
+        #expect(off.save())
+
+        model.today = { Self.day(2027, 2, 14) }
+        model.makeDueRepeats()
+        #expect(try bills().count == 1, "stopped, so nothing is made")
+        let on = try reopen(id)
+        on.repeats = true
+        #expect(on.save())
+        model.makeDueRepeats()
+        #expect(try bills().map(\.repeatMonth) == ["2026-11", "2027-02"])
+    }
+
+    /// Stopping leaves a bill already made for a later month where it is.
+    @Test func stoppingLeavesALaterBill() throws {
+        model.addRepeatingTransaction(merchant: "Phone", amount: Money(minorUnits: 8_500), date: Self.day(2026, 12, 14),
+                                      note: "", budget: budget)
+        let rule = try #require(try model.store.repeatRules(in: group).first)
+        model.stopRepeating(rule.id)
+        #expect(try bills().map(\.repeatMonth) == ["2026-12"])
+    }
+
+    // Scenario REPEAT-11
+    @Test func someoneWhoMayNotChangeTheRepeatSeesItOnAndDimmed() throws {
+        let owner = UserID()
+        model.me = { owner }
+        addPhone()
+        let id = try #require(try bills().first?.id)
+        var bill = try #require(try model.store.transaction(id))
+        bill.createdBy = owner
+        try model.store.save(bill)
+        model.me = { UserID() }
+        model.mayManageEntries = { _ in false }
+        let editor = try reopen(id)
+        #expect(editor.showsRepeatRow && editor.repeats && !editor.repeatRowIsEnabled)
     }
 }

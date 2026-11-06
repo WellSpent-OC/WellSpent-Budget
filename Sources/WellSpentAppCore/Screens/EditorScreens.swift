@@ -167,8 +167,10 @@ public final class EntryEditor {
     /// What the entry is linked to. Kept as it is when that isn't on offer
     /// any more, so a mark on a removed house survives until someone changes it.
     public var linkID: RecordID?
-    /// The Repeats every month row: on Add, or to start one from an entry.
+    /// The Repeats every month row. It shows the truth: on for a bill whose
+    /// repeat is running, and turning it off stops that repeat.
     public var repeats = false
+    private let repeatsWhenOpened: Bool
     /// Which months a change to a made bill reaches.
     public var reach: AppModel.RepeatReach = .thisMonthOnly
     /// Whether Add also makes a new budget, from the two fields below.
@@ -208,6 +210,9 @@ public final class EntryEditor {
         isNewBudget = editing == nil && group != nil && offered.isEmpty && group.map(model.mayManageEntries) == true
         access = editing.map { model.access(to: $0) } ?? .change
         noticeLine = editing.flatMap { model.takeNotice(of: $0.id) ? Words.notice : nil }
+        let rule = editing.flatMap { model.rule(of: $0) }
+        repeatsWhenOpened = rule.map { !$0.isDeleted && $0.stopMonth == nil } ?? false
+        repeats = repeatsWhenOpened
     }
 
     /// Opens an entry from the list, as it is stored now. Nil when there is
@@ -279,7 +284,13 @@ public final class EntryEditor {
 
     /// Money in doesn't repeat, and a bill a repeat made already does.
     public var showsRepeatRow: Bool {
-        !isReadOnly && kindToWrite == .spending && editing?.repeatRuleID == nil
+        editing?.repeatRuleID != nil || (!isReadOnly && kindToWrite == .spending)
+    }
+
+    /// Dimmed for someone who may not change the repeat (REPEAT-11).
+    public var repeatRowIsEnabled: Bool {
+        guard let editing, editing.repeatRuleID != nil else { return true }
+        return !isReadOnly && madeRule.map(model.mayChangeRule) ?? false
     }
 
     /// "Shows up on the 14th of each month. You can change any month."
@@ -290,7 +301,7 @@ public final class EntryEditor {
     private var madeRule: RepeatRule? { editing.flatMap(model.rule(of:)) }
 
     /// Only the rule's owner or a manager gets "and later", or stops it.
-    public var showsWhichMonths: Bool { !isReadOnly && madeRule.map(model.mayChangeRule) ?? false }
+    public var showsWhichMonths: Bool { repeats && !isReadOnly && madeRule.map(model.mayChangeRule) ?? false }
     public var offersStopRepeating: Bool { showsWhichMonths && madeRule?.stopMonth == nil }
 
     /// What each choice would do, with this amount: "November is $92.00.
@@ -349,7 +360,7 @@ public final class EntryEditor {
     /// Add's rule, and for an opened entry, at least one field changed.
     public var canSave: Bool {
         guard !isReadOnly, canAdd else { return false }
-        return editing == nil || changes != nil || repeats
+        return editing == nil || changes != nil || repeats != repeatsWhenOpened
     }
 
     /// When this person may not change it, or a Save or Delete just found
@@ -511,8 +522,12 @@ public final class EntryEditor {
             result = editing.repeatRuleID == nil ? model.updateEntry(editing.id, changes)
                 : model.updateMadeEntry(editing.id, changes, reach: showsWhichMonths ? reach : .thisMonthOnly)
         }
-        if repeats, showsRepeatRow, result == nil || result == .saved {
-            model.startRepeating(from: editing.id)
+        if showsRepeatRow, repeatRowIsEnabled, repeats != repeatsWhenOpened, result == nil || result == .saved {
+            switch (editing.repeatRuleID, repeats) {
+            case (nil, _): model.startRepeating(from: editing.id)
+            case (let rule?, true): model.restartRepeating(rule)
+            case (let rule?, false): model.stopRepeating(rule)
+            }
             result = model.errorMessage == nil ? .saved : .failed
         }
         return result == .saved

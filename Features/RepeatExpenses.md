@@ -12,6 +12,30 @@ Platforms: Mac, iPhone
 - When he turns on "Repeats every month" and saves
 - Then the bill is in Utilities once, and it repeats on that day of each month
 
+## REPEAT-17 Turning it on for a bill already there
+
+Platforms: Mac, iPhone
+
+- Given Utilities has a $40.00 water bill Robin added on the 5th of this month
+- When he opens it, turns on "Repeats every month" and saves
+- Then the bill is in Utilities once, with its date, its note and who added it unchanged
+- And its source says "Repeat", and the count line says "1 repeat"
+- And next month has one water bill, not two
+
+## REPEAT-18 The switch shows the truth
+
+Platforms: Mac, iPhone
+
+- Given a bill a repeat made, in any month
+- When Robin opens it
+- Then "Repeats every month" is on, and turning it off is the only thing the switch can do
+- When he turns it off and saves
+- Then the repeat stops, as "Stop repeating" does, and the bills already made stay
+- And when he opens the bill again, the switch is off
+- When he turns it on and saves
+- Then that same repeat starts again from this month, and the months it was stopped aren't made
+- And someone who may not change the repeat sees the switch, dimmed
+
 ## REPEAT-02 It shows up each month
 
 Platforms: Mac, iPhone

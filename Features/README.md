@@ -190,6 +190,8 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-12 | Finding them all | Mac, iPhone | Mac |
 | REPEAT-13 | Money in doesn't repeat | Mac, iPhone | Mac |
 | REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
+| REPEAT-17 | Turning it on for a bill already there | Mac, iPhone | Mac, iPhone |
+| REPEAT-18 | The switch shows the truth | Mac, iPhone | Mac, iPhone |
 
 ### [Sharing.md](Sharing.md)
 
