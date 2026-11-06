@@ -661,6 +661,23 @@ final class TestApp {
         }.max() ?? 1
     }
 
+    /// The colour of an element's words: of the pixels most unlike what's behind.
+    func wordsColour(of element: XCUIElement) throws -> (red: Double, green: Double, blue: Double) {
+        let image = element.screenshot().image
+        var rect = CGRect(origin: .zero, size: image.size)
+        let cg = try XCTUnwrap(image.cgImage(forProposedRect: &rect, context: nil, hints: nil))
+        let bitmap = NSBitmapImageRep(cgImage: cg)
+        var darkest = (red: 1.0, green: 1.0, blue: 1.0), least = 3.0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                guard let c = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                let sum = Double(c.redComponent + c.greenComponent + c.blueComponent)
+                if sum < least { least = sum; darkest = (Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent)) }
+            }
+        }
+        return darkest
+    }
+
     /// Every one of a row's words can be read. It measures them all before it
     /// fails, so the failure names every one that can't.
     func expectReadable(_ texts: [XCUIElement], file: StaticString = #filePath, line: UInt = #line) throws {

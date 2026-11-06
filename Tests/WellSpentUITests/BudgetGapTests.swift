@@ -601,14 +601,7 @@ final class BudgetGapTests: XCTestCase {
         run.launch()
         run.addGroup(named: "Home")
         run.addBudget(named: "Pool", amount: "500", inGroup: "Home")
-        var parts = AppLocale.calendar.dateComponents([.year, .month], from: Date())
-        parts.day = 28
-        parts.hour = 12
-        let later = try XCTUnwrap(AppLocale.calendar.date(from: parts))
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.dateFormat = "MMM d"
-        let coming = "Coming by \(formatter.string(from: later))"
+        let (later, coming) = try theTwentyEighth()
 
         run.addEntry(merchant: "Pool service", amount: "475.00", dated: later)
         XCTAssertTrue(run.listText("Pool service").waitForExistence(timeout: 10), "the bill is not in the list")
@@ -626,6 +619,63 @@ final class BudgetGapTests: XCTestCase {
         run.expect(figures: [.init(label: MoneyWheel.Words.spent, amount: "$475.00"),
                              .init(label: MoneyWheel.Words.left, amount: "$25.00")], "on the 28th")
         XCTAssertFalse(run.listText(coming).exists, "still coming on its own date")
+    }
+
+    /// The 28th of this month, and how the line names it.
+    private func theTwentyEighth() throws -> (date: Date, coming: String) {
+        var parts = AppLocale.calendar.dateComponents([.year, .month], from: Date())
+        parts.day = 28
+        parts.hour = 12
+        let later = try XCTUnwrap(AppLocale.calendar.date(from: parts))
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMM d"
+        return (later, "Coming by \(formatter.string(from: later))")
+    }
+
+    // Scenario WHEEL-22
+    /// $475.00 coming with $200.00 left: the amount is in the warning colour.
+    @MainActor
+    func testComingMoreThanWhatIsLeftIsInTheWarningColour() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = "6"
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Pool", amount: "500", inGroup: "Home")
+        let (later, coming) = try theTwentyEighth()
+        run.addEntry(merchant: "Chemicals", amount: "300.00")
+        run.addEntry(merchant: "Pool service", amount: "475.00", dated: later)
+        run.expect(figures: [.init(label: MoneyWheel.Words.spent, amount: "$300.00"),
+                             .init(label: MoneyWheel.Words.left, amount: "$200.00"),
+                             .init(label: coming, amount: "$475.00")], "with more coming than left")
+        // The list's row says $475.00 too, so this reads the figure beside its label.
+        let label = run.listText(coming)
+        let figure = run.app.windows.firstMatch.staticTexts.matching(NSPredicate(format: "value == %@", "$475.00"))
+            .allElementsBoundByIndex.first { abs($0.frame.midY - label.frame.midY) < 6 }
+        let amount = try XCTUnwrap(figure, "no amount beside \(coming)")
+        let ink = try run.wordsColour(of: amount)
+        XCTAssertGreaterThan(ink.red, ink.blue * 1.5, "the amount isn't in the warning colour: \(ink)")
+    }
+
+    // Scenario WHEEL-23
+    /// A group's wheel leaves later bills out, and adds them up on one line.
+    @MainActor
+    func testAGroupsWheelCountsBillsDatedLaterTheSameWay() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = "6"
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Pool", amount: "500", inGroup: "Home")
+        let (later, coming) = try theTwentyEighth()
+        run.addEntry(merchant: "Pool service", amount: "475.00", dated: later)
+        run.addBudget(named: "Yard", amount: "200", inGroup: "Home")
+        run.addEntry(merchant: "Mower", amount: "100.00", dated: try XCTUnwrap(AppLocale.calendar.date(byAdding: .day, value: -8, to: later)))
+        run.openGroupPage(named: "Home")
+        run.expect(figures: [.init(label: MoneyWheel.Words.spent, amount: "$0.00"),
+                             .init(label: MoneyWheel.Words.left, amount: "$700.00"),
+                             .init(label: coming, amount: "$575.00")], "the group's page")
     }
 
     /// The six commands the scenario names, by the actions AppKit gives
