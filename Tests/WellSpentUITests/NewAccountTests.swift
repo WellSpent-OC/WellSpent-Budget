@@ -332,6 +332,38 @@ final class NewAccountTests: XCTestCase {
         run.expectList(groups: ["Pottery"], budgets: ["Materials"], "his new account")
     }
 
+    /// Robin's account was made on another computer. On this fresh install he
+    /// renames a sample, makes a group of his own, then signs in.
+    @MainActor
+    func testGroupsMadeBeforeSigningInComeAlongAndTheSamplesDoNot() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let robin = StagingMailbox.freshAddress("mac", for: "robin")
+        let password = Self.newPassword()
+        let elsewhere = try await AccountGapTests.desktop(at: mailbox.server)
+        _ = try await elsewhere.signUp(email: robin, password: password, deviceLabel: "Robin's other computer")
+        try await elsewhere.verifyEmail(code: try await mailbox.code(for: robin, timeout: 30))
+        let run = try start()
+        run.expectTheSamples()
+        run.renameGroup("Household", to: "Home")
+        run.addGroup(named: "Road trip")
+        run.addBudget(named: "Fuel", amount: "100", inGroup: "Road trip")
+        run.addEntry(merchant: "Gas", amount: "40")
+
+        // Scenario SAMP-08
+        // Signed in, the list holds the renamed sample and his own group, with
+        // their budgets. Side Business, which he did not change, stays out.
+        try run.signIn(email: robin, password: password, server: mailbox.server)
+        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home", "Road trip"])
+        run.expectList(groups: ["Home", "Road trip"], budgets: ["Groceries", "Eating out", "Utilities", "Fuel"],
+                       "after signing in")
+        XCTAssertTrue(run.hasEntry("Gas", inBudget: "Fuel"), "his entry did not come along")
+
+        // Scenario SAMP-08
+        // Signed out, the list holds only Side Business.
+        run.signOut()
+        run.expectList(groups: ["Side Business"], budgets: ["Materials"], "after signing out")
+    }
+
     // MARK: - Setting up and tidying
 
     /// Launches a fresh install, with a data folder of its own, and keeps it
@@ -531,6 +563,12 @@ private extension TestApp {
         }
         walk(root)
         return (groups, budgets)
+    }
+
+    /// Opens a budget and says whether an entry is in it.
+    func hasEntry(_ merchant: String, inBudget budget: String) -> Bool {
+        openBudget(named: budget)
+        return app.staticTexts[merchant].waitForExistence(timeout: 10)
     }
 
     /// Waits until the sidebar's list holds exactly these groups and these

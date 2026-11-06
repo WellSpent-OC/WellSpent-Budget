@@ -294,10 +294,7 @@ final class AccountGapTests: XCTestCase {
 
 // MARK: - Helpers
 
-private extension AccountGapTests {
-    /// What the desktop calls itself in the account's list of devices.
-    static let desktopName = "Robin's desktop"
-
+extension AccountGapTests {
     /// Robin's desktop: a connection to the server, checked to be staging
     /// before any password goes to it, as the app checks.
     static func desktop(at address: String) async throws -> ReadableHTTPTransport {
@@ -309,6 +306,11 @@ private extension AccountGapTests {
         }
         return desktop
     }
+}
+
+private extension AccountGapTests {
+    /// What the desktop calls itself in the account's list of devices.
+    static let desktopName = "Robin's desktop"
 
     /// What macOS says of the badge on a running app's Dock icon, such as
     /// `"StatusLabel"={ "label"="3" }`, or what went wrong asking.

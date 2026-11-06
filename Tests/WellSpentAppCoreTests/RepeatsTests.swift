@@ -152,6 +152,27 @@ struct RepeatsTests {
         #expect(model.mayChangeRule(rule))
     }
 
+    /// A rule with no owner, as one from before the server stamped it, is made
+    /// by nobody signed in: a member's device would make, be refused and drop
+    /// the bill, over and over. Signed out, a person's own repeats have no owner
+    /// yet, and still come.
+    @Test func aRuleWithNoOwnerIsMadeOnlySignedOut() throws {
+        model.me = { nil }
+        addPhone()
+        let rule = try #require(model.repeats(in: budget, group: group).first)
+        #expect(rule.createdBy == nil)
+        let countNow = try bills().count
+
+        model.me = { UserID() }
+        model.today = { Self.day(2026, 12, 20) }
+        #expect(!model.makeDueRepeats(), "signed in, a rule with no owner is not this device's to make")
+        #expect(try bills().count == countNow)
+
+        model.me = { nil }
+        #expect(model.makeDueRepeats(), "signed out, it is this person's own")
+        #expect(try bills().count == countNow + 1)
+    }
+
     @Test func aDeviceThatIsntTheOwnersMakesNothing() throws {
         let owner = UserID()
         model.me = { owner }

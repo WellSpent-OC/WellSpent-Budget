@@ -113,7 +113,7 @@ public final class RepeatEditor {
             + "To change one month, open that month's bill."
         public static let stop = "Stop repeating\u{2026}"
         public static let stopTitle = "Stop repeating?"
-        public static let stopMessage = "No later month is made. Months already made stay."
+        public static let stopMessage = "No more bills come. Earlier bills stay."
         public static let stopConfirm = "Stop Repeating"
         public static let cancel = "Cancel"
         public static let save = "Save"
