@@ -861,13 +861,14 @@ jobs:
     # locally on the exact commit before its pull request.
     if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
     runs-on: macos-latest
-    # The iPhone run takes about 80 minutes: 13 Houses tests, about 33 minutes
-    # in each look, plus the build.
+    # Each iPhone look has a Mac of its own: both looks in one job took 81
+    # minutes one day and passed 120 the next, as the runners' speed swings.
+    # One look is about 55 minutes on a slow day, plus the build.
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        platform: [mac, iphone]
+        platform: [mac, iphone-light, iphone-dark]
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
     steps:
@@ -910,14 +911,14 @@ jobs:
           WELLSPENT_UI_TEST_PASSWORD_2: unused
         run: make ui-test UI_TEST_ONLY="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests"
 
-      - name: Run the iPhone Houses UI tests, light and dark
-        if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'iphone'
+      - name: Run the iPhone Houses UI tests in one look
+        if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform != 'mac'
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
-        run: make iphone-ui-test IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
+        run: make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
 
       # Each run must show it tested something: four Houses tests on the
-      # Mac, and four in each iPhone look. Nothing skipped, as for every
+      # Mac, and four in its iPhone look. Nothing skipped, as for every
       # UI job.
       - name: The Houses tests ran, and nothing was skipped
         if: env.HAS_PROPERTIES_KEY == 'true'
@@ -925,7 +926,7 @@ jobs:
           if [ "${{ matrix.platform }}" = mac ]; then
             bundles=".build/xcode/ui-test.xcresult"
           else
-            bundles=".build/xcode-iphone/ui-test-light.xcresult .build/xcode-iphone/ui-test-dark.xcresult"
+            bundles=".build/xcode-iphone/ui-test-${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}.xcresult"
           fi
           scripts/passed-at-least.sh 4 $bundles
           scripts/skipped-tests.sh $bundles
