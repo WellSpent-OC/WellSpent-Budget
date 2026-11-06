@@ -184,6 +184,67 @@ final class PhoneSharedEntriesTests: XCTestCase {
     // MARK: - Leslie's group, and moves down
 
     @MainActor
+    func testARepeatsBillThatCannotBeChangedSaysItRepeats() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let leslie = try SecondAccount(server: accounts.server)
+        let stamp = PhoneTestApp.stamp()
+        let groupName = SecondAccount.phoneRunPrefix + stamp
+        let budget = "Costs \(stamp)"
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await leslie.deleteLeftoverRuns()
+        let link = try await leslie.shareNewGroup(groupName, budget: budget, entry: "Costco",
+                                                  amount: Money(minorUnits: 9900), myName: "Leslie", role: .manage)
+        run.join(link, as: "Robin")
+        run.scrollTo(AccessibilityID.sidebarBudget(budget))
+        run.openBudget(named: budget)
+        XCTAssertTrue(run.hasRow("Costco", timeout: 20),
+                      "Leslie's Costco is not in the list. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-18
+        // Robin, at View, opens Leslie's repeating bill. Its details say it
+        // repeats, with no switch to press. Costco, which doesn't repeat, says
+        // nothing about it.
+        try await leslie.setLevelOfTheOther(.read, in: groupName)
+        try await leslie.addRepeat("Phone Plan", amount: Money(minorUnits: -8500), inBudget: budget, group: groupName)
+        run.syncThroughHome(reopening: budget)
+        XCTAssertTrue(run.hasRow("Phone Plan", timeout: 20),
+                      "Leslie's repeat is not in the list. On screen: \(run.visibleTexts())")
+        run.openEntry("Phone Plan")
+        let repeats = run.element(AccessibilityID.entryDetail(EntryEditor.Words.repeatsRow))
+        XCTAssertTrue(repeats.waitForExistence(timeout: 10), "no line says it repeats. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(repeats.value as? String, EntryEditor.Words.repeatsOn)
+        XCTAssertFalse(run.element(AccessibilityID.entryRepeats).exists, "the read-only details offer a switch")
+        run.tap(AccessibilityID.entryDone)
+        run.expectNoSheet()
+
+        // Scenario REPEAT-18
+        // Leslie stops it. Its bill stays, and its details now say Off.
+        try await leslie.stopRepeat("Phone Plan", inGroup: groupName)
+        run.syncThroughHome(reopening: budget)
+        run.openEntry("Phone Plan")
+        let stopped = run.element(AccessibilityID.entryDetail(EntryEditor.Words.repeatsRow))
+        XCTAssertTrue(stopped.waitForExistence(timeout: 10), "no line about the repeat. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.wait(for: stopped, until: "value == '\(EntryEditor.Words.repeatsOff)'", timeout: 20),
+                      "the stopped repeat's bill says \(String(describing: stopped.value))")
+        run.tap(AccessibilityID.entryDone)
+        run.expectNoSheet()
+
+        run.openEntry("Costco")
+        XCTAssertTrue(run.element(AccessibilityID.entryDetail(EntryEditor.Words.merchant)).waitForExistence(timeout: 10),
+                      "Costco's details did not open. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.element(AccessibilityID.entryDetail(EntryEditor.Words.repeatsRow)).exists,
+                       "a bill that doesn't repeat says it does")
+        run.tap(AccessibilityID.entryDone)
+        run.expectNoSheet()
+
+        await leslie.deleteGroup(named: groupName)
+    }
+
+    @MainActor
     func testMovesDownStopAnOpenSaveAnUndoAndChangeTheLeaveQuestion() async throws {
         let accounts = try TestAccounts.fromEnvironment()
         let run = PhoneTestApp()

@@ -55,6 +55,31 @@ extension SecondAccount {
         try await syncAll()
     }
 
+    /// Adds a bill that repeats every month, as Add does with its row on.
+    func addRepeat(_ merchant: String, amount: Money, inBudget budget: String, group: String) async throws {
+        let model = AppModel(store: sync.store)
+        model.addRepeatingTransaction(merchant: merchant, amount: amount, date: Date(), note: "",
+                                      budget: try self.budget(named: budget, inGroup: group).id)
+        if let problem = model.errorMessage {
+            throw UITestError("the second account could not add the repeat \(merchant): \(problem)")
+        }
+        try await syncAll()
+    }
+
+    /// Stops a repeat from one of its bills, as the sheet's Stop repeating does.
+    func stopRepeat(_ merchant: String, inGroup group: String) async throws {
+        let model = AppModel(store: sync.store)
+        let bill = try entry(merchant, inGroup: group)
+        guard let rule = bill.repeatRuleID else {
+            throw UITestError("\(merchant) is not a repeat's bill")
+        }
+        model.stopRepeating(rule)
+        if let problem = model.errorMessage {
+            throw UITestError("the second account could not stop \(merchant): \(problem)")
+        }
+        try await syncAll()
+    }
+
     /// Changes an entry's note or amount, as its opened sheet's Save does.
     /// The amount is written the way a person types it, and read in the test
     /// runner's region: "60.00" on our Macs and in CI, where a dot marks
