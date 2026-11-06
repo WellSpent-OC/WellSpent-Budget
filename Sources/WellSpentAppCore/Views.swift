@@ -1191,7 +1191,9 @@ struct ImportRow: View {
                 }
                 if row.offersKeepBoth {
                     Toggle(ImportReviewScreen.Words.keepBoth, isOn: Binding(get: { row.isKeepingBoth }, set: { keepBoth($0) }))
+                        #if os(macOS)
                         .toggleStyle(.checkbox)
+                        #endif
                         .font(.system(size: 11))
                         .accessibilityIdentifier(AccessibilityID.importLineKeepBoth(row.bankDescription))
                 }
