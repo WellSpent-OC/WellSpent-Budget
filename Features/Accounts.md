@@ -103,7 +103,7 @@ An account keeps Robin's budgets on WellSpent's server, so they sync to his othe
 - Given Robin is signed in, and "Account" is open
 - When he presses "Change password…"
 - Then it asks for "Current password", "New password" and "Confirm password", and says "Every other device will be signed out."
-- When he fills them in and presses "Set password"
+- When he fills them in and presses "Change password"
 - Then the sheet closes, and he is on his budget, signed in
 - And every other device is signed out
 

@@ -399,7 +399,7 @@ class Accounts(unittest.TestCase):
         app.field("Current password", sheet).type(new_password)
         app.field("New password", sheet).type(changed)
         app.field("Confirm password", sheet).type(changed)
-        app.button("Set password", within=sheet).press()
+        app.button("Change password", within=sheet).press()
         app.wait_for_window(1, "the account sheet to close")
         self.foot(app, SYNCED)
 

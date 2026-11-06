@@ -296,6 +296,7 @@ final class SignUpTests: XCTestCase {
         run.paste(password, into: AccessibilityID.accountCurrentPassword)
         run.paste(newPassword, into: AccessibilityID.accountNewPassword)
         run.paste(newPassword, into: AccessibilityID.accountConfirmation)
+        run.expect(AccessibilityID.accountSubmit, named: Words.changePasswordButton, "Change your password")
         run.click(AccessibilityID.accountSubmit)
         run.expectSheetClosed("after changing the password")
         run.expectFooter(signedIn: true, "after changing the password")
