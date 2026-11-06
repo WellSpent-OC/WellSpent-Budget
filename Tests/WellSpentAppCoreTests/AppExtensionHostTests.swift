@@ -151,6 +151,16 @@ struct AppExtensionHostTests {
         let period = try #require(host.period(of: group))
         #expect(period.currency == "USD")
         #expect(period.moneyOutMinorUnits == 12_500)
+
+        // A house's month counts the whole month's bills, including ones dated later.
+        model.today = { WheelCalendar.date(2026, 10, 1) }
+        let later = WheelCalendar.date(2026, 10, 28)
+        try model.store.save(Transaction(budgetID: budget, groupID: id, date: later, merchant: "Pool",
+                                         amount: Money(minorUnits: -47_500)))
+        model.reload()
+        #expect(try #require(host.period(of: group)).moneyOutMinorUnits >= 47_500)
+        model.today = { now }
+        model.reload()
         let calendar = WheelCalendar.calendar
         #expect(period.day == calendar.component(.day, from: now))
         #expect(period.days == calendar.range(of: .day, in: .month, for: now)?.count)
