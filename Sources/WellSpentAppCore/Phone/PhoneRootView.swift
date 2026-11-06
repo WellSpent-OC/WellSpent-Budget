@@ -104,6 +104,9 @@ struct PhoneRootView: View {
                             titleVisibility: .visible,
                             presenting: screen.pendingDelete) { pending in
             Button(pending.confirmLabel, role: .destructive) { screen.confirm(pending) }
+            if screen.offersStop(pending) {
+                Button(PendingDelete.deleteAndStop, role: .destructive) { screen.confirmAndStop(pending) }
+            }
             Button(MainScreen.Words.cancel, role: .cancel) { screen.keepIt() }
         } message: { pending in
             Text(screen.message(for: pending))
