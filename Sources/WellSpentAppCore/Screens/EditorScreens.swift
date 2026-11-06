@@ -193,7 +193,7 @@ public final class EntryEditor {
 
     /// With `editing`, the entry fills the form, and only the fields changed
     /// from it are saved.
-    public init(model: AppModel, editing: Transaction? = nil, date: Date = Date(),
+    public init(model: AppModel, editing: Transaction? = nil, date: Date? = nil,
                 locale: Locale = AppLocale.current, addingIn group: GroupID? = nil, link: RecordID? = nil) {
         self.model = model
         self.editing = editing
@@ -201,7 +201,8 @@ public final class EntryEditor {
         merchant = editing?.merchant ?? ""
         amountText = editing.map { TypedAmount.text($0.amount.magnitude, locale: locale) } ?? ""
         note = editing?.note ?? ""
-        self.date = editing?.date ?? date
+        // The model's day, which a test can pin, so the wheel and a new entry agree.
+        self.date = editing?.date ?? date ?? model.today()
         isMoneyIn = editing.map { $0.kind.isMoneyIn || ($0.kind == .transfer && $0.amount.minorUnits > 0) } ?? false
         addingIn = editing == nil ? group : nil
         linkID = editing?.extensionLink ?? link

@@ -345,6 +345,11 @@ struct RepeatsTests {
         #expect(try model.store.transaction(entry.id)?.isDeleted == false)
     }
 
+    /// A new entry starts on the model's day, so a pinned day and the wheel agree.
+    @Test func aNewEntryStartsOnTheModelsDay() {
+        #expect(EntryEditor(model: model).date == Self.day(2026, 11, 14))
+    }
+
     private func reopen(_ id: RecordID) throws -> EntryEditor { try #require(EntryEditor(model: model, entry: id)) }
 
     /// Turned on, off and on again, it's one repeat all the way through.
