@@ -48,7 +48,15 @@ final class PhoneWheelMoneyInTests: XCTestCase {
         // file named at launch, so it is written now.
         let folder = try StatementFolder()
         Self.statementsPath = folder.url.path
-        let statement = try folder.write([(loan, "500.00", 0), (savings, "300.00", 0)])
+        // Dated the 1st, on or before the pinned day, so both draws count on
+        // any day the test runs. A later date would wait for its day (WHEEL-21).
+        let parts = Calendar.current.dateComponents([.year, .month], from: Date())
+        let first = String(format: "%02d/01/%04d", parts.month ?? 1, parts.year ?? 2026)
+        let statement = try folder.write(raw: """
+            Date,Description,Amount
+            \(first),"\(loan)",500.00
+            \(first),"\(savings)",300.00
+            """, to: "statement.csv")
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(day)
