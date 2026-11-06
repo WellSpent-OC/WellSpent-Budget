@@ -87,6 +87,9 @@ final class AccountGapTests: XCTestCase {
         let keptHere = run.sidebarGroups()
         XCTAssertTrue(keptHere.contains(AccessibilityID.sidebarGroup(localGroup)),
                       "the sidebar does not list the group just made. Listed: \(keptHere.sorted())")
+        // Signing in brings the group just made into the account (SAMP-08), so
+        // after that this Mac keeps the rest.
+        let keptAfterSignIn = keptHere.subtracting([AccessibilityID.sidebarGroup(localGroup)])
 
         // Scenario ACCT-09
         // 4. A wrong password: the sheet stays on Sign in, and says the email
@@ -166,7 +169,7 @@ final class AccountGapTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 30),
                       "the sheet stayed open after Sign out. On screen: \(run.visibleTexts())")
         run.expectSignedOut("After Sign out")
-        run.expectList(keptHere, without: groupName, "After Sign out")
+        run.expectList(keptAfterSignIn, without: groupName, "After Sign out")
 
         // Scenario ACCT-11
         // 10. Quit and opened again, it is still signed out, and no sign-in
@@ -176,7 +179,7 @@ final class AccountGapTests: XCTestCase {
         run.expectSignedOut("After quitting and opening again")
         XCTAssertFalse(run.element(AccessibilityID.accountEmail).waitForExistence(timeout: 3),
                        "a sign-in opened by itself")
-        run.expectList(keptHere, without: groupName, "After quitting and opening again")
+        run.expectList(keptAfterSignIn, without: groupName, "After quitting and opening again")
         try run.signIn(email: email, password: password, server: mailbox.server)
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(groupName)).waitForExistence(timeout: 30),
                       "the account's group did not come back. Sidebar: \(run.sidebarIdentifiers())")
@@ -197,7 +200,7 @@ final class AccountGapTests: XCTestCase {
                       "the sheet does not say \(signedOutElsewhere) On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(of: emailField).lowercased() == email,
                       "the sign-in does not have the account's email filled in")
-        run.expectList(keptHere, without: groupName, "Behind the sign-in")
+        run.expectList(keptAfterSignIn, without: groupName, "Behind the sign-in")
 
         // Scenario ACCT-13
         // 12. Signed in again on that sheet, the account's group is back.
@@ -265,10 +268,7 @@ final class AccountGapTests: XCTestCase {
 
 // MARK: - Helpers
 
-private extension AccountGapTests {
-    /// What the desktop calls itself in the account's list of devices.
-    static let desktopName = "Robin's desktop"
-
+extension AccountGapTests {
     /// Robin's desktop: a connection to the server, checked to be staging
     /// before any password goes to it, as the app checks.
     static func desktop(at address: String) async throws -> ReadableHTTPTransport {
@@ -280,6 +280,11 @@ private extension AccountGapTests {
         }
         return desktop
     }
+}
+
+private extension AccountGapTests {
+    /// What the desktop calls itself in the account's list of devices.
+    static let desktopName = "Robin's desktop"
 
     /// What macOS says of the badge on a running app's Dock icon, such as
     /// `"StatusLabel"={ "label"="3" }`, or what went wrong asking.
