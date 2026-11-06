@@ -24,7 +24,9 @@ struct PhoneImportReviewSheet: View {
                     Section {
                         heading(screen)
                             .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 8, trailing: 4))
+                            // Below the row's rounded corner, which would cut
+                            // off the top of the heading's first letter.
+                            .listRowInsets(EdgeInsets(top: 12, leading: 4, bottom: 8, trailing: 4))
                     }
                     Section {
                         ForEach(screen.rows) { row in
