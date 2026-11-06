@@ -327,6 +327,8 @@ struct SidebarView: View {
     /// It is presented outside the part of the window that is rebuilt when an
     /// account signs in, so the sheet keeps its step through signing in.
     @Binding var showingAccount: Bool
+    /// How tall the invitations would like to be, up to where they scroll.
+    @State private var invitationsHeight: CGFloat = 0
 
     init(screen: MainScreen, editor: Binding<EditorSheet?>, showingAccount: Binding<Bool>) {
         self.screen = screen
@@ -365,20 +367,27 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top) {
             if !screen.incomingInvitations.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(EmailInvitationWords.incomingTitle.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.7)
-                        .foregroundStyle(Color.secondary)
-                        .padding(.horizontal, 4)
-                        .padding(.top, 4)
-                    ForEach(screen.incomingInvitations, id: \.id) { invitation in
-                        IncomingInvitationRow(screen: screen, invitation: invitation)
+                // Scrolling, so they can't make the window taller, off the
+                // bottom of a small screen.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(EmailInvitationWords.incomingTitle.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.7)
+                            .foregroundStyle(Color.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
+                        ForEach(screen.incomingInvitations, id: \.id) { invitation in
+                            IncomingInvitationRow(screen: screen, invitation: invitation)
+                        }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { invitationsHeight = $0 }
                 }
-                .padding(.horizontal, 10)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
+                .frame(height: min(invitationsHeight, 280))
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
         .safeAreaInset(edge: .bottom) {
