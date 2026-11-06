@@ -790,6 +790,12 @@ jobs:
   houses-ui-test:
     name: Houses UI test, ${{ matrix.platform }}
     needs: unit-tests
+    # In the merge queue, nightly and by hand, not on every push to a pull
+    # request into main: each run takes two of the few Macs GitHub lends, and
+    # main's queue still gates every merge. A release branch has no queue, so a
+    # pull request into one runs them. Anything touching Houses runs these
+    # locally on the exact commit before its pull request.
+    if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
     runs-on: macos-latest
     timeout-minutes: 60
     strategy:
@@ -895,7 +901,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success' || needs.houses-ui-test.result != 'success'
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success' || (needs.houses-ui-test.result != 'success' && !(github.event_name == 'pull_request' && github.base_ref == 'main' && needs.houses-ui-test.result == 'skipped'))
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -920,7 +926,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success' && needs.houses-ui-test.result == 'success'
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success' && (needs.houses-ui-test.result == 'success' || (github.event_name == 'pull_request' && github.base_ref == 'main' && needs.houses-ui-test.result == 'skipped'))
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
