@@ -116,20 +116,26 @@ struct ViewTests {
         #expect(added)
     }
 
-    /// A click on a group's name opens its page and toggles whether its budgets are hidden or shown.
-    @Test func aClickOnAGroupsNameOpensItsPageAndTogglesItsBudgets() throws {
+    // Scenario PAGE-05
+    /// A click on a group's name opens its page and leaves its budgets alone.
+    /// The arrow hides and shows them, and no page opens or closes.
+    @Test func aGroupsNameOpensItsPageAndItsArrowHidesItsBudgets() throws {
         let (model, group, _) = try modelWithData()
         let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
         let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
 
-        #expect(screen.sections.first?.isCollapsed == false)
         try sidebar.inspect().find(button: "HOUSEHOLD").tap()
         #expect(screen.openGroup?.id == group.id, "a click on the name opens its page")
-        #expect(screen.sections.first?.isCollapsed == true, "a click on the name toggles collapsed")
+        #expect(screen.sections.first?.isCollapsed == false, "and leaves its budgets showing")
 
-        try sidebar.inspect().find(button: "HOUSEHOLD").tap()
-        #expect(screen.openGroup?.id == group.id, "its page stays open")
-        #expect(screen.sections.first?.isCollapsed == false, "another click expands")
+        func arrow(_ label: String) throws -> InspectableView<ViewType.Button> {
+            try sidebar.inspect().find(ViewType.Button.self) { try $0.accessibilityLabel().string() == label }
+        }
+        try arrow(MainScreen.Words.hideBudgets).tap()
+        #expect(screen.sections.first?.isCollapsed == true, "the arrow hides them")
+        #expect(screen.openGroup?.id == group.id, "the page stays")
+        try arrow(MainScreen.Words.showBudgets).tap()
+        #expect(screen.sections.first?.isCollapsed == false, "the arrow shows them")
     }
 
     @Test func groupsCollapseAndExpandIndependently() {

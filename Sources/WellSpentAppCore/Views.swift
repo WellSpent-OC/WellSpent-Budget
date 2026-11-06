@@ -391,34 +391,46 @@ struct SidebarView: View {
         }
     }
 
-    /// The group's name, highlighted while its page is open.
-    /// Clicking the group name opens that group in the main view and
-    /// toggles whether its budgets are expanded or collapsed.
-    /// The group page can also open from the context menu (People…).
+    /// The group's name, highlighted while its page is open. A click opens the
+    /// page and nothing else. The arrow at the end hides or shows its budgets,
+    /// and no page opens or closes (PAGE-05).
+    /// The sidebar's list makes a group's line one element for VoiceOver and
+    /// the UI tests, joining the identifiers of everything in it. So only the
+    /// name has one, and the arrow sits at the end, where a click finds it.
     private func header(_ section: MainScreen.Section) -> some View {
-        Button {
-            screen.openPage(of: section.group.id)
-            withAnimation(.easeInOut(duration: 0.2)) {
-                screen.toggle(section.group.id)
+        HStack(spacing: 2) {
+            Button {
+                screen.openPage(of: section.group.id)
+            } label: {
+                HStack(spacing: 0) {
+                    Text(section.title.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.7)
+                        .foregroundStyle(Palette.muted)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 4))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-        } label: {
-            HStack(spacing: 0) {
-                Text(section.title.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.7)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+            .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+            } label: {
+                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Palette.muted)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
-                                in: RoundedRectangle(cornerRadius: 4))
-                Spacer(minLength: 0)
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .help(section.toggleHelp)
+            .accessibilityLabel(section.toggleHelp)
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-        .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
-        .help(section.toggleHelp)
         .contextMenu { menu(screen.groupMenu(section.group)) }
     }
 

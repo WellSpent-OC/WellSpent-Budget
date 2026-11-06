@@ -28,6 +28,8 @@ public final class AppModel {
     /// What an extension offers to link an entry to in a group. Nil, the
     /// entry sheet has no such row, as with no extension on.
     public var linkChoices: (GroupID) -> EntryLinkChoices? = { _ in nil }
+    /// A person added a budget here, on this device. Not called for one that syncs in.
+    @ObservationIgnored var didAddBudget: (GroupID) -> Void = { _ in }
     /// A sheet an extension asked for, until a platform's root opens it.
     public var entrySheetRequest: EntrySheetRequest?
     /// What an extension adds to the app's own screens.
@@ -400,6 +402,7 @@ public final class AppModel {
             try store.save(budget)
             if select { selectedBudget = budget.id }
             changed()
+            didAddBudget(group)
             return budget.id
         } catch {
             errorMessage = String(describing: error)
