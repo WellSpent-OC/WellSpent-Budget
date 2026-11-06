@@ -633,6 +633,22 @@ final class BudgetGapTests: XCTestCase {
         return (later, "Coming by \(formatter.string(from: later))")
     }
 
+    // Scenario WHEEL-09
+    /// On the 26th, $475.00 still to come is spoken for, so no offer to lower.
+    @MainActor
+    func testTheLastWeekOfferLeavesOutWhatIsComing() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = "26"
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Pool", amount: "500", inGroup: "Home")
+        let (later, coming) = try theTwentyEighth()
+        run.addEntry(merchant: "Pool service", amount: "475.00", dated: later)
+        XCTAssertTrue(run.listText(coming).waitForExistence(timeout: 10), "no \(coming)")
+        run.expect(pace: nil, "with most of it spoken for")
+    }
+
     // Scenario WHEEL-22
     /// $475.00 coming with $200.00 left: the amount is in the warning colour.
     @MainActor

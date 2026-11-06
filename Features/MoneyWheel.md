@@ -81,6 +81,7 @@ Platforms: iPhone
 - And beside those words, "Edit Budget…" opens the Edit Budget sheet
 - And on October 24, before the month's last week, it says nothing about the pace
 - And Leslie, at Add, is not asked
+- And bills still to come this month count against what's left here: on November 26, Pool at $500.00 with nothing spent and $475.00 coming says nothing
 
 ## WHEEL-10 Over its limit, a budget's wheel is orange all the way round and says how far over
 

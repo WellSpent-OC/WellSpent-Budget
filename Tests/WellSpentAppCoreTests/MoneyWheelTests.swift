@@ -138,6 +138,21 @@ struct MoneyWheelTests {
         #expect(pool.figures.last?.amountColor == PaletteValues.warning)
     }
 
+    // Scenario WHEEL-09
+    /// In the last week, money spoken for by a bill still to come isn't more left.
+    @Test func theLastWeekOfferLeavesOutWhatIsComing() throws {
+        let day = try #require(PeriodDay(period: ResetSchedule.firstOfMonth.period(containing: WheelCalendar.date(2026, 11, 26), calendar: WheelCalendar.calendar),
+                                         now: WheelCalendar.date(2026, 11, 26), calendar: WheelCalendar.calendar))
+        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: day,
+                              coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 30))
+        #expect(BudgetPace(wheel: pool, budgetName: "Pool", mayEdit: true, calendar: WheelCalendar.calendar) == nil)
+
+        // With little coming, the offer still stands.
+        let light = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: day,
+                               coming: Money(minorUnits: 1_000), comingBy: WheelCalendar.date(2026, 11, 30))
+        #expect(BudgetPace(wheel: light, budgetName: "Pool", mayEdit: true, calendar: WheelCalendar.calendar)?.kind == .underPace)
+    }
+
     /// Nothing still to come, no line.
     @Test func noBillStillToComeHasNoLine() {
         let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: nil)

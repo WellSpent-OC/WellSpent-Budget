@@ -103,6 +103,8 @@ public final class Workspace {
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
         model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
+        // The model first loaded before it had this day, so read again for a pinned one.
+        if pinnedDay != nil { model.reload() }
         installExtensionSlots()
     }
 
