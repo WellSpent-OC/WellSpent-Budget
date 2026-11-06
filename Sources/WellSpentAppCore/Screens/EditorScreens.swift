@@ -410,9 +410,7 @@ public final class EntryEditor {
         if let offered = linkChoices, let name = offered.choices.first(where: { $0.id == editing.extensionLink })?.name {
             shown.append(Detail(label: offered.label, value: name))
         }
-        if editing.repeatRuleID != nil {
-            shown.append(Detail(label: Words.repeatsRow, value: repeatsWhenOpened ? Words.repeatsOn : Words.repeatsOff))
-        }
+        if repeatsWhenOpened { shown.append(Detail(label: Words.repeatsRow, value: Words.repeatsOn)) }
         return shown
     }
 
@@ -577,7 +575,6 @@ public final class EntryEditor {
     public enum Words {
         public static let repeatsRow = "Repeats every month"
         public static let repeatsOn = "On"
-        public static let repeatsOff = "Off"
         public static func repeatLine(day: Int) -> String {
             "Shows up on the \(RepeatsList.Words.ordinal(day)) of each month. You can change any month."
         }

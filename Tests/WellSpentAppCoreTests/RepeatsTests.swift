@@ -434,7 +434,7 @@ struct RepeatsTests {
         model.mayManageEntries = { _ in true }
         model.stopRepeating(try #require(try model.store.repeatRules(in: group).first).id)
         model.mayManageEntries = { _ in false }
-        #expect(repeatDetail(try reopen(id)) == "Off")
+        #expect(repeatDetail(try reopen(id)) == nil, "a stopped repeat doesn't say On")
     }
 
     /// An entry that isn't a repeat's bill has no such row.
