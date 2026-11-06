@@ -156,6 +156,8 @@ struct PhoneGroupView: View {
                 Section {
                     Button(PhoneWording.button(Words.leave), role: .destructive) { main.askToLeave(group) }
                         .frame(maxWidth: .infinity)
+                        // The page's ink would otherwise replace the role's colour.
+                        .foregroundStyle(Palette.warning)
                         .disabled(screen.isWorking)
                         .accessibilityIdentifier(AccessibilityID.groupLeave)
                 }
@@ -296,6 +298,8 @@ struct PhonePersonView: View {
                     Section {
                         Button(PhoneWording.button(Words.remove), role: .destructive) { screen.askToRemove(id) }
                             .frame(maxWidth: .infinity)
+                            // The page's ink would otherwise replace the role's colour.
+                            .foregroundStyle(Palette.warning)
                             .disabled(screen.isWorking)
                             .accessibilityIdentifier(AccessibilityID.groupRemove(row.name))
                     }
