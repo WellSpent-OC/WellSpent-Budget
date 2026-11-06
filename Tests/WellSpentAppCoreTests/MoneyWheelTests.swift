@@ -121,21 +121,25 @@ struct MoneyWheelTests {
 
     // Scenario WHEEL-21
     @Test func aBillStillToComeIsItsOwnFigureAndNotSpent() {
-        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: nil,
-                              coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
-        #expect(pool.arc == 1 && !pool.isOver)
-        #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
-        #expect(pool.figures.map(\.amount) == ["$0.00", "$500.00", "$475.00"])
-        #expect(pool.figures.last?.isWarning == false, "$475.00 is less than $500.00 left")
+        AppLocale.$override.withValue(Locale(identifier: "en_US")) {
+            let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 0), day: nil,
+                                  coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
+            #expect(pool.arc == 1 && !pool.isOver)
+            #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
+            #expect(pool.figures.map(\.amount) == ["$0.00", "$500.00", "$475.00"])
+            #expect(pool.figures.last?.isWarning == false, "$475.00 is less than $500.00 left")
+        }
     }
 
     // Scenario WHEEL-22
     @Test func comingMoreThanLeftIsInTheWarningColour() {
-        let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 30_000), day: nil,
-                              coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
-        #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
-        #expect(pool.figures.last?.isWarning == true)
-        #expect(pool.figures.last?.amountColor == PaletteValues.warning)
+        AppLocale.$override.withValue(Locale(identifier: "en_US")) {
+            let pool = MoneyWheel(scope: .budget, budgeted: Money(minorUnits: 50_000), spent: Money(minorUnits: 30_000), day: nil,
+                                  coming: Money(minorUnits: 47_500), comingBy: WheelCalendar.date(2026, 11, 28))
+            #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
+            #expect(pool.figures.last?.isWarning == true)
+            #expect(pool.figures.last?.amountColor == PaletteValues.warning)
+        }
     }
 
     // Scenario WHEEL-09
