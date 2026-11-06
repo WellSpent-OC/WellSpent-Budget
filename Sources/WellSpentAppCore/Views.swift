@@ -390,7 +390,8 @@ struct SidebarView: View {
                     .padding(.bottom, 6)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { invitationsHeight = $0 }
                 }
-                .frame(height: min(invitationsHeight, 280))
+                // Two whole invitations, and the top of a third to say there's more.
+                .frame(height: min(invitationsHeight, 320))
                 .scrollBounceBehavior(.basedOnSize)
             }
         }
