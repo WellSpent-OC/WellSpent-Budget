@@ -267,6 +267,43 @@ final class WhoMayGapTests: XCTestCase {
         await second.cleanUp()
     }
 
+    // MARK: - A selected row in a shared group
+
+    // Scenario ENTRY-14
+    /// Who added it is in a column only a group with someone else in it shows.
+    /// The words have to be seen, not only found, so this reads the screen.
+    @MainActor
+    func testASelectedRowInASharedGroupStaysReadable() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
+        let stamp = Self.stamp()
+        let shared = "\(Self.prefix)Selected \(stamp)", groceries = "Groceries \(stamp)", hilltop = "Hilltop Grocery"
+        try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await second.deleteLeftovers(startingWith: Self.prefix)
+        let link = try await second.shareNewGroup(shared, budget: groceries, entry: hilltop, amount: Money(minorUnits: 14208),
+                                                  myName: "Leslie", role: .view)
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.join(link.url, as: "Robin")
+        run.openBudget(named: groceries)
+        XCTAssertTrue(run.entryRow(hilltop).waitForExistence(timeout: 60), "Hilltop Grocery did not arrive")
+
+        let texts = try run.selectedRowTexts(after: hilltop)
+        XCTAssertTrue(texts.contains { $0.label == "Leslie" || ($0.value as? String) == "Leslie" }, "no Added by on the row")
+        for text in texts {
+            let name = text.label.isEmpty ? String(describing: text.value) : text.label
+            let contrast = try run.contrast(of: text)
+            print("contrast \(name): \(contrast)")
+            XCTAssertGreaterThanOrEqual(contrast, 3, "\(name) can't be read on the selected row")
+        }
+        run.signOut()
+        await second.deleteGroup(named: shared)
+        await second.cleanUp()
+    }
+
     // MARK: - At View, and only from now on
 
     @MainActor

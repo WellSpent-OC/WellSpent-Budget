@@ -618,16 +618,81 @@ final class TestApp {
                       "\(name)'s page did not open. On screen: \(visibleTexts())")
     }
 
-    /// The arrow at the end of a group's line in the sidebar, which hides or
+    /// The arrow in front of a group's name in the sidebar, which hides or
     /// shows its budgets. The list makes the whole line one element, so the
-    /// click goes to its right end, where the arrow is.
+    /// click goes to its left end, where the arrow is.
     func clickGroupArrow(_ name: String) {
         let identifier = AccessibilityID.sidebarGroup(name)
         let line = element(identifier)
         XCTAssertTrue(line.waitForExistence(timeout: 10), "no group called \(name) in the sidebar")
         revealInSidebar(line)
         waitUntilHittable(line, identifier)
-        line.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -9, dy: 0)).click()
+        line.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5)).withOffset(CGVector(dx: 8, dy: 0)).click()
+    }
+
+    /// How far apart an element's words and what's behind them are, by the WCAG
+    /// contrast ratio, read from what's really on screen. The commonest colour
+    /// in its picture is what's behind, and the words are the colour furthest
+    /// from it. A query can't tell this: it finds words nobody can see.
+    func contrast(of element: XCUIElement) throws -> Double {
+        let image = element.screenshot().image
+        var rect = CGRect(origin: .zero, size: image.size)
+        let cg = try XCTUnwrap(image.cgImage(forProposedRect: &rect, context: nil, hints: nil))
+        let bitmap = NSBitmapImageRep(cgImage: cg)
+        var counts: [UInt32: Int] = [:]
+        var colours: [(red: Double, green: Double, blue: Double)] = []
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                guard let colour = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                let red = Double(colour.redComponent), green = Double(colour.greenComponent), blue = Double(colour.blueComponent)
+                counts[UInt32(red * 255) << 16 | UInt32(green * 255) << 8 | UInt32(blue * 255), default: 0] += 1
+                colours.append((red, green, blue))
+            }
+        }
+        let common = try XCTUnwrap(counts.max { $0.value < $1.value }?.key)
+        func luminance(_ red: Double, _ green: Double, _ blue: Double) -> Double {
+            func linear(_ part: Double) -> Double { part <= 0.03928 ? part / 12.92 : pow((part + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+        }
+        let behind = luminance(Double(common >> 16 & 255) / 255, Double(common >> 8 & 255) / 255, Double(common & 255) / 255)
+        return colours.map { colour in
+            let words = luminance(colour.red, colour.green, colour.blue)
+            return (max(words, behind) + 0.05) / (min(words, behind) + 0.05)
+        }.max() ?? 1
+    }
+
+    /// The same, for the right quarter of a picture of a line: 1 when nothing
+    /// but one colour is there.
+    func contrastAtRightEnd(of image: NSImage) throws -> Double {
+        var rect = CGRect(origin: .zero, size: image.size)
+        let cg = try XCTUnwrap(image.cgImage(forProposedRect: &rect, context: nil, hints: nil))
+        let bitmap = NSBitmapImageRep(cgImage: cg)
+        func luminance(_ x: Int, _ y: Int) -> Double {
+            guard let c = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return 0 }
+            func linear(_ part: Double) -> Double { part <= 0.03928 ? part / 12.92 : pow((part + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(c.redComponent) + 0.7152 * linear(c.greenComponent) + 0.0722 * linear(c.blueComponent)
+        }
+        var lowest = 1.0, highest = 0.0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in (bitmap.pixelsWide * 3 / 4)..<bitmap.pixelsWide {
+                let value = luminance(x, y)
+                lowest = min(lowest, value)
+                highest = max(highest, value)
+            }
+        }
+        return (highest + 0.05) / (lowest + 0.05)
+    }
+
+    /// Selects an entry's row: the click opens its sheet, and closing that
+    /// leaves the row selected. The selected row's words, for `contrast(of:)`.
+    func selectedRowTexts(after merchant: String) throws -> [XCUIElement] {
+        clickRow(merchant)
+        expectSheet(for: merchant)
+        app.typeKey(.escape, modifierFlags: [])
+        expectNoSheet()
+        let row = app.tables.firstMatch.tableRows.matching(NSPredicate(format: "isSelected == true")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "no row is selected")
+        return row.staticTexts.allElementsBoundByIndex
     }
 
     /// How many elements in the sidebar carry a budget's identifier, across

@@ -34,7 +34,7 @@ A UI test names a scenario with one comment line, directly above the step that c
 
 ```swift
 // Scenario PAGE-05
-// 10. The arrow at the end of the group's line hides its budgets and
+// 10. The arrow in front of the group's name hides its budgets and
 // shows them again. The page stays.
 ```
 
@@ -127,6 +127,7 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-14 | A selected row stays readable | Mac | Mac |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
@@ -220,7 +221,7 @@ It is not kept here, where every pull request would change the same lines.
 | PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | Mac, Linux |
-| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-05 | The arrow in front of a group's name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, Linux, iPhone |
