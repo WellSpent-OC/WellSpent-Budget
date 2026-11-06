@@ -19,6 +19,11 @@ struct PhoneEntrySheet: View {
         _editor = State(initialValue: EntryEditor(model: model))
     }
 
+    /// With an editor an extension asked for, which knows its group.
+    init(editor: EntryEditor) {
+        _editor = State(initialValue: editor)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
