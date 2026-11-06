@@ -568,11 +568,11 @@ final class TestApp {
 
     /// A statement in the run's folder, with today's date on every line, so
     /// the lines land in this period. Removed with the folder.
-    func writeStatement(_ lines: [(bank: String, amount: String)]) throws -> URL {
+    func writeStatement(_ lines: [(bank: String, amount: String)], dated date: Date = Date()) throws -> URL {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "MM/dd/yyyy"
-        let today = formatter.string(from: Date())
+        let today = formatter.string(from: date)
         let rows = ["Date,Description,Amount"] + lines.map { "\(today),\"\($0.bank)\",\($0.amount)" }
         let url = dataRoot.appendingPathComponent("statement.csv")
         try rows.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)

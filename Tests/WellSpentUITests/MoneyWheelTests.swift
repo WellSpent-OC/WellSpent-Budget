@@ -234,7 +234,9 @@ final class MoneyWheelTests: XCTestCase {
         // the figures and refill nothing.
         run.openBudget(named: rent)
         let loan = "CREDIT UNION LOAN", savings = "SAVINGS XFER"
-        let statement = try run.writeStatement([(loan, "500.00"), (savings, "300.00")])
+        // Dated the 1st: never later than the pinned day, whatever the real day.
+        let first = try XCTUnwrap(AppLocale.calendar.date(from: AppLocale.calendar.dateComponents([.year, .month], from: Date())))
+        let statement = try run.writeStatement([(loan, "500.00"), (savings, "300.00")], dated: first)
         run.importStatement(at: statement)
         run.choose(EntryEditor.Words.borrowed, in: AccessibilityID.importLineKind(loan))
         run.choose(EntryEditor.Words.fromSavings, in: AccessibilityID.importLineKind(savings))
