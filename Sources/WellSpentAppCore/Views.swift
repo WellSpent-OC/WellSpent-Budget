@@ -213,13 +213,25 @@ struct RootView: View {
                                      showingAccount: $showingAccount,
                                      editor: $editor, main: screen)
                 case .noBudgets:
-                    noBudgets
+                    noBudgets.toolbar { accountButtons }
                 case .noneSelected:
                     ContentUnavailableView(MainScreen.Words.noneSelectedTitle,
                                            systemImage: "tray",
                                            description: Text(MainScreen.Words.noneSelectedText))
+                        .toolbar { accountButtons }
                 }
             }
+        }
+    }
+
+    /// Every page has these, so someone with no budgets can still reach their
+    /// account and sign out.
+    private var accountButtons: some ToolbarContent {
+        ToolbarItemGroup {
+            if screen.showsSync {
+                SyncButton(sync: sync, showingAccount: $showingAccount)
+            }
+            AccountButton(sync: sync, showingAccount: $showingAccount)
         }
     }
 

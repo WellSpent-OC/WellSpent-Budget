@@ -130,6 +130,10 @@ final class AccountGapTests: XCTestCase {
                        "the account's list does not name this Mac by its Computer Name. Listed: \(listed)")
         XCTAssertEqual(networkNames, [], "the account's list names a device by a network name. Listed: \(listed)")
 
+        // Signing in moved the group made before it into the account (SAMP-08),
+        // so it no longer stays on this Mac once signed out.
+        let keptOnThisMac = keptHere.subtracting([AccessibilityID.sidebarGroup(localGroup)])
+
         // 7. A group of the account's own, with a budget, sent to the server.
         // It is the account's budgets in the steps that follow.
         run.addGroup(named: groupName)
@@ -166,7 +170,7 @@ final class AccountGapTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.accountClose), until: "exists == false", timeout: 30),
                       "the sheet stayed open after Sign out. On screen: \(run.visibleTexts())")
         run.expectSignedOut("After Sign out")
-        run.expectList(keptHere, without: groupName, "After Sign out")
+        run.expectList(keptOnThisMac, without: groupName, "After Sign out")
 
         // Scenario ACCT-11
         // 10. Quit and opened again, it is still signed out, and no sign-in
@@ -176,7 +180,7 @@ final class AccountGapTests: XCTestCase {
         run.expectSignedOut("After quitting and opening again")
         XCTAssertFalse(run.element(AccessibilityID.accountEmail).waitForExistence(timeout: 3),
                        "a sign-in opened by itself")
-        run.expectList(keptHere, without: groupName, "After quitting and opening again")
+        run.expectList(keptOnThisMac, without: groupName, "After quitting and opening again")
         try run.signIn(email: email, password: password, server: mailbox.server)
         XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(groupName)).waitForExistence(timeout: 30),
                       "the account's group did not come back. Sidebar: \(run.sidebarIdentifiers())")
@@ -197,7 +201,7 @@ final class AccountGapTests: XCTestCase {
                       "the sheet does not say \(signedOutElsewhere) On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.text(of: emailField).lowercased() == email,
                       "the sign-in does not have the account's email filled in")
-        run.expectList(keptHere, without: groupName, "Behind the sign-in")
+        run.expectList(keptOnThisMac, without: groupName, "Behind the sign-in")
 
         // Scenario ACCT-13
         // 12. Signed in again on that sheet, the account's group is back.
@@ -221,6 +225,28 @@ final class AccountGapTests: XCTestCase {
     }
 
     // MARK: - STAGING outside the window
+
+    /// Someone signed in with no group and no budget, as a new account is: the
+    /// page has no budget to open, and the account is still in reach.
+    @MainActor
+    func testWithNoBudgetsTheAccountIsStillInReach() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let email = StagingMailbox.freshAddress("mac", for: "robin")
+        let password = "Robin-\(UUID().uuidString)"
+        let desktop = try await Self.desktop(at: mailbox.server)
+        _ = try await desktop.signUp(email: email, password: password, deviceLabel: Self.desktopName)
+        try await desktop.verifyEmail(code: try await mailbox.code(for: email, timeout: 30))
+        run.launch()
+        try run.signIn(email: email, password: password, server: mailbox.server)
+
+        // Scenario ACCT-11
+        XCTAssertTrue(run.shows(MainScreen.Words.noBudgetsTitle, timeout: 30),
+                      "this account should have no budgets. On screen: \(run.visibleTexts())")
+        run.signOut()
+        run.expectSignedOut("Signed out with no budgets")
+    }
 
     /// XCUITest reads no badge on a Dock icon. The Dock draws the badge macOS
     /// keeps for each running app, so the test asks macOS for it, with
