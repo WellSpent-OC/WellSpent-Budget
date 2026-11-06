@@ -314,12 +314,14 @@ TESTFLIGHT_VERSION ?= $(patsubst v%,%,$(shell git describe --tags --exact-match 
 # Worked out once, so every step of one run uses the same build number.
 ifeq ($(origin TESTFLIGHT_BUILD),undefined)
 TESTFLIGHT_BUILD := $(shell date -u +%Y%m%d%H%M)
+endif
 # The flags a TestFlight build carries on, so testers reach extensions with no
 # switch (decided 2026-10-29). The App Store build is made without them. The
-# private Properties package is linked from its checkout beside this one.
+# private Properties package is linked from its checkout beside this one. Outside
+# the block above: `testflight` hands the twin its build number, and the twin needs
+# these too.
 TESTFLIGHT_FEATURES ?= extensions,properties
 TESTFLIGHT_PROPERTIES_PATH ?= $(HOME)/rvn/wellspent-properties
-endif
 TESTFLIGHT_OUT := .build/testflight
 TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
 TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
