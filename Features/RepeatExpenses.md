@@ -2,8 +2,6 @@
 
 A bill that comes every month, such as a phone bill, can repeat. It shows up on its day each month, and a change can reach one month or that month and later. This is for everyone, with Properties on or off.
 
-The two scenarios about matching a statement line to a repeat, REPEAT-14 and REPEAT-15, come with that work.
-
 ## REPEAT-01 Setting a repeat
 
 Platforms: Mac, iPhone
@@ -134,6 +132,25 @@ Platforms: Mac, iPhone
 
 - Given Robin is adding money in
 - Then there is no "Repeats every month" row
+
+## REPEAT-14 A statement line replaces that month's repeat
+
+Platforms: Mac, iPhone
+
+- Given December's $85.00 phone bill was made, and a statement has an $85.40 line on Dec 15
+- When Robin imports it to Utilities
+- Then the review row says "Replaces December's Phone bill, $85.00", under the Matched tile
+- And if he goes ahead, the statement line takes its place and the bill counts once
+- And the bank's line takes the bill's budget and its house mark, so NOI and the wheel don't move because of the swap
+- A match is a made bill not already matched, in this group and the line's budget, within 4 days and within 10 percent or $5, whichever is larger. If two fit, the closest date wins
+- An exact amount on a made bill works the same way: the bank's line wins
+
+## REPEAT-15 Saying no to a match
+
+Platforms: Mac, iPhone
+
+- When Robin presses "Keep both" on that match
+- Then both stay, and neither is changed
 
 ## REPEAT-16 A house's repeat
 
