@@ -2,6 +2,9 @@ import Foundation
 import Observation
 import WellSpentStore
 import WellSpentSync
+#if canImport(WellSpentPropertiesViews)
+import WellSpentPropertiesViews
+#endif
 
 /// What the window shows: one account's budgets, or "This Mac"'s, and the sync
 /// that goes with them. Signing in or out swaps the budgets underneath.
@@ -9,7 +12,11 @@ import WellSpentSync
 @Observable
 public final class Workspace {
     public private(set) var model: AppModel {
-        didSet { watchForEdits() }
+        didSet {
+            // Its slots hold it, so the one signed out of lets them go.
+            oldValue.install(nil)
+            watchForEdits()
+        }
     }
     public let sync: SyncCoordinator
     public let autoSync: AutoSync
@@ -92,7 +99,24 @@ public final class Workspace {
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
         model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
-        if TestExtensionSlots.isOn() { model.install(TestExtensionSlots()) }
+        installExtensionSlots()
+    }
+
+    /// What extensions add to the app's own screens, following Properties'
+    /// switch. Called on turning it on or off, and for each account's model.
+    func installExtensionSlots() {
+        if TestExtensionSlots.isOn() {
+            let model = self.model
+            model.install(TestExtensionSlots { [weak model] group in
+                guard let model else { return }
+                AppExtensionHost(model: model).newEntry(linkedTo: nil, in: group)
+            })
+            return
+        }
+        #if canImport(WellSpentPropertiesViews)
+        let isOn = features.isPropertiesEnabled && extensionSwitches.isOn(PropertiesRegistration.id)
+        model.install(isOn ? PropertiesSlots(host: AppExtensionHost(model: model)) : nil)
+        #endif
     }
 
     // MARK: - The day the money wheel reads

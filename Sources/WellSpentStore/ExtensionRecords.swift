@@ -106,6 +106,31 @@ public extension Store {
 
     // MARK: - Repeat rules
 
+    /// Saves what a repeat made, at Lamport 0, unless this ID is already held.
+    /// A deleted one counts as held, so a month someone deleted doesn't come
+    /// back. Real values start at 1, so an offline device's copy can never
+    /// undo an edit. True when it was new.
+    @discardableResult
+    public func saveMade(_ transaction: Transaction) throws -> Bool {
+        try database.write { db in
+            guard try TransactionRow.fetchOne(db, key: transaction.id.dbValue) == nil else { return false }
+            try TransactionRow(transaction).save(db)
+            try OutboxRow(recordId: transaction.id.dbValue, recordType: RecordType.transaction.rawValue,
+                          budgetGroupId: transaction.groupID.dbValue, budgetId: transaction.budgetID.dbValue,
+                          lamport: 0, isDeleted: false, queuedAt: Date(), isReseal: false, editLamport: nil).save(db)
+            return true
+        }
+    }
+
+    /// A made transaction the server won't take: its queue row and its row go.
+    /// Only ever a row with no version on file, so nothing anyone saw is lost.
+    public func dropMade(_ push: PendingPush) throws {
+        try database.write { db in
+            _ = try OutboxRow.deleteOne(db, key: push.recordID.dbValue)
+            _ = try TransactionRow.deleteOne(db, key: push.recordID.dbValue)
+        }
+    }
+
     func save(_ rule: RepeatRule, queue: Bool = true) throws {
         try database.write { db in
             try RepeatRuleRow(rule).save(db)

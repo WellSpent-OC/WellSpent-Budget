@@ -155,7 +155,11 @@ public struct EntryChange: Equatable, Sendable {
 /// The bar at the top of the budget after a delete, with its Undo button.
 /// It is the only way to undo a delete.
 public struct UndoOffer: Equatable, Sendable {
-    public let entry: RecordID
+    /// The entry to bring back, unless this only stopped a repeat.
+    public let entry: RecordID?
+    /// The repeat to start again, and the stop month it had before.
+    public let stoppedRule: RecordID?
+    public let previousStop: String?
     /// "Deleted “Hilltop Grocery”, $142.08."
     public let message: String
     /// "Undo"
@@ -163,12 +167,34 @@ public struct UndoOffer: Equatable, Sendable {
 
     init(deleting entry: Transaction) {
         self.entry = entry.id
+        stoppedRule = nil
+        previousStop = nil
         message = Words.deleted(entry.merchant, entry.amount.magnitude.display)
+        button = Words.undo
+    }
+
+    init(stopping rule: RepeatRule, previousStop: String?) {
+        entry = nil
+        stoppedRule = rule.id
+        self.previousStop = previousStop
+        message = Words.stopped(rule.name)
+        button = Words.undo
+    }
+
+    init(deleting entry: Transaction, stopping rule: RepeatRule, previousStop: String?) {
+        self.entry = entry.id
+        stoppedRule = rule.id
+        self.previousStop = previousStop
+        message = Words.deletedAndStopped(rule.name)
         button = Words.undo
     }
 
     public enum Words {
         public static let undo = "Undo"
+        public static func stopped(_ name: String) -> String { "Stopped repeating \u{201C}\(name)\u{201D}." }
+        public static func deletedAndStopped(_ name: String) -> String {
+            "Deleted \u{201C}\(name)\u{201D} and stopped repeating."
+        }
         public static func deleted(_ merchant: String, _ amount: String) -> String {
             "Deleted \u{201C}\(merchant)\u{201D}, \(amount)."
         }

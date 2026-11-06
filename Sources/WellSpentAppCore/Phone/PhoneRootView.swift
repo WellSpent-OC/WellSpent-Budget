@@ -54,6 +54,7 @@ struct PhoneRootView: View {
     private func setProperties(on: Bool) {
         isPropertiesInstalled = on
         workspace.extensionSwitches.set(PropertiesRegistration.id, on: on)
+        workspace.installExtensionSlots()
         activeExtension = on ? .properties : .budgets
         if on { showingExtensionsCatalog = false }
     }

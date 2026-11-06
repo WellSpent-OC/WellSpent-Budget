@@ -121,6 +121,9 @@ public final class AppModel {
 
     public func reload() {
         revision += 1
+        // Whatever has come due, on opening, on a new day and after a sync.
+        // The next sync sends it.
+        if makeDueRepeats() { didChange?() }
         do {
             groups = try store.groups()
             var loaded: [GroupID: [BudgetSummary]] = [:]
@@ -282,7 +285,13 @@ public final class AppModel {
         guard let offer = undoOffer else { return }
         withdrawUndo()
         do {
-            guard var entry = try store.transaction(offer.entry), entry.isDeleted else { return }
+            if let stopped = offer.stoppedRule, var rule = try store.repeatRule(stopped), mayChangeRule(rule) {
+                rule.stopMonth = offer.previousStop
+                rule.updatedAt = Date()
+                try store.save(rule)
+                changed()
+            }
+            guard let id = offer.entry, var entry = try store.transaction(id), entry.isDeleted else { return }
             let access = access(to: entry)
             guard access.mayChange else {
                 errorMessage = UndoOffer.Words.refused(access)
@@ -345,7 +354,7 @@ public final class AppModel {
                       shared: isShared(entry.groupID))
     }
 
-    private func offerUndo(_ offer: UndoOffer) {
+    func offerUndo(_ offer: UndoOffer) {
         undoOffer = offer
         undoTimer = Task { [weak self, undoWindow] in
             try? await Task.sleep(for: undoWindow)

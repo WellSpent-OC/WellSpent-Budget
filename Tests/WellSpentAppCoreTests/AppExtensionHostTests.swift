@@ -29,6 +29,35 @@ struct AppExtensionHostTests {
         #expect(host.today() == today)
     }
 
+    /// What goes to the server is read from the stored record, so a removed
+    /// record's details leave with it, and only the mark stays.
+    @Test func removingARecordClearsItsBodyAndSavingAgainBringsItBack() throws {
+        let (model, host) = try host()
+        let group = try #require(host.addGroup(named: "Studio", claimedBy: claimer))
+        let groupID = GroupID(try #require(UUID(uuidString: group)))
+        let entry = try #require(host.saveRecord(kind: "stay", .followsHistory, sourceKey: "s", id: nil, body: "{\"a\":1}",
+                                                 in: group, extensionID: claimer))
+        let setting = try #require(host.saveRecord(kind: "house", .everyMember, sourceKey: "h", id: nil, body: "{\"b\":2}",
+                                                   in: group, extensionID: claimer))
+        host.removeRecord(entry, .followsHistory)
+        host.removeRecord(setting, .everyMember)
+
+        let entryID = RecordID(try #require(UUID(uuidString: entry)))
+        let settingID = RecordID(try #require(UUID(uuidString: setting)))
+        let heldEntry: ExtensionEntry? = try model.store.extensionRecord(entryID)
+        let heldSetting: ExtensionSetting? = try model.store.extensionRecord(settingID)
+        #expect(heldEntry?.isDeleted == true && heldEntry?.body == "")
+        #expect(heldSetting?.isDeleted == true && heldSetting?.body == "")
+        #expect(host.records(kind: "stay", .followsHistory, in: group, extensionID: claimer).isEmpty)
+        let pushes = try model.store.pendingPushes(in: groupID, following: nil)
+        #expect(pushes.contains { $0.recordID == entryID && $0.isDeleted })
+
+        let back = host.saveRecord(kind: "stay", .followsHistory, sourceKey: "s", id: nil, body: "{\"a\":3}", in: group,
+                                   extensionID: claimer)
+        #expect(back == entry, "the same key is the same record")
+        #expect(host.records(kind: "stay", .followsHistory, in: group, extensionID: claimer).map(\.body) == ["{\"a\":3}"])
+    }
+
     @Test func aBudgetIsFoundOrMadeOnce() throws {
         let (model, host) = try host()
         let group = try #require(host.addGroup(named: "Studio", claimedBy: claimer))

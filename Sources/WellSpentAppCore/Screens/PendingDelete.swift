@@ -38,12 +38,33 @@ public enum PendingDelete: Identifiable {
         case .group(let group, _, _, _):
             return isLeave ? MembersScreen.Words.leaveTitle(group.name) : "Delete \u{201C}\(group.name)\u{201D}?"
         case .entry(let entry, _, _, _):
+            if let month = entry.repeatMonth {
+                return "Delete \(EntryEditor.Words.monthName(month))'s \(entry.merchant)?"
+            }
             return "Delete \u{201C}\(entry.merchant)\u{201D}, \(entry.amount.magnitude.display)?"
         }
     }
 
     /// The dialog's button that goes ahead.
-    public var confirmLabel: String { isLeave ? MembersScreen.Words.leaveButton : "Delete" }
+    public var confirmLabel: String {
+        if isMadeRepeat { return Self.deleteThisMonthOnly }
+        return isLeave ? MembersScreen.Words.leaveButton : "Delete"
+    }
+
+    public static let deleteThisMonthOnly = "Delete This Month Only"
+    public static let deleteAndStop = "Delete and Stop Repeating"
+
+    var isMadeRepeat: Bool {
+        if case .entry(let entry, _, _, _) = self { return entry.repeatRuleID != nil }
+        return false
+    }
+
+    /// Whether the question also offers Delete and Stop Repeating: only the
+    /// rule's owner or a manager can stop it (REPEAT-09, 11).
+    @MainActor public func offersStop(model: AppModel) -> Bool {
+        guard case .entry(let entry, _, _, _) = self, let rule = model.rule(of: entry) else { return false }
+        return model.mayChangeRule(rule)
+    }
 
     /// The message, for a leave by someone who can or cannot send changes.
     public func message(sendsChanges: Bool) -> String {
@@ -74,6 +95,9 @@ public enum PendingDelete: Identifiable {
                     + "changes. To get it back, ask for a new invite link."
             }
         // Undo follows a delete, so the question no longer says it can't be undone.
+        case .entry(let entry, _, _, _) where entry.repeatRuleID != nil:
+            return "This month only: later months still come. Stop repeating: no later month is made. "
+                + "Earlier months stay either way."
         case .entry(_, let budget, let group, let shared):
             return shared ? "It comes out of \(budget) for everyone in \(group)." : "It comes out of \(budget)."
         }

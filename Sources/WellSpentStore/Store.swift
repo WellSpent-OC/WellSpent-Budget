@@ -703,6 +703,9 @@ public struct PendingPush: Sendable, Equatable {
     /// The value an edit in this row is weighed at against other members'
     /// versions: the one it was made at, not the one a re-seal moved it to.
     public var weighedLamport: UInt64 { editLamport ?? lamport }
+    /// A transaction a repeat made, untouched since. It goes out at Lamport 0,
+    /// where any real edit or delete beats it.
+    public var isMade: Bool { !isReseal && weighedLamport == 0 }
 }
 
 extension OutboxRow {

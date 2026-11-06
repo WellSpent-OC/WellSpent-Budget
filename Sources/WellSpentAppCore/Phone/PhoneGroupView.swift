@@ -2,6 +2,7 @@
 #if os(iOS)
 import SwiftUI
 import WellSpentCrypto
+import WellSpentExtensionKit
 import WellSpentModel
 import WellSpentSync
 
@@ -9,7 +10,9 @@ import WellSpentSync
 /// each with their level. A tap on someone this person may change opens
 /// their page. Leave Group… is a row at the end, Invite Someone… is at the
 /// foot in thumb reach, and the group's menu is under ⋯. A tap on the
-/// group's name on Home opens it. Draws `MembersScreen`. Layout only.
+/// group's name on Home opens it. An extension may add a section below the
+/// money, and a line at the top that scrolls to it, since the section is
+/// below the first screen. Draws `MembersScreen`. Layout only.
 struct PhoneGroupView: View {
     @Bindable var sync: SyncCoordinator
     let group: BudgetGroup
@@ -30,68 +33,7 @@ struct PhoneGroupView: View {
 
     var body: some View {
         let menu = self.menu
-        List {
-            Section {
-                Text(screen.summary)
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.muted)
-                    .accessibilityIdentifier(AccessibilityID.groupSummary)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
-                // After a removal, a quiet line under it. No pop-up.
-                if let removed = screen.removedNote {
-                    Text(removed)
-                        .font(.subheadline)
-                        .accessibilityIdentifier(AccessibilityID.groupRemoved)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
-                }
-            }
-            if let money = main.money(of: group.id) {
-                PhoneGroupMoneySections(money: money)
-            }
-            if !screen.rows.isEmpty {
-                Section(Words.people) {
-                    ForEach(screen.rows) { row in
-                        if mayChange(row) {
-                            NavigationLink {
-                                PhonePersonView(screen: screen, id: row.id)
-                            } label: {
-                                PhonePersonRow(row: row)
-                            }
-                            .accessibilityIdentifier(AccessibilityID.groupPerson(row.name))
-                        } else {
-                            PhonePersonRow(row: row)
-                                .accessibilityIdentifier(AccessibilityID.groupPerson(row.name))
-                        }
-                    }
-                }
-                .listRowBackground(Palette.surface)
-            }
-            if !screen.pendingInvites.isEmpty {
-                Section(EmailInvitationWords.incomingTitle) {
-                    ForEach(screen.pendingInvites, id: \.id) { invitation in
-                        OutgoingInvitationRow(screen: screen, invitation: invitation)
-                    }
-                }
-                .listRowBackground(Palette.surface)
-            }
-            if let failure = screen.failure {
-                Section {
-                    PhoneNote(failure)
-                }
-                .listRowBackground(Color.clear)
-            }
-            if screen.mayLeave {
-                Section {
-                    Button(PhoneWording.button(Words.leave), role: .destructive) { main.askToLeave(group) }
-                        .frame(maxWidth: .infinity)
-                        .disabled(screen.isWorking)
-                        .accessibilityIdentifier(AccessibilityID.groupLeave)
-                }
-                .listRowBackground(Palette.surface)
-            }
-        }
+        ScrollViewReader { proxy in page(scrollingWith: proxy) }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Palette.ground)
@@ -140,6 +82,88 @@ struct PhoneGroupView: View {
         }
     }
 
+    /// The page's rows. The proxy is what the extension's top line scrolls with.
+    private func page(scrollingWith proxy: ScrollViewProxy) -> some View {
+        List {
+            Section {
+                Text(screen.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.muted)
+                    .accessibilityIdentifier(AccessibilityID.groupSummary)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
+                // After a removal, a quiet line under it. No pop-up.
+                if let removed = screen.removedNote {
+                    Text(removed)
+                        .font(.subheadline)
+                        .accessibilityIdentifier(AccessibilityID.groupRemoved)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
+                }
+            }
+            if let line = slots?.groupPageTopLine(for: slotGroup) {
+                Section {
+                    PhoneExtensionTopLine(line: line) {
+                        withAnimation { proxy.scrollTo(HostScrollID.groupPageSection, anchor: .top) }
+                    }
+                }
+                .listRowBackground(Palette.surface)
+            }
+            if let money = main.money(of: group.id) {
+                PhoneGroupMoneySections(money: money)
+            }
+            // What an extension adds, below the money and above the people.
+            // Nothing with no extension on.
+            if let section = slots?.groupPageSection(for: slotGroup) {
+                section
+            }
+            if !screen.rows.isEmpty {
+                Section(Words.people) {
+                    ForEach(screen.rows) { row in
+                        if mayChange(row) {
+                            NavigationLink {
+                                PhonePersonView(screen: screen, id: row.id)
+                            } label: {
+                                PhonePersonRow(row: row)
+                            }
+                            .accessibilityIdentifier(AccessibilityID.groupPerson(row.name))
+                        } else {
+                            PhonePersonRow(row: row)
+                                .accessibilityIdentifier(AccessibilityID.groupPerson(row.name))
+                        }
+                    }
+                }
+                .listRowBackground(Palette.surface)
+            }
+            if !screen.pendingInvites.isEmpty {
+                Section(EmailInvitationWords.incomingTitle) {
+                    ForEach(screen.pendingInvites, id: \.id) { invitation in
+                        OutgoingInvitationRow(screen: screen, invitation: invitation)
+                    }
+                }
+                .listRowBackground(Palette.surface)
+            }
+            if let failure = screen.failure {
+                Section {
+                    PhoneNote(failure)
+                }
+                .listRowBackground(Color.clear)
+            }
+            if screen.mayLeave {
+                Section {
+                    Button(PhoneWording.button(Words.leave), role: .destructive) { main.askToLeave(group) }
+                        .frame(maxWidth: .infinity)
+                        .disabled(screen.isWorking)
+                        .accessibilityIdentifier(AccessibilityID.groupLeave)
+                }
+                .listRowBackground(Palette.surface)
+            }
+        }
+    }
+
+    private var slots: (any ExtensionSlots)? { main.extensionSlots }
+    private var slotGroup: String { group.id.uuid.uuidString }
+
     /// The group's menu, without People…, which is this page.
     private var menu: [[MainScreen.MenuItem]] {
         main.groupMenu(group).map { part in
@@ -154,6 +178,29 @@ struct PhoneGroupView: View {
     /// whether they stay.
     private func mayChange(_ row: MembersScreen.Row) -> Bool {
         !row.levelChoices.isEmpty || row.mayRemove
+    }
+}
+
+/// An extension's line at the top of a group's page: its words, then its
+/// amount. A tap scrolls to the extension's section.
+private struct PhoneExtensionTopLine: View {
+    let line: HostTopLine
+    let scroll: () -> Void
+
+    var body: some View {
+        Button(action: scroll) {
+            HStack(spacing: 8) {
+                Text(line.text)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.ink)
+                Spacer(minLength: 8)
+                Text(line.amount)
+                    .font(.footnote.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(line.isWarning ? Palette.warning : Palette.ink)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(AccessibilityID.groupTopLine)
     }
 }
 
