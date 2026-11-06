@@ -10,6 +10,8 @@ struct PhoneBudgetWheelSections: View {
     let screen: BudgetScreen
     /// Opens the Edit Budget sheet, offered beside the pace words.
     let editBudget: () -> Void
+    /// Opens the short list of this budget's repeats.
+    let openRepeats: () -> Void
 
     var body: some View {
         Section {
@@ -44,6 +46,13 @@ struct PhoneBudgetWheelSections: View {
                 if let moneyIn = screen.moneyInLine {
                     Text(" \u{00B7} \(moneyIn)")
                         .accessibilityIdentifier(AccessibilityID.budgetMoneyInLine)
+                }
+                if let repeats = screen.repeatsWords {
+                    Text(" \u{00B7} ")
+                    Button(repeats, action: openRepeats)
+                        .font(.footnote.weight(.semibold))
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier(AccessibilityID.budgetRepeats)
                 }
             }
             .font(.footnote)

@@ -15,6 +15,7 @@ struct PhoneBudgetView: View {
     let main: MainScreen
     let perform: (MainScreen.Action) -> Void
     @Binding var addingEntry: Bool
+    @State private var showingRepeats = false
 
     /// The budget's words and rows, shared with every app.
     private var screen: BudgetScreen { BudgetScreen(summary: summary, model: model, me: sync.userID) }
@@ -25,7 +26,8 @@ struct PhoneBudgetView: View {
         List {
             // The day, the wheel, its figures and the pace words:
             // PhoneBudgetWheel.swift.
-            PhoneBudgetWheelSections(screen: screen) { perform(.editBudget(summary.budget)) }
+            PhoneBudgetWheelSections(screen: screen, editBudget: { perform(.editBudget(summary.budget)) },
+                                     openRepeats: { showingRepeats = true })
             Section {
                 if screen.rows.isEmpty {
                     Text(BudgetScreen.Words.empty)
@@ -42,6 +44,7 @@ struct PhoneBudgetView: View {
         }
         // The opened entry's sheet and the Undo bar: PhoneEntryEditing.swift.
         .phoneEntryEditing(model: model, undo: screen.undo)
+        .sheet(isPresented: $showingRepeats) { PhoneRepeatsListSheet(budget: summary.budget, model: model) }
         .listStyle(.insetGrouped)
         .refreshable { await main.syncNow() }
         .scrollContentBackground(.hidden)

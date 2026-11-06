@@ -778,12 +778,6 @@ final class TestApp {
     /// toolbar, so a budget is opened first if any is left. Best effort.
     func signOut() {
         guard app.state == .runningForeground else { return }
-        if !element(AccessibilityID.toolbarAccount).exists {
-            let anyBudget = app.descendants(matching: .any)
-                .matching(NSPredicate(format: "identifier BEGINSWITH 'sidebar.budget.'")).firstMatch
-            guard anyBudget.exists else { return }
-            anyBudget.click()
-        }
         let account = element(AccessibilityID.toolbarAccount)
         guard account.waitForExistence(timeout: 5), wait(for: account, until: "isEnabled == true", timeout: 30) else {
             return

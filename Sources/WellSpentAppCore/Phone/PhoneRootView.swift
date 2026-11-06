@@ -75,7 +75,8 @@ struct PhoneRootView: View {
         // The view preferences go where this build keeps its settings, so a
         // staging build never writes into live's.
         .defaultAppStorage(sync.defaults)
-        .sheet(item: $editor, onDismiss: askAfterSheet) { sheet in editorView(sheet) }
+        // A sheet does not take the tint above, so it brings its own.
+        .sheet(item: $editor, onDismiss: askAfterSheet) { sheet in editorView(sheet).tint(Palette.accent) }
         // Import statement: the Files picker and the review. PhoneImportStatement.swift
         .phoneStatementImport(model: model)
         // A different account means different budgets: a fresh stack, not the
@@ -104,6 +105,9 @@ struct PhoneRootView: View {
                             titleVisibility: .visible,
                             presenting: screen.pendingDelete) { pending in
             Button(pending.confirmLabel, role: .destructive) { screen.confirm(pending) }
+            if screen.offersStop(pending) {
+                Button(PendingDelete.deleteAndStop, role: .destructive) { screen.confirmAndStop(pending) }
+            }
             Button(MainScreen.Words.cancel, role: .cancel) { screen.keepIt() }
         } message: { pending in
             Text(screen.message(for: pending))

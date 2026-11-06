@@ -11,6 +11,7 @@ struct PhoneShareSheet: View {
     @State private var screen: EmailInviteScreen
     @Environment(\.dismiss) private var dismiss
     private typealias Words = EmailInviteScreen.Words
+    private static let sendRow = "send"
 
     init(sync: SyncCoordinator, group: BudgetGroup) {
         _screen = State(initialValue: EmailInviteScreen(actions: sync, group: group.id,
@@ -19,6 +20,24 @@ struct PhoneShareSheet: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in form(scrollingWith: proxy) }
+            .phoneSheet(title: screen.title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(screen.sent == nil ? Words.cancel : Words.done) { dismiss() }
+                        .disabled(screen.isWorking)
+                        .accessibilityIdentifier(screen.sent == nil ? AccessibilityID.shareCancel
+                                                                   : AccessibilityID.shareDone)
+                }
+            }
+        }
+        .interactiveDismissDisabled(screen.isWorking)
+    }
+
+    /// The form. Send Invite sits under the keyboard, so it comes up as soon
+    /// as the form can send, whichever field finished it. Not sooner: that
+    /// would push the fields still to fill in out of reach.
+    private func form(scrollingWith proxy: ScrollViewProxy) -> some View {
             Form {
                 if screen.sent != nil {
                     Section {
@@ -91,6 +110,7 @@ struct PhoneShareSheet: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(!screen.canSend)
                         .accessibilityIdentifier(AccessibilityID.shareCreate)
+                        .id(Self.sendRow)
                     } footer: {
                         Text(screen.note)
                     }
@@ -98,17 +118,18 @@ struct PhoneShareSheet: View {
                     .listRowInsets(EdgeInsets())
                 }
             }
-            .phoneSheet(title: screen.title)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(screen.sent == nil ? Words.cancel : Words.done) { dismiss() }
-                        .disabled(screen.isWorking)
-                        .accessibilityIdentifier(screen.sent == nil ? AccessibilityID.shareCancel
-                                                                   : AccessibilityID.shareDone)
-                }
+            .onChange(of: screen.canSend) { _, canSend in
+                if canSend { bringSendUp(proxy) }
             }
+    }
+
+    /// Waits for the keyboard to finish rising, since it changes what is
+    /// visible, then brings Send Invite to just above it.
+    private func bringSendUp(_ proxy: ScrollViewProxy) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation { proxy.scrollTo(Self.sendRow, anchor: .bottom) }
         }
-        .interactiveDismissDisabled(screen.isWorking)
     }
 }
 

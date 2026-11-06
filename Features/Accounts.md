@@ -107,6 +107,8 @@ An account keeps Robin's budgets on WellSpent's server, so they sync to his othe
 - And he is still signed out after WellSpent is quit and opened again
 - When he signs in again
 - Then his account's budgets are back
+- And with no budgets at all, "Account" is still there, so he can still sign out
+- And the title bar doesn't keep the name of a budget that was open before
 
 ## ACCT-12 Sign out everywhere asks first
 

@@ -428,12 +428,17 @@ final class SharingGapTests: XCTestCase {
         let first = try await EmailInvitationFixture.send(sender: sender, group: group,
                                                            groupName: groupName, to: accounts.email)
         run.launch()
+        let heightBefore = run.app.windows.firstMatch.frame.height
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.addGroup(named: ownGroup)
         run.addBudget(named: "Local " + stamp, amount: "100", inGroup: ownGroup)
 
         // Scenario EMAIL-02
         XCTAssertTrue(run.element(AccessibilityID.incomingInvitation(first.id)).waitForExistence(timeout: 20))
+        XCTAssertEqual(run.app.windows.firstMatch.frame.height, heightBefore,
+                       "an invitation made the window taller, off the bottom of a small screen")
+        let gap = run.app.outlines.firstMatch.frame.minY - run.element(AccessibilityID.incomingInvitation(first.id)).frame.maxY
+        XCTAssertLessThan(gap, 30, "an empty band sits under the invitation")
         XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.invited].exists)
         XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.from("Leslie")].exists)
         XCTAssertTrue(run.app.staticTexts[InviteRole.add.title + " · " + JoinScreen.Words.sees(.all)].exists)

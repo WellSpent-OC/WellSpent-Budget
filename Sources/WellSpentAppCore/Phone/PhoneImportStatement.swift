@@ -54,6 +54,7 @@ struct PhoneStatementImport: ViewModifier {
             // Swiping the review down is the same as Cancel: nothing is added.
             .sheet(item: Binding(get: { model.pendingImport }, set: { model.pendingImport = $0 })) { _ in
                 PhoneImportReviewSheet(model: model)
+                    .tint(Palette.accent)
             }
     }
 }

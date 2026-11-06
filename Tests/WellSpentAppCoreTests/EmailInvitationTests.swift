@@ -1,4 +1,8 @@
 import Testing
+#if os(macOS)
+import AppKit
+import SwiftUI
+#endif
 import Foundation
 @testable import WellSpentAppCore
 import WellSpentCrypto
@@ -50,6 +54,35 @@ private struct EmailPerson {
 @Suite("Email group invitations", .serialized)
 @MainActor
 struct EmailInvitationTests {
+    #if os(macOS)
+    /// How tall the sidebar insists on being with this many invitations.
+    private func sidebarHeight(invitations count: Int) async throws -> CGFloat {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        for _ in 0..<count { _ = try await robin.offer() }
+        await leslie.sync.syncAll()
+        #expect(leslie.main.incomingInvitations.count == count)
+        let view = SidebarView(screen: leslie.main, editor: .constant(nil), showingAccount: .constant(false))
+        let host = NSHostingView(rootView: view)
+        host.frame.size = CGSize(width: 300, height: 660)
+        let window = NSWindow(contentRect: host.bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .seconds(1))
+        host.layoutSubtreeIfNeeded()
+        return host.fittingSize.height
+    }
+
+    // Scenario EMAIL-02
+    @Test func severalInvitationsScrollAndTheSidebarGrowsNoFurther() async throws {
+        let three = try await sidebarHeight(invitations: 3)
+        let six = try await sidebarHeight(invitations: 6)
+        #expect(three == six, "more invitations made the sidebar insist on more height")
+        #expect(six < 660, "the foot of the sidebar should fit a small screen")
+    }
+    #endif
+
     @Test func pendingIsSeparateFromMembershipAndAcceptBringsEveryBudget() async throws {
         let server = InMemoryReadableServer()
         let robin = try await EmailPerson("robin@example.com", on: server)
