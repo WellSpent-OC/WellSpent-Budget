@@ -1,0 +1,118 @@
+# Repeat expenses
+
+A bill that comes every month, such as a phone bill, can repeat. It shows up on its day each month, and a change can reach one month or that month and later. This is for everyone, with Properties on or off.
+
+The two scenarios about matching a statement line to a repeat, REPEAT-14 and REPEAT-15, come with that work.
+
+## REPEAT-01 Setting a repeat
+
+Platforms: Mac, iPhone
+
+- Given Robin is adding an $85.00 phone bill to Utilities
+- When he turns on "Repeats every month" and saves
+- Then the bill is in Utilities once, and it repeats on that day of each month
+
+## REPEAT-02 It shows up each month
+
+Platforms: Mac, iPhone
+
+- Given the phone bill repeats on the 14th
+- When December 14 comes and Robin opens the app
+- Then a new $85.00 bill is in Utilities, with Source reading Repeat
+
+## REPEAT-03 Catching up after time away
+
+Platforms: Mac, iPhone
+
+- Given Robin didn't open the app for two months
+- When he opens it
+- Then each month that has come has its bill, one each
+
+## REPEAT-04 A short month
+
+Platforms: Mac, iPhone
+
+- Given a bill repeats on the 31st
+- Then in November it shows up on the 30th
+
+## REPEAT-05 Two devices make one bill
+
+Platforms: Mac, iPhone
+
+- Given Robin's Mac and iPhone are both signed in
+- When both open after the 14th
+- Then there is one bill for that month
+
+## REPEAT-06 This month only
+
+Platforms: Mac, iPhone
+
+- Given December's phone bill is $85.00
+- When Robin changes it to $92.00 and chooses "This month only"
+- Then December is $92.00 and January is $85.00
+- And "Which months?" is on the sheet with the bill's other fields, starting on "This month only"
+
+## REPEAT-07 This month and later
+
+Platforms: Mac, iPhone
+
+- When Robin changes December's bill to $92.00 and chooses "This month and later"
+- Then December and every later month are $92.00
+- And months before December stay as they were
+
+## REPEAT-08 Stopping
+
+Platforms: Mac, iPhone
+
+- When Robin chooses "Stop repeating"
+- Then no later month is made, and months already made stay
+- And it leaves the count of repeats and the short list at once, and this month's bill stays
+
+## REPEAT-09 Deleting a made bill asks
+
+Platforms: Mac, iPhone
+
+- When Robin deletes December's bill
+- Then he's asked "Delete This Month Only" or "Delete and Stop Repeating"
+- And the second deletes this month's bill and makes no later month, and earlier months stay
+- And a month deleted this way doesn't come back
+
+## REPEAT-10 Undo
+
+Platforms: Mac, iPhone
+
+- Given Robin just deleted a made bill, or stopped a repeat
+- When he chooses Undo
+- Then the bill returns, or the repeat carries on, and both return if he chose "Delete and Stop Repeating"
+
+## REPEAT-11 Only the owner or a manager changes the rule
+
+Platforms: Mac, iPhone
+
+- Given Robin set the repeat, and Leslie is at Add level
+- When Leslie changes a made bill she can edit
+- Then she's offered only "This month only"
+
+## REPEAT-12 Finding them all
+
+Platforms: Mac, iPhone
+
+- Given Utilities has two repeats
+- Then its count line says "2 repeats", which opens a short list
+- And choosing a row opens that repeat's own sheet, which changes this month and later, or stops it
+- And someone other than the owner or a manager sees that sheet with nothing to change
+- And a budget with none doesn't say it
+
+## REPEAT-13 Money in doesn't repeat
+
+Platforms: Mac, iPhone
+
+- Given Robin is adding money in
+- Then there is no "Repeats every month" row
+
+## REPEAT-16 A house's repeat
+
+Platforms: Mac, iPhone
+
+- Given Properties is on and Robin sets a repeat with House set to Pool House
+- Then each month's bill is marked with Pool House
