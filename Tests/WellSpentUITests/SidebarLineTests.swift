@@ -90,11 +90,6 @@ final class SidebarLineTests: XCTestCase {
         run.addEntry(merchant: "Water", amount: "40.00")
         let texts = try run.selectedRowTexts(after: "Water")
         XCTAssertGreaterThanOrEqual(texts.count, 3, "the row's words were not found")
-        for text in texts {
-            let name = text.label.isEmpty ? String(describing: text.value) : text.label
-            let contrast = try run.contrast(of: text)
-            print("contrast \(name): \(contrast)")
-            XCTAssertGreaterThanOrEqual(contrast, 3, "\(name) can't be read on the selected row")
-        }
+        try run.expectReadable(texts)
     }
 }
