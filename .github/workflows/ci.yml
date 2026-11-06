@@ -352,13 +352,19 @@ jobs:
 
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
   # screen through GTK's accessibility tree and act as a person does. Not a
-  # required check until its first green run.
-  linux-ui-test:
-    name: Linux UI test
+  # required check until its first green run. In two parts at once, as the
+  # Mac's are: run_tests.py splits the modules by WELLSPENT_UI_SHARD, and one
+  # run took longer than the two hours a job may.
+  linux-ui-test-part:
+    name: Linux UI test, part ${{ matrix.part }} of 2
     # Nightly and by hand only; a pull request runs the fast checks.
     if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
     container:
       image: swift:6.2.4-noble
       # A failed step reads a stuck app's stacks with lldb, which needs ptrace.
@@ -396,6 +402,7 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/.build/linux-ui-test/coverage/%p.profraw
           # WarTable's tests run in the job below, which does not fail the night.
           WELLSPENT_UI_LEAVE_OUT: test_wartable
+          WELLSPENT_UI_SHARD: ${{ matrix.part }}/2
         # A private SQLite database and synthetic mailbox from this revision;
         # no deployed-server version or account secret is needed for this run.
         run: >
@@ -404,19 +411,38 @@ jobs:
           --server "$(swift build --package-path Server --show-bin-path)/WellSpentServer"
           -- Linux/UITests/run.sh
 
-      # The sign-off rule's floor on the Linux app's own code (ops #231).
-      # Advisory until the scenarios' tests are all in: the number is low
-      # until then, so it reports and does not fail the job yet.
-      - name: Line coverage of the Linux app
+      # The counts go to the job below, which measures both parts together.
+      # Part 1's app goes too: the counts are read against the app they came
+      # from, and both parts build it from the same commit.
+      - name: Keep this part's coverage counts
         if: always()
-        continue-on-error: true
-        run: Linux/UITests/coverage.sh "$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" .build/linux-ui-test/coverage 90
+        shell: bash
+        run: |
+          mkdir -p .build/linux-ui-coverage
+          # Named by process ID, which both parts count from the same low
+          # numbers, so the part goes in the name: the job below puts both
+          # parts' files in one folder, and a same-named file would replace one.
+          for file in .build/linux-ui-test/coverage/*.profraw; do
+            if [ -e "$file" ]; then cp "$file" ".build/linux-ui-coverage/part${{ matrix.part }}-$(basename "$file")"; fi
+          done
+          if [ "${{ matrix.part }}" = 1 ]; then
+            cp "$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" .build/linux-ui-coverage/
+          fi
+
+      - name: Upload this part's coverage counts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-ui-coverage-${{ matrix.part }}
+          retention-days: 1
+          path: .build/linux-ui-coverage
+          if-no-files-found: ignore
 
       - name: Keep the screenshots when the test fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-ui-test-screenshots
+          name: linux-ui-test-screenshots-${{ matrix.part }}
           # A failure on the account sheet can show a test address, and
           # artifacts on a public repo are public. Kept briefly.
           retention-days: 3
@@ -427,6 +453,44 @@ jobs:
             .build/linux-ui-test/*-process.txt
             .build/linux-ui-test/*-words.txt
           if-no-files-found: ignore
+
+  # The night's Linux UI result, under the name it always had. It passes only
+  # when every part passed, and runs after a failed part too: a job whose need
+  # failed is skipped by default, and a skipped check counts as passed.
+  linux-ui-test:
+    name: Linux UI test
+    needs: linux-ui-test-part
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: swift:6.2.4-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch both parts' coverage counts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: linux-ui-coverage-*
+          merge-multiple: true
+          path: .build/linux-ui-coverage
+
+      # The sign-off rule's floor on the Linux app's own code (ops #231).
+      # Advisory until the scenarios' tests are all in: the number is low
+      # until then, so it reports and does not fail the job yet.
+      - name: Line coverage of the Linux app, both parts
+        continue-on-error: true
+        run: Linux/UITests/coverage.sh .build/linux-ui-coverage/WellSpentLinux .build/linux-ui-coverage 90
+
+      - name: Every part passed
+        env:
+          RESULT: ${{ needs.linux-ui-test-part.result }}
+        run: |
+          if [ "$RESULT" != "success" ]; then
+            echo "::error::A part of the Linux UI test did not pass. Its result: $RESULT."
+            exit 1
+          fi
+          echo "Every part of the Linux UI test passed."
 
   # WarTable's Linux UI tests, nightly and by hand, apart from the rest. They
   # fail today (issue 115, and the code sandbox cannot start in this
