@@ -113,10 +113,7 @@ public struct MoneyWheel: Equatable, Sendable {
     /// "Coming by Nov 30", while there are bills still to come.
     public var comingFigure: Figure? {
         guard coming.minorUnits > 0, let comingBy else { return nil }
-        let calendar = AppLocale.calendar
-        let style = Date.FormatStyle(locale: calendar.locale ?? AppLocale.current, calendar: calendar,
-                                     timeZone: calendar.timeZone)
-        return Figure(label: Words.comingBy(comingBy.formatted(style.month(.abbreviated).day())),
+        return Figure(label: Words.comingBy(BudgetScreen.shortDate(comingBy)),
                       amount: coming.display, isWarning: coming > left)
     }
 
