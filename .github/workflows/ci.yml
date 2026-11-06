@@ -848,7 +848,7 @@ jobs:
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'iphone'
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
-        run: make iphone-ui-test IPHONE_UI_TEST_ONLY=WellSpentPhoneUITests/PhoneHousesTests
+        run: make iphone-ui-test IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
 
       # Each run must show it tested something: four Houses tests on the
       # Mac, and four in each iPhone look. Nothing skipped, as for every

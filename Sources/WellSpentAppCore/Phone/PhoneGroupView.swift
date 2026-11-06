@@ -40,6 +40,9 @@ struct PhoneGroupView: View {
         .foregroundStyle(Palette.ink)
         .navigationTitle(group.name)
         .navigationBarTitleDisplayMode(.large)
+        // Nothing scrolled shows behind the bar's title.
+        .toolbarBackground(Palette.ground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             if !menu.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
