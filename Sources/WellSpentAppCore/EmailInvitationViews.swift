@@ -81,6 +81,9 @@ struct IncomingInvitationRow: View {
         #else
         .padding(.vertical, 6)
         #endif
+        // The row's name is its own: without this it replaces the names of
+        // Reject and Accept inside it.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.incomingInvitation(invitation.id))
         .confirmationDialog(EmailInvitationWords.rejectQuestion(invitation.groupName),
                             isPresented: $confirmingRejection, titleVisibility: .visible) {

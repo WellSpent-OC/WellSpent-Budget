@@ -513,6 +513,27 @@ final class PhoneTestApp {
         return button.waitForExistence(timeout: 5) ? button : nil
     }
 
+    /// Whether a page's large title shows on screen. Its text is there for
+    /// VoiceOver even when nothing is drawn, so this looks at the picture: a
+    /// title's letters are more than one colour.
+    func drawsTitle(_ title: String) -> Bool {
+        let text = app.navigationBars.staticTexts[title].firstMatch
+        guard text.waitForExistence(timeout: 10), !text.frame.isEmpty else { return false }
+        let picture = XCUIScreen.main.screenshot().image
+        let scale = picture.scale
+        let frame = text.frame
+        let area = CGRect(x: frame.minX * scale, y: frame.minY * scale,
+                          width: frame.width * scale, height: frame.height * scale)
+        guard let pixels = picture.cgImage?.cropping(to: area),
+              let data = pixels.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return false }
+        let first = bytes[0]
+        for offset in stride(from: 0, to: CFDataGetLength(data), by: pixels.bitsPerPixel / 8) where abs(Int(bytes[offset]) - Int(first)) > 60 {
+            return true
+        }
+        return false
+    }
+
     /// Every static text on screen, for a failure message, from one snapshot.
     func visibleTexts() -> [String] {
         labels(of: .staticText)

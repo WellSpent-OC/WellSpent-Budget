@@ -77,6 +77,9 @@ final class PhoneSharingTests: XCTestCase {
         run.type("not-an-address", into: AccessibilityID.shareEmail)
         XCTAssertFalse(run.button(AccessibilityID.shareCreate).isEnabled, "an invalid email can send")
         run.paste(accounts.secondEmail, into: AccessibilityID.shareEmail)
+        // Filled in, Send Invite comes up above the keyboard by itself.
+        XCTAssertTrue(run.wait(for: run.button(AccessibilityID.shareCreate), until: "hittable == true", timeout: 15),
+                      "Send Invite stayed under the keyboard")
         run.tap(AccessibilityID.shareCreate)
         XCTAssertTrue(run.element(AccessibilityID.shareDone).waitForExistence(timeout: 30),
                       "sending did not finish")
@@ -340,6 +343,9 @@ final class PhoneSharingTests: XCTestCase {
                                   "Leslie does not see Robin in her group")
         try await leslie.sync.setLevel(.admin, of: robin, in: group)
         run.pullDown()
+        // The pull ends at the page's top, with the people below the first
+        // screen, where a list keeps no row.
+        XCTAssertTrue(run.has(AccessibilityID.groupPerson("Robin")), "no row for Robin. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.wait(for: robinRow, until: "label CONTAINS '\(MembersScreen.Words.levelTitle(.admin))'",
                                timeout: 20), "Robin is not an admin on the phone: \(robinRow.label)")
         run.tap(AccessibilityID.groupMenu)
