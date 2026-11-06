@@ -76,6 +76,21 @@ struct EntryLinkTests {
         #expect(back.extensionLink == setup.gone)
     }
 
+    /// Properties' PROP-51: a member with the extension off sees no row, and an
+    /// edit keeps the bill's mark for the people who have it on.
+    @Test func withTheExtensionOffAnEditKeepsTheMarkAndShowsNoRow() throws {
+        let setup = try Setup()
+        let bill = try setup.saved(link: setup.pool)
+        setup.model.linkChoices = { _ in nil }
+        let editor = try #require(EntryEditor(model: setup.model, entry: bill.id))
+        #expect(!editor.showsLinkRow)
+        editor.merchant = "Water and sewer"
+        #expect(editor.save())
+        let back = try #require(try setup.model.store.transaction(bill.id))
+        #expect(back.merchant == "Water and sewer")
+        #expect(back.extensionLink == setup.pool)
+    }
+
     @Test func switchingToMoneyInHidesTheRowAndClearsTheLinkOnSave() throws {
         let setup = try Setup()
         let bill = try setup.saved(link: setup.pool)
