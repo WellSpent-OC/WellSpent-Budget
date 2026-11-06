@@ -188,7 +188,9 @@ final class PhoneAccountTests: XCTestCase {
         run.paste(Self.newPassword, into: AccessibilityID.accountConfirmation)
         XCTAssertTrue(run.button(AccessibilityID.accountSubmit).isEnabled, "Set password did not light once pasted")
         run.tap(AccessibilityID.accountSubmit)
-        XCTAssertTrue(run.wait(for: run.app.navigationBars[AccountFlow.Step.forgotPassword.title], until: "exists == false", timeout: 30),
+        // Hittable, not just gone from the title: staying open on Your account
+        // also takes the old title away.
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.toolbarAccount), until: "isHittable == true", timeout: 30),
                       "the sheet stayed open after Set password. On screen: \(run.visibleTexts())")
 
         // Scenario ACCT-17
@@ -202,7 +204,7 @@ final class PhoneAccountTests: XCTestCase {
         run.paste(Self.changedPassword, into: AccessibilityID.accountNewPassword)
         run.paste(Self.changedPassword, into: AccessibilityID.accountConfirmation)
         run.tap(AccessibilityID.accountSubmit)
-        XCTAssertTrue(run.wait(for: run.app.navigationBars[AccountFlow.Step.changePassword.title], until: "exists == false", timeout: 30),
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.toolbarAccount), until: "isHittable == true", timeout: 30),
                       "the sheet stayed open after changing the password. On screen: \(run.visibleTexts())")
 
         // Scenario ACCT-13
