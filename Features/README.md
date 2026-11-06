@@ -191,7 +191,7 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Linux |
-| REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Linux |
+| REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Linux, iPhone |
 | REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
 | REPEAT-17 | Turning it on for a bill already there | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-18 | The switch shows the truth | Mac, Linux, iPhone | Mac, Linux, iPhone |

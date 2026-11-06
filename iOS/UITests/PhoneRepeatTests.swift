@@ -10,6 +10,8 @@ import WellSpentModel
 final class PhoneRepeatTests: XCTestCase {
     private typealias Words = EntryEditor.Words
     nonisolated(unsafe) private static var dataRootPath: String?
+    /// The Keep both test's statements, for tearDown.
+    nonisolated(unsafe) private static var statementsPath: String?
     private static let bill = "Phone bill"
 
     override func setUpWithError() throws {
@@ -21,6 +23,8 @@ final class PhoneRepeatTests: XCTestCase {
         if app.state != .notRunning { app.terminate() }
         if let path = Self.dataRootPath { try? FileManager.default.removeItem(atPath: path) }
         Self.dataRootPath = nil
+        if let path = Self.statementsPath { try? FileManager.default.removeItem(atPath: path) }
+        Self.statementsPath = nil
         super.tearDown()
     }
 
@@ -79,6 +83,52 @@ final class PhoneRepeatTests: XCTestCase {
         run.tap(AccessibilityID.entrySave)
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
+    }
+
+    @MainActor
+    func testKeepBothLeavesTheBillAndAddsTheLine() throws {
+        let bank = "VERIZON WIRELESS"
+        let folder = try StatementFolder()
+        Self.statementsPath = folder.url.path
+        let statement = try folder.write([(bank, "-85.40", 0)])
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.launch(importing: statement)
+        run.tap(AccessibilityID.budgetAdd)
+        run.type(Self.bill, into: AccessibilityID.entryMerchant)
+        run.type("85.00", into: AccessibilityID.entryAmount)
+        run.turnOnRepeats()
+        run.tap(AccessibilityID.entryAdd)
+        XCTAssertTrue(run.hasRow(Self.bill), "\(Self.bill) is not in the list. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-15
+        // 1. The line close to the bill says it replaces it, and offers Keep
+        // both, which starts off.
+        run.importStatement()
+        let status = AccessibilityID.importLineStatus(bank)
+        let month = EntryEditor.Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
+        let replaces = ImportReviewScreen.Words.replaces(month: month, name: Self.bill, amount: "$85.00")
+        XCTAssertTrue(run.waitForLabel(status, toBe: replaces), "the row says: \(run.element(status).label)")
+        let keepBoth = run.element(AccessibilityID.importLineKeepBoth(bank))
+        XCTAssertTrue(keepBoth.waitForExistence(timeout: 10), "no Keep both. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(run.switchValue(of: AccessibilityID.importLineKeepBoth(bank)), "0", "Keep both did not start off")
+
+        // 2. On, the line will be added. Off again, it goes back to replacing.
+        run.flip(AccessibilityID.importLineKeepBoth(bank))
+        XCTAssertTrue(run.waitForLabel(status, toBe: ImportReviewScreen.Words.willBeAdded),
+                      "the row says: \(run.element(status).label)")
+        run.flip(AccessibilityID.importLineKeepBoth(bank))
+        XCTAssertTrue(run.waitForLabel(status, toBe: replaces), "the row says: \(run.element(status).label)")
+
+        // 3. On and imported, the bill stays and the line is added beside it.
+        run.flip(AccessibilityID.importLineKeepBoth(bank))
+        XCTAssertTrue(run.waitForLabel(status, toBe: ImportReviewScreen.Words.willBeAdded),
+                      "the row says: \(run.element(status).label)")
+        run.tap(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.hasRow(Self.bill), "the bill is gone. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.hasRow("Verizon Wireless"), "the line was not added. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
@@ -190,6 +240,16 @@ private extension PhoneTestApp {
     func flipRepeats() {
         bringUpInSheet(AccessibilityID.entryRepeats)
         let row = element(AccessibilityID.entryRepeats)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+    }
+
+    func switchValue(of identifier: String) -> String? {
+        let row = element(identifier)
+        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
+    }
+
+    func flip(_ identifier: String) {
+        let row = element(identifier)
         (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
     }
 
