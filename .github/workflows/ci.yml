@@ -419,7 +419,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p .build/linux-ui-coverage
-          cp .build/linux-ui-test/coverage/*.profraw .build/linux-ui-coverage/ 2>/dev/null || true
+          # Named by process ID, which both parts count from the same low
+          # numbers, so the part goes in the name: the job below puts both
+          # parts' files in one folder, and a same-named file would replace one.
+          for file in .build/linux-ui-test/coverage/*.profraw; do
+            if [ -e "$file" ]; then cp "$file" ".build/linux-ui-coverage/part${{ matrix.part }}-$(basename "$file")"; fi
+          done
           if [ "${{ matrix.part }}" = 1 ]; then
             cp "$(swift build --package-path Linux --show-bin-path)/WellSpentLinux" .build/linux-ui-coverage/
           fi
