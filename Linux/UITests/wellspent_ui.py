@@ -144,6 +144,11 @@ class Element:
         return self._has(Atspi.StateType.SENSITIVE)
 
     @property
+    def checked(self):
+        """Whether a check box is ticked."""
+        return self._has(Atspi.StateType.CHECKED)
+
+    @property
     def selected(self):
         """Whether it's the one picked, such as the open budget's row."""
         return self._has(Atspi.StateType.SELECTED)
