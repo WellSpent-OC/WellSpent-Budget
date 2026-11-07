@@ -315,7 +315,8 @@ struct EntryEditorView: View {
                     Text(detail.label)
                         .font(.system(size: 12))
                         .foregroundColor(Palette.muted)
-                        .frame(width: 70, alignment: .leading)
+                        // Wide enough for "Repeats every month" on one line.
+                        .frame(width: 130, alignment: .leading)
                     Text(detail.value)
                 }
             }
