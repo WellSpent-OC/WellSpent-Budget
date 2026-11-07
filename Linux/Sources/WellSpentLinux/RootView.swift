@@ -18,6 +18,8 @@ struct RootView: View {
     @State var showingEntry = false
     /// An entry opened from the budget's list, to change, move or delete.
     @State var openedEntry: EntryEditor?
+    /// A budget's repeats, or one of them, while that sheet shows.
+    @State var repeats: RepeatsSheet?
     /// The people on the group's page, while one shows.
     @State var openPage = OpenGroupPage()
     @State var warTable: WarTableScreen
@@ -161,6 +163,19 @@ struct RootView: View {
                     .tabMovesFocus()
             }
         }
+        .sheet(isPresented: Binding(get: { repeats != nil }, set: { if !$0 { repeats = nil } })) {
+            switch repeats {
+            case .list(let budget):
+                RepeatsListView(budget: budget, model: model,
+                                open: { repeats = .rule($0, from: budget) }, close: { repeats = nil })
+                    .tabMovesFocus()
+            case .rule(let editor, let budget):
+                RepeatRuleView(editor: editor, close: { repeats = .list(budget) })
+                    .tabMovesFocus()
+            case nil:
+                EmptyView()
+            }
+        }
         .sheet(isPresented: Binding(get: { importing },
                                     set: { if !$0 { model.cancelImport() } })) {
             ImportReviewView(model: model)
@@ -216,7 +231,8 @@ struct RootView: View {
         case .budget(let summary):
             BudgetDetailView(screen: BudgetScreen(summary: summary, model: model, me: sync.userID),
                              model: model, menu: screen.budgetMenu(summary.budget), perform: perform,
-                             addEntry: { showingEntry = true }, openEntry: open(entry:))
+                             addEntry: { showingEntry = true }, openEntry: open(entry:),
+                             openRepeats: { repeats = .list(summary.budget) })
         case .noBudgets:
             ContentUnavailableView {
                 Text(MainScreen.Words.noBudgetsTitle)
@@ -521,6 +537,8 @@ struct BudgetDetailView: View {
     var addEntry: () -> Void
     /// A click on a row: opens the entry to change, move or delete it.
     var openEntry: (RecordID) -> Void
+    /// The count line's "2 repeats": opens the short list (REPEAT-12).
+    var openRepeats: () -> Void
     @Environment(\.chooseFile) var chooseFile
 
     private typealias Words = BudgetScreen.Words
@@ -560,7 +578,8 @@ struct BudgetDetailView: View {
                 .background(Palette.sidebar)
                 Palette.line.frame(height: 1)
             }
-            BudgetWheelPanel(screen: screen, editBudget: { perform(.editBudget(screen.summary.budget)) })
+            BudgetWheelPanel(screen: screen, editBudget: { perform(.editBudget(screen.summary.budget)) },
+                             openRepeats: openRepeats)
                 .padding(20)
             Palette.line.frame(height: 1)
             EntryColumns(showsAddedBy: screen.showsAddedBy)

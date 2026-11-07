@@ -213,6 +213,8 @@ struct BudgetWheelPanel: View {
     let screen: BudgetScreen
     /// Opens the Edit Budget sheet, from Edit Budget… beside the pace words.
     var editBudget: () -> Void
+    /// Opens the budget's short list of repeats, from the count line.
+    var openRepeats: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -235,9 +237,16 @@ struct BudgetWheelPanel: View {
                 // Then a narrow window grew taller than the screen.
                 .frame(minWidth: Self.columnMinWidth, maxWidth: 360, alignment: .leading)
             }
-            Text(screen.countLine)
-                .font(.system(size: 11))
-                .foregroundColor(Color(PaletteValues.muted))
+            HStack(spacing: 4) {
+                Text(screen.countLine)
+                // "2 repeats" opens the short list. None, and it isn't said.
+                if let repeats = screen.repeatsWords {
+                    Text("\u{00B7}")
+                    Button(repeats) { openRepeats() }
+                }
+            }
+            .font(.system(size: 11))
+            .foregroundColor(Color(PaletteValues.muted))
         }
     }
 }

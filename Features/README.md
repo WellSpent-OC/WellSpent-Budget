@@ -177,24 +177,24 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| REPEAT-01 | Setting a repeat | Mac, iPhone | Mac |
-| REPEAT-02 | It shows up each month | Mac, iPhone | None yet |
-| REPEAT-03 | Catching up after time away | Mac, iPhone | None yet |
-| REPEAT-04 | A short month | Mac, iPhone | None yet |
-| REPEAT-05 | Two devices make one bill | Mac, iPhone | None yet |
-| REPEAT-06 | This month only | Mac, iPhone | Mac |
-| REPEAT-07 | This month and later | Mac, iPhone | Mac |
-| REPEAT-08 | Stopping | Mac, iPhone | Mac |
-| REPEAT-09 | Deleting a made bill asks | Mac, iPhone | Mac |
-| REPEAT-10 | Undo | Mac, iPhone | Mac |
-| REPEAT-11 | Only the owner or a manager changes the rule | Mac, iPhone | None yet |
-| REPEAT-12 | Finding them all | Mac, iPhone | Mac |
-| REPEAT-13 | Money in doesn't repeat | Mac, iPhone | Mac |
+| REPEAT-01 | Setting a repeat | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-02 | It shows up each month | Mac, Linux, iPhone | None yet |
+| REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | None yet |
+| REPEAT-04 | A short month | Mac, Linux, iPhone | None yet |
+| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | None yet |
+| REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | None yet |
+| REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, iPhone | None yet |
 | REPEAT-15 | Saying no to a match | Mac, iPhone | None yet |
 | REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
-| REPEAT-17 | Turning it on for a bill already there | Mac, iPhone | Mac, iPhone |
-| REPEAT-18 | The switch shows the truth | Mac, iPhone | Mac, iPhone |
+| REPEAT-17 | Turning it on for a bill already there | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-18 | The switch shows the truth | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Sharing.md](Sharing.md)
 
