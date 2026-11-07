@@ -400,6 +400,11 @@ struct ImportReviewView: View {
         screen.rows.first { $0.id == row }?.chosenBudget
     }
 
+    /// Whether a line keeps both, read fresh, as `chosenBudget` is.
+    private func keepingBoth(_ row: Int) -> Bool {
+        screen.rows.first { $0.id == row }?.isKeepingBoth ?? false
+    }
+
     static func color(_ tone: ImportReviewScreen.Tone) -> Color {
         Color(tone.color)
     }
@@ -498,13 +503,27 @@ struct ImportReviewView: View {
             Text(row.amount)
                 .font(.money(12, weight: .regular))
                 .frame(width: 84, alignment: .trailing)
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(Self.color(row.tone))
-                    .frame(width: 5, height: 5)
-                Text(row.status)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Self.color(row.tone))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Self.color(row.tone))
+                        .frame(width: 5, height: 5)
+                    // "Replaces November's Phone bill, $85.00" takes two lines.
+                    Text(row.status)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Self.color(row.tone))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                // A line that replaces a repeat's bill can keep both instead
+                // (REPEAT-15), as on the Mac: a labelled check box.
+                if row.offersKeepBoth {
+                    Toggle(Words.keepBoth, isOn: Binding(
+                        get: { keepingBoth(row.id) },
+                        set: { screen.keepBoth($0, for: row.id) }))
+                        .toggleStyle(.checkbox)
+                        .controlLabel(Words.keepBoth)
+                        .font(.system(size: 11))
+                }
             }
             .frame(width: 140, alignment: .leading)
             // A money-in line's kind list: named by its chosen kind, as GTK
