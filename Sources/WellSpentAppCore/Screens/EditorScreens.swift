@@ -287,10 +287,12 @@ public final class EntryEditor {
         !isReadOnly && (editing?.repeatRuleID != nil || kindToWrite == .spending)
     }
 
-    /// Dimmed for someone who may change the bill but not the repeat (REPEAT-11).
-    /// A read-only sheet has a plain row in `details` instead.
+    /// Dimmed for someone who may change the bill but not the repeat (REPEAT-11),
+    /// and for a manager on a bill someone else added (REPEAT-17). A read-only
+    /// sheet has a plain row in `details` instead.
     public var repeatRowIsEnabled: Bool {
-        guard let editing, editing.repeatRuleID != nil else { return true }
+        guard let editing else { return true }
+        guard editing.repeatRuleID != nil else { return model.mayStartRepeating(editing) }
         return !isReadOnly && madeRule.map(model.mayChangeRule) ?? false
     }
 
