@@ -58,6 +58,10 @@ public struct BudgetScreen {
                 calendar: Calendar = AppLocale.calendar) {
         self.summary = summary
         let group = summary.budget.groupID
+        // The rules live in the store, which a view doesn't watch. Starting a
+        // repeat again changes nothing else a page reads, so read the revision
+        // here, or the page keeps its old count.
+        _ = model.revision
         repeatsWords = RepeatsList(budget: summary.budget, model: model).countWords
         // Asked once for the whole list: every entry is in this group.
         let mayAdd = model.mayAddEntries(group)

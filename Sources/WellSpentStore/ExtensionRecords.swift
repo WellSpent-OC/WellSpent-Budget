@@ -141,6 +141,42 @@ public extension Store {
         }
     }
 
+    /// Makes an entry a rule's bill for its month, in one write: the rule, the
+    /// entry under the rule's ID for that month, and the old row deleted. So
+    /// no sync or failure can catch the entry counted twice, or not at all.
+    func startRepeat(_ rule: RepeatRule, firstBill: Transaction, replacing entry: Transaction) throws {
+        var old = entry
+        old.isDeleted = true
+        old.updatedAt = Date()
+        try database.write { db in
+            try RepeatRuleRow(rule).save(db)
+            try enqueue(db, recordId: rule.id.dbValue, type: .repeatRule, groupId: rule.groupID.dbValue,
+                        budgetId: rule.budgetID.dbValue, isDeleted: false)
+            try TransactionRow(old).save(db)
+            try enqueue(db, recordId: old.id.dbValue, type: .transaction, groupId: old.groupID.dbValue,
+                        budgetId: old.budgetID.dbValue, isDeleted: true)
+            try TransactionRow(firstBill).save(db)
+            try enqueue(db, recordId: firstBill.id.dbValue, type: .transaction, groupId: firstBill.groupID.dbValue,
+                        budgetId: firstBill.budgetID.dbValue, isDeleted: false)
+        }
+    }
+
+    /// Starts a stopped repeat again, in one write. The months it skips are held
+    /// as deleted bills, which is how a month counts as made and doesn't come
+    /// back. A month that already has a bill keeps it.
+    func restartRepeat(_ rule: RepeatRule, skipping months: [Transaction]) throws {
+        try database.write { db in
+            try RepeatRuleRow(rule).save(db)
+            try enqueue(db, recordId: rule.id.dbValue, type: .repeatRule, groupId: rule.groupID.dbValue,
+                        budgetId: rule.budgetID.dbValue, isDeleted: false)
+            for bill in months where try TransactionRow.fetchOne(db, key: bill.id.dbValue) == nil {
+                try TransactionRow(bill).save(db)
+                try enqueue(db, recordId: bill.id.dbValue, type: .transaction, groupId: bill.groupID.dbValue,
+                            budgetId: bill.budgetID.dbValue, isDeleted: true)
+            }
+        }
+    }
+
     func repeatRule(_ id: RecordID) throws -> RepeatRule? {
         try database.read { db in try RepeatRuleRow.fetchOne(db, key: id.dbValue)?.model() }
     }

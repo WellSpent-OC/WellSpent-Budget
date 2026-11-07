@@ -271,6 +271,7 @@ struct PhoneEntryFields: View {
         }
         if editor.showsRepeatRow {
             Toggle(Words.repeatsRow, isOn: $editor.repeats)
+                .disabled(!editor.repeatRowIsEnabled)
                 .tint(Palette.accent)
                 .accessibilityIdentifier(AccessibilityID.entryRepeats)
             if let line = editor.repeatLine {

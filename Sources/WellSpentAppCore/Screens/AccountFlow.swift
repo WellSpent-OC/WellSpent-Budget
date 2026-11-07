@@ -50,6 +50,16 @@ public final class AccountFlow {
     private var said: String?
     /// Why signing out everywhere did not go through, in words.
     public private(set) var failure: String?
+    /// Said above the button that sets a new password, since the sheet closes
+    /// once it's set.
+    public var passwordNote: String? {
+        switch step {
+        case .changePassword: Words.otherDevicesSignedOut
+        case .forgotPassword where reset.step == .enterCode: Words.otherDevicesSignedOut
+        default: nil
+        }
+    }
+
     /// Set when the sheet should close.
     public private(set) var isFinished = false
     /// Whether the sheet is asking before signing out everywhere.
@@ -170,10 +180,9 @@ public final class AccountFlow {
         failure = nil
         switch next {
         case .forgotPassword:
-            // A reset that finished starts over. One still asking for the
-            // address takes the address just typed, over one a sign-in prompt
-            // filled in; one waiting for its code keeps the address it went to.
-            if reset.step == .done { reset.startOver() }
+            // One still asking for the address takes the address just typed,
+            // over one a sign-in prompt filled in; one waiting for its code
+            // keeps the address it went to.
             if reset.step == .enterEmail, !signIn.email.isEmpty { reset.email = signIn.email }
         case .confirmEmail:
             confirm = ConfirmEmailScreen(actions: actions)
@@ -202,17 +211,15 @@ public final class AccountFlow {
         case .forgotPassword:
             await reset.submit()
             guard reset.step == .done else { return }
-            current = .account
-            said = PasswordResetScreen.finished
             startSyncing()
+            isFinished = true
         case .confirmEmail:
             guard await confirm.submit() else { return }
             current = .account
             said = Words.confirmed
         case .changePassword:
             guard await change.submit() else { return }
-            current = .account
-            said = ChangePasswordScreen.finished
+            isFinished = true
         case .account:
             return
         }
@@ -313,6 +320,7 @@ public final class AccountFlow {
         public static let signOutEverywhere = "Sign out everywhere…"
 
         public static let confirmed = "Your email is confirmed."
+        public static let otherDevicesSignedOut = "Every other device will be signed out."
 
         public static func signedInAs(_ account: String) -> String { "Signed in as \(account)." }
 

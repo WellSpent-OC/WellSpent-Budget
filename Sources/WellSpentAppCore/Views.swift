@@ -361,6 +361,10 @@ struct SidebarView: View {
                 } header: {
                     header(section)
                 }
+                // The list's own hide and show control would be a second arrow.
+                #if os(macOS)
+                .collapsible(false)
+                #endif
             }
             if let note = screen.waitingNote {
                 Text(note)
@@ -417,14 +421,25 @@ struct SidebarView: View {
         }
     }
 
-    /// The group's name, highlighted while its page is open. A click opens the
-    /// page and nothing else. The arrow at the end hides or shows its budgets,
-    /// and no page opens or closes (PAGE-05).
-    /// The sidebar's list makes a group's line one element for VoiceOver and
-    /// the UI tests, joining the identifiers of everything in it. So only the
-    /// name has one, and the arrow sits at the end, where a click finds it.
+    /// One arrow in front of the group's name, as a folder in Finder. It hides or
+    /// shows the budgets and no page opens or closes. A click on the name opens
+    /// the page and nothing else (PAGE-05). The sidebar's list makes the line one
+    /// element for VoiceOver and the UI tests, joining the identifiers of
+    /// everything in it, so only the name has one.
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 2) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
+            } label: {
+                Image(systemName: section.isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Palette.muted)
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(section.toggleHelp)
+            .accessibilityLabel(section.toggleHelp)
             Button {
                 screen.openPage(of: section.group.id)
             } label: {
@@ -444,18 +459,6 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
             .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
-            } label: {
-                Image(systemName: section.isCollapsed ? "chevron.down" : "chevron.up")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Palette.muted)
-                    .frame(width: 16, height: 16)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(section.toggleHelp)
-            .accessibilityLabel(section.toggleHelp)
         }
         .contextMenu { menu(screen.groupMenu(section.group)) }
     }
@@ -670,7 +673,7 @@ struct BudgetDetailView: View {
             TableColumn(BudgetScreen.Words.date) { row in
                 Text(BudgetScreen.shortDate(row.date))
                     .font(.money(12, weight: .regular))
-                    .foregroundStyle(Palette.muted)
+                    .modifier(MutedInARow())
             }
             .width(70)
 
@@ -681,7 +684,7 @@ struct BudgetDetailView: View {
             TableColumn(BudgetScreen.Words.addedBy) { row in
                 Text(row.addedBy)
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
+                    .modifier(MutedInARow())
             }
             .width(90)
             .customizationID("addedBy")
@@ -689,7 +692,7 @@ struct BudgetDetailView: View {
             TableColumn(BudgetScreen.Words.source) { row in
                 Text(row.source)
                     .font(.system(size: 11))
-                    .foregroundStyle(Palette.muted)
+                    .modifier(MutedInARow())
             }
             .width(70)
 
@@ -762,6 +765,21 @@ struct BudgetDetailView: View {
             columns[visibility: "addedBy"] = shared ? .visible : .hidden
             return columns
         }, set: { _ in })
+    }
+}
+
+/// Muted text in a table's row. On a selected row the list's colour is behind
+/// it, and the muted colour can't be read there, so it goes the way the row's
+/// other words go (ENTRY-14).
+private struct MutedInARow: ViewModifier {
+    @Environment(\.backgroundProminence) private var prominence
+
+    func body(content: Content) -> some View {
+        if prominence == .increased {
+            content.foregroundStyle(.primary)
+        } else {
+            content.foregroundStyle(Palette.muted)
+        }
     }
 }
 
@@ -929,6 +947,7 @@ struct EntrySheet: View {
             }
             if editor.showsRepeatRow {
                 Toggle(Words.repeatsRow, isOn: Bindable(editor).repeats)
+                    .disabled(!editor.repeatRowIsEnabled)
                     .accessibilityIdentifier(AccessibilityID.entryRepeats)
                 if let line = editor.repeatLine {
                     Text(line)
@@ -1025,14 +1044,14 @@ struct EntryDescription: View {
             if !row.note.isEmpty {
                 Text(row.note)
                     .font(.system(size: 10))
-                    .foregroundStyle(Palette.muted)
+                    .modifier(MutedInARow())
                     .lineLimit(1)
             }
             if let notice = row.notice {
                 Text(notice)
                     .font(.system(size: 10))
                     .italic()
-                    .foregroundStyle(Palette.muted)
+                    .modifier(MutedInARow())
                     .lineLimit(1)
             }
         }

@@ -112,7 +112,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
                       "the Share sheet did not close")
 
         // Scenario PAGE-05
-        // 10. The arrow at the end of the group's line hides its budgets and
+        // 10. The arrow in front of the group's name hides its budgets and
         // shows them again. The page stays. Other groups on the account may
         // have a Groceries too, so the count must drop, then come back.
         let shown = run.sidebarBudgetCount("Groceries")

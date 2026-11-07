@@ -28,6 +28,10 @@ struct PhoneAccountSheet: View {
                         .listRowBackground(Palette.surface)
                 }
                 step
+                if let passwordNote = flow.passwordNote {
+                    Section { note(passwordNote) }
+                        .listRowBackground(Palette.surface)
+                }
                 if let failure = flow.currentFailure {
                     Section {
                         Label(failure, systemImage: "exclamationmark.triangle")

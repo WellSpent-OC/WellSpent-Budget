@@ -135,6 +135,9 @@ struct AccountSheet: View {
                 note(notice)
             }
             step
+            if let passwordNote = flow.passwordNote {
+                note(passwordNote)
+            }
             if let failure = flow.currentFailure {
                 Label(failure, systemImage: "exclamationmark.triangle")
                     .font(.system(size: 11))

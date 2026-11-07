@@ -267,6 +267,38 @@ final class WhoMayGapTests: XCTestCase {
         await second.cleanUp()
     }
 
+    // MARK: - A selected row in a shared group
+
+    // Scenario ENTRY-14
+    /// Who added it is in a column only a group with someone else in it shows.
+    /// The words have to be seen, not only found, so this reads the screen.
+    @MainActor
+    func testASelectedRowInASharedGroupStaysReadable() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let second = try SecondAccount(server: accounts.server)
+        Self.secondSuite = second.suite
+        let stamp = Self.stamp()
+        let shared = "\(Self.prefix)Selected \(stamp)", groceries = "Groceries \(stamp)", hilltop = "Hilltop Grocery"
+        try await second.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        await second.deleteLeftovers(startingWith: Self.prefix)
+        let link = try await second.shareNewGroup(shared, budget: groceries, entry: hilltop, amount: Money(minorUnits: 14208),
+                                                  myName: "Leslie", role: .view)
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.join(link.url, as: "Robin")
+        run.openBudget(named: groceries)
+        XCTAssertTrue(run.entryRow(hilltop).waitForExistence(timeout: 60), "Hilltop Grocery did not arrive")
+
+        let texts = try run.selectedRowTexts(after: hilltop)
+        XCTAssertTrue(texts.contains { $0.label == "Leslie" || ($0.value as? String) == "Leslie" }, "no Added by on the row")
+        try run.expectReadable(texts)
+        run.signOut()
+        await second.deleteGroup(named: shared)
+        await second.cleanUp()
+    }
+
     // MARK: - At View, and only from now on
 
     @MainActor
@@ -868,6 +900,10 @@ private extension TestApp {
         _ = wait(for: button, until: "isEnabled == false", timeout: 3)
         XCTAssertTrue(wait(for: button, until: "isEnabled == true", timeout: 60), "the sync never finished",
                       file: file, line: line)
+        // A sync that failed leaves this app with what it knew before, and the
+        // steps after it would fail on something else.
+        XCTAssertNotEqual(button.label, SyncWording.syncTitle(for: .failed("")),
+                          "the sync failed: \(button.label)", file: file, line: line)
     }
 
     /// Waits for an entry's row in the budget's list to show each of
