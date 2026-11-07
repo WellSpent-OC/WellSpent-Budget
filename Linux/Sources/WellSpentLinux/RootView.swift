@@ -423,6 +423,14 @@ struct SidebarView: View {
                     .padding(.horizontal, 6)
             }
             HStack {
+                // One arrow in front of the name, as a folder in a file
+                // manager: down while the budgets show, right while hidden.
+                // It hides or shows them, and no page opens or closes
+                // (PAGE-05). Named by its tooltip too, as on the Mac.
+                Button(section.isCollapsed ? "▸" : "▾") { screen.toggle(section.id) }
+                    .accessibility(label: section.toggleHelp)
+                    .help(section.toggleHelp)
+                    .buttonStyle(.plain)
                 // The name opens the group's page (PAGE-01). A screen reader
                 // and the UI tests know the button by the name itself.
                 Button(action: { screen.openPage(of: section.id) }) {
@@ -446,12 +454,6 @@ struct SidebarView: View {
                 Menu("⋯") {
                     menuItems(screen.groupMenu(section.group))
                 }
-                // The arrow at the end of the line hides or shows the budgets
-                // (PAGE-05), as on the Mac, which names it by its tooltip too.
-                Button(section.isCollapsed ? "▾" : "▴") { screen.toggle(section.id) }
-                    .accessibility(label: section.toggleHelp)
-                    .help(section.toggleHelp)
-                    .buttonStyle(.plain)
             }
         }
     }

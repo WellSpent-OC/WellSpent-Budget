@@ -68,7 +68,7 @@ its place on the screen.
 
   ```python
   # Scenario PAGE-05
-  # 10. The arrow at the end of the group's line hides its budgets.
+  # 1. The arrow in front of the group's name hides its budgets.
   ```
 
   After adding or removing a tag, update the tables in `Features/README.md`.
