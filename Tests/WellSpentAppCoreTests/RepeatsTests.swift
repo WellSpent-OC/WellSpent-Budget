@@ -345,6 +345,40 @@ struct RepeatsTests {
         #expect(try model.store.transaction(entry.id)?.isDeleted == false)
     }
 
+    // Scenario REPEAT-17
+    /// The new bill has to go to the server under the person who added the entry,
+    /// and the server only takes a new row from its owner. A manager's device
+    /// would be refused the bill while the delete of the old row went through, so
+    /// every other device would lose the entry.
+    @Test func aManagerCannotTurnItOnForSomeoneElsesEntry() throws {
+        let entry = try aWaterBill()
+        try giveIt(entry, UserID())
+        let manager = UserID()
+        model.me = { manager }
+        model.mayManageEntries = { _ in true }
+
+        let editor = try reopen(entry.id)
+        #expect(!editor.isReadOnly, "a manager may still change the bill")
+        #expect(editor.showsRepeatRow && !editor.repeats)
+        #expect(!editor.repeatRowIsEnabled, "the switch is dimmed")
+        editor.repeats = true
+        _ = editor.save()
+        model.startRepeating(from: entry.id)
+
+        #expect(try model.store.repeatRules(in: group).isEmpty)
+        let kept = try #require(try model.store.transaction(entry.id))
+        #expect(!kept.isDeleted && kept.repeatRuleID == nil)
+    }
+
+    /// A row with no owner yet goes to the server as whoever sends it.
+    @Test func anEntryWithNoOwnerCanStillTurnItOn() throws {
+        let entry = try aWaterBill()
+        #expect(entry.createdBy == nil)
+        #expect(try reopen(entry.id).repeatRowIsEnabled)
+        try turnOn(entry.id)
+        #expect(try model.store.repeatRules(in: group).count == 1)
+    }
+
     private func reopen(_ id: RecordID) throws -> EntryEditor { try #require(EntryEditor(model: model, entry: id)) }
 
     /// Turned on, off and on again, it's one repeat all the way through.

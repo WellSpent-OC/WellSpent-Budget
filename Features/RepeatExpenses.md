@@ -19,6 +19,7 @@ Platforms: Mac, iPhone
 - Then the bill is in Utilities once, with its date, its note and who added it unchanged
 - And its source says "Repeat", and the count line says "1 repeat"
 - And next month has one water bill, not two
+- And only the person who added a bill can turn this on. A manager who opens someone else's bill sees the switch off and dimmed, and the bill stays as it is
 
 ## REPEAT-18 The switch shows the truth
 
