@@ -131,6 +131,20 @@ esac
 arch_flags=""
 for arch in $ARCHS; do arch_flags="$arch_flags --arch $arch"; done
 
+# Whether the Properties package is linked decides what `#if canImport` compiles,
+# and an incremental build doesn't look again: code built without it would keep its
+# placeholder pages, with the package linked beside them, and every check here
+# would pass. So a change of what's linked starts a named scratch folder over. The
+# default, .build, is the developer's own folder, and is never removed here.
+if [ "$SCRATCH" != ".build" ]; then
+    linked_stamp="$SCRATCH/.linked-properties"
+    if [ -d "$SCRATCH" ] && [ "$(cat "$linked_stamp" 2>/dev/null || true)" != "${WELLSPENT_PROPERTIES_PATH:-}" ]; then
+        rm -rf "$SCRATCH"
+    fi
+    mkdir -p "$SCRATCH"
+    printf '%s' "${WELLSPENT_PROPERTIES_PATH:-}" > "$linked_stamp"
+fi
+
 # shellcheck disable=SC2086
 swift build -c release --product WellSpentApp --scratch-path "$SCRATCH" $arch_flags
 # shellcheck disable=SC2086

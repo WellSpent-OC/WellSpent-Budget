@@ -11,7 +11,8 @@ import PackageDescription
 // WELLSPENT_PROPERTIES_PATH to a checkout of WellSpent-OC/WellSpent-Properties
 // links it, and the app's seam (`#if canImport(WellSpentProperties)`) comes
 // alive. Unset, which is every public build, the app builds without it.
-let propertiesPath = Context.environment["WELLSPENT_PROPERTIES_PATH"]
+// Empty is the same as unset: a path of "" would name this package itself.
+let propertiesPath = Context.environment["WELLSPENT_PROPERTIES_PATH"].flatMap { $0.isEmpty ? nil : $0 }
 let propertiesDependencies: [Package.Dependency] =
     propertiesPath.map { [.package(name: "WellSpentProperties", path: $0)] } ?? []
 let propertiesProducts: [Target.Dependency] =

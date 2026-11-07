@@ -317,12 +317,14 @@ TESTFLIGHT_VERSION ?= $(patsubst v%,%,$(shell git describe --tags --exact-match 
 # Worked out once, so every step of one run uses the same build number.
 ifeq ($(origin TESTFLIGHT_BUILD),undefined)
 TESTFLIGHT_BUILD := $(shell date -u +%Y%m%d%H%M)
+endif
 # The flags a TestFlight build carries on, so testers reach extensions with no
 # switch (decided 2026-10-29). The App Store build is made without them. The
-# private Properties package is linked from its checkout beside this one.
+# private Properties package is linked from its checkout beside this one. Outside
+# the block above: `testflight` hands the twin its build number, and the twin needs
+# these too.
 TESTFLIGHT_FEATURES ?= extensions,properties
 TESTFLIGHT_PROPERTIES_PATH ?= $(HOME)/rvn/wellspent-properties
-endif
 TESTFLIGHT_OUT := .build/testflight
 TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
 TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
@@ -379,8 +381,10 @@ release-twin: ui-test-project
 	@$(UI_TEST_VARS_SET)
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=staging SIGN=development VERSION=$(or $(TESTFLIGHT_VERSION),0.0.0-twin) \
 		BUILD=$(TESTFLIGHT_BUILD) OUT=$(TWIN_OUT) SCRATCH=.build/twin-scratch TWIN_PROFILE="$(TWIN_PROFILE)" \
+		WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" WELLSPENT_PROPERTIES_PATH="$(TESTFLIGHT_PROPERTIES_PATH)" \
 		KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	$(UI_TEST_XCODEBUILD) build-for-testing
 	rm -rf .build/xcode/release-twin.xcresult
-	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" $(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
+	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" TEST_RUNNER_WELLSPENT_TWIN_FEATURES="$(TESTFLIGHT_FEATURES)" \
+		$(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
 		-only-testing:WellSpentUITests/ReleaseTwinTests -resultBundlePath .build/xcode/release-twin.xcresult
