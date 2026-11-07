@@ -138,6 +138,22 @@ struct ViewTests {
         #expect(screen.sections.first?.isCollapsed == false, "the arrow shows them")
     }
 
+    // Scenario PAGE-05
+    /// One arrow, in front of the name: down when the budgets show, right when
+    /// they're hidden, as a folder in Finder and on the iPhone.
+    @Test func theArrowPointsTheWayAFolderDoes() throws {
+        let (model, group, _) = try modelWithData()
+        let screen = MainScreen(workspace: Workspace(model: model, sync: idleSync(model)))
+        let sidebar = SidebarView(screen: screen, editor: .constant(nil), showingAccount: .constant(false))
+        func arrows() throws -> [String] {
+            try sidebar.inspect().findAll(ViewType.Image.self).compactMap { try? $0.actualImage().name() }
+                .filter { $0.hasPrefix("chevron") }
+        }
+        #expect(try arrows() == ["chevron.down"])
+        screen.toggle(group.id)
+        #expect(try arrows() == ["chevron.right"])
+    }
+
     @Test func groupsCollapseAndExpandIndependently() {
         let household = GroupID(), sideBusiness = GroupID()
         var stored = ""

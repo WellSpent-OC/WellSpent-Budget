@@ -286,8 +286,20 @@ final class SignUpTests: XCTestCase {
                        "Confirm your email\u{2026} after the email is confirmed")
         XCTAssertFalse(run.app.staticTexts[ConfirmEmailScreen.reason].exists,
                        "Your account still asks to confirm the email")
-        run.click(AccessibilityID.accountClose)
-        run.expectSheetClosed("after Done")
+
+        // Scenario ACCT-17
+        // 14b. Change password…: the words say every other device will be
+        // signed out, and setting it closes the sheet, signed in.
+        run.click(AccessibilityID.accountChangePassword)
+        run.expect(step: .changePassword, "after Change password")
+        run.expect(words: Words.otherDevicesSignedOut, "above Set password")
+        run.paste(password, into: AccessibilityID.accountCurrentPassword)
+        run.paste(newPassword, into: AccessibilityID.accountNewPassword)
+        run.paste(newPassword, into: AccessibilityID.accountConfirmation)
+        run.expect(AccessibilityID.accountSubmit, named: Words.changePasswordButton, "Change your password")
+        run.click(AccessibilityID.accountSubmit)
+        run.expectSheetClosed("after changing the password")
+        run.expectFooter(signedIn: true, "after changing the password")
 
         // 15. Tidy, before the end: the group goes, for everyone.
         run.deleteGroup(named: groupName)
@@ -322,24 +334,22 @@ final class SignUpTests: XCTestCase {
         let resetCode = try await mailbox.code(for: address, after: code)
 
         // Scenario ACCT-10
-        // 17. The code and a new password twice, then Set password: Your
-        // account says the password is changed and this computer is signed
-        // in.
+        // 17. The code and a new password twice, then Set password: the
+        // words say every other device will be signed out, the sheet closes,
+        // and this computer is signed in.
         run.type(resetCode, into: AccessibilityID.accountCode)
         run.paste(newPassword, into: AccessibilityID.accountNewPassword)
         run.paste(newPassword, into: AccessibilityID.accountConfirmation)
         run.expect(AccessibilityID.accountSubmit, named: Words.setPassword, "Reset your password")
         run.expect(AccessibilityID.accountSubmit, enabled: true, "Set password, with the code and both passwords")
+        run.expect(words: Words.otherDevicesSignedOut, "above Set password")
         run.click(AccessibilityID.accountSubmit)
-        run.expect(step: .account, "after Set password")
-        run.expect(words: PasswordResetScreen.finished, "after Set password")
+        run.expectSheetClosed("after Set password")
         run.expectFooter(signedIn: true, "after Set password")
 
-        // 18. Tidy: Sign out. The reset has already signed every other
-        // session out.
-        run.click(AccessibilityID.accountSignOut)
-        run.expectSheetClosed("after Sign out")
-        run.expectFooter(signedIn: false, "after Sign out")
+        // 18. Tidy: with no budget left to open Account from, a quit signs
+        // this computer out, as in step 16.
+        run.app.terminate()
     }
 
     /// Part of the group's name, so runs never share one.

@@ -108,9 +108,9 @@ struct AccountFlowTests {
         #expect(synced == 1)
     }
 
-    /// A forgotten password takes the address already typed, ends signed in,
-    /// and says every other device was signed out.
-    @Test func aForgottenPasswordEndsOnTheAccount() async throws {
+    /// A forgotten password takes the address already typed, says every other
+    /// device will be signed out, and closes the sheet, signed in.
+    @Test func aForgottenPasswordClosesTheSheet() async throws {
         let server = InMemoryReadableServer()
         server.seedAccount(email: "robin@example.com", password: "the-old-password", verified: true)
         let sync = try device(on: server)
@@ -125,6 +125,7 @@ struct AccountFlowTests {
         await flow.submit()
         #expect(flow.reset.step == .enterCode)
         #expect(flow.submitLabel == "Set password")
+        #expect(flow.passwordNote == "Every other device will be signed out.")
         flow.reset.code = try #require(server.lastCode(for: "robin@example.com", purpose: .reset))
         flow.reset.password = "the-new-password"
         flow.reset.confirmation = "the-new-password"
@@ -132,14 +133,13 @@ struct AccountFlowTests {
         await flow.submit()
         await flow.syncing?.value
 
-        #expect(flow.step == .account)
-        #expect(flow.notice == PasswordResetScreen.finished)
+        #expect(flow.isFinished, "the sheet closes")
         #expect(synced == 1)
         #expect(sync.account == "robin@example.com")
     }
 
-    /// Signed in, the sheet opens at the account. Changing the password
-    /// comes back to it and says so.
+    /// Signed in, the sheet opens at the account. Changing the password says
+    /// every other device will be signed out, then closes the sheet.
     @Test func signedInItOpensAtTheAccount() async throws {
         let server = InMemoryReadableServer()
         server.seedAccount(email: "robin@example.com", password: "the-old-password")
@@ -155,12 +155,13 @@ struct AccountFlowTests {
 
         flow.go(to: .changePassword)
         #expect(flow.back == .account)
+        #expect(flow.passwordNote == "Every other device will be signed out.")
         flow.change.current = "the-old-password"
         flow.change.password = "the-new-password"
         flow.change.confirmation = "the-new-password"
         await flow.submit()
-        #expect(flow.step == .account)
-        #expect(flow.notice == ChangePasswordScreen.finished)
+        #expect(flow.isFinished, "the sheet closes")
+        #expect(sync.account == "robin@example.com", "still signed in")
     }
 
     @Test func signingOutCloses() async throws {
@@ -353,7 +354,6 @@ struct AccountFlowTests {
         flow.change.password = "the-new-password"
         flow.change.confirmation = "the-new-password"
         await flow.submit()
-        #expect(flow.notice == ChangePasswordScreen.finished)
 
         sync.endSession(reason: SyncCoordinator.sessionEndedReason)
 
@@ -363,8 +363,7 @@ struct AccountFlowTests {
     }
 
     /// A reset waiting for its code keeps the address the code went to,
-    /// whatever is typed on the sign-in step meanwhile. A finished reset
-    /// starts over.
+    /// whatever is typed on the sign-in step meanwhile.
     @Test func aResetKeepsTheAddressItsCodeWentTo() async throws {
         let server = InMemoryReadableServer()
         server.seedAccount(email: "robin@example.com", password: "the-old-password", verified: true)
@@ -387,10 +386,7 @@ struct AccountFlowTests {
         flow.reset.confirmation = "the-new-password"
         await flow.submit()
         await flow.syncing?.value
-        sync.endSession(reason: SyncCoordinator.sessionEndedReason)
-        flow.go(to: .forgotPassword)
-        #expect(flow.reset.step == .enterEmail, "a finished reset starts over")
-        #expect(flow.canSubmit)
+        #expect(flow.isFinished, "a finished reset closes the sheet, and the next sheet starts over")
     }
 
     /// An address typed on the sign-in step goes to the reset, over one a

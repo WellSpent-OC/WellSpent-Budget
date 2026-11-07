@@ -776,6 +776,39 @@ struct MadeRepeatSyncTests {
         #expect(try offline.store.conflicts(for: edited.id).isEmpty)
     }
 
+    // Scenario REPEAT-17
+    /// Turning the repeat on for an entry reaches another device as the same
+    /// bill: one live row, the same to read, with no conflict either side.
+    @Test func turningItOnReachesAnotherDeviceAsTheSameBill() async throws {
+        let home = try await Household()
+        let other = try await home.founderAgain()
+        let date = noon
+        let entry = Transaction(budgetID: home.budget.id, groupID: home.group.id, date: date, merchant: "Water", note: "Meter 12",
+                                amount: Money(minorUnits: -4_000), createdBy: home.founder.user)
+        try home.founder.store.save(entry)
+        try await home.founder.sync(home.group.id)
+        try await other.sync(home.group.id)
+
+        let rule = RepeatRule(groupID: home.group.id, budgetID: home.budget.id, name: "Water", amount: entry.amount, day: 5,
+                              firstMonth: "2026-11", createdBy: home.founder.user)
+        var bill = entry
+        bill.id = .repeatMade(group: home.group.id, rule: rule.id, month: "2026-11")
+        bill.repeatRuleID = rule.id
+        bill.repeatMonth = "2026-11"
+        try home.founder.store.startRepeat(rule, firstBill: bill, replacing: entry)
+        let sent = try await home.founder.sync(home.group.id)
+        let received = try await other.sync(home.group.id)
+        #expect(sent.rejected == 0 && sent.conflicts == 0)
+        #expect(received.conflicts == 0)
+
+        let live = try other.store.transactions(in: home.budget.id, period: nil).filter { !$0.isDeleted }
+        #expect(live.map(\.id) == [bill.id], "one row, not a new one beside the old")
+        let seen = try #require(live.first)
+        #expect(seen.merchant == "Water" && seen.note == "Meter 12" && seen.date == date)
+        #expect(seen.createdBy == entry.createdBy && seen.amount == entry.amount)
+        #expect(try home.founder.store.outboxCount(in: home.group.id) == 0)
+    }
+
     // Scenario REPEAT-09
     @Test func aDeletedMonthIsNeverMadeAgain() async throws {
         let home = try await Household()

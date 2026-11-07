@@ -34,7 +34,7 @@ A UI test names a scenario with one comment line, directly above the step that c
 
 ```swift
 // Scenario PAGE-05
-// 10. The arrow at the end of the group's line hides its budgets and
+// 10. The arrow in front of the group's name hides its budgets and
 // shows them again. The page stays.
 ```
 
@@ -74,6 +74,7 @@ It is not kept here, where every pull request would change the same lines.
 | ACCT-14 | Each device is listed by its own name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-16 | On a Mac, the Dock says STAGING too | Mac | Mac |
+| ACCT-17 | Change password | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [SampleGroups.md](SampleGroups.md)
 
@@ -126,6 +127,7 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-11 | The keyboard adds and cancels | Mac, Linux | Mac, Linux |
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ENTRY-14 | A selected row stays readable | Mac | Mac |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
@@ -171,6 +173,29 @@ It is not kept here, where every pull request would change the same lines.
 | IMPORT-13 | A file that is not a statement is explained in words | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | IMPORT-14 | At View, there is no Import statement | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
+### [RepeatExpenses.md](RepeatExpenses.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| REPEAT-01 | Setting a repeat | Mac, iPhone | Mac |
+| REPEAT-02 | It shows up each month | Mac, iPhone | None yet |
+| REPEAT-03 | Catching up after time away | Mac, iPhone | None yet |
+| REPEAT-04 | A short month | Mac, iPhone | None yet |
+| REPEAT-05 | Two devices make one bill | Mac, iPhone | None yet |
+| REPEAT-06 | This month only | Mac, iPhone | Mac |
+| REPEAT-07 | This month and later | Mac, iPhone | Mac |
+| REPEAT-08 | Stopping | Mac, iPhone | Mac |
+| REPEAT-09 | Deleting a made bill asks | Mac, iPhone | Mac |
+| REPEAT-10 | Undo | Mac, iPhone | Mac |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, iPhone | None yet |
+| REPEAT-12 | Finding them all | Mac, iPhone | Mac |
+| REPEAT-13 | Money in doesn't repeat | Mac, iPhone | Mac |
+| REPEAT-14 | A statement line replaces that month's repeat | Mac, iPhone | None yet |
+| REPEAT-15 | Saying no to a match | Mac, iPhone | None yet |
+| REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
+| REPEAT-17 | Turning it on for a bill already there | Mac, iPhone | Mac, iPhone |
+| REPEAT-18 | The switch shows the truth | Mac, iPhone | Mac, iPhone |
+
 ### [Sharing.md](Sharing.md)
 
 | ID | Scenario | Platforms | Has a test on |
@@ -198,7 +223,7 @@ It is not kept here, where every pull request would change the same lines.
 | PAGE-02 | People… in the group's menu opens the same page | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-03 | A budget takes the page's place | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-04 | The sidebar marks the group whose page is open | Mac, Linux | Mac, Linux |
-| PAGE-05 | The arrow at the end of a group's line hides and shows its budgets | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PAGE-05 | The arrow in front of a group's name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-06 | The line under the name says whether it is shared, how many, and who made it | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-07 | Signed out, the page says only that it is not shared | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PAGE-08 | PEOPLE lists everyone, with their level and what it lets them do | Mac, Linux, iPhone | Mac, Linux, iPhone |

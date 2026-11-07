@@ -33,6 +33,9 @@ struct AccountView: View {
                 note(notice)
             }
             step
+            if let passwordNote = flow.passwordNote {
+                note(passwordNote)
+            }
             if let failure = flow.currentFailure {
                 Text(failure)
                     .font(.system(size: 12))

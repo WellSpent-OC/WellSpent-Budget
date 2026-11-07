@@ -134,3 +134,11 @@ Platforms: Mac, Linux, iPhone, for every INC scenario.
 - When Robin looks at Pool House
 - Then its cash flow this month says $4,380.00
 - And it never says "profit"
+
+## ENTRY-14 A selected row stays readable
+
+Platforms: Mac
+
+- Given a budget's list, in a group with someone else in it
+- When Robin selects a row
+- Then its date, description, who added it, its source and its amount can all still be read on the selection's colour
