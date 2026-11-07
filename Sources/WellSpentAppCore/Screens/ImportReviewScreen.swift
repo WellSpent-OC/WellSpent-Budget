@@ -54,6 +54,9 @@ public struct ImportReviewScreen {
         /// (INC-02). Nil for money out.
         public let kind: TransactionKind?
         public var isMoneyIn: Bool { kind != nil }
+        /// It replaces a repeat's bill, so it offers Keep both.
+        public let offersKeepBoth: Bool
+        public let isKeepingBoth: Bool
 
         /// The date and the cleaned-up name on one line, for a phone:
         /// "Oct 2 · Trader Joes".
@@ -80,8 +83,9 @@ public struct ImportReviewScreen {
             guard case .needsBudget = pending.proposals[index].decision else { return false }
             return pending.chosenBudgets[index] != nil
         }.count
-        return [Tile(label: Words.matched, count: summary.matched, tone: .matched),
-                Tile(label: Words.toAdd, count: summary.toAdd + chosen, tone: .toAdd),
+        let kept = pending.keptBoth.count
+        return [Tile(label: Words.matched, count: summary.matched - kept, tone: .matched),
+                Tile(label: Words.toAdd, count: summary.toAdd + chosen + kept, tone: .toAdd),
                 Tile(label: Words.alreadyImported, count: summary.alreadyImported, tone: .alreadyImported),
                 Tile(label: Words.needsBudget, count: summary.needBudget - chosen, tone: .needsBudget)]
     }
@@ -94,12 +98,19 @@ public struct ImportReviewScreen {
             // Given a budget here, it will be added. It keeps its picker, so
             // the choice can still change.
             if needsBudget, pending.chosenBudgets[index] != nil { (status, tone) = (Words.willBeAdded, .toAdd) }
+            var offersKeepBoth = false
+            if case .replacesMade(let id) = proposal.decision {
+                offersKeepBoth = true
+                status = pending.keptBoth.contains(index) ? Words.willBeAdded : Self.replacing(id, model: model)
+                tone = pending.keptBoth.contains(index) ? .toAdd : .matched
+            }
             return Row(id: index, date: proposal.line.date, description: proposal.line.cleanedDescription,
                        bankDescription: proposal.line.rawDescription,
                        amount: proposal.line.amount.display,
                        status: status, tone: tone, isActionable: proposal.isActionable,
                        needsBudget: needsBudget, chosenBudget: pending.chosenBudgets[index],
-                       kind: pending.chosenKinds[index])
+                       kind: pending.chosenKinds[index], offersKeepBoth: offersKeepBoth,
+                       isKeepingBoth: pending.keptBoth.contains(index))
         }
     }
 
@@ -127,6 +138,19 @@ public struct ImportReviewScreen {
         model.pendingImport?.chosenKinds[row] = kind
     }
 
+    /// Keep both: the line is added as a new entry, and the bill stays as it is.
+    public func keepBoth(_ keep: Bool, for row: Int) {
+        guard let proposal = model.pendingImport?.proposals[row], case .replacesMade = proposal.decision else { return }
+        if keep { model.pendingImport?.keptBoth.insert(row) } else { model.pendingImport?.keptBoth.remove(row) }
+    }
+
+    /// "Replaces December's Phone bill, $85.00".
+    private static func replacing(_ id: RecordID, model: AppModel) -> String {
+        guard let bill = try? model.store.transaction(id), let month = bill.repeatMonth else { return Words.matchedEntry }
+        return Words.replaces(month: EntryEditor.Words.monthName(month), name: bill.merchant,
+                              amount: BudgetScreen.amountText(bill.amount))
+    }
+
     /// What the system's file picker gives back. The first file chosen is read
     /// and reviewed. Nothing chosen does nothing. A picker that failed says why
     /// on the window, and no review opens.
@@ -146,7 +170,7 @@ public struct ImportReviewScreen {
         switch decision {
         case .alreadyImported: (Words.alreadyImported, .alreadyImported)
         case .matchesReceipt: (Words.matchedReceipt, .matched)
-        case .matchesTransaction: (Words.matchedEntry, .matched)
+        case .matchesTransaction, .replacesMade: (Words.matchedEntry, .matched)
         case .add: (Words.willBeAdded, .toAdd)
         case .needsBudget: (Words.needsBudget, .needsBudget)
         }
@@ -162,6 +186,10 @@ public struct ImportReviewScreen {
         public static let matchedReceipt = "Matched to receipt"
         public static let matchedEntry = "Matched to entry"
         public static let willBeAdded = "Will be added"
+        public static func replaces(month: String, name: String, amount: String) -> String {
+            "Replaces \(month)'s \(name), \(amount)"
+        }
+        public static let keepBoth = "Keep both"
         public static let choose = "Choose"
         /// The name VoiceOver reads for a line's budget list.
         public static let budget = "Budget"

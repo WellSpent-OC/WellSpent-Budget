@@ -1119,7 +1119,8 @@ struct ImportReviewSheet: View {
                 ForEach(screen.rows) { row in
                     ImportRow(row: row, choices: screen.budgetChoices,
                               choose: { screen.choose($0, for: row.id) },
-                              chooseKind: { screen.choose($0, for: row.id) })
+                              chooseKind: { screen.choose($0, for: row.id) },
+                              keepBoth: { screen.keepBoth($0, for: row.id) })
                     Divider()
                 }
             }
@@ -1158,6 +1159,7 @@ struct ImportRow: View {
     let choices: [Budget]
     let choose: (BudgetID?) -> Void
     let chooseKind: (TransactionKind) -> Void
+    var keepBoth: (Bool) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1179,11 +1181,22 @@ struct ImportRow: View {
                 .font(.money(12, weight: .regular))
                 .frame(width: 84, alignment: .trailing)
 
-            HStack(spacing: 5) {
-                Circle().fill(ImportReviewSheet.color(row.tone)).frame(width: 5, height: 5)
-                Text(row.status).font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ImportReviewSheet.color(row.tone))
-                    .accessibilityIdentifier(AccessibilityID.importLineStatus(row.bankDescription))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Circle().fill(ImportReviewSheet.color(row.tone)).frame(width: 5, height: 5)
+                    Text(row.status).font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(ImportReviewSheet.color(row.tone))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier(AccessibilityID.importLineStatus(row.bankDescription))
+                }
+                if row.offersKeepBoth {
+                    Toggle(ImportReviewScreen.Words.keepBoth, isOn: Binding(get: { row.isKeepingBoth }, set: { keepBoth($0) }))
+                        #if os(macOS)
+                        .toggleStyle(.checkbox)
+                        #endif
+                        .font(.system(size: 11))
+                        .accessibilityIdentifier(AccessibilityID.importLineKeepBoth(row.bankDescription))
+                }
             }
             .frame(width: 140, alignment: .leading)
 
