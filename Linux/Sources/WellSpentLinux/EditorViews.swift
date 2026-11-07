@@ -153,6 +153,7 @@ struct GroupEditorView: View {
 /// when it turns read-only are the shared code's, as on the Mac.
 struct EntryEditorView: View {
     @State var editor: EntryEditor
+    @State private var confirmsStop = false
     var close: () -> Void
     private typealias Words = EntryEditor.Words
 
@@ -186,7 +187,9 @@ struct EntryEditorView: View {
             buttons
         }
         .padding(20)
-        .frame(width: 420)
+        // Wider than the other sheets: a repeat's bill has four buttons along
+        // the bottom, Stop repeating… with the three every bill has.
+        .frame(width: 480)
         .foregroundColor(Palette.ink)
         .background(Palette.surface)
         // The sheet asks its own delete question, so it shows over the sheet.
@@ -196,6 +199,19 @@ struct EntryEditorView: View {
             Button(Words.cancel) { editor.cancelDelete() }
             Button(pending?.confirmLabel ?? Words.delete) {
                 if editor.confirmDelete() { close() }
+            }
+            // A made bill's second choice (REPEAT-09).
+            if let pending, editor.offersStop(pending) {
+                Button(PendingDelete.deleteAndStop) {
+                    if editor.confirmDeleteAndStop() { close() }
+                }
+            }
+        }
+        .alert("\(RepeatEditor.Words.stopTitle)\n\n\(RepeatEditor.Words.stopMessage)", isPresented: $confirmsStop) {
+            Button(Words.cancel) {}
+            Button(RepeatEditor.Words.stopConfirm) {
+                editor.stopRepeating()
+                close()
             }
         }
     }
@@ -250,13 +266,45 @@ struct EntryEditorView: View {
         }
         Field(label: Words.note, prompt: Words.note,
               text: Binding(get: { editor.note }, set: { editor.note = $0 }))
+        // The two pickers sit beside their labels, so a repeat's bill, with its
+        // extra rows, still fits a laptop's height.
         if editor.editing != nil {
-            Text(Words.budget)
-                .font(.system(size: 12))
-            Picker(of: budgetChoices, selection: Binding(
-                get: { budgetChoices.first { $0.value == editor.budgetID } },
-                set: { editor.budgetID = $0?.value ?? editor.budgetID }))
+            HStack(spacing: 10) {
+                Text(Words.budget)
+                    .font(.system(size: 12))
+                Picker(of: budgetChoices, selection: Binding(
+                    get: { budgetChoices.first { $0.value == editor.budgetID } },
+                    set: { editor.budgetID = $0?.value ?? editor.budgetID }))
+            }
         }
+        if editor.showsRepeatRow {
+            // The Mac's switch, a labelled check box here, as Money in is.
+            Toggle(Words.repeatsRow, isOn: Binding(get: { editor.repeats }, set: { editor.repeats = $0 }))
+                .toggleStyle(.checkbox)
+                .controlLabel(Words.repeatsRow)
+                .disabled(!editor.repeatRowIsEnabled)
+            if let line = editor.repeatLine {
+                Note(line)
+            }
+        }
+        if editor.showsWhichMonths {
+            HStack(spacing: 10) {
+                Text(Words.whichMonths)
+                    .font(.system(size: 12))
+                Picker(of: reachChoices, selection: Binding(
+                    get: { reachChoices.first { $0.value == editor.reach } },
+                    set: { editor.reach = $0?.value ?? editor.reach }))
+                    .controlDescription(Words.whichMonths)
+            }
+            if let line = editor.whichMonthsLine(editor.reach) {
+                Note(line)
+            }
+        }
+    }
+
+    private var reachChoices: [Choice<AppModel.RepeatReach>] {
+        [Choice(value: .thisMonthOnly, description: Words.thisMonthOnly),
+         Choice(value: .thisMonthAndLater, description: Words.thisMonthAndLater)]
     }
 
     /// The entry as it was opened, as plain words, in place of the fields.
@@ -277,15 +325,23 @@ struct EntryEditorView: View {
     /// Delete… on the left, apart from Save. Cancel and Save, or Add, on the
     /// right, or Done alone when read-only.
     private var buttons: some View {
+        // Each button keeps its width. Otherwise, beside the wide Stop
+        // repeating…, the Spacer takes the room and Save stands one letter wide.
         HStack {
+            if editor.offersStopRepeating {
+                Button(Words.stopRepeating) { confirmsStop = true }
+                    .fixedSize()
+            }
             if editor.offersDelete {
                 Button(Words.delete) { editor.askDelete() }
+                    .fixedSize()
             }
             Spacer()
             if editor.isReadOnly {
                 Button(Words.done) { close() }
             } else {
                 Button(Words.cancel) { close() }
+                    .fixedSize()
                 if editor.editing == nil {
                     Button(Words.add) {
                         if editor.add() { close() }
@@ -299,6 +355,7 @@ struct EntryEditorView: View {
                     }
                     .defaultAction()
                     .disabled(!editor.canSave)
+                    .fixedSize()
                 }
             }
         }
