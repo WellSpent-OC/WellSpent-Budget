@@ -63,6 +63,17 @@ class GroupPage(unittest.TestCase):
         app.until(lambda: self.budget_shows("Pantry"), "Pantry in place of the page")
         self.assertFalse(self.page_shows("Household"))
 
+    def arrow(self, label):
+        """Household's arrow, labelled `label`: the control just in front of
+        the name, as a screen reader reads the line, with only the menu after
+        the name. Gives back what it draws, such as "▾"."""
+        app = self.app
+        line = [b for b in app.main.all("push button") if b.showing]
+        name = next(i for i, b in enumerate(line) if b.words == "HOUSEHOLD")
+        self.assertEqual(label, line[name - 1].words, f"{label!r} is not just in front of the name")
+        self.assertEqual("⋯", line[name + 1].words, "something other than the menu after the name")
+        return "".join(l.text for l in line[name - 1].all("label"))
+
     def test_the_arrow_hides_and_shows_a_groups_budgets(self):
         app = self.app
         household = ("Groceries", "Eating out", "Utilities")
@@ -70,29 +81,39 @@ class GroupPage(unittest.TestCase):
         app.until(lambda: self.budget_shows("Groceries"), "Groceries to open")
 
         # Scenario PAGE-05
-        # 1. The arrow hides Household's budgets and is then labelled "Show
-        # budgets". Groceries stays open: no page opens or closes.
+        # 1. One arrow is in front of Household's name, pointing down,
+        # labelled "Hide budgets". It hides the budgets, then points right,
+        # labelled "Show budgets". Groceries stays open: no page opens or
+        # closes.
+        self.assertEqual("▾", self.arrow("Hide budgets"), "the arrow doesn't point down while the budgets show")
         app.near("push button", "Hide budgets", to=app.group("Household")).press()
         app.until(lambda: not any(app.has_budget(b) for b in household), "Household's budgets to hide")
-        app.near("push button", "Show budgets", to=app.group("Household"))
+        self.assertEqual("▸", self.arrow("Show budgets"), "the arrow doesn't point right while the budgets are hidden")
         self.assertTrue(app.reads(["Groceries"], within=app.main))
         self.assertTrue(app.shows("Import statement", within=app.main, role="push button"))
         self.assertFalse(self.page_shows("Household"))
         self.assertTrue(app.has_budget("Materials"))
 
         # Scenario PAGE-05
-        # 2. Again: the budgets show, and the arrow says "Hide budgets".
+        # 2. Again: the budgets show, and the arrow points down.
         app.near("push button", "Show budgets", to=app.group("Household")).press()
         app.until(lambda: all(app.has_budget(b) for b in household), "Household's budgets to show")
-        app.near("push button", "Hide budgets", to=app.group("Household"))
+        self.assertEqual("▾", self.arrow("Hide budgets"))
 
         # Scenario PAGE-05
-        # 3. Left hidden, Household stays hidden after quitting and opening
+        # 3. The name opens Household's page, and its budgets don't hide or
+        # show.
+        app.group("Household").press()
+        app.until(lambda: self.page_shows("Household"), "Household's page")
+        self.assertTrue(all(app.has_budget(b) for b in household), "the name hid the budgets")
+
+        # Scenario PAGE-05
+        # 4. Left hidden, Household stays hidden after quitting and opening
         # again.
         app.near("push button", "Hide budgets", to=app.group("Household")).press()
         app.until(lambda: not app.has_budget("Groceries"), "Household's budgets to hide")
         app.restart()
-        app.near("push button", "Show budgets", to=app.group("Household"))
+        self.assertEqual("▸", self.arrow("Show budgets"))
         self.assertFalse(any(app.has_budget(b) for b in household))
         self.assertTrue(app.has_budget("Materials"))
 
