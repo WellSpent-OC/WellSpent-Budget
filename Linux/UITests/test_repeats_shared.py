@@ -69,6 +69,7 @@ class RepeatsShared(unittest.TestCase):
         robin.sync()
         robin.budget(self.bills).press()
         robin.until(lambda: [r[1] for r in robin.entries()] == ["Water"] or None, "one Water bill on Robin's")
+        self.assertEqual("Leslie", robin.entries()[0][2], "Robin's list doesn't say Leslie added it")
 
         # Scenario REPEAT-18
         # 3. Robin may only read it: the sheet says it repeats in a plain row.
