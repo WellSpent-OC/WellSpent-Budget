@@ -49,10 +49,13 @@ struct PhoneBudgetWheelSections: View {
                 }
                 if let repeats = screen.repeatsWords {
                     Text(" \u{00B7} ")
-                    Button(repeats, action: openRepeats)
-                        .font(.footnote.weight(.semibold))
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier(AccessibilityID.budgetRepeats)
+                    Button(action: openRepeats) {
+                        Text(repeats)
+                            .underline()
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier(AccessibilityID.budgetRepeats)
                 }
             }
             .font(.footnote)

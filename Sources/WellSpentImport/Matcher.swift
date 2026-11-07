@@ -11,6 +11,9 @@ public enum ImportDecision: Equatable, Sendable {
     case matchesReceipt(RecordID)
     /// Lines up with a transaction entered by hand.
     case matchesTransaction(RecordID)
+    /// Takes the place of a bill a repeat made, so it counts once. The person
+    /// can say no before importing.
+    case replacesMade(RecordID)
     /// New, and a rule or an earlier row says which budget it belongs in.
     case add(BudgetID)
     /// New, and nothing suggests a budget. A person has to pick.
@@ -62,10 +65,14 @@ public struct StatementMatcher: Sendable {
         /// Merchant, lowercased, to the budget it went in last time.
         public let merchantRules: [String: BudgetID]
         public let defaultBudget: BudgetID?
+        /// Whether this person may delete a bill, which replacing it does.
+        public let mayReplace: @Sendable (Transaction) -> Bool
 
         public init(budgetKey: SymmetricKey, existingFingerprints: Set<String>,
                     receipts: [Receipt], recentTransactions: [Transaction],
-                    merchantRules: [String: BudgetID], defaultBudget: BudgetID? = nil) {
+                    merchantRules: [String: BudgetID], defaultBudget: BudgetID? = nil,
+                    mayReplace: @escaping @Sendable (Transaction) -> Bool = { _ in true }) {
+            self.mayReplace = mayReplace
             self.budgetKey = budgetKey
             self.existingFingerprints = existingFingerprints
             self.receipts = receipts
@@ -94,6 +101,17 @@ public struct StatementMatcher: Sendable {
                 claimedReceipts.insert(receipt.id)
                 return ImportProposal(line: line, decision: .matchesReceipt(receipt.id),
                                       fingerprint: fingerprint)
+            }
+
+            // Then a bill a repeat made. The bank's line takes its place, so the
+            // real date and amount win and the bill counts once.
+            if let bill = bestMadeBill(for: line, in: context, excluding: claimedTransactions) {
+                claimedTransactions.insert(bill.id)
+                // Someone who may not delete the bill can't replace it. The line
+                // is still that bill, so it's skipped and the money counts once.
+                let decision: ImportDecision = context.mayReplace(bill)
+                    ? .replacesMade(bill.id) : .matchesTransaction(bill.id)
+                return ImportProposal(line: line, decision: decision, fingerprint: fingerprint)
             }
 
             // Then a transaction someone typed in before the statement arrived.
@@ -125,7 +143,7 @@ public struct StatementMatcher: Sendable {
         for proposal in proposals {
             switch proposal.decision {
             case .alreadyImported: summary.alreadyImported += 1
-            case .matchesReceipt, .matchesTransaction: summary.matched += 1
+            case .matchesReceipt, .matchesTransaction, .replacesMade: summary.matched += 1
             case .add: summary.toAdd += 1
             case .needsBudget: summary.needBudget += 1
             }
@@ -160,9 +178,30 @@ public struct StatementMatcher: Sendable {
                 guard !claimed.contains(transaction.id), !transaction.isDeleted else { return false }
                 // Only hand-entered rows, so an imported row never matches another
                 // imported row and quietly merges two real purchases.
-                guard transaction.source == .manual else { return false }
+                guard transaction.source == .manual, transaction.repeatRuleID == nil else { return false }
                 guard transaction.amount.magnitude == line.amount.magnitude else { return false }
                 return abs(transaction.date.timeIntervalSince(line.date)) <= Self.dateTolerance
+            }
+            .min { abs($0.date.timeIntervalSince(line.date)) < abs($1.date.timeIntervalSince(line.date)) }
+    }
+
+    /// A bill's amount can differ from the bank's: a phone bill with tax. So,
+    /// unlike a receipt, it's close and not exact: within 10 percent or $5,
+    /// whichever is larger.
+    private func bestMadeBill(for line: StatementLine, in context: Context,
+                              excluding claimed: Set<RecordID>) -> Transaction? {
+        guard line.amount.minorUnits < 0 else { return nil }
+        let ruled = context.merchantRules[line.cleanedDescription.lowercased()]
+        return context.recentTransactions
+            .filter { bill in
+                guard bill.repeatRuleID != nil, !bill.isDeleted, !claimed.contains(bill.id),
+                      bill.amount.currency == line.amount.currency, bill.amount.minorUnits < 0 else { return false }
+                // The merchant's usual budget, when it has one, has to be the bill's.
+                // A made bill's own name doesn't count: it would always agree.
+                if let ruled, ruled != bill.budgetID { return false }
+                let gap = abs(bill.amount.minorUnits - line.amount.minorUnits)
+                guard gap <= max(abs(bill.amount.minorUnits) / 10, 500) else { return false }
+                return abs(bill.date.timeIntervalSince(line.date)) <= Self.dateTolerance
             }
             .min { abs($0.date.timeIntervalSince(line.date)) < abs($1.date.timeIntervalSince(line.date)) }
     }

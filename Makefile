@@ -239,11 +239,14 @@ iphone-ui-test-build: iphone-project
 # machine has, unless IPHONE_UI_TEST_DEVICE names one, such as "iPhone 17".
 # IPHONE_UI_TEST_ONLY runs the test classes or tests it lists, with spaces between, such as
 # WellSpentPhoneUITests/PhoneSignInSyncTests.
+# IPHONE_UI_TEST_LOOKS=dark runs one look only, so CI can give each look a
+# Mac of its own.
 # IPHONE_UI_TEST_SHARD=1/2 runs the first of two parts of the test classes, as
 # UI_TEST_SHARD does for the Mac. Each look's result bundle,
 # .build/xcode-iphone/ui-test-<look>.xcresult, holds the code coverage of the
 # run, the iPhone's own screens included, which no Mac test can reach.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
+IPHONE_UI_TEST_LOOKS ?= light dark
 iphone-ui-test: iphone-ui-test-build
 	@set -e; \
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
@@ -257,7 +260,7 @@ iphone-ui-test: iphone-ui-test-build
 	if [ -z "$$device" ]; then \
 		device=$$($(IPHONE_SIMCTL) list devicetypes | grep -E '^iPhone [0-9]+ \(' | sort -k2,2n | tail -1 | sed -E 's/.*\((.*)\)$$/\1/'); \
 	fi; \
-	for look in light dark; do \
+	for look in $(IPHONE_UI_TEST_LOOKS); do \
 		udid=$$($(IPHONE_SIMCTL) create "wellspent-ui-test-$$look" "$$device" "$$runtime"); \
 		trap '$(IPHONE_SIMCTL) shutdown "$$udid" >/dev/null 2>&1 || true; $(IPHONE_SIMCTL) delete "$$udid" >/dev/null 2>&1 || true' EXIT; \
 		trap 'exit 130' INT TERM; \
@@ -314,12 +317,14 @@ TESTFLIGHT_VERSION ?= $(patsubst v%,%,$(shell git describe --tags --exact-match 
 # Worked out once, so every step of one run uses the same build number.
 ifeq ($(origin TESTFLIGHT_BUILD),undefined)
 TESTFLIGHT_BUILD := $(shell date -u +%Y%m%d%H%M)
+endif
 # The flags a TestFlight build carries on, so testers reach extensions with no
 # switch (decided 2026-10-29). The App Store build is made without them. The
-# private Properties package is linked from its checkout beside this one.
+# private Properties package is linked from its checkout beside this one. Outside
+# the block above: `testflight` hands the twin its build number, and the twin needs
+# these too.
 TESTFLIGHT_FEATURES ?= extensions,properties
 TESTFLIGHT_PROPERTIES_PATH ?= $(HOME)/rvn/wellspent-properties
-endif
 TESTFLIGHT_OUT := .build/testflight
 TESTFLIGHT_APP := $(TESTFLIGHT_OUT)/WellSpent.app
 TESTFLIGHT_PKG := $(TESTFLIGHT_OUT)/WellSpent.pkg
@@ -376,8 +381,10 @@ release-twin: ui-test-project
 	@$(UI_TEST_VARS_SET)
 	DEVELOPER_DIR=$(XCODE) WELLSPENT_ENV=staging SIGN=development VERSION=$(or $(TESTFLIGHT_VERSION),0.0.0-twin) \
 		BUILD=$(TESTFLIGHT_BUILD) OUT=$(TWIN_OUT) SCRATCH=.build/twin-scratch TWIN_PROFILE="$(TWIN_PROFILE)" \
+		WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" WELLSPENT_PROPERTIES_PATH="$(TESTFLIGHT_PROPERTIES_PATH)" \
 		KEYINFO="$(KEYINFO)" scripts/make-app.sh
 	$(UI_TEST_XCODEBUILD) build-for-testing
 	rm -rf .build/xcode/release-twin.xcresult
-	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" $(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
+	TEST_RUNNER_WELLSPENT_TWIN_APP="$(TWIN_APP)" TEST_RUNNER_WELLSPENT_TWIN_FEATURES="$(TESTFLIGHT_FEATURES)" \
+		$(UI_TEST_ACCOUNTS) $(UI_TEST_XCODEBUILD) test-without-building \
 		-only-testing:WellSpentUITests/ReleaseTwinTests -resultBundlePath .build/xcode/release-twin.xcresult
