@@ -350,6 +350,40 @@ struct RepeatsTests {
         #expect(EntryEditor(model: model).date == Self.day(2026, 11, 14))
     }
 
+    // Scenario REPEAT-17
+    /// The new bill has to go to the server under the person who added the entry,
+    /// and the server only takes a new row from its owner. A manager's device
+    /// would be refused the bill while the delete of the old row went through, so
+    /// every other device would lose the entry.
+    @Test func aManagerCannotTurnItOnForSomeoneElsesEntry() throws {
+        let entry = try aWaterBill()
+        try giveIt(entry, UserID())
+        let manager = UserID()
+        model.me = { manager }
+        model.mayManageEntries = { _ in true }
+
+        let editor = try reopen(entry.id)
+        #expect(!editor.isReadOnly, "a manager may still change the bill")
+        #expect(editor.showsRepeatRow && !editor.repeats)
+        #expect(!editor.repeatRowIsEnabled, "the switch is dimmed")
+        editor.repeats = true
+        _ = editor.save()
+        model.startRepeating(from: entry.id)
+
+        #expect(try model.store.repeatRules(in: group).isEmpty)
+        let kept = try #require(try model.store.transaction(entry.id))
+        #expect(!kept.isDeleted && kept.repeatRuleID == nil)
+    }
+
+    /// A row with no owner yet goes to the server as whoever sends it.
+    @Test func anEntryWithNoOwnerCanStillTurnItOn() throws {
+        let entry = try aWaterBill()
+        #expect(entry.createdBy == nil)
+        #expect(try reopen(entry.id).repeatRowIsEnabled)
+        try turnOn(entry.id)
+        #expect(try model.store.repeatRules(in: group).count == 1)
+    }
+
     private func reopen(_ id: RecordID) throws -> EntryEditor { try #require(EntryEditor(model: model, entry: id)) }
 
     /// Turned on, off and on again, it's one repeat all the way through.
@@ -412,18 +446,52 @@ struct RepeatsTests {
         #expect(try bills().map(\.repeatMonth) == ["2026-12"])
     }
 
-    // Scenario REPEAT-11
-    @Test func someoneWhoMayNotChangeTheRepeatSeesItOnAndDimmed() throws {
-        let owner = UserID()
+    /// A repeat's bill made by its owner, read by someone else.
+    private func aBillMadeBySomeoneElse(owner: UserID) throws -> RecordID {
         model.me = { owner }
         addPhone()
         let id = try #require(try bills().first?.id)
-        var bill = try #require(try model.store.transaction(id))
-        bill.createdBy = owner
-        try model.store.save(bill)
+        try giveIt(try #require(try model.store.transaction(id)), owner)
+        return id
+    }
+
+    private func repeatDetail(_ editor: EntryEditor) -> String? {
+        editor.details.first { $0.label == EntryEditor.Words.repeatsRow }?.value
+    }
+
+    // Scenario REPEAT-18
+    /// May not change the bill: a read-only sheet says so in a plain row.
+    @Test func aReadOnlySheetSaysTheBillRepeatsInAPlainRow() throws {
+        let id = try aBillMadeBySomeoneElse(owner: UserID())
         model.me = { UserID() }
         model.mayManageEntries = { _ in false }
         let editor = try reopen(id)
+        #expect(editor.isReadOnly)
+        #expect(repeatDetail(editor) == "On")
+        #expect(!editor.showsRepeatRow, "no switch on a read-only sheet")
+
+        model.mayManageEntries = { _ in true }
+        model.stopRepeating(try #require(try model.store.repeatRules(in: group).first).id)
+        model.mayManageEntries = { _ in false }
+        #expect(repeatDetail(try reopen(id)) == "Off")
+    }
+
+    /// An entry that isn't a repeat's bill has no such row.
+    @Test func aPlainEntryHasNoRepeatRowInItsDetails() throws {
+        let entry = try aWaterBill()
+        #expect(repeatDetail(try reopen(entry.id)) == nil)
+    }
+
+    // Scenario REPEAT-11
+    /// May change the bill, not the repeat: the switch is on and dimmed.
+    @Test func someoneWhoMayChangeTheBillButNotTheRepeatSeesItDimmed() throws {
+        let id = try aBillMadeBySomeoneElse(owner: UserID())
+        let me = UserID()
+        model.me = { me }
+        try giveIt(try #require(try model.store.transaction(id)), me)
+        model.mayManageEntries = { _ in false }
+        let editor = try reopen(id)
+        #expect(!editor.isReadOnly)
         #expect(editor.showsRepeatRow && editor.repeats && !editor.repeatRowIsEnabled)
     }
 }

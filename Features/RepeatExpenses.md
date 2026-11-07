@@ -2,8 +2,6 @@
 
 A bill that comes every month, such as a phone bill, can repeat. It shows up on its day each month, and a change can reach one month or that month and later. This is for everyone, with Properties on or off.
 
-The two scenarios about matching a statement line to a repeat, REPEAT-14 and REPEAT-15, come with that work.
-
 ## REPEAT-01 Setting a repeat
 
 Platforms: Mac, iPhone
@@ -21,6 +19,7 @@ Platforms: Mac, iPhone
 - Then the bill is in Utilities once, with its date, its note and who added it unchanged
 - And its source says "Repeat", and the count line says "1 repeat"
 - And next month has one water bill, not two
+- And only the person who added a bill can turn this on. A manager who opens someone else's bill sees the switch off and dimmed, and the bill stays as it is
 
 ## REPEAT-18 The switch shows the truth
 
@@ -34,7 +33,8 @@ Platforms: Mac, iPhone
 - And when he opens the bill again, the switch is off
 - When he turns it on and saves
 - Then that same repeat starts again from this month, and the months it was stopped aren't made
-- And someone who may not change the repeat sees the switch, dimmed
+- And someone who may change the bill but not the repeat sees the switch, dimmed
+- And on a read-only sheet, a repeat's bill has a plain row, "Repeats every month" with "On", or "Off" once it has stopped
 
 ## REPEAT-02 It shows up each month
 
@@ -133,6 +133,25 @@ Platforms: Mac, iPhone
 
 - Given Robin is adding money in
 - Then there is no "Repeats every month" row
+
+## REPEAT-14 A statement line replaces that month's repeat
+
+Platforms: Mac, iPhone
+
+- Given December's $85.00 phone bill was made, and a statement has an $85.40 line on Dec 15
+- When Robin imports it to Utilities
+- Then the review row says "Replaces December's Phone bill, $85.00", under the Matched tile
+- And if he goes ahead, the statement line takes its place and the bill counts once
+- And the bank's line takes the bill's budget and its house mark, so NOI and the wheel don't move because of the swap
+- A match is a made bill not already matched, in this group and the line's budget, within 4 days and within 10 percent or $5, whichever is larger. If two fit, the closest date wins
+- An exact amount on a made bill works the same way: the bank's line wins
+
+## REPEAT-15 Saying no to a match
+
+Platforms: Mac, iPhone
+
+- When Robin presses "Keep both" on that match
+- Then both stay, and neither is changed
 
 ## REPEAT-16 A house's repeat
 

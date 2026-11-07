@@ -54,6 +54,14 @@ public extension AppModel {
         rule.createdBy == nil || rule.createdBy == me() || mayManageEntries(rule.groupID)
     }
 
+    /// Only the person who added an entry turns its repeat on (REPEAT-17). The
+    /// bill keeps who added it, and the server only takes a new row from its
+    /// owner, so from anyone else's device the bill would be refused while the
+    /// old row's delete went through. A row with no owner yet goes as the sender.
+    func mayStartRepeating(_ entry: Transaction) -> Bool {
+        entry.createdBy == nil || entry.createdBy == me()
+    }
+
     /// Adds a bill that repeats on its date's day from its own month on. The
     /// entry takes the ID the rule would give that month, so the rule sees it
     /// as made and there's no duplicate in the first month.
@@ -90,7 +98,7 @@ public extension AppModel {
     func startRepeating(from id: RecordID) {
         do {
             guard let entry = try store.transaction(id), !entry.isDeleted, entry.repeatRuleID == nil,
-                  mayAddEntries(entry.groupID), access(to: entry).mayChange else { return }
+                  mayAddEntries(entry.groupID), access(to: entry).mayChange, mayStartRepeating(entry) else { return }
             let calendar = AppLocale.calendar
             let month = RepeatRule.month(of: entry.date, calendar: calendar)
             let signed = Money(minorUnits: -abs(entry.amount.minorUnits), currency: entry.amount.currency)

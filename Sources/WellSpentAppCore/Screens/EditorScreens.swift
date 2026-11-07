@@ -285,12 +285,15 @@ public final class EntryEditor {
 
     /// Money in doesn't repeat, and a bill a repeat made already does.
     public var showsRepeatRow: Bool {
-        editing?.repeatRuleID != nil || (!isReadOnly && kindToWrite == .spending)
+        !isReadOnly && (editing?.repeatRuleID != nil || kindToWrite == .spending)
     }
 
-    /// Dimmed for someone who may not change the repeat (REPEAT-11).
+    /// Dimmed for someone who may change the bill but not the repeat (REPEAT-11),
+    /// and for a manager on a bill someone else added (REPEAT-17). A read-only
+    /// sheet has a plain row in `details` instead.
     public var repeatRowIsEnabled: Bool {
-        guard let editing, editing.repeatRuleID != nil else { return true }
+        guard let editing else { return true }
+        guard editing.repeatRuleID != nil else { return model.mayStartRepeating(editing) }
         return !isReadOnly && madeRule.map(model.mayChangeRule) ?? false
     }
 
@@ -409,6 +412,9 @@ public final class EntryEditor {
         }
         if let offered = linkChoices, let name = offered.choices.first(where: { $0.id == editing.extensionLink })?.name {
             shown.append(Detail(label: offered.label, value: name))
+        }
+        if editing.repeatRuleID != nil {
+            shown.append(Detail(label: Words.repeatsRow, value: repeatsWhenOpened ? Words.repeatsOn : Words.repeatsOff))
         }
         return shown
     }
@@ -573,6 +579,8 @@ public final class EntryEditor {
 
     public enum Words {
         public static let repeatsRow = "Repeats every month"
+        public static let repeatsOn = "On"
+        public static let repeatsOff = "Off"
         public static func repeatLine(day: Int) -> String {
             "Shows up on the \(RepeatsList.Words.ordinal(day)) of each month. You can change any month."
         }
