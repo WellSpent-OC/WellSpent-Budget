@@ -89,6 +89,7 @@ class GroupPage(unittest.TestCase):
         app.near("push button", "Hide budgets", to=app.group("Household")).press()
         app.until(lambda: not any(app.has_budget(b) for b in household), "Household's budgets to hide")
         self.assertEqual("▸", self.arrow("Show budgets"), "the arrow doesn't point right while the budgets are hidden")
+        app.picture("group-arrow-hidden")
         self.assertTrue(app.reads(["Groceries"], within=app.main))
         self.assertTrue(app.shows("Import statement", within=app.main, role="push button"))
         self.assertFalse(self.page_shows("Household"))
@@ -99,6 +100,7 @@ class GroupPage(unittest.TestCase):
         app.near("push button", "Show budgets", to=app.group("Household")).press()
         app.until(lambda: all(app.has_budget(b) for b in household), "Household's budgets to show")
         self.assertEqual("▾", self.arrow("Hide budgets"))
+        app.picture("group-arrow-shown")
 
         # Scenario PAGE-05
         # 3. The name opens Household's page, and its budgets don't hide or
