@@ -128,6 +128,7 @@ struct MoneyWheelTests {
             #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
             #expect(pool.figures.map(\.amount) == ["$0.00", "$500.00", "$475.00"])
             #expect(pool.figures.last?.isWarning == false, "$475.00 is less than $500.00 left")
+            #expect(pool.figures.last?.description == nil)
         }
     }
 
@@ -139,6 +140,7 @@ struct MoneyWheelTests {
             #expect(pool.figures.map(\.label) == ["Spent", "Left", "Coming by Nov 28"])
             #expect(pool.figures.last?.isWarning == true)
             #expect(pool.figures.last?.amountColor == PaletteValues.warning)
+            #expect(pool.figures.last?.description == "More than what's left", "colour isn't the only sign")
         }
     }
 

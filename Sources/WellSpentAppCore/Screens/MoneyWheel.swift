@@ -65,11 +65,15 @@ public struct MoneyWheel: Equatable, Sendable {
         /// True for the Over figure, and for Coming by when it's more than
         /// what's left. The amount shows in the warning colour.
         public let isWarning: Bool
+        /// What a screen reader hears with the amount, where the label alone
+        /// doesn't say why it's in the warning colour (WHEEL-22).
+        public let description: String?
 
-        public init(label: String, amount: String, isWarning: Bool = false) {
+        public init(label: String, amount: String, isWarning: Bool = false, description: String? = nil) {
             self.label = label
             self.amount = amount
             self.isWarning = isWarning
+            self.description = description
         }
 
         public var id: String { label }
@@ -114,7 +118,8 @@ public struct MoneyWheel: Equatable, Sendable {
     public var comingFigure: Figure? {
         guard coming.minorUnits > 0, let comingBy else { return nil }
         return Figure(label: Words.comingBy(BudgetScreen.shortDate(comingBy)),
-                      amount: coming.display, isWarning: coming > left)
+                      amount: coming.display, isWarning: coming > left,
+                      description: coming > left ? Words.moreThanLeft : nil)
     }
 
     /// What is left: the budgets less what is spent, plus money in. Below
@@ -256,6 +261,8 @@ public struct MoneyWheel: Equatable, Sendable {
         public static let expectedLeft = "Expected left by today"
         /// "Coming by Nov 30".
         public static func comingBy(_ date: String) -> String { "Coming by \(date)" }
+        /// To a screen reader, with Coming by's amount when it's more than what's left.
+        public static let moreThanLeft = "More than what's left"
         /// Under the amount in Home's small wheel.
         public static let compactLeft = "left"
         public static let compactOver = "over"

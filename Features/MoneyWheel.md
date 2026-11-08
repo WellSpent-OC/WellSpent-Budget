@@ -210,6 +210,7 @@ Platforms: Mac, Linux, iPhone
 - Given it is November 6, and Pool is $500.00 a month, with $300.00 spent and a $475.00 bill dated November 28
 - When Robin looks at Pool
 - Then it says Left $200.00, and "Coming by Nov 28" $475.00 in the warning colour
+- And a screen reader hears "More than what's left" with that amount, so colour isn't the only sign
 
 ## WHEEL-23 A group's wheel counts the same way
 
