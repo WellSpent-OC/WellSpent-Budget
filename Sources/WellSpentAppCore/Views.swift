@@ -424,8 +424,9 @@ struct SidebarView: View {
     /// One arrow in front of the group's name, as a folder in Finder. It hides or
     /// shows the budgets and no page opens or closes. A click on the name opens
     /// the page and nothing else (PAGE-05). The sidebar's list makes the line one
-    /// element for VoiceOver and the UI tests, joining the identifiers of
-    /// everything in it, so only the name has one.
+    /// element for VoiceOver and the UI tests whatever is inside it, and it would
+    /// read as the arrow. So the line says the group's name itself, opens the
+    /// page when used, and offers the arrow's Hide or Show budgets as an action.
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 2) {
             Button {
@@ -457,8 +458,14 @@ struct SidebarView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
-            .accessibilityAddTraits(section.isPageOpen ? .isSelected : [])
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(section.title.uppercased())
+        .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
+        .accessibilityAddTraits(section.isPageOpen ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { screen.openPage(of: section.group.id) }
+        .accessibilityAction(named: section.toggleHelp) {
+            withAnimation(.easeInOut(duration: 0.2)) { screen.toggle(section.group.id) }
         }
         .contextMenu { menu(screen.groupMenu(section.group)) }
     }
