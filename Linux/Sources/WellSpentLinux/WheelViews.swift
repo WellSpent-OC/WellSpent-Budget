@@ -264,8 +264,11 @@ struct FiguresList: View {
                         .font(.system(size: 13))
                     Spacer()
                     // The Over figure's amount is in the warning colour, and
-                    // its label says Over, so the colour is not the only sign.
+                    // its label says Over. Coming by says why in its
+                    // description, so the colour is never the only sign.
                     Text(figure.amount)
+                        // Empty clears the words once Coming by is back under Left.
+                        .accessibility(value: figure.description ?? "")
                         .font(.money(13))
                         .foregroundColor(Color(figure.isWarning ? PaletteValues.warning : PaletteValues.ink))
                 }
