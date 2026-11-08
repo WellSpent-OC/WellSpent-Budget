@@ -42,7 +42,8 @@ public final class AppExtensionHost: ExtensionHost {
     public func period(of group: String) -> HostPeriod? {
         guard let money = money(of: group), let day = money.wheel.day else { return nil }
         return HostPeriod(currency: money.wheel.budgeted.currency.rawValue,
-                          moneyOutMinorUnits: money.wheel.spent.minorUnits,
+                          // A house's month counts the whole month's bills, later dates too.
+                          moneyOutMinorUnits: (money.wheel.spent + money.wheel.coming).minorUnits,
                           day: day.day, days: day.days, start: day.start)
     }
 

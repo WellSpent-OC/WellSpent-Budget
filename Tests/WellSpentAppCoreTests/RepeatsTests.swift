@@ -345,6 +345,11 @@ struct RepeatsTests {
         #expect(try model.store.transaction(entry.id)?.isDeleted == false)
     }
 
+    /// A new entry starts on the model's day, so a pinned day and the wheel agree.
+    @Test func aNewEntryStartsOnTheModelsDay() {
+        #expect(EntryEditor(model: model).date == Self.day(2026, 11, 14))
+    }
+
     // Scenario REPEAT-17
     /// The new bill has to go to the server under the person who added the entry,
     /// and the server only takes a new row from its owner. A manager's device

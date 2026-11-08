@@ -295,6 +295,9 @@ It is not kept here, where every pull request would change the same lines.
 | WHEEL-18 | Out beyond the budgets and the money in together turns the group's wheel orange | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-19 | Refunds, loan draws, savings draws, transfers and card payments never count as money in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | WHEEL-20 | The tick marks spending pace, and money in does not move it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-21 | A bill dated later doesn't count until its date arrives | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| WHEEL-22 | Coming more than what's left is in the warning colour | Mac, Linux, iPhone | Mac, iPhone |
+| WHEEL-23 | A group's wheel counts the same way | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Lifecycle.md](Lifecycle.md)
 

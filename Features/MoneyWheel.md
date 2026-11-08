@@ -81,6 +81,7 @@ Platforms: iPhone
 - And beside those words, "Edit Budget…" opens the Edit Budget sheet
 - And on October 24, before the month's last week, it says nothing about the pace
 - And Leslie, at Add, is not asked
+- And bills still to come this month count against what's left here: on November 26, Pool at $500.00 with nothing spent and $475.00 coming says nothing
 
 ## WHEEL-10 Over its limit, a budget's wheel is orange all the way round and says how far over
 
@@ -189,3 +190,32 @@ Platforms: Mac, Linux, iPhone
 - Given it is day 18 of 31 and $4,800.00 has come in
 - When Robin looks at Household's wheel
 - Then the tick sits where it sits with no money in, and "Expected left by today" is unchanged
+
+## WHEEL-21 A bill dated later doesn't count until its date arrives
+
+Platforms: Mac, Linux, iPhone
+
+- Given it is November 6, and Pool is $500.00 a month, with one $475.00 bill dated November 28
+- When Robin looks at Pool
+- Then it says Spent $0.00 and Left $500.00, and the wheel is green and full, with no pace words
+- And it says "Coming by Nov 28" $475.00
+- And the bill is in the list, with its own date
+- When November 28 arrives
+- Then it says Spent $475.00 and Left $25.00, and the "Coming by" line is gone
+
+## WHEEL-22 Coming more than what's left is in the warning colour
+
+Platforms: Mac, Linux, iPhone
+
+- Given it is November 6, and Pool is $500.00 a month, with $300.00 spent and a $475.00 bill dated November 28
+- When Robin looks at Pool
+- Then it says Left $200.00, and "Coming by Nov 28" $475.00 in the warning colour
+
+## WHEEL-23 A group's wheel counts the same way
+
+Platforms: Mac, Linux, iPhone
+
+- Given Household's budgets have $475.00 and $100.00 dated later this month, the latest on November 28
+- When Robin looks at Household's page
+- Then its wheel doesn't count them yet, and it says "Coming by Nov 28" $575.00
+- And money in dated later doesn't count until its date, and isn't on the "Coming by" line

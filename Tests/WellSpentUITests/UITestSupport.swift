@@ -568,11 +568,11 @@ final class TestApp {
 
     /// A statement in the run's folder, with today's date on every line, so
     /// the lines land in this period. Removed with the folder.
-    func writeStatement(_ lines: [(bank: String, amount: String)]) throws -> URL {
+    func writeStatement(_ lines: [(bank: String, amount: String)], dated date: Date = Date()) throws -> URL {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "MM/dd/yyyy"
-        let today = formatter.string(from: Date())
+        let today = formatter.string(from: date)
         let rows = ["Date,Description,Amount"] + lines.map { "\(today),\"\($0.bank)\",\($0.amount)" }
         let url = dataRoot.appendingPathComponent("statement.csv")
         try rows.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
@@ -659,6 +659,23 @@ final class TestApp {
             let words = luminance(colour.red, colour.green, colour.blue)
             return (max(words, behind) + 0.05) / (min(words, behind) + 0.05)
         }.max() ?? 1
+    }
+
+    /// The colour of an element's words: of the pixels most unlike what's behind.
+    func wordsColour(of element: XCUIElement) throws -> (red: Double, green: Double, blue: Double) {
+        let image = element.screenshot().image
+        var rect = CGRect(origin: .zero, size: image.size)
+        let cg = try XCTUnwrap(image.cgImage(forProposedRect: &rect, context: nil, hints: nil))
+        let bitmap = NSBitmapImageRep(cgImage: cg)
+        var darkest = (red: 1.0, green: 1.0, blue: 1.0), least = 3.0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                guard let c = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                let sum = Double(c.redComponent + c.greenComponent + c.blueComponent)
+                if sum < least { least = sum; darkest = (Double(c.redComponent), Double(c.greenComponent), Double(c.blueComponent)) }
+            }
+        }
+        return darkest
     }
 
     /// Every one of a row's words can be read. It measures them all before it

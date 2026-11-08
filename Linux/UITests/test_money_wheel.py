@@ -9,12 +9,15 @@ words each step expects are worked out for that day (`Wheel`)."""
 import datetime
 import unittest
 
-from wellspent_ui import Wheel, launch_fresh
+from wellspent_ui import Wheel, launch_fresh, short_date, today
 
 # Mid-month, before the last week of any month.
 MID_MONTH = 18
 # In the last week of every month, February's too.
 LAST_WEEK = 26
+# The day the tests open on, and the bill's day: WHEEL-21's November 6 and 28.
+EARLY = 6
+LATE = 28
 
 
 def cents(dollars):
@@ -232,6 +235,75 @@ class MoneyWheel(unittest.TestCase):
         for line in drawn.other_money_lines:
             app.wait_shows(line, within=app.main)
 
+    def add_dated(self, app, budget, merchant, amount, day, money_in=False):
+        """Add on `budget`, dated `day` of this month: the sheet starts on the
+        app's day, and Left and Right move the calendar a day at a time."""
+        app.budget(budget).press()
+        app.button("Add", within=app.main).press()
+        sheet = app.wait_for_window(2, "the New transaction sheet")
+        app.field("Merchant", sheet).type(merchant)
+        app.field("Amount", sheet).type(amount)
+        if money_in:
+            app.find("check box", "Money in", within=sheet).press()
+        calendar = app.calendar(sheet)
+        for _ in range(15):
+            if calendar.focused:
+                break
+            app.key("Tab")
+        self.assertTrue(calendar.focused, "Tab never reached the calendar")
+        moves = day - app.launched_with["day"]
+        for _ in range(abs(moves)):
+            app.key("Right" if moves > 0 else "Left")
+        app.button("Add", within=sheet).press()
+        app.wait_for_window(1, "the New transaction sheet to close")
+
+    def test_a_bill_dated_later_counts_when_its_date_arrives(self):
+        """WHEEL-21 and WHEEL-23 on the 6th, then on the 28th: the Mac's
+        test, with the same numbers. Both days are in every month."""
+        app = launch_fresh(self, day=EARLY)
+        later = today(LATE)
+        coming = f"Coming by {short_date(later)}"
+        app.new_group("Home")
+        app.new_budget("Pool", "500", group="Home")
+
+        # Scenario WHEEL-21
+        # 1. On the 6th, a $475.00 bill dated the 28th isn't spent yet. It's
+        # on the Coming by line, with no pace words, and in the list with its
+        # own date.
+        self.add_dated(app, "Pool", "Pool service", "475.00", LATE)
+        rows = app.until(lambda: app.entries() or None, "the bill in the list")
+        self.assertEqual([short_date(later), "Pool service"], rows[0][:2])
+        app.wait_reads(["Spent", "$0.00"], within=app.main)
+        self.assertTrue(app.reads(["Left", "$500.00"], within=app.main), "Left $500.00")
+        self.assertTrue(app.reads([coming, "$475.00"], within=app.main), coming)
+        self.assertFalse(any(t.startswith("At this pace") for t in app.texts(app.main)), "pace words")
+
+        # Scenario WHEEL-23
+        # 2. A group's budgets have $475.00 and $100.00 dated later, and
+        # $200.00 of money in dated later. Its wheel counts none of them yet,
+        # and its Coming by line is the two bills, by the latest. (The
+        # scenario's Household is a sample group's name, so it's Cabin here.)
+        app.new_group("Cabin")
+        app.new_budget("Rent", "1000", group="Cabin")
+        app.new_budget("Power", "200", group="Cabin")
+        self.add_dated(app, "Rent", "Landlord", "475.00", LATE)
+        self.add_dated(app, "Power", "Utility", "100.00", LATE - 8)
+        self.add_dated(app, "Power", "Refund", "200.00", LATE - 4, money_in=True)
+        app.group("Cabin").press()
+        app.wait_shows("MONEY", within=app.main)
+        app.wait_reads(["Spent", "$0.00"], within=app.main)
+        self.assertTrue(app.reads([coming, "$575.00"], within=app.main), f"{coming} $575.00")
+        self.assertFalse(app.shows("In", within=app.main, role="label"), "money in dated later counted")
+
+        # Scenario WHEEL-21
+        # 3. On the 28th the bill is spent, and the Coming by line is gone.
+        app.launched_with["day"] = LATE
+        app.restart()
+        app.budget("Pool").press()
+        app.wait_reads(["Spent", "$475.00"], within=app.main)
+        self.assertTrue(app.reads(["Left", "$25.00"], within=app.main), "Left $25.00")
+        self.assertFalse(any(t.startswith("Coming by") for t in app.texts(app.main)), "still coming on its own date")
+
     def test_spending_faster_than_an_even_pace(self):
         app = launch_fresh(self, day=MID_MONTH)
         app.new_group("Pace")
@@ -266,9 +338,10 @@ class MoneyWheel(unittest.TestCase):
 
         # Scenario WHEEL-09
         # 1. On the 26th, Books, $1,000.00, with $500.00 spent: more is left
-        # than expected, so the words offer to lower it.
+        # than expected, so the words offer to lower it. It's dated the 1st,
+        # so it's spent on the 24th too (WHEEL-21).
         app.new_budget("Novels", "1000", group="Books")
-        app.add_entry("Bookshop", "500.00")
+        self.add_dated(app, "Novels", "Bookshop", "500.00", 1)
         novels = Wheel("Novels", 100000, cents(500), LAST_WEEK)
         self.assertIsNotNone(novels.pace, "the 26th is in the month's last week")
         self.expect_wheel(app, novels)

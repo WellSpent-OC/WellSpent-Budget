@@ -37,7 +37,9 @@ public struct GroupMoney: Equatable, Sendable {
         groupName = group.name
         wheel = MoneyWheel(scope: .group, budgeted: Money.total(counted.map(\.budget.limit), currency: currency),
                            spent: Money.total(counted.map(\.spent), currency: currency), day: day,
-                           moneyIn: Money.total(counted.map(\.moneyIn), currency: currency))
+                           moneyIn: Money.total(counted.map(\.moneyIn), currency: currency),
+                           coming: Money.total(counted.map(\.coming), currency: currency),
+                           comingBy: counted.compactMap(\.comingBy).max())
         borrowed = Money.total(counted.map(\.borrowed), currency: currency)
         fromSavings = Money.total(counted.map(\.fromSavings), currency: currency)
         self.day = day
