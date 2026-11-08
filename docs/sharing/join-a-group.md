@@ -6,7 +6,66 @@ title: "Quest 8: Join a group"
 
 > *Your party is waiting. Join them.*
 
-**Before you start:** sign in, and confirm your email. Joining needs both. You also need the invite link from the person who shared the group.
+**Before you start:** an invitation, sent to your email. Sign in with that same email, and confirm it. Joining needs both.
+
+1. ![A hand points at INVITATIONS in the sidebar](../assets/shots/join-a-group-invite-1.svg)
+   Find the group under **INVITATIONS** in the sidebar. It says **Invited**, who invited you, and the level you'd have.
+
+2. ![A hand presses Accept](../assets/shots/join-a-group-invite-2.svg)
+   Press **Accept**.
+
+   > You see the group open. Its budgets fill in a moment later.
+
+Until you accept, you can't open the group's budgets, and they don't count in your totals.
+
+**Don't want to join?** Press **Reject**, then **Reject** in the question. To join later, you'd need a new invitation.
+
+## On an iPhone
+
+1. ![A thumb points at INVITATIONS on Home](../assets/shots/join-a-group-invite-iphone-1.svg)
+   Find the group under **INVITATIONS** on Home.
+
+2. ![A thumb taps Accept](../assets/shots/join-a-group-invite-iphone-2.svg)
+   Tap **Accept**.
+
+## On Linux
+
+1. ![Find the invitation at the top of the sidebar](../assets/shots/join-a-group-invite-linux-1.svg)
+   Find the invitation at the top of the sidebar. It shows the group's name, **Invited**, who invited you, and the level you'd have.
+
+2. ![Press Accept](../assets/shots/join-a-group-invite-linux-2.svg)
+   Press **Accept**.
+
+## Join from the email
+
+The invitation email has a link too. It opens a web page first, then WellSpent.
+
+**Before you start:** sign in with the address that got the invitation.
+
+1. ![The invitation email, with its link](../assets/shots/join-a-group-invite-email.svg)
+   Click the link in the email.
+
+2. ![A hand presses Open in WellSpent on the web page](../assets/shots/join-a-group-invite-web-1.svg)
+   On the page, press **Open in WellSpent**.
+
+   > The page says who invited you, and the level you'd have. Opening it doesn't join the group.
+
+3. ![A hand presses Accept, with Your name filled in](../assets/shots/join-a-group-invite-link-1.svg)
+   In WellSpent, press **Accept**. **Your name** comes from the invitation, and can't be changed.
+
+On an iPhone, tap where the Mac says press.
+
+![A thumb taps Accept on an iPhone](../assets/shots/join-a-group-invite-link-iphone-1.svg)
+
+On Linux, the steps are the same as on a Mac.
+
+![Press Accept on Linux](../assets/shots/join-a-group-invite-link-linux-1.svg)
+
+## Have an invite link instead?
+
+Links from an earlier version of WellSpent still work until they're used or run out.
+
+On a Mac:
 
 1. ![A hand copies a link in an email](../assets/shots/join-a-group-1.svg)
    Copy the link from their message.
@@ -30,11 +89,9 @@ title: "Quest 8: Join a group"
 
    > You see the group in your sidebar. Its budgets fill in a moment later.
 
-## Faster: click the link
+Or click the link in the message, even with WellSpent closed. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
 
-Click the link in the message, even with WellSpent closed. WellSpent opens to the invite. Type your name in **Your name**, and press **Join**.
-
-## On an iPhone
+### A link on an iPhone
 
 Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**. Paste the link into **Invite link**, type your name in **Your name**, and tap **Join** at the top right. The group shows on Home.
 
@@ -51,7 +108,7 @@ Or paste the link: tap **+** at the bottom right of Home, then **Join a Group**.
 
    > You see the group's page, with its people. Tap the back arrow to go to Home, where the group now is.
 
-## On Linux
+### A link on Linux
 
 1. ![Copy the link from their message](../assets/shots/join-a-group-linux-1.svg)
    Copy the link from their message.
@@ -85,4 +142,4 @@ Or click the link in the message, even with WellSpent closed. WellSpent opens to
 - **"Part of that invite link is missing." or "That is not a WellSpent invite link.":** the message app may have cut the link short. Ask the person who sent it to send it again, or copy the whole link, and paste it.
 - **"You are already in that group.":** you're in. Look for the group in your sidebar. The link isn't used up, so it still works for someone else.
 
-<!-- Scenarios: SHARE-07, SHARE-08, SHARE-09, SHARE-10, CLICK-01, CLICK-02, CLICK-04, CLICK-05, CLICK-06, CLICK-07, CLICK-08, CLICK-09, CLICK-10, PASTE-03, PASTE-10 -->
+<!-- Scenarios: EMAIL-02, EMAIL-03, EMAIL-04, EMAIL-07, EMAIL-08, SHARE-07, SHARE-08, SHARE-09, SHARE-10, CLICK-01, CLICK-02, CLICK-04, CLICK-05, CLICK-06, CLICK-07, CLICK-08, CLICK-09, CLICK-10, PASTE-03, PASTE-10 -->

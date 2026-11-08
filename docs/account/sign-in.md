@@ -70,4 +70,4 @@ Budgets made on this computer while signed out stay hidden while you're signed i
 - [Tour: The Sign in window](tour-the-sign-in-window.md)
 - [Side quest: Sign out](sign-out.md)
 
-<!-- Scenarios: ACCT-07, ACCT-08, ACCT-09, ACCT-13 -->
+<!-- Scenarios: ACCT-07, ACCT-08, ACCT-09, ACCT-13, SAMP-08 -->

@@ -1,0 +1,46 @@
+---
+title: "Side quest: Remove a house"
+---
+
+# Side quest: Remove a house
+
+> *Take a piece off the board. Your budgets stay in play.*
+
+**Before you start:** the Manage level in the house's group.
+
+1. ![A hand clicks a house on Houses](../assets/shots/remove-a-house-1.svg)
+   On **Houses**, click the house.
+
+2. ![A hand presses Remove House](../assets/shots/remove-a-house-2.svg)
+   Press **Remove House…**
+
+3. ![A hand presses Remove House in the question](../assets/shots/remove-a-house-3.svg)
+   Press **Remove House** in the question.
+
+   > You see the house gone from **Houses**, with its stays.
+
+The group, its budgets and its bills stay. Bills marked with the house count as plain budget spending.
+
+If you add the same listing back to the same group, those bills count toward the house again. Stays older than a year don't come back.
+
+## On an iPhone
+
+**Coming in the next update.**
+
+1. ![A thumb taps a house](../assets/shots/remove-a-house-iphone-1.svg)
+   In the **Houses** tab, tap the house.
+
+2. ![A thumb taps the … button](../assets/shots/remove-a-house-iphone-2.svg)
+   Tap the **…** button at the top right.
+
+3. ![A thumb taps Remove House](../assets/shots/remove-a-house-iphone-3.svg)
+   Tap **Remove House**.
+
+4. ![A thumb taps Remove House in the question](../assets/shots/remove-a-house-iphone-4.svg)
+   Tap **Remove House** in the question.
+
+## On Linux
+
+Properties isn't on Linux yet.
+
+<!-- Scenarios: PROP-33 -->

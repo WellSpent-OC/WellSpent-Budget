@@ -6,16 +6,19 @@ title: "Tour: The sidebar, and Home on an iPhone"
 
 > *Your map of the realm. Every group and budget lives here.*
 
-The sidebar is the list on the left of the window, shown here signed in.
+The sidebar is the list on the left of the window, shown here signed in. The rail at the far left switches between your budgets and your extensions.
 
-![The sidebar on a Mac, with numbers 1 to 6](../assets/shots/tour-the-sidebar-a.svg)
+![The rail and the sidebar on a Mac, with numbers 1 to 9](../assets/shots/tour-the-sidebar-a.svg)
 
-1. **HOME**: a group, in capital letters. Right-click it for its menu.
-2. The arrow: hides or shows the group's budgets. It points up while they show.
-3. **Groceries**: a budget. Its row fills from the left as its money is used this month, with what's left at the right. Over its limit, it fills all the way and says how far over. Click it to open its page.
-4. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
-5. The small arrow: opens a menu with **New Group…** and **Join a Group…**
-6. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**, with **Sign in**.
+1. **Budget**, picked: your budgets, and this sidebar.
+2. **Extensions**: turn on extras. Turn on Properties here, and **Houses** joins the rail. [Side quest: Turn on Properties](../houses/turn-on-properties.md)
+3. **Account**, at the foot of the rail: your account, and signing out. Signed out, it's **Sign in**. It's in each page's toolbar too.
+4. The arrow in front of the group's name: hides or shows its budgets, like a folder. It points down while they show, and right while they're hidden. A group you hide stays hidden the next time you open WellSpent.
+5. **HOME**: a group, in capital letters. Click it to open the group's page. Right-click it for its menu.
+6. **Groceries**: a budget. Its row fills from the left as its money is used this month, with what's left at the right. Over its limit, it fills all the way and says how far over. Click it to open its page.
+7. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
+8. The small arrow: opens a menu with **New Group…** and **Join a Group…**
+9. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**, with **Sign in**.
 
 ## A group's menu
 
@@ -65,15 +68,15 @@ The sidebar is on the left of the window, shown here signed in. There's no right
 
 ![The sidebar on Linux, with numbers 1 to 11](../assets/shots/tour-linux-the-sidebar.svg)
 
-1. **HOME**: a group, in capital letters. Click it to open the group's page.
-2. **⋯**: the group's menu, with **Share…**, **People…**, **New Budget in Home…**, **Rename…** and **Delete…** (or **Leave…**).
-3. The arrow: hides or shows the group's budgets.
+1. The arrow in front of the group's name: hides or shows its budgets, like a folder. It points down while they show, and right while they're hidden.
+2. **HOME**: a group, in capital letters. Click it to open the group's page.
+3. **⋯**: the group's menu, with **Share…**, **People…**, **New Budget in Home…**, **Rename…** and **Delete…** (or **Leave…**).
 4. **Groceries**: a budget. Its row fills from the left as its money is used this month. Click it to open its page. Its **Edit…** and **Delete…** are at the top of that page.
 5. **$308.00**: what's left this month.
 6. **Gas**: a budget over its limit. The row fills all the way and says how far over.
 7. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
 8. **More**: a menu with **New Group…** and **Join a Group…**
-9. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**.
+9. **Syncs through WellSpent's server**: where your budgets are kept. Signed out, it says **Kept on this computer only**.
 10. **Account**: your account, and signing out. Signed out, it's **Sign in**.
 11. **Sync**: send and get changes now. It shows only when you're signed in.
 

@@ -59,11 +59,21 @@ WellSpent runs on a Mac, an iPhone or a Linux computer. Each page has the steps 
 
 - [Change or move a transaction](transactions/change-or-move-a-transaction.md)
 - [Delete a transaction, and undo it](transactions/delete-a-transaction.md)
+- [Add money coming in](transactions/add-money-in.md)
+- [Add a bill dated later this month](budgets/a-bill-dated-later.md)
+
+**Repeating bills**
+
+- [Make a bill repeat every month](transactions/make-a-bill-repeat.md)
+- [Change a repeating bill](transactions/change-a-repeating-bill.md)
+- [Stop a repeating bill](transactions/stop-a-repeating-bill.md)
+- [Delete a repeating bill](transactions/delete-a-repeating-bill.md)
 
 **Bank statements**
 
 - [Download a statement from your bank](statements/download-a-statement.md)
 - [When a statement won't import](statements/when-a-statement-wont-import.md)
+- [A statement line and a repeating bill](statements/a-statement-line-and-a-repeating-bill.md)
 
 **Sharing**
 
@@ -77,6 +87,7 @@ WellSpent runs on a Mac, an iPhone or a Linux computer. Each page has the steps 
 - [Sign in](account/sign-in.md)
 - [Sign out](account/sign-out.md)
 - [Sign out on every device](account/sign-out-everywhere.md)
+- [Change your password](account/change-your-password.md)
 - [Reset a forgotten password](account/reset-a-forgotten-password.md)
 - [Who can see your budgets](account/who-can-see-your-budgets.md)
 - [Stop using WellSpent](account/stop-using-wellspent.md)
@@ -87,6 +98,23 @@ WellSpent runs on a Mac, an iPhone or a Linux computer. Each page has the steps 
 - [Copy and paste](help/copy-and-paste.md)
 - [Use WellSpent offline](help/use-wellspent-offline.md)
 - [Report a problem](help/report-a-problem.md)
+
+## Houses: for people who rent out a home
+
+Properties is an extension. You only need it if you rent out a home. It's on the Mac and the iPhone.
+
+- [Turn on Properties](houses/turn-on-properties.md)
+- [Connect PriceLabs](houses/connect-pricelabs.md)
+- [Import an earnings file](houses/import-an-earnings-file.md)
+- [Finish setting up a group's houses](houses/finish-setting-up.md)
+- [Mark a bill with a house](houses/mark-a-bill-with-a-house.md)
+- [Change a house's share](houses/change-a-houses-share.md)
+- [Try an improvement](houses/try-an-improvement.md)
+- [Set a plan for a house](houses/set-a-plan-for-a-house.md)
+- [Reconnect PriceLabs](houses/reconnect-pricelabs.md)
+- [Remove a house](houses/remove-a-house.md)
+- [How Houses counts the money](houses/how-houses-counts-the-money.md)
+- [Tour: Houses](houses/tour-houses.md)
 
 ## Need help?
 
