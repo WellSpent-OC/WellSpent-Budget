@@ -23,7 +23,7 @@ title: "Side quest: Import an earnings file"
 
 3. Tick each listing that is one of your houses, and pick its group in **Group**.
 
-4. Press **Add Houses**.
+4. Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**.
 
    > You see how many stays came in, such as "Brought in 12 stays."
 
@@ -42,7 +42,7 @@ title: "Side quest: Import an earnings file"
 
 3. Tick each listing that is one of your houses, and pick its group.
 
-4. Tap **Add Houses**.
+4. Tap **Add 2 Houses**. The button counts what you ticked.
 
 ## On Linux
 

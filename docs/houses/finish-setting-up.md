@@ -28,7 +28,7 @@ In a group with no budgets, the second job reads **Add your first house bill**, 
 
 **Coming in the next update.**
 
-The steps are the same. In the **Houses** tab, tap the group, then tap the card's buttons.
+The **Houses** tab opens on your first group's page. With more than one group, tap the title to pick another. **Finish setting up** is a section of that page. Tap **Add** beside what the group has on hand. **How** opens a note, and **OK** closes it.
 
 ## On Linux
 

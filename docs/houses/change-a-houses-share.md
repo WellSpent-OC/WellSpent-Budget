@@ -32,7 +32,7 @@ Marking or unmarking a bill with a house never moves this wheel. A group with no
 
 2. Tap the line under the title. It takes you to the NOI section.
 
-3. Tap the house's percent.
+3. Under **Home's share of NOI**, tap the house's row. Its percent is in the small line under its name.
 
 4. Type a whole number from 0 to 100 in **Percent**, and tap **Save**.
 

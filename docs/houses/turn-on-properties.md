@@ -30,7 +30,7 @@ To turn it off, open **Extensions** and press **Turn off** on the **Properties**
 
 3. On the **Properties** card, tap **Turn on**.
 
-   > You see a **Houses** tab.
+   > You see the **Houses** tab, with **No houses yet**.
 
 ## On Linux
 

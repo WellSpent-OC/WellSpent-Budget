@@ -28,11 +28,9 @@ It works from the nights the house was booked in the last 12 months. A house wit
 
 1. In the **Houses** tab, tap the house.
 
-2. Tap **Try an improvement**.
+2. Scroll to **Try an improvement**, and tap **What it costs**.
 
-3. Type **What it costs** and **More a night**.
-
-4. Tap **Done**.
+3. Type the price, and tap **Done** above the number pad. Then do the same in **More a night**.
 
 ## On Linux
 

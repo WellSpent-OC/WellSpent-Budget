@@ -25,7 +25,7 @@ title: "Side quest: Connect PriceLabs"
 
 5. For each one, pick a group in **Group**. To make a new one, pick **+ New group** and type its name.
 
-6. Press **Add Houses**. With one house, it says **Add 1 House**.
+6. Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**. With none ticked, it's dimmed.
 
    > You see your houses on **Houses**, under their groups.
 
@@ -41,9 +41,9 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 **Coming in the next update.**
 
-1. In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page.
+1. In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
 
-2. Paste your key into **Your PriceLabs key**.
+2. Tap **Paste your key here**, and paste your key.
 
 3. Tap **Continue**.
 
@@ -51,7 +51,7 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 5. For each one, pick its group.
 
-6. Tap **Add Houses**.
+6. Tap **Add 2 Houses**. The button counts what you ticked.
 
 ## On Linux
 
