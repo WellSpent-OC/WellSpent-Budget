@@ -32,7 +32,8 @@ struct PhoneImportReviewSheet: View {
                         ForEach(screen.rows) { row in
                             PhoneImportLine(row: row, choices: screen.budgetChoices,
                                             choose: { screen.choose($0, for: row.id) },
-                                            chooseKind: { screen.choose($0, for: row.id) })
+                                            chooseKind: { screen.choose($0, for: row.id) },
+                                            keepBoth: { screen.keepBoth($0, for: row.id) })
                         }
                     } footer: {
                         Text(screen.note)
@@ -117,6 +118,7 @@ struct PhoneImportLine: View {
     let choices: [Budget]
     let choose: (BudgetID?) -> Void
     let chooseKind: (TransactionKind) -> Void
+    let keepBoth: (Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -154,6 +156,13 @@ struct PhoneImportLine: View {
                     .labelsHidden()
                     .accessibilityIdentifier(AccessibilityID.importLineBudget(row.bankDescription))
                 }
+            }
+            // A line that replaces a repeat's bill can stay beside it (REPEAT-15).
+            if row.offersKeepBoth {
+                Toggle(ImportReviewScreen.Words.keepBoth, isOn: Binding(get: { row.isKeepingBoth }, set: { keepBoth($0) }))
+                    .font(.subheadline)
+                    .tint(Palette.accent)
+                    .accessibilityIdentifier(AccessibilityID.importLineKeepBoth(row.bankDescription))
             }
             // A money-in line is offered as Income or Refund, with the other
             // kinds behind More… (INC-02). A money-out line has no choice.
