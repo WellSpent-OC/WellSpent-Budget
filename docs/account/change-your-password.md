@@ -8,17 +8,22 @@ title: "Side quest: Change your password"
 
 **Before you start:** sign in, and have your current password.
 
-1. Press **Account**, the person at the top of a budget's page.
+1. ![A hand presses Account at the top of a budget's page](../assets/shots/change-your-password-1.svg)
+   Press **Account**, the person at the top of a budget's page.
 
-2. Press **Change password…**
+2. ![A hand presses Change password](../assets/shots/change-your-password-2.svg)
+   Press **Change password…**
 
    > You see "Every other device will be signed out."
 
-3. Type your password now in **Current password**.
+3. ![A hand types in Current password](../assets/shots/change-your-password-3.svg)
+   Type your password now in **Current password**.
 
-4. Type the new one in **New password**, and again in **Confirm password**.
+4. ![A hand types in New password and Confirm password](../assets/shots/change-your-password-4.svg)
+   Type the new one in **New password**, and again in **Confirm password**.
 
-5. Press **Change password**.
+5. ![A hand presses Change password](../assets/shots/change-your-password-5.svg)
+   Press **Change password**.
 
    > You see your budget again, still signed in.
 

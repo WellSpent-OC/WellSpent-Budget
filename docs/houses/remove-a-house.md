@@ -8,11 +8,14 @@ title: "Side quest: Remove a house"
 
 **Before you start:** the Manage level in the house's group.
 
-1. On **Houses**, click the house.
+1. ![A hand clicks a house on Houses](../assets/shots/remove-a-house-1.svg)
+   On **Houses**, click the house.
 
-2. Press **Remove House…**
+2. ![A hand presses Remove House](../assets/shots/remove-a-house-2.svg)
+   Press **Remove House…**
 
-3. Press **Remove House** in the question.
+3. ![A hand presses Remove House in the question](../assets/shots/remove-a-house-3.svg)
+   Press **Remove House** in the question.
 
    > You see the house gone from **Houses**, with its stays.
 

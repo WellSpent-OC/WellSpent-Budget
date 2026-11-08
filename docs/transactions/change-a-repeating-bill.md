@@ -8,13 +8,17 @@ title: "Side quest: Change a repeating bill"
 
 **Before you start:** the person who set the repeat, and anyone at the Manage level, can change one month or every month after. Anyone else who may change the bill can change one month only.
 
-1. Click the month's bill in the budget's list.
+1. ![A hand clicks this month's bill](../assets/shots/change-a-repeating-bill-1.svg)
+   Click the month's bill in the budget's list.
 
-2. Change what's different, such as the **Amount**.
+2. ![A hand changes the Amount](../assets/shots/change-a-repeating-bill-2.svg)
+   Change what's different, such as the **Amount**.
 
-3. In **Which months?**, pick **This month only** or **This month and later**.
+3. ![A hand picks This month and later in Which months](../assets/shots/change-a-repeating-bill-3.svg)
+   In **Which months?**, pick **This month only** or **This month and later**.
 
-4. Press **Save**.
+4. ![A hand presses Save](../assets/shots/change-a-repeating-bill-4.svg)
+   Press **Save**.
 
    > You see the change in the list.
 
@@ -25,15 +29,19 @@ title: "Side quest: Change a repeating bill"
 
 Each budget with repeats says how many under its totals, such as **2 repeats**.
 
-1. Press the count line, such as **2 repeats**.
+1. ![A hand presses 2 repeats](../assets/shots/change-a-repeating-bill-list-1.svg)
+   Press the count line, such as **2 repeats**.
 
    > You see **Repeats in Utilities**, with each repeat, its day, and its amount.
 
-2. Click the repeat.
+2. ![A hand clicks a repeat in the list](../assets/shots/change-a-repeating-bill-list-2.svg)
+   Click the repeat.
 
-3. Change the **Merchant**, the **Amount** or the **Day of the month**.
+3. ![A hand changes the Amount](../assets/shots/change-a-repeating-bill-list-3.svg)
+   Change the **Merchant**, the **Amount** or the **Day of the month**.
 
-4. Press **Save**.
+4. ![A hand presses Save](../assets/shots/change-a-repeating-bill-list-4.svg)
+   Press **Save**.
 
 A change here reaches this month and every month after. To change one month, open that month's bill.
 

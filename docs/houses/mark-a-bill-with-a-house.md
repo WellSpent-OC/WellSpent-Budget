@@ -10,11 +10,14 @@ A bill marked with a house counts in that house's net operating income (NOI). It
 
 **Before you start:** Properties is on, and the bill's group has a house.
 
-1. Click the bill in the budget's list.
+1. ![A hand clicks a bill in a budget's list](../assets/shots/mark-a-bill-with-a-house-1.svg)
+   Click the bill in the budget's list.
 
-2. In **House**, pick the house.
+2. ![A hand picks a house in House](../assets/shots/mark-a-bill-with-a-house-2.svg)
+   In **House**, pick the house.
 
-3. Press **Save**.
+3. ![A hand presses Save](../assets/shots/mark-a-bill-with-a-house-3.svg)
+   Press **Save**.
 
    > You see the bill on that house's **Operating expenses** list.
 
@@ -24,13 +27,16 @@ A repeating bill can have a house too. Each month's bill then carries it.
 
 ## Add a bill from a house's page
 
-1. On **Houses**, click the house.
+1. ![A hand clicks a house on Houses](../assets/shots/mark-a-bill-with-a-house-page-1.svg)
+   On **Houses**, click the house.
 
-2. Press **Add** beside **Operating expenses**.
+2. ![A hand presses Add under Operating expenses](../assets/shots/mark-a-bill-with-a-house-page-2.svg)
+   Press **Add** beside **Operating expenses**.
 
    > You see the usual sheet for a new bill, with **House** already set.
 
-3. Fill it in, pick its **Budget**, and press **Add**.
+3. ![A hand picks a budget and presses Add](../assets/shots/mark-a-bill-with-a-house-page-3.svg)
+   Fill it in, pick its **Budget**, and press **Add**.
 
 If the group has no budgets yet, a manager sees **+ New budget**, with **Budget name** and **Monthly amount**. Below the Manage level, the sheet says "Ask a manager to add a budget first."
 

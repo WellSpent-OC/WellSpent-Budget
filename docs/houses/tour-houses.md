@@ -8,9 +8,53 @@ title: "Tour: Houses"
 
 **Houses** has two kinds of page: a group's page, with all its houses, and a house's page.
 
-## On a Mac
+## On a Mac: a group's page
 
-The Mac's pages hold the same parts. See [How Houses counts the money](how-houses-counts-the-money.md).
+**Houses** on the rail opens a list of your groups with houses. Click a group to open its page.
+
+![A group's page in Houses on a Mac, with numbers 1 to 17](../assets/shots/tour-houses-a-group.svg)
+
+1. **Houses** on the rail: open Houses. It's on the rail once Properties is on. [Side quest: Turn on Properties](turn-on-properties.md)
+2. **Home**: a group with houses. Click it to open its page.
+3. **Lake House**: a house in the group, with its NOI this month. Click it to open its page.
+4. **Add House**: a menu with **Connect PriceLabs** and **Import earnings file**. [Side quest: Connect PriceLabs](connect-pricelabs.md)
+5. **NOI this month**: what the list's amounts are.
+6. **Home**: the group's name.
+7. **November 20 · a group, shared with Robin**: today's date, and who shares the group.
+8. **About 8 months**: Runway, about how long the group can keep going at this month's pace.
+9. The four lines beside it: what Home spends a month, its NOI share, the gap each month, and what it has on hand. Runway comes from these.
+10. **Booked this month**: what the group's houses booked, and how much has come in.
+11. **Operating expenses**: this month's costs of running the houses.
+12. **NOI**: net operating income, what the houses bring in less their operating expenses, before the mortgage.
+13. **Next 30 days**: nights already booked, of the nights there are.
+14. The line about NOI: what NOI means.
+15. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
+16. A house's row: click it to open the house.
+17. **Needs you**: today's turnovers, tomorrow's check-ins, and empty nights between stays. Until setup is done, **Finish setting up** is here instead. [Side quest: Finish setting up](finish-setting-up.md)
+
+## On a Mac: a house's page
+
+Click a house in the list.
+
+![A house's page on a Mac, with numbers 1 to 17](../assets/shots/tour-houses-a-house.svg)
+
+1. **Lake House**, picked in the list: the house that's open.
+2. **Lake House**: the house's name.
+3. **Remove House…**: take the house out. It asks first. [Side quest: Remove a house](remove-a-house.md)
+4. **November 20 · in Home, shared with Robin**: today's date, and the house's group.
+5. **Booked this month**: what the house booked, and how much has come in.
+6. **Operating expenses**: this month's costs of running it.
+7. **NOI**: what it brings in less its operating expenses, before the mortgage.
+8. **Next 30 days**: nights already booked, of the next 30.
+9. **Booked by month**: what the house booked each month.
+10. **Operating expenses**: each cost this month.
+11. **Add**: add a bill with **House** already set to this house. [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md)
+12. **Platform commission from PriceLabs**: one cost, and where it came from.
+13. **Coming up**: the next stays.
+14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**.
+15. **Your plan**: click a number to change it. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
+16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**.
+17. **Try**: try an upgrade, and see what it might pay back. [Side quest: Try an improvement](try-an-improvement.md)
 
 ## On an iPhone: a group's page
 

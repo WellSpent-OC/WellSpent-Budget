@@ -12,15 +12,20 @@ On a house's page, **Against your plan and the market** puts how the house is do
 
 **Before you start:** the Manage level in the house's group. Below it, **Your plan** reads **Not set** until a manager adds it.
 
-1. On **Houses**, click the house.
+1. ![A hand clicks a house on Houses](../assets/shots/set-a-plan-for-a-house-1.svg)
+   On **Houses**, click the house.
 
-2. In **Against your plan and the market**, press **Add** under **Your plan**.
+2. ![A hand presses Add under Your plan](../assets/shots/set-a-plan-for-a-house-2.svg)
+   In **Against your plan and the market**, press **Add** under **Your plan**.
 
-3. Type the percent of nights you plan to book in **Booked, next 30 days**.
+3. ![A hand types in Booked, next 30 days](../assets/shots/set-a-plan-for-a-house-3.svg)
+   Type the percent of nights you plan to book in **Booked, next 30 days**.
 
-4. Type your planned rate in **Nightly rate**.
+4. ![A hand types in Nightly rate](../assets/shots/set-a-plan-for-a-house-4.svg)
+   Type your planned rate in **Nightly rate**.
 
-5. Press **Save**.
+5. ![A hand presses Save](../assets/shots/set-a-plan-for-a-house-5.svg)
+   Press **Save**.
 
    > You see two rows, **Booked, next 30 days** and **Nightly rate, this month**, under **You**, **Your plan** and **Market**.
 

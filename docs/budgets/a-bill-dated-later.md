@@ -12,15 +12,19 @@ A bill dated later this month doesn't count as spent until its date. Until then,
 
 **Before you start:** a budget. See [Quest 4: Make your first budget](make-your-first-budget.md).
 
-1. Add a transaction, as in [Quest 5](../transactions/add-your-first-transaction.md).
+1. ![A hand presses Add](../assets/shots/a-bill-dated-later-1.svg)
+   Add a transaction, as in [Quest 5](../transactions/add-your-first-transaction.md).
 
-2. Set **Date** to a day later this month, like Nov 28.
+2. ![A hand sets Date to Nov 28](../assets/shots/a-bill-dated-later-2.svg)
+   Set **Date** to a day later this month, like Nov 28.
 
-3. Press **Add**.
+3. ![A hand presses Add](../assets/shots/a-bill-dated-later-3.svg)
+   Press **Add**.
 
    > You see the bill in the list, with its own date. **Spent** and **Left** don't change.
 
-4. Look under **Left** for **Coming by Nov 28**, and how much is still to come.
+4. ![The budget's page shows Coming by Nov 28, $475.00](../assets/shots/a-bill-dated-later-4.svg)
+   Look under **Left** for **Coming by Nov 28**, and how much is still to come.
 
 When Nov 28 arrives, the bill counts as spent, and the **Coming by** line goes away.
 

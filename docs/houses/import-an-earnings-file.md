@@ -15,15 +15,19 @@ title: "Side quest: Import an earnings file"
 - The Manage level in each group a house will join.
 - Choose the group with care. Your stays and house names sync through WellSpent's server. Everyone in the group can see them. The server can read them. Guest names aren't saved.
 
-1. On **Houses**, press **Import earnings file**. Once you have a house, it's in **Add House**, under a group's houses.
+1. ![A hand presses Import earnings file](../assets/shots/import-an-earnings-file-1.svg)
+   On **Houses**, press **Import earnings file**. Once you have a house, it's in **Add House**, under a group's houses.
 
-2. Pick the file, and press **Open**.
+2. ![A hand picks the file and presses Open](../assets/shots/import-an-earnings-file-2.svg)
+   Pick the file, and press **Open**.
 
    > You see **Pick your houses**, with the file's listings.
 
-3. Tick each listing that is one of your houses, and pick its group in **Group**.
+3. ![A hand ticks a listing and picks its group](../assets/shots/import-an-earnings-file-3.svg)
+   Tick each listing that is one of your houses, and pick its group in **Group**.
 
-4. Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**.
+4. ![A hand presses Add 2 Houses](../assets/shots/import-an-earnings-file-4.svg)
+   Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**.
 
    > You see how many stays came in, such as "Brought in 12 stays."
 

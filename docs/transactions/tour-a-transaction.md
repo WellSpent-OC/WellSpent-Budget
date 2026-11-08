@@ -8,18 +8,26 @@ title: "Tour: A transaction"
 
 Click a transaction in a budget's list, and it opens like this.
 
-![A transaction opened on a Mac, with numbers 1 to 8](../assets/shots/tour-a-transaction.svg)
+![A transaction opened on a Mac, with numbers 1 to 16](../assets/shots/tour-a-transaction.svg)
 
 1. **Merchant**: who you paid.
 2. **Amount**: how much. Type it as a number.
-3. **Date**: when. A date before this period keeps it off this period's page.
-4. **Note**: anything to remember. It shows under the merchant.
-5. **Budget**: move it to another budget in the same group.
-6. **Delete…**: delete it. It asks first, and **Undo** shows for about 10 seconds after.
-7. **Cancel**: close without saving.
-8. **Save**: save your changes. It stays dimmed until something changes.
+3. **Money in**: turn it on for money coming in, not going out. [Side quest: Add money coming in](add-money-in.md)
+4. **Date**: when. A date before this period keeps it off this period's page. A date later this month waits on the **Coming by** line until then.
+5. **Note**: anything to remember. It shows under the merchant.
+6. **Budget**: move it to another budget in the same group.
+7. **House**: the house this bill is for. It shows only with Properties turned on. [Side quest: Mark a bill with a house](../houses/mark-a-bill-with-a-house.md)
+8. **Repeats every month**, on: a bill that comes back each month. [Side quest: Make a bill repeat every month](make-a-bill-repeat.md)
+9. The line under it: the day it shows up each month.
+10. **Which months?**: what a change to this bill reaches, **This month only** or **This month and later**. [Side quest: Change a repeating bill](change-a-repeating-bill.md)
+11. The line under it: what that choice does.
+12. **Stop repeating…**: no more bills come. Earlier bills stay. It asks first. [Side quest: Stop a repeating bill](stop-a-repeating-bill.md)
+13. **Delete…**: delete it. It asks first, and **Undo** shows for about 10 seconds after.
+14. **Cancel**: close without saving.
+15. **Save**: save your changes. It stays dimmed until something changes.
+16. **Added by you · Repeat**: who added it, and how it came in. **Repeat** means a repeat made it.
 
-**Add** on a budget's page opens a shorter window, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**.
+**Add** on a budget's page opens a **New transaction** window with the same fields, and **Add** in place of **Save**.
 
 At the View level, you can read a transaction but not change it. At Add, you can change only the ones you added.
 
@@ -63,7 +71,7 @@ Scroll down on a bill that repeats.
 2. **Edit**: open it, to change or move it.
 3. **Delete**: delete it. It asks first.
 
-**Add** on a budget's page opens a shorter sheet, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**. A transaction you can't change has no swipe and no menu. It opens with its details and **Done**.
+**Add** on a budget's page opens a **New transaction** sheet with the same fields, and **Add** in place of **Save**. A transaction you can't change has no swipe and no menu. It opens with its details and **Done**.
 
 ## On Linux
 
@@ -91,6 +99,6 @@ Click a transaction in a budget's list, and it opens like this. Click each field
 
 Linux has no **House** row. Properties isn't on Linux yet.
 
-**Add** on a budget's page opens a shorter window, **New transaction**: **Merchant**, **Amount**, **Date** and **Note**, with **Add**.
+**Add** on a budget's page opens a **New transaction** window with the same fields, and **Add** in place of **Save**.
 
-<!-- Scenarios: ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->
+<!-- Scenarios: INC-01, REPEAT-01, REPEAT-05, REPEAT-08, WHEEL-21, PROP-26, ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->

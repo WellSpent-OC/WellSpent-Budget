@@ -8,13 +8,16 @@ title: "Side quest: Turn on Properties"
 
 Properties is an extension for people who rent out a home. It brings in your stays and shows what each house earns. You only need it if you rent out a home. Leave it off, and your budgets stay as they are.
 
-1. Press **Extensions** on the rail at the far left.
+1. ![A hand presses Extensions on the rail](../assets/shots/turn-on-properties-1.svg)
+   Press **Extensions** on the rail at the far left.
 
-2. On the **Properties** card, press **Turn on**.
+2. ![A hand presses Turn on, on the Properties card](../assets/shots/turn-on-properties-2.svg)
+   On the **Properties** card, press **Turn on**.
 
    > You see **Houses** on the rail.
 
-3. Press **Houses**.
+3. ![A hand presses Houses on the rail](../assets/shots/turn-on-properties-3.svg)
+   Press **Houses**.
 
    > You see **No houses yet**, with two choices: **Import earnings file** and **Connect PriceLabs**.
 

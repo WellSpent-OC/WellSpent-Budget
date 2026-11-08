@@ -8,15 +8,19 @@ title: "Side quest: Delete a repeating bill"
 
 **Before you start:** you need to be able to change the bill. Only the person who set the repeat, or someone at the Manage level, is offered **Delete and Stop Repeating**.
 
-1. Click the month's bill in the budget's list.
+1. ![A hand clicks a repeating bill](../assets/shots/delete-a-repeating-bill-1.svg)
+   Click the month's bill in the budget's list.
 
-2. Press **Delete…**
+2. ![A hand presses Delete](../assets/shots/delete-a-repeating-bill-2.svg)
+   Press **Delete…**
 
-3. In the question, press **Delete This Month Only** or **Delete and Stop Repeating**.
+3. ![A hand picks one of the two delete buttons](../assets/shots/delete-a-repeating-bill-3.svg)
+   In the question, press **Delete This Month Only** or **Delete and Stop Repeating**.
 
    > You see a bar with **Undo**.
 
-4. Changed your mind? Press **Undo** within about 10 seconds.
+4. ![A hand presses Undo](../assets/shots/delete-a-repeating-bill-4.svg)
+   Changed your mind? Press **Undo** within about 10 seconds.
 
 - **Delete This Month Only:** later bills still come. The month you deleted doesn't come back.
 - **Delete and Stop Repeating:** this month's bill goes, and no more bills come.

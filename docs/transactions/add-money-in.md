@@ -10,13 +10,17 @@ Money in is income, such as pay or a rental payout. It adds to a budget instead 
 
 **Before you start:** the Add level or higher in the group.
 
-1. In the budget, press **Add**.
+1. ![A hand presses Add](../assets/shots/add-money-in-1.svg)
+   In the budget, press **Add**.
 
-2. Type who paid in **Merchant**, and how much in **Amount**.
+2. ![A hand types the Merchant and Amount](../assets/shots/add-money-in-2.svg)
+   Type who paid in **Merchant**, and how much in **Amount**.
 
-3. Turn on **Money in**.
+3. ![A hand turns on Money in](../assets/shots/add-money-in-3.svg)
+   Turn on **Money in**.
 
-4. Press **Add**.
+4. ![A hand presses Add](../assets/shots/add-money-in-4.svg)
+   Press **Add**.
 
    > You see the entry in the list, with a plus sign.
 

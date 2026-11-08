@@ -8,13 +8,17 @@ title: "Side quest: Stop a repeating bill"
 
 **Before you start:** only the person who set the repeat, or someone at the Manage level, can stop it.
 
-1. In the budget, press the count line, such as **2 repeats**.
+1. ![A hand presses 2 repeats](../assets/shots/stop-a-repeating-bill-1.svg)
+   In the budget, press the count line, such as **2 repeats**.
 
-2. Click the repeat.
+2. ![A hand clicks a repeat in the list](../assets/shots/stop-a-repeating-bill-2.svg)
+   Click the repeat.
 
-3. Press **Stop repeating…**
+3. ![A hand presses Stop repeating](../assets/shots/stop-a-repeating-bill-3.svg)
+   Press **Stop repeating…**
 
-4. Press **Stop Repeating** in the question.
+4. ![A hand presses Stop Repeating in the question](../assets/shots/stop-a-repeating-bill-4.svg)
+   Press **Stop Repeating** in the question.
 
    > You see a bar with **Undo**. The repeat leaves the list.
 
@@ -24,13 +28,16 @@ Changed your mind? Press **Undo** within about 10 seconds.
 
 ## Or turn it off on a bill
 
-1. Click any bill the repeat made.
+1. ![A hand clicks a repeating bill](../assets/shots/stop-a-repeating-bill-switch-1.svg)
+   Click any bill the repeat made.
 
-2. Turn off **Repeats every month**.
+2. ![A hand turns off Repeats every month](../assets/shots/stop-a-repeating-bill-switch-2.svg)
+   Turn off **Repeats every month**.
 
    > **Which months?** and **Stop repeating…** leave the sheet.
 
-3. Press **Save**.
+3. ![A hand presses Save](../assets/shots/stop-a-repeating-bill-switch-3.svg)
+   Press **Save**.
 
    > You see a bar with **Undo**. Changed your mind? Press it within about 10 seconds.
 

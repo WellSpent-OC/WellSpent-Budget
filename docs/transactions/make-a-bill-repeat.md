@@ -8,11 +8,14 @@ title: "Side quest: Make a bill repeat every month"
 
 **Before you start:** you need the Add level or higher in the group. Only the person who added a bill can make it repeat.
 
-1. Click the bill in the budget's list. For a new bill, press **Add** instead.
+1. ![A hand clicks a bill in a budget's list](../assets/shots/make-a-bill-repeat-1.svg)
+   Click the bill in the budget's list. For a new bill, press **Add** instead.
 
-2. Turn on **Repeats every month**.
+2. ![A hand turns on Repeats every month](../assets/shots/make-a-bill-repeat-2.svg)
+   Turn on **Repeats every month**.
 
-3. Press **Save**.
+3. ![A hand presses Save](../assets/shots/make-a-bill-repeat-3.svg)
+   Press **Save**.
 
    > You see the bill in the budget once. Under the budget's totals, the count line says **1 repeat**.
 

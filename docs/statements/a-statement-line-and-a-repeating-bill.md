@@ -12,13 +12,17 @@ When you bring in a statement, a line that matches a repeating bill takes the bi
 
 **Before you start:** a statement to bring in. See [Quest 6: Bring in your first statement](bring-in-your-first-statement.md).
 
-1. Bring in the statement, as in Quest 6.
+1. ![A hand presses Import statement](../assets/shots/a-statement-line-and-a-repeating-bill-1.svg)
+   Bring in the statement, as in Quest 6.
 
-2. In the review, look for a line that says **Replaces**, such as "Replaces December's Phone bill, $85.00". The count of matches is at the top, beside **Matched**.
+2. ![A hand points at a row that says Replaces December's Phone bill](../assets/shots/a-statement-line-and-a-repeating-bill-2.svg)
+   In the review, look for a line that says **Replaces**, such as "Replaces December's Phone bill, $85.00". The count of matches is at the top, beside **Matched**.
 
-3. To keep the bill and the line, tick **Keep both** on that line.
+3. ![A hand ticks Keep both](../assets/shots/a-statement-line-and-a-repeating-bill-3.svg)
+   To keep the bill and the line, tick **Keep both** on that line.
 
-4. Press **Import**.
+4. ![A hand presses Import](../assets/shots/a-statement-line-and-a-repeating-bill-4.svg)
+   Press **Import**.
 
    > You see the bank's line in the budget, in the bill's place.
 

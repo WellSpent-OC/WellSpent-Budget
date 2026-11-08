@@ -10,15 +10,19 @@ A group with houses shows one more section on its page in **Budget**, **Home's m
 
 **Before you start:** the Manage level in the group. Below it, you see each share with "Ask a manager to change a share."
 
-1. Press **Budget** on the rail.
+1. ![A hand presses Budget on the rail](../assets/shots/change-a-houses-share-1.svg)
+   Press **Budget** on the rail.
 
-2. Click the group's name in the sidebar.
+2. ![A hand clicks the group's name in the sidebar](../assets/shots/change-a-houses-share-2.svg)
+   Click the group's name in the sidebar.
 
    > You see the group's page. The **Money** section comes first, as always. The NOI section is below it.
 
-3. In **Home's share of NOI**, press the house's percent, such as **100%**.
+3. ![A hand presses a house's percent](../assets/shots/change-a-houses-share-3.svg)
+   In **Home's share of NOI**, press the house's percent, such as **100%**.
 
-4. Type a whole number from 0 to 100 in **Percent**, and press **Save**.
+4. ![A hand types in Percent and presses Save](../assets/shots/change-a-houses-share-4.svg)
+   Type a whole number from 0 to 100 in **Percent**, and press **Save**.
 
    > You see the wheel change, and Runway on **Houses** follows.
 

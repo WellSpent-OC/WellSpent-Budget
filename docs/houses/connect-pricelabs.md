@@ -13,19 +13,25 @@ title: "Side quest: Connect PriceLabs"
 - The Manage level in each group a house will join.
 - Choose the group with care. Your stays and house names sync through WellSpent's server. Everyone in the group can see them. The server can read them. Guest names aren't saved.
 
-1. On **Houses**, press **Connect PriceLabs**. Once you have a house, it's in **Add House**, under a group's houses.
+1. ![A hand presses Connect PriceLabs](../assets/shots/connect-pricelabs-1.svg)
+   On **Houses**, press **Connect PriceLabs**. Once you have a house, it's in **Add House**, under a group's houses.
 
-2. Paste your key into **Your PriceLabs key**.
+2. ![A hand pastes the key into Your PriceLabs key](../assets/shots/connect-pricelabs-2.svg)
+   Paste your key into **Your PriceLabs key**.
 
-3. Press **Continue**.
+3. ![A hand presses Continue](../assets/shots/connect-pricelabs-3.svg)
+   Press **Continue**.
 
    > You see **Pick your houses**, with your listings.
 
-4. Tick each listing that is one of your houses. Pick one listing per house.
+4. ![A hand ticks a listing](../assets/shots/connect-pricelabs-4.svg)
+   Tick each listing that is one of your houses. Pick one listing per house.
 
-5. For each one, pick a group in **Group**. To make a new one, pick **+ New group** and type its name.
+5. ![A hand picks a group in Group](../assets/shots/connect-pricelabs-5.svg)
+   For each one, pick a group in **Group**. To make a new one, pick **+ New group** and type its name.
 
-6. Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**. With none ticked, it's dimmed.
+6. ![A hand presses Add 2 Houses](../assets/shots/connect-pricelabs-6.svg)
+   Press **Add 2 Houses**. The button counts what you ticked: with one, it says **Add 1 House**. With none ticked, it's dimmed.
 
    > You see your houses on **Houses**, under their groups.
 

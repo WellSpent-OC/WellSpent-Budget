@@ -10,13 +10,17 @@ Right after you add houses, a group's page shows a **Finish setting up** card wi
 
 **Before you start:** the Manage level in the group. Below it, the page says "Runway starts when a manager adds what Home has on hand."
 
-1. On **Houses**, click the group's name.
+1. ![A hand clicks a group on Houses](../assets/shots/finish-setting-up-1.svg)
+   On **Houses**, click the group's name.
 
-2. On the card, press **Add** beside **What Home has on hand**.
+2. ![A hand presses Add beside What Home has on hand](../assets/shots/finish-setting-up-2.svg)
+   On the card, press **Add** beside **What Home has on hand**.
 
-3. Type what the group has on hand, and press **Save**.
+3. ![A hand types the amount and presses Save](../assets/shots/finish-setting-up-3.svg)
+   Type what the group has on hand, and press **Save**.
 
-4. Press **How** beside **Mark house bills**, and follow it. See [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md).
+4. ![A hand presses How beside Mark house bills](../assets/shots/finish-setting-up-4.svg)
+   Press **How** beside **Mark house bills**, and follow it. See [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md).
 
    > When both are done, the card goes, and you see **Runway**.
 
