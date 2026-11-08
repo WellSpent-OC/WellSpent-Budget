@@ -136,7 +136,7 @@ Platforms: Mac, Linux, iPhone
 
 ## REPEAT-14 A statement line replaces that month's repeat
 
-Platforms: Mac, iPhone
+Platforms: Mac, Linux, iPhone
 
 - Given December's $85.00 phone bill was made, and a statement has an $85.40 line on Dec 15
 - When Robin imports it to Utilities
@@ -148,7 +148,7 @@ Platforms: Mac, iPhone
 
 ## REPEAT-15 Saying no to a match
 
-Platforms: Mac, iPhone
+Platforms: Mac, Linux, iPhone
 
 - When Robin presses "Keep both" on that match
 - Then both stay, and neither is changed
