@@ -6,7 +6,7 @@ title: "Side quest: Change a house's share"
 
 > *Split the loot. Say how much of each house's earnings the group counts on.*
 
-A group with houses shows one more section on its page in **Budget**: "Will the NOI share cover the budgets?" Its wheel puts the group's budgets against its share of the houses' net operating income (NOI). Each house counts 100% until you change it.
+A group with houses shows one more section on its page in **Budget**, **Home's month**. The line under it asks "Will the NOI share cover the budgets?" Its wheel puts the group's budgets against its share of the houses' net operating income (NOI). Each house counts 100% until you change it.
 
 **Before you start:** the Manage level in the group. Below it, you see each share with "Ask a manager to change a share."
 

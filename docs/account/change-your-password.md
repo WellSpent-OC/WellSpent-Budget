@@ -26,13 +26,17 @@ Your other devices are signed out. Sign in on each with the new password. Your b
 
 ## On an iPhone
 
-1. Tap **Account** at the bottom left of Home.
+1. ![A thumb taps Account at the bottom of Home](../assets/shots/change-your-password-iphone-1.svg)
+   Tap **Account** at the bottom left of Home.
 
-2. Tap **Change password**.
+2. ![A thumb taps Change password](../assets/shots/change-your-password-iphone-2.svg)
+   Tap **Change password**.
 
-3. Type **Current password**, **New password** and **Confirm password**.
+3. ![A thumb types the three passwords](../assets/shots/change-your-password-iphone-3.svg)
+   Type **Current password**, **New password** and **Confirm password**.
 
-4. Tap **Change password**.
+4. ![A thumb taps Change password](../assets/shots/change-your-password-iphone-4.svg)
+   Tap **Change password**.
 
 ## On Linux
 

@@ -36,19 +36,35 @@ A group with no budgets shows no MONEY. At the Add or View level, the page shows
 
 Tap a group's name on Home, and its page opens. Shown here as an Admin sees it.
 
-![A group's page on an iPhone, with numbers 1 to 9](../assets/shots/tour-iphone-group.svg)
+![A group's page on an iPhone, with numbers 1 to 13](../assets/shots/tour-iphone-group.svg)
 
 1. The back arrow: go back to Home.
 2. **⋯**: the group's menu, with items such as **Share** and **Rename**.
-3. The line under the name: whether it's shared, how many people, and who made it.
-4. **Robin**: a person in the group. Your own row says **(you)**.
-5. The line under a name: what that person's level lets them do.
-6. **Owner**: their level. The Owner is the person who made the group.
-7. The arrow: open that person, to change their level or remove them. It shows only on rows you may change. An Admin's own row has one too, to change their own level.
-8. **Leave Group**: leave the group. The others keep it. The person who made a group deletes it instead.
-9. **Invite Someone**: share the group. It shows at the Manage level or higher. [Quest 7](share-a-group.md)
+3. **Shared · 3 people · Made by Robin**: whether it's shared, how many people, and who made it.
+4. **MONEY**: the whole group's month, every budget added up.
+5. **This month**: the month the wheel counts.
+6. The group's wheel: what's left this month across the group's budgets. It turns orange only when the group is over its budgets, not for pace.
+7. The tick: where the green would end today, at an even pace.
+8. **Spent**: what the group has spent this month.
+9. **Left**: what's left across its budgets.
+10. **Coming by Oct 28**: bills dated later this month in all its budgets, not counted yet. [Side quest: Add a bill dated later this month](../budgets/a-bill-dated-later.md)
+11. **Expected left by today**: what would be left today, at an even pace.
+12. **Day 18 of 31. Every budget in Home, added up.**: how far into the month, and what the wheel counts.
+13. **Invite Someone**: share the group. It shows at the Manage level or higher. [Quest 7](share-a-group.md)
 
-The iPhone's group page has no MONEY wheel. Each budget's wheel is on its own page.
+## On an iPhone: further down
+
+Scroll down for the group's people.
+
+![The people on a group's page on an iPhone, with numbers 1 to 7](../assets/shots/tour-iphone-group-b.svg)
+
+1. **PEOPLE**: everyone in the group.
+2. **Robin**: a person in the group. Your own row says **(you)**.
+3. The line under a name: what that person's level lets them do.
+4. **Owner**: a level you can't change. The Owner is the person who made the group.
+5. The arrow: open that person, to change their level or remove them. It shows only on rows you may change. An Admin's own row has one too, to change their own level.
+6. **Leave Group**: leave the group. The others keep it. The person who made a group deletes it instead.
+7. **Invite Someone**: share the group. It shows at the Manage level or higher.
 
 ## On an iPhone: a person
 
@@ -68,24 +84,25 @@ You see only the levels you may give. Only the Owner or an Admin can make someon
 
 Click a group's name in the sidebar, or pick **People…** from its **⋯** menu, and its page opens. Shown here as an Admin sees it.
 
-![A group's page on Linux, with numbers 1 to 16](../assets/shots/tour-linux-a-groups-page.svg)
+![A group's page on Linux, with numbers 1 to 17](../assets/shots/tour-linux-a-groups-page.svg)
 
 1. **Home**: the group's name.
 2. **Invite Someone…**: share the group. [Quest 7](share-a-group.md)
 3. The line under the name: whether it's shared, how many people, and who made it.
 4. **MONEY**: the whole group's month, every budget added up.
-5. The group's wheel: what's left this month across the group's budgets.
+5. The group's wheel: what's left this month across the group's budgets. It turns orange only when the group is over its budgets, not for pace.
 6. The tick: where the green would end today, at an even pace.
 7. **Spent**: what the group has spent this month.
-8. **Left**: what's left across its budgets. Below it, **Coming by** adds up the bills dated later this month.
-9. **Expected left by today**: what would be left today, at an even pace.
-10. **Day 18 of 31. Every budget in Home, added up.**: how far into the month, and what the wheel counts.
-11. **PEOPLE**: everyone in the group.
-12. **Robin**: a person. Your own row says **(you)**.
-13. **Owner**: a level you can't change, shown as a label.
-14. The level list: change someone's level. Only the Owner or an Admin can make someone an Admin.
-15. **Remove…**: take someone out of the group. What they added stays. It asks first.
-16. **Leave Group…**: leave the group. The others keep it. The person who made a group deletes it instead.
+8. **Left**: what's left across its budgets.
+9. **Coming by Oct 28**: bills dated later this month in all its budgets, not counted yet.
+10. **Expected left by today**: what would be left today, at an even pace.
+11. **Day 18 of 31. Every budget in Home, added up.**: how far into the month, and what the wheel counts.
+12. **PEOPLE**: everyone in the group.
+13. **Robin**: a person, and the line saying what their level lets them do. Your own row says **(you)**.
+14. **Owner**: a level you can't change, shown as a label.
+15. The level list: change someone's level. Only the Owner or an Admin can make someone an Admin.
+16. **Remove…**: take someone out of the group. What they added stays. It asks first.
+17. **Leave Group…**: leave the group. The others keep it. The person who made a group deletes it instead.
 
 **Sync** and **Account** are at the bottom of the sidebar, not on the page.
 

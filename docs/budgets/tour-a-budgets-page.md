@@ -33,7 +33,7 @@ Click a budget in the sidebar, and its page opens on the right.
 
 Tap a budget on Home, and its page opens.
 
-![A budget's page on an iPhone, with numbers 1 to 13](../assets/shots/tour-iphone-budget-a.svg)
+![A budget's page on an iPhone, with numbers 1 to 14](../assets/shots/tour-iphone-budget-a.svg)
 
 1. The back arrow: go back to Home.
 2. **⋯**: a menu with **Import statement**, **Edit** and **Delete**. You see the ones your level allows. [Quest 6](../statements/bring-in-your-first-statement.md)
@@ -42,12 +42,13 @@ Tap a budget on Home, and its page opens.
 5. The wheel: what's left this month. Its middle says what's left, of how much. Over the budget, it says **Over**. It turns orange when you spend faster than an even pace.
 6. The tick: where the green would end today, if you spent the same each day.
 7. **Spent**: what's spent this month.
-8. **Left**: what's left. Below it, **Coming by Nov 28** shows bills dated later this month, not counted yet.
-9. **Expected left by today**: what would be left today, at an even pace.
-10. **3 transactions since Oct 1**: how many transactions count this month.
-11. The pace words: when the money runs out at this pace. They show when you spend faster than an even pace. In the month's last week, with more left than expected, they ask whether to lower the budget. That question shows only at the Manage level or higher.
-12. **Edit Budget**: change the budget's amount. It shows beside the pace words, at the Manage level or higher. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
-13. **Add**: add a transaction. It shows at the Add level or higher. [Quest 5](../transactions/add-your-first-transaction.md)
+8. **Left**: what's left.
+9. **Coming by Oct 28**: bills dated later this month, not counted yet. It's in the warning color when that's more than what's left. [Side quest: Add a bill dated later this month](a-bill-dated-later.md)
+10. **Expected left by today**: what would be left today, at an even pace.
+11. **3 transactions since Oct 1**: how many transactions count this month.
+12. The pace words: when the money runs out at this pace. They show when you spend faster than an even pace. In the month's last week, with more left than expected, they ask whether to lower the budget. That question shows only at the Manage level or higher.
+13. **Edit Budget**: change the budget's amount. It shows beside the pace words, at the Manage level or higher. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
+14. **Add**: add a transaction. It shows at the Add level or higher. [Quest 5](../transactions/add-your-first-transaction.md)
 
 ## On an iPhone, further down
 
@@ -66,7 +67,7 @@ Scroll down for the budget's transactions, newest on top.
 
 Click a budget in the sidebar, and its page opens on the right.
 
-![A budget's page on Linux, with numbers 1 to 15](../assets/shots/tour-linux-a-budgets-page.svg)
+![A budget's page on Linux, with numbers 1 to 16](../assets/shots/tour-linux-a-budgets-page.svg)
 
 1. **Groceries**: the budget's name.
 2. **Import statement**: bring in a statement from your bank. [Quest 6](../statements/bring-in-your-first-statement.md)
@@ -77,12 +78,13 @@ Click a budget in the sidebar, and its page opens on the right.
 7. The wheel: what's left this month. Its middle says what's left, of how much. It turns orange when you spend faster than an even pace.
 8. The tick: where the green would end today, if you spent the same each day.
 9. **Spent**: what's spent this month.
-10. **Left**: what's left. Over the budget, it says **Over**, and how much. Below it, **Coming by Nov 28** shows bills dated later this month, not counted yet.
-11. **Expected left by today**: what would be left today, at an even pace.
-12. The pace words: when the money runs out at this pace.
-13. **Edit Budget…**: change the budget's amount. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
-14. **3 transactions since Oct 1**: how many transactions count this month.
-15. A transaction: click it to change, move or delete it.
+10. **Left**: what's left. Over the budget, it says **Over**, and how much.
+11. **Coming by Oct 28**: bills dated later this month, not counted yet. [Side quest: Add a bill dated later this month](a-bill-dated-later.md)
+12. **Expected left by today**: what would be left today, at an even pace.
+13. The pace words: when the money runs out at this pace.
+14. **Edit Budget…**: change the budget's amount. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
+15. **3 transactions since Oct 1**: how many transactions count this month.
+16. A transaction: click it to change, move or delete it.
 
 **Sync** and **Account** are at the bottom of the sidebar, not on the page.
 

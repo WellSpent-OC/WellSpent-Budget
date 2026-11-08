@@ -14,9 +14,9 @@ When you bring in a statement, a line that matches a repeating bill takes the bi
 
 1. Bring in the statement, as in Quest 6.
 
-2. In the review, look for rows under **Matched** that say **Replaces**, such as "Replaces December's Phone bill, $85.00".
+2. In the review, look for a line that says **Replaces**, such as "Replaces December's Phone bill, $85.00". The count of matches is at the top, beside **Matched**.
 
-3. To keep the bill and the line, press **Keep both** on that row.
+3. To keep the bill and the line, tick **Keep both** on that line.
 
 4. Press **Import**.
 

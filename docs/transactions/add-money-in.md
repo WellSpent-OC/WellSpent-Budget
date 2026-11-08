@@ -16,8 +16,6 @@ Money in is income, such as pay or a rental payout. It adds to a budget instead 
 
 3. Turn on **Money in**.
 
-   > You see the line under it, such as "Adds to Bookings instead of spending from it."
-
 4. Press **Add**.
 
    > You see the entry in the list, with a plus sign.
@@ -41,17 +39,23 @@ From a bank statement, a line that is money in is offered as **Money in**, as **
 
 ## On an iPhone
 
-1. In the budget, tap **+**.
+1. ![A thumb taps Add](../assets/shots/add-money-in-iphone-1.svg)
+   In the budget, tap **Add** at the bottom.
 
-2. Type the **Merchant** and **Amount**.
+2. ![A thumb types the Merchant and Amount](../assets/shots/add-money-in-iphone-2.svg)
+   Type the **Merchant** and **Amount**.
 
-3. Turn on **Money in**.
+3. ![A thumb turns on Money in](../assets/shots/add-money-in-iphone-3.svg)
+   Turn on **Money in**.
 
-4. Tap **Add**.
+   > You see the line under it, such as "Adds to Bookings instead of spending from it."
+
+4. ![A thumb taps Add](../assets/shots/add-money-in-iphone-4.svg)
+   Tap **Add**.
 
 ## On Linux
 
-The steps are the same as on a Mac, except no line shows under **Money in**.
+The steps are the same as on a Mac, except **Money in** is a check box. Tick it.
 
 ## Related
 

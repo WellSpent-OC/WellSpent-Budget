@@ -28,7 +28,13 @@ Changed your mind? Press **Undo** within about 10 seconds.
 
 2. Turn off **Repeats every month**.
 
+   > **Which months?** and **Stop repeating…** leave the sheet.
+
 3. Press **Save**.
+
+   > You see a bar with **Undo**. Changed your mind? Press it within about 10 seconds.
+
+Or press **Stop repeating…** on the bill's sheet. It asks "Stop repeating?" first.
 
 To start it again, turn the switch back on and save. The repeat starts again from this month. The months it was stopped stay empty.
 
@@ -36,13 +42,17 @@ To start it again, turn the switch back on and save. The repeat starts again fro
 
 **Coming in the next update.**
 
-1. In the budget, tap the count line, such as **2 repeats**.
+1. ![A thumb taps 2 repeats](../assets/shots/stop-a-repeating-bill-iphone-1.svg)
+   In the budget, tap the count line, such as **2 repeats**.
 
-2. Tap the repeat.
+2. ![A thumb taps a repeat](../assets/shots/stop-a-repeating-bill-iphone-2.svg)
+   Tap the repeat.
 
-3. Tap **Stop repeating…**
+3. ![A thumb taps Stop repeating](../assets/shots/stop-a-repeating-bill-iphone-3.svg)
+   Tap **Stop repeating…**
 
-4. Tap **Stop Repeating** in the question.
+4. ![A thumb taps Stop Repeating in the question](../assets/shots/stop-a-repeating-bill-iphone-4.svg)
+   Tap **Stop Repeating** in the question.
 
 ## On Linux
 

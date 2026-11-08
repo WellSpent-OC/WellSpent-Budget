@@ -6,7 +6,7 @@ title: "Side quest: Finish setting up a group's houses"
 
 > *Count your coin, then mark your costs. Now the map shows how far you can go.*
 
-Right after you add houses, a group's page shows a **Finish setting up** card with two jobs. Runway needs both.
+Right after you add houses, a group's page shows a **Finish setting up** card with two jobs. Runway needs only what the group has on hand. Marking bills makes NOI complete.
 
 **Before you start:** the Manage level in the group. Below it, the page says "Runway starts when a manager adds what Home has on hand."
 
@@ -20,7 +20,7 @@ Right after you add houses, a group's page shows a **Finish setting up** card wi
 
    > When both are done, the card goes, and you see **Runway**.
 
-Runway says about how many months the group can keep going, such as "about 8 months". It's a guess, never a date or a promise. Everyone in the group sees the same Runway. You can change the amount on hand any time.
+Runway says about how many months the group can keep going, such as "About 8 months". It's a guess, never a date or a promise. Everyone in the group sees the same Runway. You can change the amount on hand any time.
 
 In a group with no budgets, the second job reads **Add your first house bill**, and its **Add** opens the sheet for a new bill.
 

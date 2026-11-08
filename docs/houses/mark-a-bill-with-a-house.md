@@ -30,7 +30,7 @@ A repeating bill can have a house too. Each month's bill then carries it.
 
    > You see the usual sheet for a new bill, with **House** already set.
 
-3. Fill it in, pick its **Budget**, and press **Save**.
+3. Fill it in, pick its **Budget**, and press **Add**.
 
 If the group has no budgets yet, a manager sees **+ New budget**, with **Budget name** and **Monthly amount**. Below the Manage level, the sheet says "Ask a manager to add a budget first."
 

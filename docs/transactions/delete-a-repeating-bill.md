@@ -26,13 +26,17 @@ title: "Side quest: Delete a repeating bill"
 
 **Coming in the next update.**
 
-1. In the budget, swipe the bill to the left.
+1. ![A thumb swipes a bill to the left](../assets/shots/delete-a-repeating-bill-iphone-1.svg)
+   In the budget, swipe the bill to the left.
 
-2. Tap **Delete**.
+2. ![A thumb taps Delete](../assets/shots/delete-a-repeating-bill-iphone-2.svg)
+   Tap **Delete**.
 
-3. Tap **Delete This Month Only** or **Delete and Stop Repeating**.
+3. ![A thumb picks one of the two delete buttons](../assets/shots/delete-a-repeating-bill-iphone-3.svg)
+   Tap **Delete This Month Only** or **Delete and Stop Repeating**.
 
-4. Changed your mind? Tap **Undo** within about 10 seconds.
+4. ![A thumb taps Undo](../assets/shots/delete-a-repeating-bill-iphone-4.svg)
+   Changed your mind? Tap **Undo** within about 10 seconds.
 
 ## On Linux
 

@@ -41,13 +41,17 @@ A change here reaches this month and every month after. To change one month, ope
 
 **Coming in the next update.**
 
-1. In the budget, tap the month's bill.
+1. ![A thumb taps this month's bill](../assets/shots/change-a-repeating-bill-iphone-1.svg)
+   In the budget, tap the month's bill.
 
-2. Change what's different.
+2. ![A thumb changes the Amount](../assets/shots/change-a-repeating-bill-iphone-2.svg)
+   Change what's different.
 
-3. In **Which months?**, pick **This month only** or **This month and later**.
+3. ![A thumb picks This month and later](../assets/shots/change-a-repeating-bill-iphone-3.svg)
+   In **Which months?**, pick **This month only** or **This month and later**.
 
-4. Tap **Save**.
+4. ![A thumb taps Save](../assets/shots/change-a-repeating-bill-iphone-4.svg)
+   Tap **Save**.
 
 To change the repeat itself, tap the count line, such as **2 repeats**, then tap the repeat.
 
@@ -57,7 +61,7 @@ The steps are the same as on a Mac.
 
 ## If it doesn't work
 
-- **There's no This month and later:** only the person who set the repeat, or a manager, can change later months.
+- **There's no Which months?:** only the person who set the repeat, or a manager, can change later months. For anyone else, the whole row is missing.
 - **The repeat's sheet has nothing to change:** it says who can change it, such as "Only Robin or a manager can change this repeat."
 
 ## Related

@@ -27,11 +27,14 @@ From now on, the bill shows up on the same day each month, with its **Source** r
 
 **Coming in the next update.**
 
-1. In the budget, tap the bill. For a new bill, tap **+** instead.
+1. ![A thumb taps a bill in a budget](../assets/shots/make-a-bill-repeat-iphone-1.svg)
+   In the budget, tap the bill. For a new bill, tap **Add** at the bottom instead.
 
-2. Turn on **Repeats every month**.
+2. ![A thumb turns on Repeats every month](../assets/shots/make-a-bill-repeat-iphone-2.svg)
+   Turn on **Repeats every month**.
 
-3. Tap **Save**.
+3. ![A thumb taps Save](../assets/shots/make-a-bill-repeat-iphone-3.svg)
+   Tap **Save**.
 
 ## On Linux
 

@@ -65,15 +65,15 @@ The sidebar is on the left of the window, shown here signed in. There's no right
 
 ![The sidebar on Linux, with numbers 1 to 11](../assets/shots/tour-linux-the-sidebar.svg)
 
-1. **HOME**: a group, in capital letters. Click it to open the group's page.
-2. **⋯**: the group's menu, with **Share…**, **People…**, **New Budget in Home…**, **Rename…** and **Delete…** (or **Leave…**).
-3. The arrow: hides or shows the group's budgets.
+1. The arrow in front of the group's name: hides or shows its budgets, like a folder. It points down while they show, and right while they're hidden.
+2. **HOME**: a group, in capital letters. Click it to open the group's page.
+3. **⋯**: the group's menu, with **Share…**, **People…**, **New Budget in Home…**, **Rename…** and **Delete…** (or **Leave…**).
 4. **Groceries**: a budget. Its row fills from the left as its money is used this month. Click it to open its page. Its **Edit…** and **Delete…** are at the top of that page.
 5. **$308.00**: what's left this month.
 6. **Gas**: a budget over its limit. The row fills all the way and says how far over.
 7. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
 8. **More**: a menu with **New Group…** and **Join a Group…**
-9. **Syncs through WellSpent's server**: you're signed in. Signed out, it says **Kept on this computer only**.
+9. **Syncs through WellSpent's server**: where your budgets are kept. Signed out, it says **Kept on this computer only**.
 10. **Account**: your account, and signing out. Signed out, it's **Sign in**.
 11. **Sync**: send and get changes now. It shows only when you're signed in.
 
