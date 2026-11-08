@@ -16,17 +16,21 @@ class SidebarFooter(unittest.TestCase):
         self.assertGreater(height, 0)
         self.assertLessEqual(height, line + 2, f"{words} wraps in the sidebar")
 
-    def test_the_sidebar_buttons_fit_on_one_line(self):
-        needs_accounts(self)
+    def test_signed_out_the_sidebar_buttons_fit_on_one_line(self):
         app = launch_fresh(self)
 
+        # Scenario BUDGET-17
         # 1. Signed out: Add Budget and Sign in.
         self.assertOneLine(app, "Add Budget")
         self.assertOneLine(app, "Sign in")
 
-        # 2. Signed in, with a budget open whose bill repeats: Account and
-        # Sync. "· 1 repeat" under the wheel takes room from the sidebar,
-        # which is where Sync broke into "Syn-" and "c".
+    def test_signed_in_the_sidebar_buttons_fit_on_one_line(self):
+        needs_accounts(self)
+        app = launch_fresh(self)
+
+        # A budget open whose bill repeats: "· 1 repeat" under the wheel
+        # takes room from the sidebar, which is where Sync broke into "Syn-"
+        # and "c".
         app.sign_in_as("Robin")
         home = unique("Home")
         app.new_group(home)
@@ -40,6 +44,9 @@ class SidebarFooter(unittest.TestCase):
         app.button("Add", within=sheet).press()
         app.wait_for_window(1, "the New transaction sheet to close")
         app.entry("Water")
+
+        # Scenario BUDGET-17
+        # 2. Signed in: Add Budget, Account and Sync.
         self.assertOneLine(app, "Add Budget")
         self.assertOneLine(app, "Account")
         self.assertOneLine(app, "Sync")

@@ -109,6 +109,7 @@ It is not kept here, where every pull request would change the same lines.
 | BUDGET-14 | An open budget says what is spent and what is left this period | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | BUDGET-15 | Over its limit, a budget says how far over | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | BUDGET-16 | A budget's amount is read the way the region writes numbers | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| BUDGET-17 | The list's buttons each read on one line | Linux | Linux |
 
 ### [Entries.md](Entries.md)
 
