@@ -38,11 +38,14 @@ From now on, the bill shows up on the same day each month, with its **Source** r
 
 ## On Linux
 
-1. Click the bill in the budget's list. For a new bill, press **Add** instead.
+1. ![A hand clicks a bill in a budget's list](../assets/shots/make-a-bill-repeat-linux-1.svg)
+   Click the bill in the budget's list. For a new bill, press **Add** instead.
 
-2. Tick **Repeats every month**.
+2. ![A hand ticks Repeats every month](../assets/shots/make-a-bill-repeat-linux-2.svg)
+   Tick **Repeats every month**.
 
-3. Press **Save**.
+3. ![A hand presses Save](../assets/shots/make-a-bill-repeat-linux-3.svg)
+   Press **Save**.
 
 ## If it doesn't work
 
