@@ -41,17 +41,23 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 **Coming in the next update.**
 
-1. In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
+1. ![A thumb taps Connect PriceLabs](../assets/shots/connect-pricelabs-iphone-1.svg)
+   In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
 
-2. Tap **Paste your key here**, and paste your key.
+2. ![A thumb pastes the key](../assets/shots/connect-pricelabs-iphone-2.svg)
+   Tap **Paste your key here**, and paste your key.
 
-3. Tap **Continue**.
+3. ![A thumb taps Continue](../assets/shots/connect-pricelabs-iphone-3.svg)
+   Tap **Continue**.
 
-4. Tick each listing that is one of your houses.
+4. ![A thumb ticks a listing](../assets/shots/connect-pricelabs-iphone-4.svg)
+   Tick each listing that is one of your houses.
 
-5. For each one, pick its group.
+5. ![A thumb picks a group](../assets/shots/connect-pricelabs-iphone-5.svg)
+   For each one, pick its group.
 
-6. Tap **Add 2 Houses**. The button counts what you ticked.
+6. ![A thumb taps Add 2 Houses](../assets/shots/connect-pricelabs-iphone-6.svg)
+   Tap **Add 2 Houses**. The button counts what you ticked.
 
 ## On Linux
 

@@ -36,13 +36,17 @@ title: "Side quest: Import an earnings file"
 
 **Coming in the next update.**
 
-1. In the **Houses** tab, tap **Import earnings file**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
+1. ![A thumb taps Import earnings file](../assets/shots/import-an-earnings-file-iphone-1.svg)
+   In the **Houses** tab, tap **Import earnings file**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
 
-2. Pick the file.
+2. ![A thumb picks the file](../assets/shots/import-an-earnings-file-iphone-2.svg)
+   Pick the file.
 
-3. Tick each listing that is one of your houses, and pick its group.
+3. ![A thumb ticks a listing and picks its group](../assets/shots/import-an-earnings-file-iphone-3.svg)
+   Tick each listing that is one of your houses, and pick its group.
 
-4. Tap **Add 2 Houses**. The button counts what you ticked.
+4. ![A thumb taps Add 2 Houses](../assets/shots/import-an-earnings-file-iphone-4.svg)
+   Tap **Add 2 Houses**. The button counts what you ticked.
 
 ## On Linux
 

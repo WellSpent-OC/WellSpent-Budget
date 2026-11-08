@@ -114,6 +114,7 @@ Properties is an extension. You only need it if you rent out a home. It's on the
 - [Reconnect PriceLabs](houses/reconnect-pricelabs.md)
 - [Remove a house](houses/remove-a-house.md)
 - [How Houses counts the money](houses/how-houses-counts-the-money.md)
+- [Tour: Houses](houses/tour-houses.md)
 
 ## Need help?
 

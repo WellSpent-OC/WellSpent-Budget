@@ -20,10 +20,6 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 **Don't want to join?** Press **Reject**, then **Reject** in the question. To join later, you'd need a new invitation.
 
-![The invitation email, with its link](../assets/shots/join-a-group-invite-email.svg)
-
-**The email has a link too.** Click it, even with WellSpent closed, and WellSpent opens to the invitation. Opening the link alone never accepts or rejects anything. There, press **Accept**. **Your name** comes from the invitation, and can't be changed.
-
 ## On an iPhone
 
 1. ![A thumb points at INVITATIONS on Home](../assets/shots/join-a-group-invite-iphone-1.svg)
@@ -39,6 +35,31 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 2. ![Press Accept](../assets/shots/join-a-group-invite-linux-2.svg)
    Press **Accept**.
+
+## Join from the email
+
+The invitation email has a link too. It opens a web page first, then WellSpent.
+
+**Before you start:** sign in with the address that got the invitation.
+
+1. ![The invitation email, with its link](../assets/shots/join-a-group-invite-email.svg)
+   Click the link in the email.
+
+2. ![A hand presses Open in WellSpent on the web page](../assets/shots/join-a-group-invite-web-1.svg)
+   On the page, press **Open in WellSpent**.
+
+   > The page says who invited you, and the level you'd have. Opening it doesn't join the group.
+
+3. ![A hand presses Accept, with Your name filled in](../assets/shots/join-a-group-invite-link-1.svg)
+   In WellSpent, press **Accept**. **Your name** comes from the invitation, and can't be changed.
+
+On an iPhone, tap where the Mac says press.
+
+![A thumb taps Accept on an iPhone](../assets/shots/join-a-group-invite-link-iphone-1.svg)
+
+On Linux, the steps are the same as on a Mac.
+
+![Press Accept on Linux](../assets/shots/join-a-group-invite-link-linux-1.svg)
 
 ## Have an invite link instead?
 

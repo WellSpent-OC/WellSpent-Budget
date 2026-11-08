@@ -24,11 +24,14 @@ To turn it off, open **Extensions** and press **Turn off** on the **Properties**
 
 **Coming in the next update.**
 
-1. On Home, tap **+**.
+1. ![A thumb taps + on Home](../assets/shots/turn-on-properties-iphone-1.svg)
+   On Home, tap **+**.
 
-2. Tap **Add an extension…**
+2. ![A thumb taps Add an extension](../assets/shots/turn-on-properties-iphone-2.svg)
+   Tap **Add an extension…**
 
-3. On the **Properties** card, tap **Turn on**.
+3. ![A thumb taps Turn on, on the Properties card](../assets/shots/turn-on-properties-iphone-3.svg)
+   On the **Properties** card, tap **Turn on**.
 
    > You see the **Houses** tab, with **No houses yet**.
 

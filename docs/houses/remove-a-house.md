@@ -24,13 +24,17 @@ If you add the same listing back to the same group, those bills count toward the
 
 **Coming in the next update.**
 
-1. In the **Houses** tab, tap the house.
+1. ![A thumb taps a house](../assets/shots/remove-a-house-iphone-1.svg)
+   In the **Houses** tab, tap the house.
 
-2. Tap the **…** button at the top right.
+2. ![A thumb taps the … button](../assets/shots/remove-a-house-iphone-2.svg)
+   Tap the **…** button at the top right.
 
-3. Tap **Remove House**.
+3. ![A thumb taps Remove House](../assets/shots/remove-a-house-iphone-3.svg)
+   Tap **Remove House**.
 
-4. Tap **Remove House** in the question.
+4. ![A thumb taps Remove House in the question](../assets/shots/remove-a-house-iphone-4.svg)
+   Tap **Remove House** in the question.
 
 ## On Linux
 

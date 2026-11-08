@@ -28,13 +28,17 @@ Marking or unmarking a bill with a house never moves this wheel. A group with no
 
 **Coming in the next update.**
 
-1. In the **Budgets** tab, tap the group.
+1. ![A thumb taps a group in the Budgets tab](../assets/shots/change-a-houses-share-iphone-1.svg)
+   In the **Budgets** tab, tap the group.
 
-2. Tap the line under the title. It takes you to the NOI section.
+2. ![A thumb taps the line under the title](../assets/shots/change-a-houses-share-iphone-2.svg)
+   Tap the line under the title. It takes you to the NOI section.
 
-3. Under **Home's share of NOI**, tap the house's row. Its percent is in the small line under its name.
+3. ![A thumb taps a house's row](../assets/shots/change-a-houses-share-iphone-3.svg)
+   Under **Home's share of NOI**, tap the house's row. Its percent is in the small line under its name.
 
-4. Type a whole number from 0 to 100 in **Percent**, and tap **Save**.
+4. ![A thumb types in Percent and taps Save](../assets/shots/change-a-houses-share-iphone-4.svg)
+   Type a whole number from 0 to 100 in **Percent**, and tap **Save**.
 
 ## On Linux
 

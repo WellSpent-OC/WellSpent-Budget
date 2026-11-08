@@ -38,11 +38,14 @@ If the group has no budgets yet, a manager sees **+ New budget**, with **Budget 
 
 **Coming in the next update.**
 
-1. In the budget, tap the bill.
+1. ![A thumb taps a bill](../assets/shots/mark-a-bill-with-a-house-iphone-1.svg)
+   In the budget, tap the bill.
 
-2. In **House**, pick the house.
+2. ![A thumb picks a house in House](../assets/shots/mark-a-bill-with-a-house-iphone-2.svg)
+   In **House**, pick the house.
 
-3. Tap **Save**.
+3. ![A thumb taps Save](../assets/shots/mark-a-bill-with-a-house-iphone-3.svg)
+   Tap **Save**.
 
 ## On Linux
 
