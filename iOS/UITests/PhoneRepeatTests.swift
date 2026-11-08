@@ -143,8 +143,10 @@ final class PhoneRepeatTests: XCTestCase {
         run.tap(AccessibilityID.importConfirm)
         XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
                       "the review did not close. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.hasRow(Self.bill), "the bill is gone. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.hasRow("Verizon Wireless"), "the line was not added. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row(Self.bill, says: "$85.00"),
+                      "the bill is gone or changed. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row("Verizon Wireless", says: "$85.40"),
+                      "the line was not added at the bank's amount. On screen: \(run.visibleTexts())")
     }
 
     /// This month's $85.00 repeat, and a statement with a line close to it.
@@ -267,14 +269,12 @@ private extension PhoneTestApp {
     }
 
     func switchValue() -> String? {
-        let row = element(AccessibilityID.entryRepeats)
-        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
+        switchValue(of: AccessibilityID.entryRepeats)
     }
 
     func flipRepeats() {
         bringUpInSheet(AccessibilityID.entryRepeats)
-        let row = element(AccessibilityID.entryRepeats)
-        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+        flip(AccessibilityID.entryRepeats)
     }
 
     func switchValue(of identifier: String) -> String? {
