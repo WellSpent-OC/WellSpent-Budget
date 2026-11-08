@@ -60,6 +60,7 @@ WellSpent runs on a Mac, an iPhone or a Linux computer. Each page has the steps 
 - [Change or move a transaction](transactions/change-or-move-a-transaction.md)
 - [Delete a transaction, and undo it](transactions/delete-a-transaction.md)
 - [Add money coming in](transactions/add-money-in.md)
+- [Add a bill dated later this month](budgets/a-bill-dated-later.md)
 
 **Repeating bills**
 

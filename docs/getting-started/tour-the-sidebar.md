@@ -10,8 +10,8 @@ The sidebar is the list on the left of the window, shown here signed in.
 
 ![The sidebar on a Mac, with numbers 1 to 6](../assets/shots/tour-the-sidebar-a.svg)
 
-1. **HOME**: a group, in capital letters. Right-click it for its menu.
-2. The arrow: hides or shows the group's budgets. It points up while they show.
+1. **HOME**: a group, in capital letters. Click it to open the group's page. Right-click it for its menu.
+2. The arrow: hides or shows the group's budgets, like a folder. It points down while they show, and right while they're hidden. A group you hide stays hidden the next time you open WellSpent.
 3. **Groceries**: a budget. Its row fills from the left as its money is used this month, with what's left at the right. Over its limit, it fills all the way and says how far over. Click it to open its page.
 4. **Add Budget**: make a budget. [Quest 4](../budgets/make-your-first-budget.md)
 5. The small arrow: opens a menu with **New Group…** and **Join a Group…**

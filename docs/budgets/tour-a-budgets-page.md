@@ -19,7 +19,7 @@ Click a budget in the sidebar, and its page opens on the right.
 7. The wheel: what's left this month. It's full on the 1st. The green runs clockwise from the top, and shrinks back toward the top as money goes out. Its middle says what's left, of how much. It turns orange when you spend faster than an even pace, and orange all the way round when you're over.
 8. The tick: where the green would end today, if you spent the same each day.
 9. **Spent**: what's spent this month.
-10. **Left**: what's left. Over the budget, it says **Over**, and how much.
+10. **Left**: what's left. Over the budget, it says **Over**, and how much. Below it, **Coming by Nov 28** shows bills dated later this month, not counted yet. It's in the warning color when that's more than what's left. [Side quest: Add a bill dated later this month](a-bill-dated-later.md)
 11. **Expected left by today**: what would be left today, at an even pace.
 12. The pace words: when the money runs out at this pace. In the month's last week, with more left than expected, they ask whether to lower the budget.
 13. **Edit Budget…**: change the budget's amount. It shows beside the pace words, at the Manage level or higher. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
@@ -42,7 +42,7 @@ Tap a budget on Home, and its page opens.
 5. The wheel: what's left this month. Its middle says what's left, of how much. Over the budget, it says **Over**. It turns orange when you spend faster than an even pace.
 6. The tick: where the green would end today, if you spent the same each day.
 7. **Spent**: what's spent this month.
-8. **Left**: what's left.
+8. **Left**: what's left. Below it, **Coming by Nov 28** shows bills dated later this month, not counted yet.
 9. **Expected left by today**: what would be left today, at an even pace.
 10. **3 transactions since Oct 1**: how many transactions count this month.
 11. The pace words: when the money runs out at this pace. They show when you spend faster than an even pace. In the month's last week, with more left than expected, they ask whether to lower the budget. That question shows only at the Manage level or higher.
@@ -77,7 +77,7 @@ Click a budget in the sidebar, and its page opens on the right.
 7. The wheel: what's left this month. Its middle says what's left, of how much. It turns orange when you spend faster than an even pace.
 8. The tick: where the green would end today, if you spent the same each day.
 9. **Spent**: what's spent this month.
-10. **Left**: what's left. Over the budget, it says **Over**, and how much.
+10. **Left**: what's left. Over the budget, it says **Over**, and how much. Below it, **Coming by Nov 28** shows bills dated later this month, not counted yet.
 11. **Expected left by today**: what would be left today, at an even pace.
 12. The pace words: when the money runs out at this pace.
 13. **Edit Budget…**: change the budget's amount. [Side quest: Change a budget from its wheel](change-a-budget-from-its-wheel.md)
@@ -86,4 +86,4 @@ Click a budget in the sidebar, and its page opens on the right.
 
 **Sync** and **Account** are at the bottom of the sidebar, not on the page.
 
-<!-- Scenarios: BUDGET-09, BUDGET-14, BUDGET-15, WHEEL-05, WHEEL-06, WHEEL-07, WHEEL-08, WHEEL-09, WHEEL-10, ENTRY-01, ENTRY-08, ENTRY-10, IMPORT-14, EDIT-01 -->
+<!-- Scenarios: BUDGET-09, BUDGET-14, BUDGET-15, WHEEL-05, WHEEL-06, WHEEL-07, WHEEL-08, WHEEL-09, WHEEL-10, WHEEL-21, WHEEL-22, ENTRY-01, ENTRY-08, ENTRY-10, IMPORT-14, EDIT-01 -->

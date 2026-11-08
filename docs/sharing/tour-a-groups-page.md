@@ -19,7 +19,7 @@ Click a group's name in the sidebar, or pick **People…** from its menu, and it
 7. The group's wheel: what's left this month across the group's budgets. Its middle says **Left this month**, and of how much. Over, it's orange all the way round and says **Over this month**.
 8. The tick: where the green would end today, at an even pace.
 9. **Spent**: what the group has spent this month.
-10. **Left**: what's left across its budgets.
+10. **Left**: what's left across its budgets. Below it, **Coming by Nov 28** adds up the bills dated later this month in all its budgets.
 11. **Expected left by today**: what would be left today, at an even pace.
 12. **Day 18 of 31. Every budget in Home, added up.**: how far into the month, and what the wheel counts.
 13. **PEOPLE**: everyone in the group.
@@ -77,7 +77,7 @@ Click a group's name in the sidebar, or pick **People…** from its **⋯** menu
 5. The group's wheel: what's left this month across the group's budgets.
 6. The tick: where the green would end today, at an even pace.
 7. **Spent**: what the group has spent this month.
-8. **Left**: what's left across its budgets.
+8. **Left**: what's left across its budgets. Below it, **Coming by** adds up the bills dated later this month.
 9. **Expected left by today**: what would be left today, at an even pace.
 10. **Day 18 of 31. Every budget in Home, added up.**: how far into the month, and what the wheel counts.
 11. **PEOPLE**: everyone in the group.
@@ -89,4 +89,4 @@ Click a group's name in the sidebar, or pick **People…** from its **⋯** menu
 
 **Sync** and **Account** are at the bottom of the sidebar, not on the page.
 
-<!-- Scenarios: WHEEL-11, WHEEL-12, PAGE-01, PAGE-02, PAGE-06, PAGE-08, PAGE-09, PAGE-10, PAGE-11, PAGE-12, PAGE-13, PAGE-14, SHARE-16 -->
+<!-- Scenarios: WHEEL-11, WHEEL-12, PAGE-01, PAGE-02, PAGE-06, PAGE-08, PAGE-09, PAGE-10, PAGE-11, PAGE-12, PAGE-13, PAGE-14, SHARE-16, WHEEL-23 -->
