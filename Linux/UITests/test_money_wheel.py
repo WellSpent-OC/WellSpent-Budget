@@ -257,6 +257,12 @@ class MoneyWheel(unittest.TestCase):
         app.button("Add", within=sheet).press()
         app.wait_for_window(1, "the New transaction sheet to close")
 
+    def coming_amount(self, app, coming):
+        """The amount just after the Coming by label, beside the wheel."""
+        labels = [e for e in app.main.all("label") if e.showing]
+        at = next(i for i, e in enumerate(labels) if e.words == coming)
+        return labels[at + 1]
+
     def test_a_bill_dated_later_counts_when_its_date_arrives(self):
         """WHEEL-21 and WHEEL-23 on the 6th, then on the 28th: the Mac's
         test, with the same numbers. Both days are in every month."""
@@ -277,9 +283,21 @@ class MoneyWheel(unittest.TestCase):
         self.assertTrue(app.reads(["Left", "$500.00"], within=app.main), "Left $500.00")
         self.assertTrue(app.reads([coming, "$475.00"], within=app.main), coming)
         self.assertFalse(any(t.startswith("At this pace") for t in app.texts(app.main)), "pace words")
+        self.assertEqual("", self.coming_amount(app, coming).value, "described while less than what's left")
+
+        # Scenario WHEEL-22
+        # 2. Spa, $500.00, with $300.00 spent and $475.00 coming: Left
+        # $200.00, and the amount coming says it's more than that to a screen
+        # reader, not only by its colour.
+        app.new_budget("Spa", "500", group="Home")
+        app.add_entry("Chemicals", "300.00")
+        self.add_dated(app, "Spa", "Spa service", "475.00", LATE)
+        app.wait_reads([coming, "$475.00"], within=app.main)
+        self.assertTrue(app.reads(["Left", "$200.00"], within=app.main), "Left $200.00")
+        self.assertEqual("More than what's left", self.coming_amount(app, coming).value)
 
         # Scenario WHEEL-23
-        # 2. A group's budgets have $475.00 and $100.00 dated later, and
+        # 3. A group's budgets have $475.00 and $100.00 dated later, and
         # $200.00 of money in dated later. Its wheel counts none of them yet,
         # and its Coming by line is the two bills, by the latest. (The
         # scenario's Household is a sample group's name, so it's Cabin here.)
@@ -296,7 +314,7 @@ class MoneyWheel(unittest.TestCase):
         self.assertFalse(app.shows("In", within=app.main, role="label"), "money in dated later counted")
 
         # Scenario WHEEL-21
-        # 3. On the 28th the bill is spent, and the Coming by line is gone.
+        # 4. On the 28th the bill is spent, and the Coming by line is gone.
         app.launched_with["day"] = LATE
         app.restart()
         app.budget("Pool").press()
