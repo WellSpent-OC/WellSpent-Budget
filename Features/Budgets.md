@@ -157,3 +157,12 @@ Platforms: Mac, Linux
 - When he types "500.00" for each month instead
 - Then "Add" stays dimmed
 - And under the amount it says "That amount can't be read clearly. Type it like 12,50."
+
+## BUDGET-17 The list's buttons each read on one line
+
+Platforms: Linux
+
+- Given Robin is signed out
+- Then "Add Budget" and "Sign in" each read on one line
+- When he signs in and opens a budget whose bill repeats every month
+- Then "Add Budget", "Account" and "Sync" each still read on one line, with no word broken in two

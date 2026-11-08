@@ -481,8 +481,12 @@ struct SidebarView: View {
     /// Like Add List in Reminders: the common action is the button, the
     /// rarer ones are in its menu.
     private var addMenu: some View {
+        // Beside a Spacer, SwiftCrossUI squeezes Add Budget until its words
+        // wrap, and the narrower sidebar then breaks Sync below into "Syn-"
+        // and "c". Kept at its own width, both fit.
         HStack {
             Button(screen.addButton.title) { perform(screen.addButton.action) }
+                .fixedSize()
             Menu("More") {
                 ForEach(screen.addMenu) { item in
                     Button(item.title) { perform(item.action) }
