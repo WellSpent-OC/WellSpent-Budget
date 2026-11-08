@@ -26,7 +26,7 @@ title: "Quest 7: Share a group"
 
 8. Press **Send Invite**.
 
-   > You see **Invitation sent**.
+   > You see "Invitation sent to sam@example.com. It stays Pending until they accept or reject it."
 
 9. Press **Done**.
 
@@ -71,9 +71,10 @@ Until they answer, they show under **PEOPLE** on the group's page as **Pending**
 ## If it doesn't work
 
 - **"Sign in first. Sharing goes through your account.":** sign in, and try again.
+- **"Confirm your email before inviting someone.":** confirm your email with the code WellSpent sent you, as in [Quest 2](../getting-started/make-your-account.md), then try again.
 - **"Only a manager or admin can invite people to this group.":** ask the person who made the group to share it.
 - **No Manage under They can:** only the group's owner or an Admin can give Manage.
-- **Send Invite stays dimmed:** fill in all three: their email, their name, and your name. A name has 1 to 50 characters.
+- **Send Invite stays dimmed:** fill in all three: their email, their name, and your name. Their email must be a real email address. A name has 1 to 50 characters.
 - **They already have an invitation:** a second one to the same address in the same group is refused. Cancel the first, then send again.
 - **The wrong person joined:** open the group's menu, pick **People…**, and remove them.
 

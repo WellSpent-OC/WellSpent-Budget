@@ -18,7 +18,7 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 **Don't want to join?** Press **Reject**, then **Reject** in the question. To join later, you'd need a new invitation.
 
-**The email has a link too.** Click it, even with WellSpent closed, and WellSpent opens to the invitation. Opening the link alone never accepts or rejects anything.
+**The email has a link too.** Click it, even with WellSpent closed, and WellSpent opens to the invitation. Opening the link alone never accepts or rejects anything. There, press **Accept**. **Your name** comes from the invitation, and can't be changed.
 
 ## On an iPhone
 
@@ -28,7 +28,7 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 ## On Linux
 
-1. Find the group under **INVITATIONS** in the sidebar.
+1. Find the invitation at the top of the sidebar. It shows the group's name, **Invited**, who invited you, and the level you'd have.
 
 2. Press **Accept**.
 
