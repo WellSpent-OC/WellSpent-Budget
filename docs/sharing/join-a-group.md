@@ -8,9 +8,11 @@ title: "Quest 8: Join a group"
 
 **Before you start:** an invitation, sent to your email. Sign in with that same email, and confirm it. Joining needs both.
 
-1. Find the group under **INVITATIONS** in the sidebar. It says **Invited**, who invited you, and the level you'd have.
+1. ![A hand points at INVITATIONS in the sidebar](../assets/shots/join-a-group-invite-1.svg)
+   Find the group under **INVITATIONS** in the sidebar. It says **Invited**, who invited you, and the level you'd have.
 
-2. Press **Accept**.
+2. ![A hand presses Accept](../assets/shots/join-a-group-invite-2.svg)
+   Press **Accept**.
 
    > You see the group open. Its budgets fill in a moment later.
 
@@ -18,19 +20,25 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 **Don't want to join?** Press **Reject**, then **Reject** in the question. To join later, you'd need a new invitation.
 
+![The invitation email, with its link](../assets/shots/join-a-group-invite-email.svg)
+
 **The email has a link too.** Click it, even with WellSpent closed, and WellSpent opens to the invitation. Opening the link alone never accepts or rejects anything. There, press **Accept**. **Your name** comes from the invitation, and can't be changed.
 
 ## On an iPhone
 
-1. Find the group under **INVITATIONS** on Home.
+1. ![A thumb points at INVITATIONS on Home](../assets/shots/join-a-group-invite-iphone-1.svg)
+   Find the group under **INVITATIONS** on Home.
 
-2. Tap **Accept**.
+2. ![A thumb taps Accept](../assets/shots/join-a-group-invite-iphone-2.svg)
+   Tap **Accept**.
 
 ## On Linux
 
-1. Find the invitation at the top of the sidebar. It shows the group's name, **Invited**, who invited you, and the level you'd have.
+1. ![Find the invitation at the top of the sidebar](../assets/shots/join-a-group-invite-linux-1.svg)
+   Find the invitation at the top of the sidebar. It shows the group's name, **Invited**, who invited you, and the level you'd have.
 
-2. Press **Accept**.
+2. ![Press Accept](../assets/shots/join-a-group-invite-linux-2.svg)
+   Press **Accept**.
 
 ## Have an invite link instead?
 
