@@ -135,6 +135,13 @@ Platforms: Mac, Linux, iPhone, for every INC scenario.
 - Then its cash flow this month says $4,380.00
 - And it never says "profit"
 
+## INC-04 Money in says which budget it adds to
+
+- Given Robin has a group called Pool House with a budget called Bookings, and Bookings is open
+- When he adds an entry and turns on money in
+- Then under it he sees "Adds to Bookings instead of spending from it."
+- And with money in off, that line isn't there
+
 ## ENTRY-14 A selected row stays readable
 
 Platforms: Mac
