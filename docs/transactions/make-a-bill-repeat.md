@@ -37,7 +37,7 @@ From now on, the bill shows up on the same day each month, with its **Source** r
 
 1. Click the bill in the budget's list. For a new bill, press **Add** instead.
 
-2. Turn on **Repeats every month**.
+2. Tick **Repeats every month**.
 
 3. Press **Save**.
 

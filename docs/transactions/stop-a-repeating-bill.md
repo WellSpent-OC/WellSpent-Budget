@@ -46,7 +46,7 @@ To start it again, turn the switch back on and save. The repeat starts again fro
 
 ## On Linux
 
-The steps are the same as on a Mac.
+The steps are the same as on a Mac. **Repeats every month** is a check box: untick it to stop, and tick it again to start.
 
 ## Related
 

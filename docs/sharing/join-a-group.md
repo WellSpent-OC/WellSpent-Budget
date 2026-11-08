@@ -36,6 +36,8 @@ Until you accept, you can't open the group's budgets, and they don't count in yo
 
 Links from an earlier version of WellSpent still work until they're used or run out.
 
+On a Mac:
+
 1. ![A hand copies a link in an email](../assets/shots/join-a-group-1.svg)
    Copy the link from their message.
 

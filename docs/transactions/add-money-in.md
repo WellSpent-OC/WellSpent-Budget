@@ -51,7 +51,7 @@ From a bank statement, a line that is money in is offered as **Money in**, as **
 
 ## On Linux
 
-The steps are the same as on a Mac.
+The steps are the same as on a Mac, except no line shows under **Money in**.
 
 ## Related
 
