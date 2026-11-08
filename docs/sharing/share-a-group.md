@@ -6,7 +6,7 @@ title: "Quest 7: Share a group"
 
 > *Every quest is better with a party.*
 
-**Before you start:** sign in, with the Manage, Admin or Owner level in the group. The person you invite needs WellSpent on their own Mac, iPhone or Linux computer, with their own account. Don't share the sample groups.
+**Before you start:** sign in and confirm your email, with the Manage, Admin or Owner level in the group. You need the email address of the person you invite. They need WellSpent on their own Mac, iPhone or Linux computer. Don't share the sample groups.
 
 1. ![A hand right-clicks HOME in the sidebar](../assets/shots/share-a-group-1-mac.svg)
    Right-click **HOME** in the sidebar. Or hold Control and click it.
@@ -14,30 +14,27 @@ title: "Quest 7: Share a group"
 2. ![A hand picks Share](../assets/shots/share-a-group-2.svg)
    Pick **Share…**
 
-3. ![A hand types in Your name](../assets/shots/share-a-group-3.svg)
-   Type your name in **Your name**. This is the name the group sees.
+3. Type their email address in **Their email**.
 
-4. ![A hand picks a level under They can](../assets/shots/share-a-group-4.svg)
-   Under **They can**, pick **View**, **Add** or **Manage**. The line under it says what that level can do.
+4. Type their name in **Their name**. This is how the group sees them.
 
-5. ![A hand picks under They see](../assets/shots/share-a-group-5.svg)
-   Under **They see**, pick **Everything so far** or **Only from now on**.
+5. Type your name in **Your name**. This is how the group sees you.
 
-6. ![A hand presses Create Link](../assets/shots/share-a-group-6.svg)
-   Press **Create Link**.
+6. Under **They can**, pick **View**, **Add** or **Manage**. The line under it says what that level can do.
 
-7. ![A hand presses Copy Link](../assets/shots/share-a-group-7.svg)
-   Press **Copy Link**.
+7. Under **They see**, pick **Everything so far** or **Only from now on**.
 
-8. ![A hand presses Done](../assets/shots/share-a-group-8.svg)
-   Press **Done**.
+8. Press **Send Invite**.
 
-9. ![A hand pastes the link into an email](../assets/shots/share-a-group-9.svg)
-   Paste the link into an email or a text to them, and send it.
+   > You see **Invitation sent**.
 
-After they join, they show on the group's page at your next sync, and what they add shows who added it.
+9. Press **Done**.
 
-The link works once, and runs out after 7 days. You can't see or cancel it once it's made, so send it only to the person you mean.
+WellSpent emails the invitation. They accept or reject it in their own group list.
+
+Until they answer, they show under **PEOPLE** on the group's page as **Pending**. Pending means they haven't answered yet. It doesn't mean the email arrived. When they accept, they become a member at your next sync. If they reject it, they show as **Rejected**, and you can send a new invitation.
+
+**Cancel an invitation:** on the group's page, press **Cancel Invite** on their row, then **Cancel Invite** in the question. They can't accept it after that.
 
 ## On an iPhone
 
@@ -47,24 +44,13 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 2. ![A thumb taps Share](../assets/shots/share-a-group-iphone-2.svg)
    Tap **Share**.
 
-3. ![A thumb types in Your name](../assets/shots/share-a-group-iphone-3.svg)
-   Type your name in **Your name**.
+3. Type their email in **Their email**, and their name in **Their name**.
 
-4. ![A thumb picks a level under They can](../assets/shots/share-a-group-iphone-4.svg)
-   Under **They can**, pick **View**, **Add** or **Manage**.
+4. Type your name in **Your name**.
 
-5. ![A thumb picks under They see](../assets/shots/share-a-group-iphone-5.svg)
-   Under **They see**, pick **Everything so far** or **Only from now on**.
+5. Pick a level under **They can**, and a choice under **They see**.
 
-6. ![A thumb taps Create Link](../assets/shots/share-a-group-iphone-6.svg)
-   Tap **Create Link**.
-
-   > The iPhone's share options open, with the link in them.
-
-7. ![A thumb picks how to send the link](../assets/shots/share-a-group-iphone-7.svg)
-   Pick how to send it, such as Messages or Mail, or tap **Copy**.
-
-   > Once it's sent or copied, the Share sheet closes. If you close the share options without sending, tap **Send** to open them again.
+6. Tap **Send Invite**, then **Done**.
 
 ## On Linux
 
@@ -74,39 +60,25 @@ The link works once, and runs out after 7 days. You can't see or cancel it once 
 2. ![Pick Share](../assets/shots/share-a-group-linux-2.svg)
    Pick **Share…**
 
-3. ![Type your name in Your name](../assets/shots/share-a-group-linux-3.svg)
-   Type your name in **Your name**. This is the name the group sees.
+3. Type their email in **Their email**, and their name in **Their name**.
 
-4. ![Under They can, pick View, Add or Manage](../assets/shots/share-a-group-linux-4.svg)
-   Under **They can**, pick **View**, **Add** or **Manage**. The line under it says what that level can do.
+4. Type your name in **Your name**.
 
-5. ![Under They see, pick Everything so far or Only from now on](../assets/shots/share-a-group-linux-5.svg)
-   Under **They see**, pick **Everything so far** or **Only from now on**.
+5. Pick a level under **They can**, and a choice under **They see**.
 
-6. ![Press Create Link](../assets/shots/share-a-group-linux-6.svg)
-   Press **Create Link**.
-
-   > You see the link, and that it works once and expires in 7 days.
-
-7. ![Press Copy Link](../assets/shots/share-a-group-linux-7.svg)
-   Press **Copy Link**.
-
-8. ![Press Done](../assets/shots/share-a-group-linux-8.svg)
-   Press **Done**.
-
-9. ![Paste the link into an email or a text to them, and send it](../assets/shots/share-a-group-linux-9.svg)
-   Paste the link into an email or a text to them, and send it.
+6. Press **Send Invite**, then **Done**.
 
 ## If it doesn't work
 
 - **"Sign in first. Sharing goes through your account.":** sign in, and try again.
 - **"Only a manager or admin can invite people to this group.":** ask the person who made the group to share it.
 - **No Manage under They can:** only the group's owner or an Admin can give Manage.
-- **The link ran out:** make a new one.
+- **Send Invite stays dimmed:** fill in all three: their email, their name, and your name. A name has 1 to 50 characters.
+- **They already have an invitation:** a second one to the same address in the same group is refused. Cancel the first, then send again.
 - **The wrong person joined:** open the group's menu, pick **People…**, and remove them.
 
 ## Next quest
 
 [Quest 8: Join a group](join-a-group.md)
 
-<!-- Scenarios: SHARE-01, SHARE-02, SHARE-04, SHARE-05, SHARE-06, PAGE-02, PAGE-15, SHARE-16 -->
+<!-- Scenarios: SHARE-01, SHARE-04, SHARE-05, SHARE-06, PAGE-02, PAGE-15, SHARE-16, EMAIL-01, EMAIL-05, EMAIL-06 -->
