@@ -55,7 +55,7 @@ struct PlanCardScreenTests {
         #expect(free.lines == ["1 property, sync on every device, and 1 group shared with 1 person.",
                                "Free forever. No card, no end date."])
         #expect(free.action == .seePlans && free.actionIsPrimary)
-        #expect(card(answer(.free), .website).action == .seePlansOnWebsite)
+        #expect(card(answer(.free), .website).action == .seePlans)
     }
 
     @Test func aMonthlyPlanFromApple() {
@@ -166,7 +166,7 @@ struct PlanCardScreenTests {
                                 "Open now: Household, Cabin on Elm and Sam."])
         #expect(ended.action == .seePlans && !ended.actionIsPrimary)
         #expect(ended.showsChangeWhatStaysOpen)
-        #expect(card(after(.ended), .website).action == .seePlansOnWebsite)
+        #expect(card(after(.ended), .website).action == .seePlans)
         #expect(!card(answer(.free)).showsChangeWhatStaysOpen)
     }
 
@@ -189,10 +189,8 @@ struct PlanCardScreenTests {
     }
 
     @Test func eachActionHasItsButtonWords() {
-        #expect([PlanCardScreen.Action.seePlans, .seePlansOnWebsite, .changePlan, .keepPlan, .openAppleSettings,
-                 .manageOnWebsite].map(\.title)
-                == ["See Plans", "See Plans on wellspent.space", "Change Plan", "Keep My Plan", "Open Apple Settings",
-                    "Manage on wellspent.space"])
+        #expect([PlanCardScreen.Action.seePlans, .changePlan, .keepPlan, .openAppleSettings, .manageOnWebsite].map(\.title)
+                == ["See Plans", "Change Plan", "Keep My Plan", "Open Apple Settings", "Manage on wellspent.space"])
     }
 }
 
