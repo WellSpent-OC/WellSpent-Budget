@@ -92,8 +92,9 @@ struct PlanChoicesView: View {
                     .background(RoundedRectangle(cornerRadius: 8)
                         .fill(row.tier == screen.selected ? Palette.track : Palette.surface))
                 }
-                .buttonStyle(.plain)
+                // The name before the style: SwiftCrossUI hands a wrapper another widget.
                 .accessibility(label: "\(row.name) \(row.price)\(row.unit)", selected: row.tier == screen.selected)
+                .buttonStyle(.plain)
             }
             note(screen.everyFeature)
             note(screen.peopleFree)
