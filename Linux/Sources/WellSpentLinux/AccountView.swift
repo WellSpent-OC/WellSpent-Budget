@@ -58,7 +58,6 @@ struct AccountView: View {
         .frame(width: 520)
         .foregroundColor(Palette.ink)
         .background(Palette.surface)
-        .onAppear { Task { await plans.refresh() } }
         .onChange(of: flow.isFinished) {
             if flow.isFinished { isPresented = false }
         }
@@ -162,7 +161,7 @@ struct AccountView: View {
     /// reaches a .website card.
     private func openPlanAction(_ action: PlanCardScreen.Action) {
         switch action {
-        case .seePlans, .seePlansOnWebsite:
+        case .seePlans:
             seePlans()
         case .changePlan, .keepPlan, .manageOnWebsite:
             WebLink.open(PlanLinks.manage.absoluteString)
