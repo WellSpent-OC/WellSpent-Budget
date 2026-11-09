@@ -112,7 +112,7 @@ let package = Package(
         .target(
             name: "WellSpentAppCore",
             dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto",
-                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions",
+                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions", "WellSpentPlans",
                            .product(name: "WarTableCore", package: "WarTable"),
                            .product(name: "WellSpentExtensionKit", package: "WellSpent-ExtensionKit")]
                 + propertiesProducts
