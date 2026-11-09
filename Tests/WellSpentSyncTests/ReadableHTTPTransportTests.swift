@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import WellSpentSync
 import WellSpentCrypto
+import WellSpentPlans
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -88,6 +89,51 @@ private func refusal(_ reason: String) -> String { #"{"error":true,"reason":"\#(
 
 @Suite("Readable HTTP transport", .serialized)
 struct ReadableHTTPTransportTests {
+    private static let freePlan = """
+        {"tier": "free", "period": "none", "state": "free", "source": "none", "paidUntil": null, "renews": false,
+         "nextTier": null, "limits": {"properties": 1, "groups": 1, "invitedPerGroup": 1},
+         "used": {"properties": 0, "groups": 1, "invitedPerGroup": 0}, "extensionsOpen": [], "canSyncPriceLabs": false,
+         "refreshMinutes": 60, "appleAccountToken": "6F9619FF-8B86-D011-B42D-00C04FC964FF"}
+        """
+
+    @Test func thePlanIsAskedForSignedIn() async throws {
+        ReadableStub.reset { request in
+            #expect(request.url?.path == "/api/v2/plan")
+            #expect(request.httpMethod == "GET")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token")
+            return (200, Self.freePlan)
+        }
+        let plan = try await transport(session: signedIn).plan()
+        #expect(plan.tier == .free)
+        #expect(plan.appleAccountToken == UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF"))
+    }
+
+    @Test func applesSignedRecordGoesToTheServer() async throws {
+        ReadableStub.reset { request in
+            #expect(request.url?.path == "/api/v2/plan/apple")
+            #expect(request.httpMethod == "POST")
+            return (200, Self.freePlan)
+        }
+        _ = try await transport(session: signedIn).submitApple(signedTransaction: "jws-7")
+        #expect(try object(ReadableStub.requests.first?.body)["signedTransaction"] as? String == "jws-7")
+    }
+
+    @Test func eachRefusalOfAPurchaseSaysWhy() async throws {
+        ReadableStub.reset { _ in (409, refusal("This account pays on the website.")) }
+        await #expect(throws: PlanServiceError.paddlePlanLive) {
+            try await transport(session: signedIn).submitApple(signedTransaction: "jws")
+        }
+        ReadableStub.reset { _ in (422, refusal("Not genuine.")) }
+        await #expect(throws: PlanServiceError.notGenuine) {
+            try await transport(session: signedIn).submitApple(signedTransaction: "jws")
+        }
+        ReadableStub.reset { _ in throw URLError(.notConnectedToInternet) }
+        await #expect(throws: PlanServiceError.unreachable) { try await transport(session: signedIn).plan() }
+        ReadableStub.reset { _ in (200, "{}") }
+        await #expect(throws: ReadableTransportError.self) { try await transport(session: signedIn).plan() }
+        await #expect(throws: ReadableTransportError.self) { try await transport().plan() }
+    }
+
     @Test func extensionsStayOnTheirOwnAuthenticatedServerRoute() async throws {
         ReadableStub.reset { request in
             #expect(request.url?.path == "/extensions/wartable/v1/groups/group-1/messages")

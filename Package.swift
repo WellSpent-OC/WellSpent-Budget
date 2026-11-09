@@ -103,7 +103,7 @@ let package = Package(
         ),
         .target(
             name: "WellSpentSync",
-            dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto", "WellSpentKeyStore"]
+            dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto", "WellSpentKeyStore", "WellSpentPlans"]
         ),
 
         // The app's logic, split out of the executable so it can be tested and
