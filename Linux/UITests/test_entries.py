@@ -238,6 +238,7 @@ class Entries(unittest.TestCase):
         self.assertFalse(app.shows(line, within=sheet))
         app.find("check box", "Money in", within=sheet).press()
         app.until(lambda: app.shows(line, within=sheet), "the line under Money in")
+        app.picture("money-in-line")
         app.button("Add", within=sheet).press()
         app.wait_for_window(1, "the New transaction sheet to close")
         app.until(lambda: any(row[1] == "Guest deposit" for row in app.entries()), "the money in to list")
