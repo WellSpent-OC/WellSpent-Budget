@@ -162,6 +162,25 @@ final class NativeShellController {
                     render()
                 }
             }
+        } else if action.starts(with: "menu:budget:") {
+            if let index = Int(action.dropFirst("menu:budget:".count)),
+               case .budget(let summary) = screen.detail,
+               let item = Self.menu(screen.budgetMenu(summary.budget)).item(at: index) {
+                perform(item.action)
+            }
+        } else if action == "page:add" {
+            handleAction("action:new_transaction")
+        } else if action == "page:undo" {
+            workspace.model.undoDelete()
+            render()
+        } else if action == "page:edit_budget" {
+            if case .budget(let summary) = screen.detail {
+                perform(.editBudget(summary.budget))
+            }
+        } else if action == "page:import" || action == "page:repeats" || action.starts(with: "entry:") {
+            // The file chooser and import review, a repeat's list and the
+            // entry editor are sheets: Phase 3.
+            FileHandle.standardError.write(Data("native shell: no sheet yet for \(action)\n".utf8))
         } else if action == "action:add_budget" {
             perform(screen.addButton.action)
         } else if action.starts(with: "budget:") {
@@ -334,47 +353,78 @@ final class NativeShellController {
             shellPtr, screen.addButton.title, Self.menu([screen.addMenu]).spec,
             screen.footer, screen.syncFailure)
 
-        // Select first budget if none selected
-        if screen.selectedBudget == nil {
-            if let firstBudgetId = sections.lazy.compactMap({ $0.budgets.first?.budget.id }).first {
-                screen.selectedBudget = firstBudgetId
-            }
+        drawPage()
+    }
+
+    // MARK: - A budget's page
+
+    private typealias Words = BudgetScreen.Words
+
+    /// The right side, from the shared screen: the open budget's page, or the
+    /// words for no budgets or none picked. Everything the SwiftCrossUI page
+    /// shows, in the same words and order.
+    private func drawPage() {
+        guard let shellPtr else { return }
+        wellspent_gtk_page_clear(shellPtr)
+        switch screen.detail {
+        case .budget(let summary):
+            drawBudget(BudgetScreen(summary: summary, model: workspace.model, me: workspace.sync.userID),
+                       on: shellPtr)
+        case .noBudgets:
+            wellspent_gtk_page_show_message(shellPtr, MainScreen.Words.noBudgetsTitle,
+                                            MainScreen.Words.noBudgetsText, screen.addButton.title)
+        case .noneSelected:
+            wellspent_gtk_page_show_message(shellPtr, MainScreen.Words.noneSelectedTitle,
+                                            MainScreen.Words.noneSelectedText, nil)
+        }
+    }
+
+    private func drawBudget(_ page: BudgetScreen, on shellPtr: UnsafeMutableRawPointer) {
+        let budget = page.summary.budget
+        wellspent_gtk_page_add_head(shellPtr, page.title, page.mayAdd ? 1 : 0, Words.importStatement, Words.add,
+                                    Self.menu(screen.budgetMenu(budget)).spec)
+        if let undo = page.undo {
+            wellspent_gtk_page_add_undo(shellPtr, undo.message, undo.button)
         }
 
-        // Update detail area and transactions if a budget is selected
-        if let selectedId = screen.selectedBudget,
-           let summary = workspace.model.summaries.values.flatMap({ $0 }).first(where: { $0.budget.id == selectedId }) {
-            let bScreen = BudgetScreen(summary: summary, model: workspace.model, me: workspace.sync.userID)
-            let wheel = bScreen.wheel
-            let dayLine = bScreen.dayLine ?? "Current period"
-            let midKey = wheel.middleKey
-            let midAmt = wheel.middleAmount
-            let midOf = wheel.middleOf
-            let pace = bScreen.pace?.text ?? (summary.isOverspent ? "Over budget" : "On track to stay within budget")
-
-            wellspent_gtk_update_detail_wheel(
-                shellPtr,
-                summary.budget.name,
-                dayLine,
-                midKey,
-                midAmt,
-                midOf,
-                pace,
-                wheel.arc,
-                wheel.tick ?? -1.0,
-                summary.isOverspent ? 1 : 0
-            )
-
-            wellspent_gtk_clear_transactions(shellPtr)
-            for row in bScreen.rows {
-                wellspent_gtk_add_transaction_row(
-                    shellPtr,
-                    BudgetScreen.shortDate(row.date),
-                    row.merchant,
-                    row.source,
-                    row.amount
-                )
-            }
+        let wheel = page.wheel
+        var shape = Self.shape(wheel, .budgetDesktop)
+        let pace = page.pace
+        wellspent_gtk_page_add_wheel(shellPtr, page.dayLine, &shape, wheel.middleKey, wheel.middleAmount,
+                                     wheel.middleOf, Self.rgb(wheel.amountColor), wheel.spokenSummary,
+                                     pace?.text, pace?.offersEdit == true ? BudgetPace.Words.editBudget(onPhone: false) : nil)
+        for figure in wheel.figures {
+            wellspent_gtk_page_add_figure(shellPtr, figure.label, figure.amount, figure.description,
+                                          figure.isWarning ? 1 : 0)
         }
+        wellspent_gtk_page_add_count(shellPtr, page.countLine, page.repeatsWords)
+
+        wellspent_gtk_page_add_columns(shellPtr, Words.date, Words.description,
+                                       page.showsAddedBy ? Words.addedBy : nil, Words.source, Words.amount)
+        if page.rows.isEmpty {
+            wellspent_gtk_page_add_empty(shellPtr, Words.empty)
+        }
+        for row in page.rows {
+            wellspent_gtk_page_add_entry(
+                shellPtr, row.id.uuid.uuidString, BudgetScreen.shortDate(row.date), row.merchant, row.note,
+                row.notice, page.showsAddedBy ? row.addedBy : nil, row.source, row.amount, Words.rowHelp)
+        }
+    }
+
+    /// The wheel's shapes where the shared WheelGeometry puts them, for C to draw.
+    private static func shape(_ wheel: MoneyWheel, _ g: WheelGeometry) -> wellspent_gtk_wheel {
+        let tick = wheel.tick.map { g.tick(at: $0) }
+        return wellspent_gtk_wheel(
+            size: g.size, radius: g.radius, band: g.band, outer_edge: g.outerEdge, inner_edge: g.innerEdge,
+            edge_width: WheelGeometry.edgeWidth, tick_width: WheelGeometry.tickWidth, arc: wheel.arc,
+            has_tick: tick == nil ? 0 : 1,
+            tick_from_x: tick?.from.x ?? 0, tick_from_y: tick?.from.y ?? 0,
+            tick_to_x: tick?.to.x ?? 0, tick_to_y: tick?.to.y ?? 0,
+            track: rgb(PaletteValues.wheelTrack), edge: rgb(PaletteValues.wheelEdge), arc_color: rgb(wheel.arcColor))
+    }
+
+    /// A shared colour's light value, as Palette.swift draws every colour.
+    private static func rgb(_ pair: ColorPair) -> wellspent_rgb {
+        wellspent_rgb(red: pair.light.red, green: pair.light.green, blue: pair.light.blue)
     }
 }
