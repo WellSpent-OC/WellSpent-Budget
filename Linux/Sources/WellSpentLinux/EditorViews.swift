@@ -255,6 +255,9 @@ struct EntryEditorView: View {
         Toggle(Words.moneyIn, isOn: Binding(get: { editor.isMoneyIn }, set: { editor.isMoneyIn = $0 }))
             .toggleStyle(.checkbox)
             .controlLabel(Words.moneyIn)
+        if let line = editor.moneyInLine {
+            Note(line)
+        }
         DatePicker(selection: Binding(get: { editor.date }, set: { editor.date = $0 }),
                    displayedComponents: .date) {
             Text(Words.date)
