@@ -67,6 +67,9 @@ public final class PurchaseCoordinator {
     public func buy(_ product: PlanProduct) async {
         guard let store else { return status = .failed(.noStore) }
         guard let token = answer?.appleAccountToken else { return status = .failed(.notReady) }
+        // A plan bought on the website changes on the website. Apple would
+        // charge first and the server refuse after, so the person paid twice.
+        guard answer?.source != .paddle else { return status = .failed(.paddlePlanLive) }
         status = .working
         do {
             switch try await store.purchase(product, accountToken: token) {
