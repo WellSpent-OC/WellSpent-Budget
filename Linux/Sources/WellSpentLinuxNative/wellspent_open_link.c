@@ -1,7 +1,9 @@
 // Opens one of WellSpent's own web pages, such as checkout, in the person's
-// browser, the way the desktop opens any link. Only https links to
-// wellspent.space or a part of it are opened: anything else is refused, so a
-// link that came from the server can never send someone elsewhere.
+// browser, or an email to WellSpent in their mail program, the way the
+// desktop opens any link. Only https links to wellspent.space or a part of
+// it, and mail to an address at wellspent.space, are opened: anything else is
+// refused, so a link that came from the server can never send someone
+// elsewhere.
 #include "wellspent_native.h"
 #include <gtk/gtk.h>
 #include <string.h>
@@ -11,8 +13,34 @@ static gboolean ends_with(const char *text, const char *tail) {
     return a >= b && g_ascii_strcasecmp(text + a - b, tail) == 0;
 }
 
+/// "mailto:someone@wellspent.space", with nothing after the address but a
+/// subject or a body.
+static gboolean mail_to_us(const char *url) {
+    if (g_ascii_strncasecmp(url, "mailto:", 7) != 0) return FALSE;
+    const char *address = url + 7;
+    size_t length = strcspn(address, "?");
+    char *to = g_uri_unescape_segment(address, address + length, NULL);
+    gboolean ours = to && strchr(to, '@') == strrchr(to, '@') && !strpbrk(to, ",; \t\r\n") &&
+        strchr(to, '@') != to && ends_with(to, "@wellspent.space");
+    g_free(to);
+    if (!ours) return FALSE;
+    const char *query = address[length] == '?' ? address + length + 1 : NULL;
+    if (!query) return TRUE;
+    // Only a subject and a body: no cc, bcc or second recipient.
+    gchar **parts = g_strsplit(query, "&", -1);
+    for (int i = 0; parts[i]; i++) {
+        if (g_ascii_strncasecmp(parts[i], "subject=", 8) != 0 && g_ascii_strncasecmp(parts[i], "body=", 5) != 0) {
+            ours = FALSE;
+            break;
+        }
+    }
+    g_strfreev(parts);
+    return ours;
+}
+
 int wellspent_link_is_ours(const char *url) {
     if (!url) return 0;
+    if (mail_to_us(url)) return 1;
     GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
     if (!uri) return 0;
     const char *host = g_uri_get_host(uri);

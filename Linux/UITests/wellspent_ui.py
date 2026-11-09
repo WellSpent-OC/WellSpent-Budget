@@ -1204,8 +1204,8 @@ class App:
 
 
 def _record_browser(home):
-    """In place of a browser, a program that writes down each link it is
-    handed, set as the home's https and http handler. The app opens links as
+    """In place of a browser and a mail program, a program that writes down
+    each link it is handed, set as the home's https, http and mailto handler. The app opens links as
     on any desktop, and nothing leaves the container."""
     apps = os.path.join(home, ".local/share/applications")
     os.makedirs(apps, exist_ok=True)
@@ -1215,12 +1215,13 @@ def _record_browser(home):
     os.chmod(recorder, 0o755)
     with open(os.path.join(apps, "wellspent-test-browser.desktop"), "w") as f:
         f.write("[Desktop Entry]\nType=Application\nName=Test browser\n"
-                f"Exec={recorder} %u\nMimeType=x-scheme-handler/https;x-scheme-handler/http;\n")
+                f"Exec={recorder} %u\nMimeType=x-scheme-handler/https;x-scheme-handler/http;x-scheme-handler/mailto;\n")
     config = os.path.join(home, ".config")
     os.makedirs(config, exist_ok=True)
     with open(os.path.join(config, "mimeapps.list"), "w") as f:
         f.write("[Default Applications]\nx-scheme-handler/https=wellspent-test-browser.desktop\n"
-                "x-scheme-handler/http=wellspent-test-browser.desktop\n")
+                "x-scheme-handler/http=wellspent-test-browser.desktop\n"
+                "x-scheme-handler/mailto=wellspent-test-browser.desktop\n")
 
 
 def _read(path):
