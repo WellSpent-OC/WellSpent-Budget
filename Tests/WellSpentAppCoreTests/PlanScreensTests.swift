@@ -250,3 +250,14 @@ struct PlanChoicesScreenTests {
         #expect(choices.selected == .portfolio)
     }
 }
+
+struct PlanLinksTests {
+    @Test func everyAppLinksToTheSameWebsitePages() {
+        #expect(PlanLinks.checkout(.growth, .yearly).absoluteString == "https://wellspent.space/checkout?plan=growth&period=yearly")
+        #expect(PlanLinks.manage.absoluteString == "https://wellspent.space/account")
+        #expect(PlanLinks.prices.absoluteString == "https://wellspent.space/prices")
+        #expect(PlanLinks.emailUs.scheme == "mailto")
+        #expect([PlanWording.yourPlan, PlanWording.choosePlan, PlanWording.changeWhatStaysOpen]
+                == ["Your plan", "Choose a plan", "Change what stays open"])
+    }
+}

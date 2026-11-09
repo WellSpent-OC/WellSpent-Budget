@@ -39,8 +39,32 @@ public struct PlanPrices: Equatable, Sendable {
     }
 }
 
+/// Where the website takes over: checkout, managing a plan bought there, and
+/// "Email us". The website's paths are the server's to set; they live here so
+/// every app links to the same place.
+public enum PlanLinks {
+    public static let website = URL(string: "https://wellspent.space")!
+
+    /// The website's checkout for one plan.
+    public static func checkout(_ tier: PaidTier, _ period: BillingPeriod) -> URL {
+        var parts = URLComponents(url: website.appendingPathComponent("checkout"), resolvingAgainstBaseURL: false)!
+        parts.queryItems = [URLQueryItem(name: "plan", value: tier.rawValue),
+                            URLQueryItem(name: "period", value: period.rawValue)]
+        return parts.url!
+    }
+
+    /// "Manage on wellspent.space" and "See Plans on wellspent.space".
+    public static let manage = website.appendingPathComponent("account")
+    public static let prices = website.appendingPathComponent("prices")
+    /// "Email us", for more than 15 properties.
+    public static let emailUs = URL(string: "mailto:dev@wellspent.space?subject=More%20than%2015%20properties")!
+}
+
 /// The words about plans, shared by every app.
 public enum PlanWording {
+    public static let yourPlan = "Your plan"
+    public static let choosePlan = "Choose a plan"
+    public static let changeWhatStaysOpen = "Change what stays open"
     public static let freeShort = "1 property, sync on every device, and 1 group shared with 1 person."
     public static let freeForever = "Free forever. No card, no end date."
     public static let everyFeature = "Every paid plan has every feature: PriceLabs income sync, the lodging tax "
