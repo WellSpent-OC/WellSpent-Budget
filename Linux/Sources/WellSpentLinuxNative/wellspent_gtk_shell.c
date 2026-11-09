@@ -448,7 +448,7 @@ static void on_window_destroy(GtkWidget *win, gpointer user_data) {
 }
 
 /// Screen readers and the UI tests find a control by its name and role. A
-/// rail button shows a glyph, so its name is set here, in the same words the
+/// rail button shows a drawn icon, so its name is set here, in the same words the
 /// SwiftCrossUI rail uses.
 void wellspent_gtk_set_accessible_name(GtkWidget *widget, const char *name) {
     if (!widget || !name) return;
@@ -577,7 +577,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     shell->rail_box = rail;
     gtk_widget_add_css_class(rail, "activity-rail");
 
-    GtkWidget *btn_bud = gtk_button_new_with_label("👝");
+    GtkWidget *btn_bud = wellspent_gtk_rail_button("budget");
     shell->btn_budgets = btn_bud;
     gtk_widget_add_css_class(btn_bud, "rail-btn");
     gtk_widget_add_css_class(btn_bud, "active");
@@ -587,7 +587,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_bud, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_bud);
 
-    GtkWidget *btn_run = gtk_button_new_with_label("🏡");
+    GtkWidget *btn_run = wellspent_gtk_rail_button("house");
     shell->btn_runway = btn_run;
     gtk_widget_add_css_class(btn_run, "rail-btn");
     gtk_widget_set_tooltip_text(btn_run, "Runway & Properties");
@@ -596,7 +596,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_run, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_run);
 
-    GtkWidget *btn_wt = gtk_button_new_with_label("⚔");
+    GtkWidget *btn_wt = wellspent_gtk_rail_button("swords");
     shell->btn_wartable = btn_wt;
     gtk_widget_add_css_class(btn_wt, "rail-btn");
     gtk_widget_set_tooltip_text(btn_wt, "WarTable");
@@ -605,7 +605,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_wt, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_wt);
 
-    GtkWidget *btn_cat = gtk_button_new_with_label("⬚");
+    GtkWidget *btn_cat = wellspent_gtk_rail_button("extensions");
     shell->btn_catalog = btn_cat;
     gtk_widget_add_css_class(btn_cat, "rail-btn");
     gtk_widget_set_tooltip_text(btn_cat, "Extensions Catalog");
@@ -618,7 +618,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_set_vexpand(rail_spacer, TRUE);
     gtk_box_append(GTK_BOX(rail), rail_spacer);
 
-    GtkWidget *btn_sync = gtk_button_new_with_label("🔄");
+    GtkWidget *btn_sync = wellspent_gtk_rail_button("sync");
     shell->btn_sync = btn_sync;
     gtk_widget_add_css_class(btn_sync, "rail-btn");
     gtk_widget_set_tooltip_text(btn_sync, "Sync now");
@@ -627,7 +627,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_sync, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_sync);
 
-    GtkWidget *btn_acct = gtk_button_new_with_label("👤");
+    GtkWidget *btn_acct = wellspent_gtk_rail_button("account");
     shell->btn_account = btn_acct;
     gtk_widget_add_css_class(btn_acct, "rail-btn");
     gtk_widget_set_tooltip_text(btn_acct, "Account");
@@ -837,10 +837,10 @@ void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing) {
     if (!shell || !shell->btn_sync) return;
 
     if (is_syncing) {
-        gtk_button_set_label(GTK_BUTTON(shell->btn_sync), "⏳");
+        wellspent_gtk_rail_button_set_icon(shell->btn_sync, "syncing");
         gtk_widget_set_tooltip_text(shell->btn_sync, "Syncing with server...");
     } else {
-        gtk_button_set_label(GTK_BUTTON(shell->btn_sync), "🔄");
+        wellspent_gtk_rail_button_set_icon(shell->btn_sync, "sync");
         gtk_widget_set_tooltip_text(shell->btn_sync, "Sync now");
     }
 }

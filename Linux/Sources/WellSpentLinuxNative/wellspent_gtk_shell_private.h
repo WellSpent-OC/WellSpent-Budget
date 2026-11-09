@@ -50,4 +50,11 @@ void wellspent_gtk_on_btn_clicked(GtkButton *btn, gpointer user_data);
 /// What a screen reader and the UI tests call a control.
 void wellspent_gtk_set_accessible_name(GtkWidget *widget, const char *name);
 
+/// A rail button with a drawn icon (wellspent_gtk_rail_icon.c): "budget",
+/// "house", "swords", "extensions", "sync", "syncing" or "account".
+GtkWidget *wellspent_gtk_rail_button(const char *icon);
+void wellspent_gtk_rail_button_set_icon(GtkWidget *button, const char *icon);
+/// The icon a rail button draws now, for the fixtures.
+const char *wellspent_gtk_rail_button_icon(GtkWidget *button);
+
 #endif
