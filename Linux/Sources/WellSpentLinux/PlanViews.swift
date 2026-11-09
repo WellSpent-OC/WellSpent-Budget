@@ -9,7 +9,8 @@ import WellSpentPlans
 struct PlanCardView: View {
     let card: PlanCardScreen
     var act: (PlanCardScreen.Action) -> Void
-    var changeWhatStaysOpen: () -> Void
+    /// Opens the pick. Nil until it is built: then the link isn't drawn.
+    var changeWhatStaysOpen: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,7 +34,7 @@ struct PlanCardView: View {
             if let action = card.action {
                 Button(action.title) { act(action) }
             }
-            if card.showsChangeWhatStaysOpen {
+            if card.showsChangeWhatStaysOpen, let changeWhatStaysOpen {
                 Button(PlanWording.changeWhatStaysOpen) { changeWhatStaysOpen() }
             }
         }

@@ -17,6 +17,8 @@ struct RootView: View {
     var workspace: Workspace
     @State var screen: MainScreen
     @State var showingAccount = false
+    /// Choose a plan, from the plan card's See Plans.
+    @State var showingPlans = false
     /// The sheet a menu or a button asked for.
     @State var sheet: MainScreen.Action?
     @State var showingEntry = false
@@ -156,7 +158,24 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $showingAccount) {
-            AccountView(sync: sync, isPresented: $showingAccount)
+            AccountView(sync: sync, plans: workspace.plans, isPresented: $showingAccount, seePlans: {
+                // One sheet at a time: the account closes, then the plans open.
+                showingAccount = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    showingPlans = true
+                }
+            })
+                .tabMovesFocus()
+        }
+        .sheet(isPresented: $showingPlans) {
+            PlanChoicesView(answer: workspace.plans.answer,
+                            checkout: { product in
+                                WebLink.open(PlanLinks.checkout(product.tier, product.period).absoluteString)
+                                showingPlans = false
+                            },
+                            emailUs: { WebLink.open(PlanLinks.emailUs.absoluteString) },
+                            close: { showingPlans = false })
                 .tabMovesFocus()
         }
         .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
