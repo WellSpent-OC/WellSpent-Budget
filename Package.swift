@@ -24,6 +24,7 @@ let package = Package(
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "WellSpentExtensions", targets: ["WellSpentExtensions"]),
+        .library(name: "WellSpentPlans", targets: ["WellSpentPlans"]),
         .library(name: "WellSpentCrypto", targets: ["WellSpentCrypto"]),
         .library(name: "WellSpentKeyStore", targets: ["WellSpentKeyStore"]),
         .library(name: "WellSpentModel", targets: ["WellSpentModel"]),
@@ -57,6 +58,10 @@ let package = Package(
     targets: [
         .target(name: "WellSpentExtensions"),
         .testTarget(name: "WellSpentExtensionsTests", dependencies: ["WellSpentExtensions"]),
+        // Buying, restoring and showing a plan. Shared by every app: StoreKit on
+        // the Mac and iPhone, nothing store-side on Linux.
+        .target(name: "WellSpentPlans"),
+        .testTarget(name: "WellSpentPlansTests", dependencies: ["WellSpentPlans"]),
         .target(
             name: "WellSpentCrypto",
             dependencies: [
