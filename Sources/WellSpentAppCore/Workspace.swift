@@ -77,6 +77,12 @@ public final class Workspace {
             self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
                                   opensFirstBudget: self.model.opensFirstBudget)
             self.afterReload.forEach { $0() }
+            // Signing in asks for the new account's plan; signing out forgets the old one's.
+            if self.sync.account == nil {
+                self.plans.forget()
+            } else {
+                Task { await self.plans.refresh() }
+            }
         }
         watchForEdits()
         // A new day moves every wheel's day and tick, and on the 1st starts a
@@ -186,6 +192,9 @@ public final class Workspace {
     public func cameToFront() async {
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
+        // The plan may have changed elsewhere: bought on the website, renewed,
+        // or ended. Every platform asks here, so none drifts.
+        if sync.account != nil { await plans.refresh() }
     }
 
     // MARK: - Opened links

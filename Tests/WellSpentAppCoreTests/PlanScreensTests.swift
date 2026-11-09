@@ -283,4 +283,22 @@ struct WorkspacePlansTests {
         await workspace.plans.refresh()
         #expect(workspace.plans.answer == nil)
     }
+
+    @Test func signedOutComingToTheFrontDoesntAskForAPlan() async throws {
+        let model = AppModel(store: Store(database: try WellSpentDatabase.inMemory()))
+        let defaults = isolatedDefaults()
+        let sync = SyncCoordinator(store: model.store, keyStore: InMemoryKeyStore(), defaults: defaults)
+        let cache = DefaultsPlanCache(defaults: defaults)
+        cache.save(answer(.starter))
+        let workspace = Workspace(model: model, sync: sync)
+        #expect(workspace.plans.answer?.tier == .starter)
+
+        await workspace.cameToFront()
+        #expect(workspace.plans.answer?.tier == .starter)
+
+        // A switch to no account, as signing out does, forgets the plan.
+        sync.didSwitchStore?(model.store)
+        #expect(workspace.plans.answer == nil)
+        #expect(cache.load() == nil)
+    }
 }

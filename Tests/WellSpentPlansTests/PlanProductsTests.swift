@@ -90,5 +90,7 @@ struct PlanAnswerTests {
         cache.save(answer)
 
         #expect(DefaultsPlanCache(defaults: defaults).load() == answer)
+        cache.clear()
+        #expect(DefaultsPlanCache(defaults: defaults).load() == nil)
     }
 }
