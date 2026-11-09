@@ -89,9 +89,9 @@ private final class MemoryCache: PlanCache, @unchecked Sendable {
 
 private let token = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
 
-private func answer(_ tier: PlanTier, token: UUID? = token) -> PlanAnswer {
+private func answer(_ tier: PlanTier, token: UUID? = token, source: PlanAnswer.Source? = nil) -> PlanAnswer {
     PlanAnswer(tier: tier, period: tier == .free ? .none : .monthly, state: tier == .free ? .free : .active,
-               source: tier == .free ? .none : .apple, paidUntil: nil, renews: tier != .free, nextTier: nil,
+               source: source ?? (tier == .free ? .none : .apple), paidUntil: nil, renews: tier != .free, nextTier: nil,
                limits: .init(properties: tier == .free ? 1 : 5, groups: tier == .free ? 1 : nil,
                              invitedPerGroup: tier == .free ? 1 : nil),
                used: .init(properties: 1, groups: 1, invitedPerGroup: 0),
@@ -147,6 +147,19 @@ struct PurchaseCoordinatorTests {
 
         #expect(coordinator.status == .failed(failure))
         #expect(!log.all.contains("finish 7"))
+    }
+
+    @Test func someonePayingOnTheWebsiteIsNeverShownApplesSheet() async {
+        let log = Log()
+        let store = FakeStore(log: log)
+        store.result = .purchased(growthMonthly)
+        let coordinator = PurchaseCoordinator(store: store, service: FakeService(log: log, answer: answer(.growth)),
+                                              cache: MemoryCache(answer(.starter, source: .paddle)))
+
+        await coordinator.buy(PlanProduct(.growth, .monthly))
+
+        #expect(log.all.isEmpty)
+        #expect(coordinator.status == .failed(.paddlePlanLive))
     }
 
     @Test func closingTheSheetSendsNothing() async {
