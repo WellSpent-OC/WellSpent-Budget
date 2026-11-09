@@ -269,6 +269,7 @@ class App:
         self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds,
                                   extensions=extensions, wartable=wartable, properties=properties, region=region)
         self.env = env
+        _record_browser(self.home)
         self.log = open(os.path.join(self.home, "app.log"), "ab")
         # Each copy runs on a session bus and keyring of its own, as each
         # person's computer has, so several people can be on the screen at
@@ -288,6 +289,10 @@ class App:
         self.until(lambda: self._root() is not None and self.windows(), "the window to open")
         self.settle()
         return self
+
+    def opened_links(self):
+        """The web pages the app handed to the browser, oldest first."""
+        return (_read(os.path.join(self.home, "opened-links")) or "").split()
 
     def launch_again(self, *arguments):
         """A second launch on this copy's computer, given `arguments`, as a
@@ -1196,6 +1201,26 @@ class App:
         subprocess.run(["xdotool", "key", "Escape"], check=True)
         self.until(lambda: len(showing()) == before, "the list to close")
         return names
+
+
+def _record_browser(home):
+    """In place of a browser, a program that writes down each link it is
+    handed, set as the home's https and http handler. The app opens links as
+    on any desktop, and nothing leaves the container."""
+    apps = os.path.join(home, ".local/share/applications")
+    os.makedirs(apps, exist_ok=True)
+    recorder = os.path.join(home, "record-link")
+    with open(recorder, "w") as f:
+        f.write('#!/bin/sh\nprintf "%s\\n" "$1" >> "' + os.path.join(home, "opened-links") + '"\n')
+    os.chmod(recorder, 0o755)
+    with open(os.path.join(apps, "wellspent-test-browser.desktop"), "w") as f:
+        f.write("[Desktop Entry]\nType=Application\nName=Test browser\n"
+                f"Exec={recorder} %u\nMimeType=x-scheme-handler/https;x-scheme-handler/http;\n")
+    config = os.path.join(home, ".config")
+    os.makedirs(config, exist_ok=True)
+    with open(os.path.join(config, "mimeapps.list"), "w") as f:
+        f.write("[Default Applications]\nx-scheme-handler/https=wellspent-test-browser.desktop\n"
+                "x-scheme-handler/http=wellspent-test-browser.desktop\n")
 
 
 def _read(path):
