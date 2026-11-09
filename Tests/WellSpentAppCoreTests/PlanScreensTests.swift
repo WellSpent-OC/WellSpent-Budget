@@ -2,6 +2,9 @@ import Foundation
 import Testing
 import WellSpentAppCore
 import WellSpentPlans
+import WellSpentKeyStore
+import WellSpentStore
+import WellSpentSync
 
 private var utc: Calendar {
     var calendar = Calendar(identifier: .gregorian)
@@ -259,5 +262,25 @@ struct PlanLinksTests {
         #expect(PlanLinks.emailUs.scheme == "mailto")
         #expect([PlanWording.yourPlan, PlanWording.choosePlan, PlanWording.changeWhatStaysOpen]
                 == ["Your plan", "Choose a plan", "Change what stays open"])
+    }
+}
+
+@MainActor
+struct WorkspacePlansTests {
+    @Test func signedOutThereIsNoPlanToAskAbout() async throws {
+        let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()), keyStore: InMemoryKeyStore(),
+                                   defaults: isolatedDefaults())
+        await #expect(throws: ReadableTransportError.self) { try await sync.plan() }
+        await #expect(throws: ReadableTransportError.self) { try await sync.submitApple(signedTransaction: "jws") }
+    }
+
+    @Test func theWorkspaceKeepsOnePurchaseCoordinator() async throws {
+        let model = AppModel(store: Store(database: try WellSpentDatabase.inMemory()))
+        let sync = SyncCoordinator(store: model.store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())
+        let workspace = Workspace(model: model, sync: sync)
+        // Linux hands in no store, so buying happens on the website.
+        #expect(!workspace.plans.canBuyInApp)
+        await workspace.plans.refresh()
+        #expect(workspace.plans.answer == nil)
     }
 }

@@ -3,6 +3,7 @@ import Observation
 import WellSpentCrypto
 import WellSpentStore
 import WellSpentSync
+import WellSpentPlans
 #if canImport(WellSpentPropertiesViews)
 import WellSpentPropertiesViews
 #endif
@@ -42,16 +43,21 @@ public final class Workspace {
     public let features: FeatureFlags
     /// Which extensions this person turned on, on this device, per account.
     public let extensionSwitches: ExtensionSwitches
+    /// Buying, restoring and showing a plan. The Mac and iPhone hand in Apple's
+    /// store; Linux has none and pays on the website.
+    public let plans: PurchaseCoordinator
     @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
         [.era, .year, .month, .day], from: Date())
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
-                features: FeatureFlags? = nil,
+                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
+        self.plans = PurchaseCoordinator(store: planStore, service: sync,
+                                         cache: DefaultsPlanCache(defaults: sync.defaults))
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
         self.features = features ?? FeatureFlags.resolve(for: sync.environment, defaults: sync.defaults)
