@@ -32,9 +32,19 @@ struct PlanAnswerTests {
          "limits": {"properties": 5, "groups": null, "invitedPerGroup": null},
          "used": {"properties": 3, "groups": 2, "invitedPerGroup": 4},
          "extensionsOpen": ["wellspent.properties", "wellspent.tax"], "canSyncPriceLabs": true,
-         "refreshMinutes": 60, "appleAccountToken": "6F9619FF-8B86-D011-B42D-00C04FC964FF"}
+         "refreshMinutes": 60, "appleAccountToken": "6F9619FF-8B86-D011-B42D-00C04FC964FF",
+         "graceUntil": "2026-12-25T17:00:00Z",
+         "lastPlan": {"tier": "starter", "endedOn": "2026-10-09T17:00:00Z", "reason": "refunded"},
+         "locked": {"groupIDs": ["6F9619FF-8B86-D011-B42D-00C04FC964F1"],
+                    "people": [{"groupID": "6F9619FF-8B86-D011-B42D-00C04FC964F1", "userID": "6F9619FF-8B86-D011-B42D-00C04FC964F2"}],
+                    "houseIDs": []},
+         "open": {"groupID": null, "person": null, "houseIDs": ["6F9619FF-8B86-D011-B42D-00C04FC964F3"]}}
         """
         let answer = try PlanAnswer.decode(Data(json.utf8))
+        #expect(answer.graceUntil == Date(timeIntervalSince1970: 1_798_218_000))
+        #expect(answer.lastPlan?.reason == .refunded && answer.lastPlan?.tier == .starter)
+        #expect(answer.locked?.people.first?.userID == UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964F2"))
+        #expect(answer.open?.groupID == nil && answer.open?.houseIDs.count == 1)
 
         #expect(answer.tier == .growth)
         #expect(answer.period == .yearly)
@@ -62,6 +72,8 @@ struct PlanAnswerTests {
         #expect(answer.paidUntil == nil)
         #expect(answer.appleAccountToken == nil)
         #expect(answer.limits.groups == 1)
+        // Before the server sends them, the newer fields read as nil.
+        #expect(answer.graceUntil == nil && answer.lastPlan == nil && answer.locked == nil && answer.open == nil)
     }
 
     @Test func theCacheKeepsAnAnswerAcrossLaunches() throws {

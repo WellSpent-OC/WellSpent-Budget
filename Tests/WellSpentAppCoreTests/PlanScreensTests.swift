@@ -25,8 +25,23 @@ private func answer(_ tier: PlanTier = .growth, state: PlanAnswer.State = .activ
                       canSyncPriceLabs: !free, refreshMinutes: 60, appleAccountToken: UUID())
 }
 
-private func card(_ answer: PlanAnswer, _ platform: PlanPlatform = .appleStore) -> PlanCardScreen {
-    PlanCardScreen(answer: answer, platform: platform, now: now, calendar: utc)
+private func card(_ answer: PlanAnswer, _ platform: PlanPlatform = .appleStore, open: [String] = []) -> PlanCardScreen {
+    PlanCardScreen(answer: answer, platform: platform, openNames: open, now: now, calendar: utc)
+}
+
+private func ids(_ count: Int) -> [UUID] { (0 ..< count).map { _ in UUID() } }
+
+private let twoTwoOne = PlanAnswer.Locked(groupIDs: ids(1),
+                                           people: ids(2).map { PlanAnswer.Person(groupID: UUID(), userID: $0) },
+                                           houseIDs: ids(2))
+
+/// A free answer after a paid plan, as the server sends it.
+private func after(_ reason: PlanAnswer.LastPlan.Reason, locked: PlanAnswer.Locked? = twoTwoOne) -> PlanAnswer {
+    let free = answer(.free, properties: 1)
+    return PlanAnswer(tier: .free, period: .none, state: .free, source: .none, paidUntil: nil, renews: false,
+                      nextTier: nil, limits: free.limits, used: free.used, extensionsOpen: [], canSyncPriceLabs: false,
+                      refreshMinutes: 60, appleAccountToken: UUID(),
+                      lastPlan: .init(tier: .growth, endedOn: date("2026-11-09"), reason: reason), locked: locked)
 }
 
 struct PlanCardScreenTests {
@@ -118,6 +133,56 @@ struct PlanCardScreenTests {
         #expect(canceled.action == .keepPlan && canceled.actionIsPrimary)
         #expect(card(answer(state: .canceled), .website).action == nil)
         #expect(card(answer(state: .canceled, source: .paddle)).action == .manageOnWebsite)
+    }
+
+    @Test func theServersGraceEndWins() {
+        let base = answer(state: .grace, paidUntil: "2026-11-09")
+        let apple = PlanAnswer(tier: base.tier, period: base.period, state: .grace, source: .apple,
+                               paidUntil: base.paidUntil, renews: true, nextTier: nil, limits: base.limits,
+                               used: base.used, extensionsOpen: [], canSyncPriceLabs: true, refreshMinutes: 60,
+                               appleAccountToken: UUID(), graceUntil: date("2026-11-28"))
+        #expect(card(apple).lines.first == "Everything keeps working for 16 days, until Nov 28, while Apple tries again.")
+    }
+
+    @Test func aBillingProblemCountsWhatsLocked() {
+        let base = answer(state: .billingProblem)
+        let counted = PlanAnswer(tier: base.tier, period: base.period, state: .billingProblem, source: .apple,
+                                 paidUntil: base.paidUntil, renews: false, nextTier: nil, limits: base.limits,
+                                 used: base.used, extensionsOpen: [], canSyncPriceLabs: false, refreshMinutes: 60,
+                                 appleAccountToken: UUID(), locked: twoTwoOne)
+        #expect(card(counted).lines.last
+                == "2 properties, 1 group and 2 people are locked until the payment goes through. Nothing was deleted.")
+    }
+
+    @Test func anEndedPlanSaysWhatsLockedAndWhatsOpen() {
+        let ended = card(after(.ended), open: ["Household", "Cabin on Elm", "Sam"])
+        #expect(ended.title == "Free plan")
+        #expect(ended.badge == "Free")
+        #expect(ended.lines == ["Your Growth plan ended Nov 9.",
+                                "2 properties, 1 group and 2 people are locked until you pick a plan. Nothing was deleted.",
+                                "Open now: Household, Cabin on Elm and Sam."])
+        #expect(ended.action == .seePlans && !ended.actionIsPrimary)
+        #expect(ended.showsChangeWhatStaysOpen)
+        #expect(card(after(.ended), .website).action == .seePlansOnWebsite)
+        #expect(!card(answer(.free)).showsChangeWhatStaysOpen)
+    }
+
+    @Test func aRefundedPlan() {
+        let refunded = card(after(.refunded))
+        #expect(refunded.title == "Refunded")
+        #expect(refunded.lines == ["Your Nov 9 payment was refunded, so you're on the free plan.",
+                                   "2 properties, 1 group and 2 people are locked until you pick a plan. Nothing was deleted."])
+        #expect(!refunded.showsChangeWhatStaysOpen)
+    }
+
+    @Test func lockedWordsReadRightForOneThingOrNone() {
+        let oneGroup = PlanAnswer.Locked(groupIDs: ids(1), people: [], houseIDs: [])
+        #expect(card(after(.ended, locked: oneGroup)).lines[1]
+                == "1 group is locked until you pick a plan. Nothing was deleted.")
+        let empty = PlanAnswer.Locked(groupIDs: [], people: [], houseIDs: [])
+        #expect(card(after(.ended, locked: empty)).lines[1]
+                == "Anything past the free plan is locked until you pick a plan. Nothing was deleted.")
+        #expect(card(after(.ended, locked: nil)).lines.count == 2)
     }
 
     @Test func eachActionHasItsButtonWords() {

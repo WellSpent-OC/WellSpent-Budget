@@ -41,6 +41,57 @@ public struct PlanAnswer: Codable, Equatable, Sendable {
         }
     }
 
+    /// The paid plan that ended or was refunded, until they buy again.
+    public struct LastPlan: Codable, Equatable, Sendable {
+        public enum Reason: String, Codable, Sendable { case ended, refunded }
+        public let tier: PlanTier
+        public let endedOn: Date
+        public let reason: Reason
+
+        public init(tier: PlanTier, endedOn: Date, reason: Reason) {
+            self.tier = tier
+            self.endedOn = endedOn
+            self.reason = reason
+        }
+    }
+
+    /// A person in a group, by id. The app has the names; the server sends ids only.
+    public struct Person: Codable, Hashable, Sendable {
+        public let groupID: UUID
+        public let userID: UUID
+
+        public init(groupID: UUID, userID: UUID) {
+            self.groupID = groupID
+            self.userID = userID
+        }
+    }
+
+    /// What's past the plan and locked until someone pays.
+    public struct Locked: Codable, Equatable, Sendable {
+        public let groupIDs: [UUID]
+        public let people: [Person]
+        public let houseIDs: [UUID]
+
+        public init(groupIDs: [UUID], people: [Person], houseIDs: [UUID]) {
+            self.groupIDs = groupIDs
+            self.people = people
+            self.houseIDs = houseIDs
+        }
+    }
+
+    /// What stays open on the free plan: the person's pick, or the first ones.
+    public struct Open: Codable, Equatable, Sendable {
+        public let groupID: UUID?
+        public let person: Person?
+        public let houseIDs: [UUID]
+
+        public init(groupID: UUID?, person: Person?, houseIDs: [UUID]) {
+            self.groupID = groupID
+            self.person = person
+            self.houseIDs = houseIDs
+        }
+    }
+
     public let tier: PlanTier
     public let period: Period
     public let state: State
@@ -57,10 +108,17 @@ public struct PlanAnswer: Codable, Equatable, Sendable {
     /// Fixed for the account and never its user id. The apps hand it to Apple
     /// with every purchase, so Apple's notices to the server name the account.
     public let appleAccountToken: UUID?
+    /// When extras lock during a failed payment. Nil outside the grace period.
+    public let graceUntil: Date?
+    public let lastPlan: LastPlan?
+    /// Nil when nothing is locked.
+    public let locked: Locked?
+    public let open: Open?
 
     public init(tier: PlanTier, period: Period, state: State, source: Source, paidUntil: Date?, renews: Bool,
                 nextTier: PlanTier?, limits: Counts, used: Counts, extensionsOpen: [String],
-                canSyncPriceLabs: Bool, refreshMinutes: Int, appleAccountToken: UUID?) {
+                canSyncPriceLabs: Bool, refreshMinutes: Int, appleAccountToken: UUID?, graceUntil: Date? = nil,
+                lastPlan: LastPlan? = nil, locked: Locked? = nil, open: Open? = nil) {
         self.tier = tier
         self.period = period
         self.state = state
@@ -74,6 +132,10 @@ public struct PlanAnswer: Codable, Equatable, Sendable {
         self.canSyncPriceLabs = canSyncPriceLabs
         self.refreshMinutes = refreshMinutes
         self.appleAccountToken = appleAccountToken
+        self.graceUntil = graceUntil
+        self.lastPlan = lastPlan
+        self.locked = locked
+        self.open = open
     }
 
     /// Reads the server's JSON, with its ISO 8601 dates.

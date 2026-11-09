@@ -71,6 +71,12 @@ public enum PlanWording {
         count == 1 ? "1 property" : "\(count) properties"
     }
 
+    /// "A, B and C".
+    public static func list(_ items: [String]) -> String {
+        guard items.count > 1 else { return items.first ?? "" }
+        return items.dropLast().joined(separator: ", ") + " and " + items.last!
+    }
+
     public static func per(_ period: BillingPeriod) -> String {
         period == .monthly ? "a month" : "a year"
     }
@@ -123,9 +129,13 @@ public struct PlanCardScreen: Equatable, Sendable {
     /// Whether the action is the card's main button.
     public let actionIsPrimary: Bool
     public let tone: Tone
+    /// "Change what stays open", under the card once a paid plan has ended.
+    public let showsChangeWhatStaysOpen: Bool
 
-    public init(answer: PlanAnswer, platform: PlanPlatform, prices: PlanPrices = .us, now: Date = Date(),
-                calendar: Calendar = AppLocale.calendar) {
+    /// `openNames` are the names of what the answer's `open` keeps open, in
+    /// order: the group, the properties, the person. The server sends ids only.
+    public init(answer: PlanAnswer, platform: PlanPlatform, prices: PlanPrices = .us, openNames: [String] = [],
+                now: Date = Date(), calendar: Calendar = AppLocale.calendar) {
         let day = { (date: Date?) in date.map { PlanWording.day($0, now: now, calendar: calendar) } ?? "" }
         let tierName = PlanWording.name(answer.tier)
         let paid = PaidTier(rawValue: answer.tier.rawValue)
@@ -147,8 +157,25 @@ public struct PlanCardScreen: Equatable, Sendable {
         var action: Action?
         var primary = true
         var tone = Tone.plain
+        var changeWhatStaysOpen = false
+        let locked = Self.locked(answer.locked)
 
         switch (answer.state, paid) {
+        case (.free, _) where answer.lastPlan != nil, (_, nil) where answer.lastPlan != nil:
+            let last = answer.lastPlan!
+            badge = "Free"
+            let until = "\(locked) locked until you pick a plan. \(PlanWording.nothingDeleted)"
+            if last.reason == .refunded {
+                title = "Refunded"
+                lines = ["Your \(day(last.endedOn)) payment was refunded, so you're on the free plan.", until]
+            } else {
+                title = "Free plan"
+                lines = ["Your \(PlanWording.name(last.tier)) plan ended \(day(last.endedOn)).", until]
+                if !openNames.isEmpty { lines.append("Open now: \(PlanWording.list(openNames)).") }
+                changeWhatStaysOpen = true
+            }
+            action = platform == .appleStore ? .seePlans : .seePlansOnWebsite
+            primary = false
         case (.free, _), (_, nil):
             title = "Free plan"
             badge = "Free"
@@ -172,7 +199,8 @@ public struct PlanCardScreen: Equatable, Sendable {
         case (.grace, _):
             title = apple ? "Apple couldn't renew your plan" : "Your payment didn't go through"
             badge = tierName
-            let graceEnd = answer.paidUntil.flatMap {
+            // The server sends the store's own grace end; the usual 16 days only if it hasn't.
+            let graceEnd = answer.graceUntil ?? answer.paidUntil.flatMap {
                 calendar.date(byAdding: .day, value: PlanWording.graceDays, to: $0)
             }
             lines = ["Everything keeps working for \(PlanWording.graceDays) days, until \(day(graceEnd)), "
@@ -183,8 +211,7 @@ public struct PlanCardScreen: Equatable, Sendable {
             title = "\(tierName) is paused"
             badge = "Free"
             lines = ["\(storeCap) still couldn't take payment, so you're on the free plan for now.",
-                     "Anything past the free plan is locked until the payment goes through. "
-                        + PlanWording.nothingDeleted]
+                     "\(locked) locked until the payment goes through. \(PlanWording.nothingDeleted)"]
             if appleElsewhere { lines.append(PlanWording.managedOnApple) }
             action = payAction
             tone = .warning
@@ -203,6 +230,20 @@ public struct PlanCardScreen: Equatable, Sendable {
         self.action = action
         actionIsPrimary = action != nil && primary
         self.tone = tone
+        showsChangeWhatStaysOpen = changeWhatStaysOpen
+    }
+
+    /// "2 properties, 1 group and 2 people are", or "Anything past the free
+    /// plan is" when the answer doesn't say what.
+    static func locked(_ locked: PlanAnswer.Locked?) -> String {
+        guard let locked else { return "Anything past the free plan is" }
+        var parts: [String] = []
+        if !locked.houseIDs.isEmpty { parts.append(PlanWording.properties(locked.houseIDs.count)) }
+        if !locked.groupIDs.isEmpty { parts.append(locked.groupIDs.count == 1 ? "1 group" : "\(locked.groupIDs.count) groups") }
+        if !locked.people.isEmpty { parts.append(locked.people.count == 1 ? "1 person" : "\(locked.people.count) people") }
+        guard !parts.isEmpty else { return "Anything past the free plan is" }
+        let one = parts.count == 1 && (parts[0].hasPrefix("1 ") )
+        return "\(PlanWording.list(parts)) \(one ? "is" : "are")"
     }
 
     /// "Up to 5 properties. You have 3."
