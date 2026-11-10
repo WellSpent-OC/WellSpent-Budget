@@ -79,7 +79,11 @@ public enum PlanServiceError: Error, Equatable, Sendable {
 public protocol PlanCache: Sendable {
     func load() -> PlanAnswer?
     func save(_ answer: PlanAnswer)
-    /// Forgets the last answer, as when the account signs out.
+    /// The locked group this person chose to pay for, waiting for their plan
+    /// to reach the server (`PurchaseCoordinator.payForGroupLater`).
+    func loadPendingGroup() -> UUID?
+    func savePendingGroup(_ id: UUID?)
+    /// Forgets the last answer and any group waiting, as when the account signs out.
     func clear()
 }
 

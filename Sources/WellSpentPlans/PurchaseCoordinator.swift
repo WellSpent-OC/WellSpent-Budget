@@ -37,6 +37,9 @@ public final class PurchaseCoordinator {
     /// The server's last answer, from this run or a cached one.
     public private(set) var answer: PlanAnswer?
     public private(set) var status: Status = .idle
+    /// A locked group this person chose to pay for, while their plan makes
+    /// its way to the server.
+    public private(set) var pendingGroup: UUID?
 
     private let store: (any PlanStore)?
     private let service: any PlanService
@@ -47,6 +50,7 @@ public final class PurchaseCoordinator {
         self.service = service
         self.cache = cache
         answer = cache.load()
+        pendingGroup = cache.loadPendingGroup()
     }
 
     /// Whether this platform can buy in the app.
@@ -58,7 +62,9 @@ public final class PurchaseCoordinator {
             accept(try await service.plan())
         } catch {
             // Offline or refused: keep showing the last answer.
+            return
         }
+        await payForPendingGroup()
     }
 
     /// Keep These Open, or Skip: saves what stays open on the free plan. The
@@ -74,6 +80,36 @@ public final class PurchaseCoordinator {
         accept(try await lockService().payForGroup(id))
     }
 
+    /// Pay for This Group when the purchase happens outside the app, as on
+    /// the website: the group waits, and the next answer with a paid plan
+    /// takes it over (`payForPendingGroup`). Kept for this account only.
+    public func payForGroupLater(_ id: UUID) {
+        pendingGroup = id
+        cache.savePendingGroup(id)
+    }
+
+    /// Takes over the waiting group once the plan is paid. Forgets it when it
+    /// opened, is gone, or isn't theirs. A plan that doesn't cover it yet,
+    /// or no answer, keeps it for the next refresh.
+    private func payForPendingGroup() async {
+        guard let group = pendingGroup, let answer else { return }
+        guard answer.locked?.groupIDs.contains(group) == true else { return forgetPendingGroup() }
+        guard answer.tier != .free else { return }
+        do {
+            try await payFor(group: group)
+            forgetPendingGroup()
+        } catch PlanLockError.groupGone, PlanLockError.notYours {
+            forgetPendingGroup()
+        } catch {
+            // Not paid yet, or unreachable: ask again next time.
+        }
+    }
+
+    private func forgetPendingGroup() {
+        pendingGroup = nil
+        cache.savePendingGroup(nil)
+    }
+
     private func lockService() throws -> any PlanLockService {
         guard let locks = service as? any PlanLockService else { throw PlanLockError.unreachable }
         return locks
@@ -82,6 +118,7 @@ public final class PurchaseCoordinator {
     /// Signed out: the last account's plan is no one's now.
     public func forget() {
         answer = nil
+        pendingGroup = nil
         status = .idle
         cache.clear()
     }
@@ -144,6 +181,7 @@ public final class PurchaseCoordinator {
             accept(try await service.submitApple(signedTransaction: transaction.signed))
             await store?.finish(transaction.id)
             status = .idle
+            await payForPendingGroup()
         } catch let error as PlanServiceError {
             status = .failed(Self.failure(for: error))
         } catch {

@@ -104,10 +104,19 @@ private final class FakeLockService: PlanService, PlanLockService, @unchecked Se
 
 private final class MemoryCache: PlanCache, @unchecked Sendable {
     var stored: PlanAnswer?
-    init(_ stored: PlanAnswer? = nil) { self.stored = stored }
+    var pending: UUID?
+    init(_ stored: PlanAnswer? = nil, pending: UUID? = nil) {
+        self.stored = stored
+        self.pending = pending
+    }
     func load() -> PlanAnswer? { stored }
     func save(_ answer: PlanAnswer) { stored = answer }
-    func clear() { stored = nil }
+    func loadPendingGroup() -> UUID? { pending }
+    func savePendingGroup(_ id: UUID?) { pending = id }
+    func clear() {
+        stored = nil
+        pending = nil
+    }
 }
 
 private let token = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
@@ -120,6 +129,15 @@ private func answer(_ tier: PlanTier, token: UUID? = token, source: PlanAnswer.S
                used: .init(properties: 1, groups: 1, invitedPerGroup: 0),
                extensionsOpen: tier == .free ? [] : ["wellspent.properties", "wellspent.tax"],
                canSyncPriceLabs: tier != .free, refreshMinutes: 60, appleAccountToken: token)
+}
+
+/// A paid answer in which `group` is still locked to this person.
+private func paid(locking group: UUID) -> PlanAnswer {
+    let paid = answer(.starter)
+    return PlanAnswer(tier: paid.tier, period: paid.period, state: paid.state, source: .paddle,
+                      paidUntil: nil, renews: true, nextTier: nil, limits: paid.limits, used: paid.used,
+                      extensionsOpen: paid.extensionsOpen, canSyncPriceLabs: true, refreshMinutes: 60,
+                      appleAccountToken: token, locked: .init(groupIDs: [group], people: [], houseIDs: []))
 }
 
 private let growthMonthly = StoreTransaction(id: 7, productID: "app.wellspent.pro.growth.monthly", signed: "jws-7")
@@ -440,5 +458,101 @@ struct LocksLessTests {
         service.answer = locking()
         await plans.refresh()
         #expect(opened == 1)
+    }
+}
+
+/// Pay for This Group when the purchase happens outside the app, as on the
+/// website: the group waits, and the next answer with a paid plan takes it over.
+@MainActor
+struct PendingGroupPayTests {
+    @Test func aGroupToPayForIsRememberedForThisAccount() {
+        let cache = MemoryCache(answer(.free))
+        let plans = PurchaseCoordinator(store: nil, service: FakeLockService(answer: answer(.free)), cache: cache)
+        let group = UUID()
+        plans.payForGroupLater(group)
+        #expect(plans.pendingGroup == group)
+        #expect(cache.pending == group)
+        #expect(PurchaseCoordinator(store: nil, service: FakeLockService(answer: answer(.free)),
+                                    cache: cache).pendingGroup == group)
+    }
+
+    @Test func theNextPaidAnswerTakesOverTheGroup() async {
+        let group = UUID()
+        let cache = MemoryCache(answer(.free), pending: group)
+        let service = FakeLockService(answer: paid(locking: group))
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: cache)
+        await plans.refresh()
+        #expect(service.paid == [group])
+        #expect(plans.pendingGroup == nil)
+        #expect(cache.pending == nil)
+    }
+
+    @Test func onTheFreePlanItWaitsWithoutAsking() async {
+        let group = UUID()
+        let free = answer(.free)
+        let lockedOnFree = PlanAnswer(tier: free.tier, period: free.period, state: free.state, source: free.source,
+                                      paidUntil: nil, renews: false, nextTier: nil, limits: free.limits,
+                                      used: free.used, extensionsOpen: [], canSyncPriceLabs: false,
+                                      refreshMinutes: 60, appleAccountToken: token,
+                                      locked: .init(groupIDs: [group], people: [], houseIDs: []))
+        let service = FakeLockService(answer: lockedOnFree)
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        await plans.refresh()
+        #expect(service.paid.isEmpty)
+        #expect(plans.pendingGroup == group)
+    }
+
+    @Test func aPlanThatDoesNotCoverItYetKeepsItForNextTime() async {
+        let group = UUID()
+        let service = FakeLockService(answer: paid(locking: group))
+        service.refusal = .planDoesNotCover
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        await plans.refresh()
+        #expect(plans.pendingGroup == group)
+    }
+
+    @Test(arguments: [PlanLockError.groupGone, .notYours])
+    func aGroupThatIsGoneOrNotTheirsIsForgotten(_ refusal: PlanLockError) async {
+        let group = UUID()
+        let service = FakeLockService(answer: paid(locking: group))
+        service.refusal = refusal
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        await plans.refresh()
+        #expect(plans.pendingGroup == nil)
+    }
+
+    @Test func offlineItWaits() async {
+        let group = UUID()
+        let service = FakeLockService(answer: paid(locking: group))
+        service.refusal = .unreachable
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        await plans.refresh()
+        #expect(plans.pendingGroup == group)
+    }
+
+    @Test func aGroupNoLongerLockedIsForgottenWithoutPaying() async {
+        let group = UUID()
+        let service = FakeLockService(answer: answer(.starter))
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        await plans.refresh()
+        #expect(service.paid.isEmpty)
+        #expect(plans.pendingGroup == nil)
+    }
+
+    @Test func signingOutForgetsIt() {
+        let cache = MemoryCache(answer(.free), pending: UUID())
+        let plans = PurchaseCoordinator(store: nil, service: FakeLockService(answer: answer(.free)), cache: cache)
+        plans.forget()
+        #expect(plans.pendingGroup == nil)
+        #expect(cache.pending == nil)
+    }
+
+    @Test func theDefaultsCacheKeepsItUntilCleared() throws {
+        let defaults = try #require(UserDefaults(suiteName: "pending-\(UUID())"))
+        let group = UUID()
+        DefaultsPlanCache(defaults: defaults).savePendingGroup(group)
+        #expect(DefaultsPlanCache(defaults: defaults).loadPendingGroup() == group)
+        DefaultsPlanCache(defaults: defaults).clear()
+        #expect(DefaultsPlanCache(defaults: defaults).loadPendingGroup() == nil)
     }
 }

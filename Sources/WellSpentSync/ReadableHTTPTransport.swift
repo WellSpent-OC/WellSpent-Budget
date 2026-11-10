@@ -590,6 +590,8 @@ extension ReadableHTTPTransport: PlanService, PlanLockService {
             throw PlanLockError.planDoesNotCover
         } catch ReadableTransportError.http(status: 402, _) {
             throw PlanLockError.planDoesNotCover
+        } catch ReadableTransportError.http(status: 404, _), ReadableTransportError.http(status: 410, _) {
+            throw PlanLockError.groupGone
         } catch let error as ReadableTransportError {
             throw error
         } catch {
