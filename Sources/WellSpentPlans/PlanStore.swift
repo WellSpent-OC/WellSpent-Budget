@@ -107,3 +107,21 @@ public struct PinnedPlanService: PlanService, PlanLockService {
     public func savePick(_ pick: PlanPick) async throws -> PlanAnswer { try read() }
     public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer { try read() }
 }
+
+/// A store with nothing in it, for a staging UI test (`Workspace.emptyStoreVariable`):
+/// no offers, no purchases to restore, and every purchase refused. So
+/// Restore Purchases and a failed buy show the same thing on every run. The
+/// real store is checked in Apple's sandbox on a device.
+public struct EmptyPlanStore: PlanStore {
+    public struct Refused: Error {}
+
+    public init() {}
+
+    public func offers() async throws -> [StoreOffer] { [] }
+    public func purchase(_ product: PlanProduct, accountToken: UUID) async throws -> PurchaseResult { throw Refused() }
+    public func current() async -> [StoreTransaction] { [] }
+    public func sync() async throws {}
+    public func finish(_ transactionID: UInt64) async {}
+    public func updates() -> AsyncStream<StoreTransaction> { AsyncStream { $0.finish() } }
+    public func storefrontCountry() async -> String? { "USA" }
+}

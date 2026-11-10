@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import WellSpentAppCore
+import WellSpentPlans
 import WellSpentCrypto
 import WellSpentKeyStore
 import WellSpentModel
@@ -401,6 +402,27 @@ struct AccountsTests {
     /// the day, and only a day a month can have.
     /// The Mac and iPhone buy through Apple's store; Linux has none and
     /// pays on the website.
+    /// A staging UI test can ask for an empty store, so restoring and a
+    /// refused purchase show the same thing every run. Live never can.
+    @Test func onlyAStagingTestGetsTheEmptyStore() async throws {
+        let empty = [Workspace.emptyStoreVariable: "empty"]
+        #if canImport(StoreKit)
+        let store = try #require(Workspace.appStore(for: .staging, in: empty))
+        #expect(store is EmptyPlanStore)
+        let offers = try await store.offers()
+        let held = await store.current()
+        #expect(offers.isEmpty && held.isEmpty)
+        await #expect(throws: EmptyPlanStore.Refused.self) {
+            try await store.purchase(PlanProduct(.starter, .monthly), accountToken: UUID())
+        }
+        #expect(!(Workspace.appStore(for: .live, in: empty) is EmptyPlanStore))
+        #expect(!(Workspace.appStore(for: .staging, in: [:]) is EmptyPlanStore))
+        #else
+        #expect(Workspace.appStore(for: .staging, in: empty) == nil, "Linux has no store at all")
+        #endif
+        #expect(Workspace.emptyStoreVariable == "WELLSPENT_PLAN_STORE")
+    }
+
     @Test func theAppleAppsGetApplesStoreAndLinuxNone() {
         #if canImport(StoreKit)
         #expect(Workspace.appStore() != nil)
