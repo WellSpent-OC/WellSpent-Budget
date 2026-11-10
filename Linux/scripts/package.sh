@@ -56,6 +56,9 @@ if [ "$PROPERTIES" = none ]; then
 elif [ -n "$PROPERTIES" ] && [ ! -f "$PROPERTIES/Package.swift" ]; then
     echo "WELLSPENT_PROPERTIES_PATH is not a Properties checkout: $PROPERTIES" >&2
     exit 1
+elif [ -n "$PROPERTIES" ]; then
+    # Made whole here: SwiftPM would read a relative path from Linux/.
+    PROPERTIES="$(cd "$PROPERTIES" && pwd)"
 elif [ -z "$PROPERTIES" ] && [ "$WELLSPENT_ENV" = live ]; then
     echo "A live build needs WELLSPENT_PROPERTIES_PATH, or WELLSPENT_PROPERTIES_PATH=none to leave Houses out" >&2
     exit 1

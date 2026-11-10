@@ -18,7 +18,8 @@
 # UITEST_PROPERTIES a checkout of the private Properties extension, with no
 #                   spaces in its path. The app is built linked with it, in
 #                   its own build folder, and the extension's Linux UI tests
-#                   (UITests/Linux, such as test_houses) can be named here
+#                   (UITests/Linux, such as test_houses) can be named here.
+#                   A coverage run doesn't link it yet, and ignores it
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 NAME="${UITEST_CONTAINER:-wsr-linux-uitest}"
