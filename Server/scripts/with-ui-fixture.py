@@ -81,8 +81,6 @@ def main() -> int:
             "TEST_MAILBOX_TOKEN": token,
             "EMAIL_CODE_KEY": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
             "LLVM_PROFILE_FILE": str(root / "server-%p.profraw"),
-            # The UI tests check the plan screens, so the plan routes are on.
-            "WELLSPENT_PLANS": "on",
         })
         log_path = root / "server.log"
         descriptor = os.open(log_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)

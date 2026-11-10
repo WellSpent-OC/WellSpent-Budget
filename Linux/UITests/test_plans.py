@@ -1,12 +1,13 @@
 """Plans (Features/Plans.md) in the real window: the plan card on Account, and
 Choose a plan, which on Linux continues on the website. The browser and the
 mail program are the UI tests' recorder (wellspent_ui._record_browser), so
-nothing leaves the container. Each test makes a fresh account, which starts on
-the free plan, so it is skipped without the test mailbox's token."""
+nothing leaves the container. The plan answer comes from a file
+(`pinned_plan`), the free plan, as on the Mac. Each test signs up a fresh
+account, so it is skipped without the test mailbox's token."""
 
 import unittest
 
-from wellspent_ui import launch_fresh, needs_accounts, unique
+from wellspent_ui import launch_fresh, needs_accounts, pinned_plan, unique
 
 FREE_LINE = "1 property, sync on every device, and 1 group shared with 1 person."
 CHECKOUT = "https://wellspent.space/checkout"
@@ -25,7 +26,7 @@ class Plans(unittest.TestCase):
 
     def test_a_new_account_is_on_the_free_plan(self):
         needs_accounts(self)
-        app = launch_fresh(self)
+        app = launch_fresh(self, plan_file=pinned_plan(self))
         app.sign_up(unique("plan-free"))
         app.button("Account", within=app.main).press()
         sheet = app.wait_for_window(2, "the account sheet")
@@ -38,7 +39,7 @@ class Plans(unittest.TestCase):
 
     def test_continue_opens_checkout_for_the_picked_plan(self):
         needs_accounts(self)
-        app = launch_fresh(self)
+        app = launch_fresh(self, plan_file=pinned_plan(self))
         app.sign_up(unique("plan-checkout"))
         sheet = self.open_plans(app)
         # Scenario PLAN-02
@@ -65,7 +66,7 @@ class Plans(unittest.TestCase):
 
     def test_more_than_fifteen_emails_us(self):
         needs_accounts(self)
-        app = launch_fresh(self)
+        app = launch_fresh(self, plan_file=pinned_plan(self))
         app.sign_up(unique("plan-email"))
         sheet = self.open_plans(app)
         # Scenario PLAN-05

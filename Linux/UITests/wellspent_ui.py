@@ -235,12 +235,14 @@ class App:
     # Starting and stopping
 
     def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None,
-               extensions=None, wartable=None, properties=None, region="en_US.UTF-8"):
+               extensions=None, wartable=None, properties=None, plan_file=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
         invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
         `undo_seconds` sets how long Undo stays. `autosync_seconds` sets the
         periodic sync interval. `extensions`, `wartable` and `properties` control feature flags.
+        `plan_file` names a file whose plan answer the app shows in place of
+        the server's, read again each time the app asks (`write_plan`).
         `region` is the computer's, as a desktop names it."""
         if self.process is not None:
             raise RuntimeError("already running")
@@ -254,6 +256,9 @@ class App:
         env.pop("WELLSPENT_FEATURE_EXTENSIONS", None)
         env.pop("WELLSPENT_FEATURE_WARTABLE", None)
         env.pop("WELLSPENT_FEATURE_PROPERTIES", None)
+        env.pop("WELLSPENT_PLAN_ANSWER_FILE", None)
+        if plan_file is not None:
+            env["WELLSPENT_PLAN_ANSWER_FILE"] = plan_file
         if day is not None:
             env["WELLSPENT_DAY_OF_MONTH"] = str(day)
         if undo_seconds is not None:
@@ -267,7 +272,8 @@ class App:
         if properties is not None:
             env["WELLSPENT_FEATURE_PROPERTIES"] = "1" if properties else "0"
         self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds,
-                                  extensions=extensions, wartable=wartable, properties=properties, region=region)
+                                  extensions=extensions, wartable=wartable, properties=properties,
+                                  plan_file=plan_file, region=region)
         self.env = env
         _record_browser(self.home)
         self.log = open(os.path.join(self.home, "app.log"), "ab")
@@ -1372,6 +1378,35 @@ def account(name):
     """A test person's sign-in, (email, password), for a test that types or
     pastes them itself. Never printed."""
     return _ACCOUNTS[name.lower()]
+
+
+def write_plan(path, answer):
+    """Writes a plan answer for `plan_file`, whole, never half written: the
+    app may read it at any moment."""
+    temporary = f"{path}.{secrets.token_hex(4)}"
+    with open(temporary, "w") as file:
+        json.dump(answer, file)
+    os.replace(temporary, path)
+
+
+def free_plan():
+    """The free plan's answer, in the server's shape."""
+    return {
+        "tier": "free", "period": "none", "state": "free", "source": "none", "paidUntil": None,
+        "renews": False, "nextTier": None, "limits": {"properties": 1}, "used": {"properties": 0},
+        "extensionsOpen": [], "canSyncPriceLabs": False, "refreshMinutes": 60, "appleAccountToken": None,
+    }
+
+
+def pinned_plan(test, answer=None):
+    """A plan answer file for one test, the free plan unless `answer` says
+    otherwise. The test server leaves its plans off, so its free limits never
+    get in another test's way; the app shows this file in their place."""
+    folder = tempfile.mkdtemp(prefix="wellspent-plan-")
+    test.addCleanup(shutil.rmtree, folder, True)
+    path = os.path.join(folder, "plan.json")
+    write_plan(path, answer or free_plan())
+    return path
 
 
 def launch_fresh(test, *arguments, **settings):
