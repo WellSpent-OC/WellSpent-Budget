@@ -89,6 +89,13 @@ public enum SyncWording {
         }
     }
 
+    /// The sync button's own label, for a screen that greys the button and
+    /// shows a spinner beside it while a sync runs. The label stays put, so
+    /// the button keeps its width.
+    public static func syncButtonTitle(for state: SyncCoordinator.State) -> String {
+        syncTitle(for: state)
+    }
+
     /// The detail behind the sync button: a button has no room for a sentence,
     /// and a failure that says nothing is worse than no button at all.
     public static func syncHelp(for state: SyncCoordinator.State, lastSyncedAt: Date?) -> String {
