@@ -97,7 +97,7 @@ Click a transaction in a budget's list, and it opens like this. Click each field
 16. **Save**: save your changes. It stays dimmed until something changes.
 17. **Added by you · Repeat**: how it came in, and, in a shared group, who added it.
 
-Linux has no **House** row. Properties isn't on Linux yet.
+Linux has no **House** row yet.
 
 **Add** on a budget's page opens a **New transaction** window with the same fields, and **Add** in place of **Save**.
 
