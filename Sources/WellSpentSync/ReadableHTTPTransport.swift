@@ -543,7 +543,7 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
 
 // MARK: - Plans
 
-extension ReadableHTTPTransport: PlanService {
+extension ReadableHTTPTransport: PlanService, PlanLockService {
     private struct AppleBody: Encodable { let signedTransaction: String }
 
     /// `GET /api/v2/plan`: what plan this account has.
@@ -558,6 +558,43 @@ extension ReadableHTTPTransport: PlanService {
         try await planAnswer {
             try withBody(try request(.post, "plan/apple", query: [], as: .signedIn),
                          AppleBody(signedTransaction: signedTransaction))
+        }
+    }
+
+    /// `POST /api/v2/plan/pick`: what stays open on the free plan.
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer {
+        try await lockCall { try withBody(try request(.post, "plan/pick", query: [], as: .signedIn), pick) }
+    }
+
+    /// `POST /api/v2/groups/{id}/pay`: this person takes over paying for a
+    /// locked group, once their own plan is live.
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        try await lockCall {
+            try request(.post, "groups/\(groupID.uuidString.lowercased())/pay", query: [], as: .signedIn)
+        }
+    }
+
+    private func lockCall(_ make: () throws -> URLRequest) async throws -> PlanAnswer {
+        let data: Data
+        do {
+            data = try await perform(try make(), as: .signedIn)
+        } catch ReadableTransportError.http(status: 409, "pickTooSoon") {
+            throw PlanLockError.pickTooSoon
+        } catch ReadableTransportError.http(status: 422, "tooMany") {
+            throw PlanLockError.tooMany
+        } catch ReadableTransportError.http(status: 422, _) {
+            throw PlanLockError.notYours
+        } catch ReadableTransportError.http(status: 402, _) {
+            throw PlanLockError.planDoesNotCover
+        } catch let error as ReadableTransportError {
+            throw error
+        } catch {
+            throw PlanLockError.unreachable
+        }
+        do {
+            return try PlanAnswer.decode(data)
+        } catch {
+            throw ReadableTransportError.malformed("PlanAnswer: \(error)")
         }
     }
 

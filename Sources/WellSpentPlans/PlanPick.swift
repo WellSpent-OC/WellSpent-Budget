@@ -14,7 +14,26 @@ public struct PlanPick: Codable, Equatable, Sendable {
     }
 }
 
-/// Where a pick is saved. The server's request plugs in here.
-public protocol PlanPickSaving: Sendable {
-    func savePick(_ pick: PlanPick) async throws
+/// The server's calls for what's locked: saving a pick, and taking over
+/// paying for a locked group. Each answers with the plan as it now stands.
+public protocol PlanLockService: Sendable {
+    /// `POST /api/v2/plan/pick`.
+    func savePick(_ pick: PlanPick) async throws -> PlanAnswer
+    /// `POST /api/v2/groups/{id}/pay`, once this person's own plan is live.
+    func payForGroup(_ groupID: UUID) async throws -> PlanAnswer
+}
+
+/// Why the server refused a pick or a takeover.
+public enum PlanLockError: Error, Equatable, Sendable {
+    /// The open group changed under 30 days ago. The answer's
+    /// `open.groupChangedAt` says when it can change.
+    case pickTooSoon
+    /// A group, person or property that isn't this person's to pick.
+    case notYours
+    /// More properties than the plan allows.
+    case tooMany
+    /// Their own plan doesn't cover the group they tried to pay for.
+    case planDoesNotCover
+    /// No answer from the server.
+    case unreachable
 }

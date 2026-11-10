@@ -86,11 +86,13 @@ public protocol PlanCache: Sendable {
 /// A server that always gives one answer: what a staging UI test pinned
 /// (`Workspace.pinnedPlanVariable`). A purchase changes nothing, so the test
 /// sees the state it asked for.
-public struct PinnedPlanService: PlanService {
+public struct PinnedPlanService: PlanService, PlanLockService {
     public let answer: PlanAnswer
 
     public init(answer: PlanAnswer) { self.answer = answer }
 
     public func plan() async throws -> PlanAnswer { answer }
     public func submitApple(signedTransaction: String) async throws -> PlanAnswer { answer }
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer { answer }
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer { answer }
 }

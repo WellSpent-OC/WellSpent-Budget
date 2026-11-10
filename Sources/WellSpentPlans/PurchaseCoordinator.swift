@@ -57,6 +57,24 @@ public final class PurchaseCoordinator {
         }
     }
 
+    /// Keep These Open, or Skip: saves what stays open on the free plan. The
+    /// server's answer, with its new open and locked, replaces the last one.
+    /// Throws `PlanLockError` when the server refuses.
+    public func save(_ pick: PlanPick) async throws {
+        accept(try await lockService().savePick(pick))
+    }
+
+    /// Pay for This Group: once this person's own plan is live, they take
+    /// over paying for a locked group.
+    public func payFor(group id: UUID) async throws {
+        accept(try await lockService().payForGroup(id))
+    }
+
+    private func lockService() throws -> any PlanLockService {
+        guard let locks = service as? any PlanLockService else { throw PlanLockError.unreachable }
+        return locks
+    }
+
     /// Signed out: the last account's plan is no one's now.
     public func forget() {
         answer = nil
