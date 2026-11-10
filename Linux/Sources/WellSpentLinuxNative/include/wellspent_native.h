@@ -44,27 +44,6 @@ typedef void (*wellspent_lifecycle_receiver)(int came_to_front);
 void wellspent_watch_lifecycle(const char *app_id, unsigned int clock_seconds,
                               wellspent_lifecycle_receiver receive);
 
-/// What a screen reader names `widget` (a GtkWidget), in place of what it
-/// shows: for a widget whose look carries its meaning, such as an arrow.
-void wellspent_accessible_set_label(void *widget, const char *label);
-
-/// What a screen reader says after the widget's name, such as how much of a
-/// budget is used.
-void wellspent_accessible_set_description(void *widget, const char *description);
-
-/// Whether a screen reader hears the widget as the one picked, such as the
-/// open budget's row. 1 for picked, 0 for not.
-void wellspent_accessible_set_selected(void *widget, int selected);
-
-/// The four arrows of the GTK calendar inside `widget` (a GtkWidget): names
-/// them, since GTK leaves them unnamed and a screen reader hears four plain
-/// buttons, in the order GTK shows them (the month back and on, then the
-/// year back and on). A move by them chooses the day the calendar then shows
-/// chosen, as a click on a day does. And the arrow keys move the chosen day
-/// by a day or a week, as on the Mac. Call after every update.
-void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
-                               const char *previous_year, const char *next_year);
-
 /// Quits the way the app's own last window would when the system asks it to
 /// stop (SIGTERM), as a desktop does at log out, instead of the process just
 /// ending. Call once, after the app's GtkApplication is made.
@@ -86,10 +65,6 @@ void wellspent_new_entry_shortcut(void *widget);
 
 /// Names a multiline chat editor and marks it as the Ctrl+Enter target.
 void wellspent_wartable_composer(void *widget);
-void wellspent_wartable_control_label(void *widget, const char *label);
-/// The accessible description of the control inside a composite view, with
-/// GTK's own name for it kept, such as a list's chosen option.
-void wellspent_control_description(void *widget, const char *description);
 /// Ctrl+Enter in that editor activates this visible, enabled Send button.
 void wellspent_wartable_send(void *widget);
 /// Follow appended messages only while reading the bottom. A new conversation

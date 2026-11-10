@@ -143,6 +143,22 @@ func createInvitation(_ body: CreateInviteV2Request, groupID: UUID, user: Authen
         if let refusal = MembershipRules.invite(at: level, holding: AccessLevel(rawValue: mine.level) ?? .none) {
             throw refusal.answer(founder: "the founder cannot be invited")
         }
+        // The payer's plan limits who a group may invite: the people in it
+        // and the invitations still waiting count together.
+        if request.application.plansEnabled {
+            let locks = try await PayerLocks.of(group.payerID, on: database)
+            try PlanLocks.requireOpen(group, user: user.id, locks: locks)
+            if let max = locks.tier.maxInvitedPerGroup {
+                let invited = try await MembershipRow.query(on: database).filter(\.$groupID == groupID)
+                    .filter(\.$userID != group.payerID).count()
+                let waiting = try await InviteRow.query(on: database).filter(\.$groupID == groupID)
+                    .filter(\.$acceptedAt == nil).filter(\.$rejectedAt == nil).filter(\.$cancelledAt == nil)
+                    .filter(\.$closedAt == nil).filter(\.$expiresAt > now).count()
+                if invited + waiting >= max {
+                    throw PlanRefusal.limit(PlanLimit.invited, sheet: PlanSheet.invite, tier: locks.tier)
+                }
+            }
+        }
         if let email {
             if try await InviteRow.query(on: database).filter(\.$groupID == groupID)
                 .filter(\.$inviteeEmail == email).filter(\.$acceptedAt == nil)

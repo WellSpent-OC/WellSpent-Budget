@@ -101,6 +101,9 @@ final class GroupRow: Model, @unchecked Sendable {
     /// `AddReadableSync`.
     @OptionalField(key: "import_key") var importKey: Data?
     @OptionalField(key: "deleted_at") var deletedAt: Date?
+    /// Who pays for the group, once someone other than its founder took it
+    /// over (`AddPlanLocks`). Nil is the founder.
+    @OptionalField(key: "paid_by_user_id") var paidByUserID: UUID?
 
     init() {}
     init(id: UUID, founderID: UUID, epoch: Int = 0) {
@@ -144,6 +147,9 @@ final class MembershipRow: Model, @unchecked Sendable {
     @Field(key: "user_id") var userID: UUID
     @Field(key: "level") var level: Int
     @Field(key: "joined_at_sequence") var joinedAtSequence: Int
+    /// When they joined, for who joined first when the sequence is the same
+    /// (`AddPlanLocks`). Empty for memberships from before it.
+    @Timestamp(key: "created_at", on: .create) var createdAt: Date?
 
     init() {}
     init(id: UUID = UUID(), groupID: UUID, userID: UUID, level: Int, joinedAtSequence: Int) {

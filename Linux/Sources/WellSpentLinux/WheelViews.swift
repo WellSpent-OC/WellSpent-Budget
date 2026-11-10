@@ -2,6 +2,7 @@ import Foundation
 import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentModel
+import WellSpentExtensionKitLinux
 
 // The money wheel and a budget row's fill on Linux: the open budget's row in
 // the sidebar, a budget's page and a group's MONEY section. Every number,

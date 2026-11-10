@@ -36,6 +36,7 @@ struct RouteGuardTests {
         "PATCH /api/v2/groups/:groupID/members/:userID",
         "POST /api/v2/invites/preview",
         "POST /api/v2/invites/accept",
+        "POST /api/v2/plan/pick",
     ]
 
     /// POSTs that read no body.
@@ -45,6 +46,7 @@ struct RouteGuardTests {
         "POST /api/v2/email/verify/resend",
         "POST /api/v2/invitations/:inviteID/accept",
         "POST /api/v2/invitations/:inviteID/reject",
+        "POST /api/v2/groups/:groupID/pay",
     ]
 
     /// Every route of /api/v2 that isn't open refuses no sign-in, a token that

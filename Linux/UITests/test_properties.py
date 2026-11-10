@@ -32,6 +32,15 @@ class Properties(unittest.TestCase):
         app.wait_shows("Turned on", within=app.main, role="label")
         app.button("Open Houses", within=app.main).press()
 
+        # Scenario PROP-02
+        # Turned off from Extensions, Houses leaves the rail and Budgets stays.
+        app.button("Extensions", within=app.main).press()
+        app.button("Turn off", within=app.main).press()
+        app.until(lambda: not app.shows("Houses", role="push button"), "Houses to leave the rail")
+        self.assertTrue(app.shows("Turn on", within=app.main, role="push button"))
+        app.button("Budget", within=app.main).press()
+        app.wait_shows("Repairs", within=app.main)
+
     def test_flag_off_shows_nothing_of_properties(self):
         # Scenario PROP-02: a live build, or the flag off.
         app = launch_fresh(self, extensions=True, properties=False)
