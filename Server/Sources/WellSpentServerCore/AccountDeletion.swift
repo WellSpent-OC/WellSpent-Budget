@@ -46,9 +46,12 @@ enum AccountDeletion {
             for membership in memberships {
                 try await leave(membership.groupID, user: userID, on: db)
             }
-            // Groups they founded and left before, with no one in them now.
+            // Groups they still found with no one in them. Leaving passes a
+            // shared group on first, so these are the empty ones; checked
+            // again here in case a founder can ever leave without that.
             for group in try await GroupRow.query(on: db).filter(\.$founderID == userID).all() {
-                guard let id = group.id else { continue }
+                guard let id = group.id,
+                      try await MembershipRow.query(on: db).filter(\.$groupID == id).count() == 0 else { continue }
                 try await deleteGroup(id, on: db)
             }
             // Taken over by them, paid by no one now: the founder pays again.

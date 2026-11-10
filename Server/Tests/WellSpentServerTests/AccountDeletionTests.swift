@@ -156,6 +156,20 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
         }
     }
 
+    @Test("A group they founded but left, with someone still in it, isn't deleted with them")
+    func aFoundedGroupWithMembersSurvives() async throws {
+        try await withV2App { app, _ in
+            let founder = try await v2SignUp("left@example.com", on: app)
+            let group = try await newGroup(founder, on: app)
+            // Not reachable through the app today, where a founder can't leave.
+            try await MembershipRow.query(on: app.db).filter(\.$groupID == group).delete()
+            try await MembershipRow(groupID: group, userID: UUID(), level: AccessLevel.write.rawValue,
+                                    joinedAtSequence: 0).create(on: app.db)
+            #expect(try await deleteAccount(founder, on: app).0 == .noContent)
+            #expect(try await GroupRow.find(group, on: app.db) != nil)
+        }
+    }
+
     @Test("A website plan is canceled through Paddle first, and if Paddle refuses, nothing is deleted")
     func aPaddlePlanIsCanceledFirst() async throws {
         try await withV2App { app, _ in
