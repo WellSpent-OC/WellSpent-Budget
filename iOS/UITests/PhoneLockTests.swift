@@ -57,10 +57,12 @@ final class PhoneLockTests: XCTestCase {
         XCTAssertTrue(run.has(AccessibilityID.lockedMark(beach.id), timeout: 20), "no Locked beside \(beach.name)")
         XCTAssertTrue(run.lacks(AccessibilityID.lockedMark(home.id)), "Locked beside the open group")
 
-        // 2. Opening Beach shows why, in place of its page.
-        run.openGroupPage(named: beach.name)
+        // 2. Opening Beach shows why, in place of its page. Not
+        // openGroupPage, which waits for the page this replaces.
+        run.scrollTo(AccessibilityID.sidebarGroup(beach.name))
+        run.tap(AccessibilityID.sidebarGroup(beach.name))
         let locked = LockedScreen(.ownGroup(open: home.name), groupChangedAt: nil)
-        XCTAssertTrue(run.has(AccessibilityID.lockedCard), "no locked card. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.has(AccessibilityID.lockedCard, timeout: 30), "no locked card. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.shows(locked.title), "no \"\(locked.title)\"")
         for line in locked.lines {
             XCTAssertTrue(run.shows(line), "missing \"\(line)\"")
@@ -87,9 +89,13 @@ final class PhoneLockTests: XCTestCase {
         let answer = Self.ended(locked: .init(groupIDs: [cabin.id.uuid], people: [], houseIDs: []), open: nil)
         let run = try launch(with: answer)
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
-        run.join(link, as: "Robin")
-
-        run.openGroupPage(named: name)
+        // Joining opens the group, and a locked group opens on the card that
+        // takes its page's place. Not the shared join helper, which waits for
+        // the page itself.
+        run.open(link: link.url)
+        run.type("Robin", into: AccessibilityID.invitationName)
+        run.tap(AccessibilityID.invitationJoin)
+        XCTAssertTrue(run.has(AccessibilityID.lockedCard, timeout: 30), "no locked card after Join. On screen: \(run.visibleTexts())")
         let locked = LockedScreen(.memberGroup(payer: "Leslie"))
         XCTAssertTrue(run.shows(locked.title), "no \"\(locked.title)\". On screen: \(run.visibleTexts())")
         for line in locked.lines {
