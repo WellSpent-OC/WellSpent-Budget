@@ -26,7 +26,7 @@ private struct Device {
 
     /// A workspace showing `answer`, as a staging UI test pins it.
     func workspace(_ answer: PlanAnswer) async -> Workspace {
-        let workspace = Workspace(model: model, sync: sync, pinnedPlan: answer)
+        let workspace = Workspace(model: model, sync: sync, pinnedPlan: PinnedPlanService(answer: answer))
         await workspace.plans.refresh()
         return workspace
     }

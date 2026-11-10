@@ -209,21 +209,55 @@ struct PinnedPlanTests {
      "canSyncPriceLabs":true,"refreshMinutes":60,"appleAccountToken":null}
     """#
 
-    @Test func onlyAStagingBuildReadsThePinnedPlan() throws {
+    private let ended = #"""
+    {"tier":"free","period":"none","state":"free","source":"none","paidUntil":null,"renews":false,"nextTier":null,
+     "limits":{"properties":1},"used":{"properties":3},"extensionsOpen":[],"canSyncPriceLabs":false,
+     "refreshMinutes":60,"appleAccountToken":null}
+    """#
+
+    @Test func onlyAStagingBuildReadsThePinnedPlan() async throws {
         let set = [Workspace.pinnedPlanVariable: try file(canceled)]
-        #expect(Workspace.pinnedPlan(for: .staging, in: set)?.state == .canceled)
+        #expect(try await Workspace.pinnedPlan(for: .staging, in: set)?.plan().state == .canceled)
         #expect(Workspace.pinnedPlan(for: .live, in: set) == nil, "no variable changes the live app")
         #expect(Workspace.pinnedPlan(for: .staging, in: [:]) == nil)
-        #expect(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: "/no/such/file"]) == nil)
-        #expect(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: try file("soon")]) == nil)
+        #expect(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: ""]) == nil)
         #expect(Workspace.pinnedPlanVariable == "WELLSPENT_PLAN_ANSWER_FILE")
     }
 
-    @Test func thePinnedServiceAlwaysGivesItsAnswer() async throws {
-        let answer = try #require(Workspace.pinnedPlan(for: .staging,
-                                                       in: [Workspace.pinnedPlanVariable: try file(canceled)]))
-        let service = PinnedPlanService(answer: answer)
-        #expect(try await service.plan() == answer)
-        #expect(try await service.submitApple(signedTransaction: "anything") == answer)
+    /// A test rewrites the file and brings the app to the front: the next
+    /// call reads the new state, with no relaunch and no second sign-in.
+    @Test func eachCallReadsTheFileAgain() async throws {
+        let path = try file(canceled)
+        let service = try #require(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: path]))
+        #expect(try await service.plan().state == .canceled)
+        try Data(ended.utf8).write(to: URL(fileURLWithPath: path))
+        #expect(try await service.plan().state == .free)
+        #expect(try await service.submitApple(signedTransaction: "anything").state == .free)
+        #expect(try await service.savePick(PlanPick(groupID: nil, person: nil, houseIDs: [])).state == .free)
+        #expect(try await service.payForGroup(UUID()).state == .free)
     }
+
+    /// A file that's gone or isn't an answer is refused, so the coordinator
+    /// keeps the last answer, as it does with a server it can't reach.
+    @MainActor
+    @Test func aMissingOrBrokenFileKeepsTheLastAnswer() async throws {
+        let path = try file(canceled)
+        let service = PinnedPlanService(file: path)
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: NoCache())
+        await plans.refresh()
+        #expect(plans.answer?.state == .canceled)
+        try Data("soon".utf8).write(to: URL(fileURLWithPath: path))
+        await plans.refresh()
+        #expect(plans.answer?.state == .canceled)
+        try FileManager.default.removeItem(atPath: path)
+        await #expect(throws: PlanServiceError.unreachable) { try await service.plan() }
+        await plans.refresh()
+        #expect(plans.answer?.state == .canceled)
+    }
+}
+
+private final class NoCache: PlanCache, @unchecked Sendable {
+    func load() -> PlanAnswer? { nil }
+    func save(_ answer: PlanAnswer) {}
+    func clear() {}
 }

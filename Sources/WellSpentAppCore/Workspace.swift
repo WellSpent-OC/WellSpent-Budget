@@ -52,12 +52,13 @@ public final class Workspace {
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
-                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil, pinnedPlan: PlanAnswer? = nil,
+                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
+                pinnedPlan: PinnedPlanService? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
         self.plans = PurchaseCoordinator(store: planStore,
-                                         service: pinnedPlan.map { PinnedPlanService(answer: $0) } ?? sync,
+                                         service: pinnedPlan ?? sync,
                                          cache: DefaultsPlanCache(defaults: sync.defaults))
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
@@ -174,13 +175,15 @@ public final class Workspace {
     /// website. A live build never reads it.
     nonisolated public static let pinnedPlanVariable = "WELLSPENT_PLAN_ANSWER_FILE"
 
-    /// The answer the file holds, for a staging build. Nil for a live build,
-    /// and for a file that is missing or isn't a plan answer.
+    /// A service reading the file the variable names, for a staging build.
+    /// Nil for a live build and when it's unset. It reads the file on every
+    /// call, so a test can change the state without a relaunch.
     nonisolated public static func pinnedPlan(for environment: AppEnvironment,
-                                  in processEnvironment: [String: String]) -> PlanAnswer? {
-        guard environment == .staging, let path = processEnvironment[pinnedPlanVariable],
-              let data = FileManager.default.contents(atPath: path) else { return nil }
-        return try? PlanAnswer.decode(data)
+                                              in processEnvironment: [String: String]) -> PinnedPlanService? {
+        guard environment == .staging, let path = processEnvironment[pinnedPlanVariable], !path.isEmpty else {
+            return nil
+        }
+        return PinnedPlanService(file: path)
     }
 
     // MARK: - Coming to the front
@@ -337,7 +340,7 @@ public final class Workspace {
                        undoWindow: Duration = AppModel.defaultUndoWindow,
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
-                       pinnedPlan: PlanAnswer? = nil,
+                       pinnedPlan: PinnedPlanService? = nil,
                        features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
