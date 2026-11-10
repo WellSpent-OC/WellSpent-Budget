@@ -23,7 +23,7 @@ If PriceLabs stops accepting your key, a line on the group's page says so, and o
 
 ## On an iPhone
 
-PriceLabs isn't on the iPhone.
+The steps are the same. Tap **Reconnect**, paste the new key, and tap **Continue**.
 
 ## On Linux
 

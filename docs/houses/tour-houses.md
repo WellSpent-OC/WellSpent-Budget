@@ -66,7 +66,7 @@ The **Houses** tab opens on your first group's page.
 
 1. **Home**: the group's name. Once two groups have houses, tap it to pick another.
 2. **October 18 · a group**: today's date, and that this is a group.
-3. **…**: for a manager, **Import earnings file**.
+3. **…**: for a manager, **Import earnings file**. Until the next update, **Connect PriceLabs** is here too.
 4. **About 8 months**: Runway, about how long the group can keep going at this month's pace.
 5. The four lines under it: what Home spends after house bills, its NOI share, the gap each month, and what it has on hand. Runway comes from these.
 6. **Booked this month**: what the group's houses booked, and how much has come in.
@@ -74,7 +74,7 @@ The **Houses** tab opens on your first group's page.
 8. **NOI**: net operating income, what the houses bring in less their operating expenses, before the mortgage.
 9. **Next 30 days**: nights already booked, of the nights there are.
 10. The line about NOI: what NOI means.
-11. The PriceLabs line. It doesn't show on the iPhone.
+11. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. It goes away in the next update. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
 12. **Houses in Home, NOI this month**: the group's houses.
 13. **Lake House**: a house. Tap its row to open its page.
 14. **$700.00**: the house's NOI this month.
@@ -102,7 +102,7 @@ Tap a house on its group's page.
 11. **Add**: add a bill with **House** already set to this house. [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md)
 12. **Booked by month**: what the house booked each month.
 13. **Coming up**: the next stays.
-14. **Against your plan**: what's booked and the nightly rate, beside **Your plan**. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
+14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**. **Market** goes away in the next update. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
 15. **Add** under **Your plan**: a manager sets the plan. Everyone else sees **Not set**.
 16. **What it costs**: the price of an upgrade you're thinking about. [Side quest: Try an improvement](try-an-improvement.md)
 17. **More a night**: how much more you'd charge a night after it.
