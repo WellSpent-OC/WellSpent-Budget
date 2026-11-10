@@ -12,6 +12,7 @@ struct ExtensionsCatalogView: View {
     var openWarTable: @MainActor @Sendable () -> Void
     var turnOnProperties: @MainActor @Sendable () -> Void = {}
     var openProperties: @MainActor @Sendable () -> Void = {}
+    var turnOffProperties: @MainActor @Sendable () -> Void = {}
 
     private var items: [ExtensionCatalogItem] {
         ExtensionCatalog.items(
@@ -125,8 +126,15 @@ struct ExtensionsCatalogView: View {
             }
         } else if item.id == "wellspent.properties" {
             if isPropertiesEnabled {
-                Button("Open Houses") {
-                    openProperties()
+                // Open beside Turn off, as on the Mac. Off takes Houses off the
+                // rail and changes no budget (PROP-02).
+                HStack(spacing: 8) {
+                    Button("Open Houses") {
+                        openProperties()
+                    }
+                    Button("Turn off") {
+                        turnOffProperties()
+                    }
                 }
             } else {
                 Button("Turn on") {
