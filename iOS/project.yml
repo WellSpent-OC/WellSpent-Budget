@@ -139,6 +139,8 @@ targets:
         product: WellSpentModel
       - package: WellSpentBudget
         product: WellSpentImport
+      - package: WellSpentBudget
+        product: WellSpentPlans
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.phone-uitests
@@ -157,6 +159,8 @@ schemes:
         WellSpentPhoneUITests: [test]
     run:
       config: Debug
+      # Apple's local test store: the six plans, no App Store Connect needed.
+      storeKitConfiguration: WellSpentPlans.storekit
       environmentVariables:
         - variable: WELLSPENT_FEATURE_EXTENSIONS
           value: "1"

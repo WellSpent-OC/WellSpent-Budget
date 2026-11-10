@@ -116,6 +116,10 @@ struct PhoneHomeView: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
 
+            if screen.workspace.planLocks.isLocked(group: section.group.id.uuid) {
+                PhoneLockedMark(id: section.group.id.uuid)
+            }
+
             Spacer()
         }
         .foregroundStyle(Palette.muted)

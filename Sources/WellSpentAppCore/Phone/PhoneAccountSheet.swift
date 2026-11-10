@@ -2,6 +2,7 @@
 #if os(iOS)
 import SwiftUI
 import WellSpentCrypto
+import WellSpentPlans
 
 /// The account, from the foot of Home: signing in, signing up, confirming the
 /// email, a forgotten password, and once signed in a list of what can be done.
@@ -9,12 +10,20 @@ import WellSpentCrypto
 /// shared with every app. Layout only.
 struct PhoneAccountSheet: View {
     @Bindable var sync: SyncCoordinator
+    let plans: PurchaseCoordinator
+    let openNames: [String]
+    let changeWhatStaysOpen: () -> Void
     @State private var flow: AccountFlow
+    @State private var choosingPlan = false
     @Environment(\.dismiss) private var dismiss
     private typealias Words = AccountFlow.Words
 
-    init(sync: SyncCoordinator) {
+    init(sync: SyncCoordinator, plans: PurchaseCoordinator, openNames: [String] = [],
+         changeWhatStaysOpen: @escaping () -> Void = {}) {
         self.sync = sync
+        self.plans = plans
+        self.openNames = openNames
+        self.changeWhatStaysOpen = changeWhatStaysOpen
         _flow = State(initialValue: AccountFlow(actions: sync, email: sync.signInPrompt?.email,
                                                 reason: sync.signInPrompt?.reason,
                                                 afterSigningIn: { await sync.syncAll() }))
@@ -55,6 +64,7 @@ struct PhoneAccountSheet: View {
         // Closing only ends the sheet, so a swipe down is the same as Cancel,
         // except while something is being sent.
         .interactiveDismissDisabled(flow.isWorking)
+        .sheet(isPresented: $choosingPlan) { PhoneChoosePlanSheet(plans: plans).tint(Palette.accent) }
         .onChange(of: flow.isFinished) { _, finished in
             if finished { dismiss() }
         }
@@ -188,6 +198,12 @@ struct PhoneAccountSheet: View {
                 }
             }
             .listRowBackground(Palette.surface)
+            PhonePlanCardSection(plans: plans, openNames: openNames, seePlans: { choosingPlan = true },
+                                 changeWhatStaysOpen: changeWhatStaysOpen)
+            if plans.answer != nil {
+                Section { PhoneRestoreRow(plans: plans) }
+                    .listRowBackground(Palette.surface)
+            }
             Section {
                 Button(PhoneWording.button(Words.changePassword)) { flow.go(to: .changePassword) }
                     .accessibilityIdentifier(AccessibilityID.accountChangePassword)
