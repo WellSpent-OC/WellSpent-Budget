@@ -110,7 +110,60 @@ targets:
         TEST_TARGET_NAME: WellSpentUITestHost
         GENERATE_INFOPLIST_FILE: YES
 
+  # Buying through StoreKit Testing (Tests/StoreKitShared, shared with the
+  # iPhone). StoreKit Testing answers only a test hosted in an app, so this
+  # host is an app that shows nothing: no window, no Dock icon, and a run never
+  # takes the screen.
+  WellSpentStoreKitHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: ../Tests/StoreKitHost
+    info:
+      path: ../.build/xcodegen/WellSpentStoreKitHost-Info.plist
+      properties:
+        CFBundleName: WellSpent StoreKit Host
+        CFBundleShortVersionString: 0.0.0-storekit
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "14.0"
+        LSUIElement: true
+        NSPrincipalClass: NSApplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.storekit
+        PRODUCT_NAME: WellSpentStoreKitHost
+        GENERATE_INFOPLIST_FILE: NO
+
+  WellSpentStoreKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ../Tests/StoreKitShared
+    dependencies:
+      - target: WellSpentStoreKitHost
+      - package: WellSpentBudget
+        product: WellSpentPlans
+      - sdk: StoreKit.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.storekit.tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/WellSpentStoreKitHost.app/Contents/MacOS/WellSpentStoreKitHost
+        BUNDLE_LOADER: $(TEST_HOST)
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
+  WellSpentStoreKitTests:
+    build:
+      targets:
+        WellSpentStoreKitHost: all
+        WellSpentStoreKitTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: ../Tests/StoreKitShared/WellSpent.storekit
+    test:
+      config: Debug
+      targets:
+        - WellSpentStoreKitTests
   WellSpentUITests:
     build:
       targets:

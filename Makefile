@@ -22,7 +22,7 @@ endif
 
 .PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
-        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin
+        iphone-ui-test storekit-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin
 
 build:
 	swift build
@@ -165,6 +165,14 @@ UI_TEST_XCODEBUILD := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild \
 ui-test-project:
 	@command -v xcodegen >/dev/null || { echo "xcodegen is not installed. brew install xcodegen"; exit 1; }
 	xcodegen generate --spec Xcode/project.yml --quiet
+
+# Buying through Apple's StoreKit Testing, hosted in an app that shows
+# nothing, so it never takes the screen. No accounts, no server.
+storekit-test: ui-test-project
+	rm -rf .build/xcode/storekit.xcresult
+	DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test -project $(UI_TEST_PROJECT) -scheme WellSpentStoreKitTests \
+		-destination 'platform=macOS' -derivedDataPath .build/xcode -clonedSourcePackagesDirPath .build/xcode-packages \
+		-resultBundlePath .build/xcode/storekit.xcresult
 
 # Compiles the app and the test without running anything. No window opens.
 ui-test-build: ui-test-project
