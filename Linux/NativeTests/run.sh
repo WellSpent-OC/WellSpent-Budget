@@ -29,5 +29,11 @@ CF="$(pkg-config --cflags gtk4 fontconfig) -I$ROOT/Linux/Sources/WellSpentLinuxN
 "${CC:-clang}" -Wall -Wextra -Werror $CF -c "$ROOT/Linux/NativeTests/sidebar.c" -o "$SCRATCH/sidebar.o"
 "${CC:-clang}" -Wall -Werror -Wno-unused-parameter $CF -c "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_gtk_shell.c" -o "$SCRATCH/shell.o"
 "${CC:-clang}" -Wall -Werror -Wno-unused-parameter $CF -c "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_gtk_sidebar.c" -o "$SCRATCH/sidebar-impl.o"
-"${CC:-clang}" "$SCRATCH/sidebar.o" "$SCRATCH/shell.o" "$SCRATCH/sidebar-impl.o" $(pkg-config --libs gtk4 fontconfig) -lm -o "$SCRATCH/sidebar-test"
+"${CC:-clang}" -Wall -Wextra -Werror $CF -c "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_gtk_rail_icon.c" -o "$SCRATCH/rail-icon.o"
+"${CC:-clang}" "$SCRATCH/sidebar.o" "$SCRATCH/shell.o" "$SCRATCH/sidebar-impl.o" "$SCRATCH/rail-icon.o" $(pkg-config --libs gtk4 fontconfig) -lm -o "$SCRATCH/sidebar-test"
 GDK_BACKEND=x11 GTK_A11Y=test xvfb-run --server-num=100 -a dbus-run-session -- "$SCRATCH/sidebar-test"
+# The native budget page, read the same way.
+"${CC:-clang}" -Wall -Wextra -Werror $CF -c "$ROOT/Linux/NativeTests/budget_page.c" -o "$SCRATCH/budget-page.o"
+"${CC:-clang}" -Wall -Werror -Wno-unused-parameter $CF -c "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_gtk_budget_page.c" -o "$SCRATCH/budget-page-impl.o"
+"${CC:-clang}" "$SCRATCH/budget-page.o" "$SCRATCH/shell.o" "$SCRATCH/sidebar-impl.o" "$SCRATCH/rail-icon.o" "$SCRATCH/budget-page-impl.o" $(pkg-config --libs gtk4 fontconfig) -lm -o "$SCRATCH/budget-page-test"
+GDK_BACKEND=x11 GTK_A11Y=test xvfb-run --server-num=100 -a dbus-run-session -- "$SCRATCH/budget-page-test"
