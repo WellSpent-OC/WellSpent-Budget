@@ -13,6 +13,13 @@ public protocol ReadableSyncTransport: Sendable {
     func pull(group: GroupID, since: UInt64, limit: Int) async throws -> ReadablePull
 }
 
+/// Deleting the signed-in account, with its password. A wrong password is
+/// `ReadableTransportError.http(403, …)`; a website plan Paddle wouldn't
+/// cancel is `http(409, "paddleCancelFailed")`, and then nothing is deleted.
+public protocol AccountDeleting: Sendable {
+    func deleteAccount(password: String) async throws
+}
+
 /// Everything else the app asks the readable server: the account, groups,
 /// members and invites. One signed-in session per value.
 public protocol ReadableAccountTransport: ReadableSyncTransport {

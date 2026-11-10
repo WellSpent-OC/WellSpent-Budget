@@ -75,6 +75,8 @@ It is not kept here, where every pull request would change the same lines.
 | ACCT-15 | A staging build says so across the top | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ACCT-16 | On a Mac, the Dock says STAGING too | Mac | Mac |
 | ACCT-17 | Change password | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| ACCT-18 | Deleting the account says what goes and what stays | Mac, Linux, iPhone | None yet |
+| ACCT-19 | Deleting an account with an Apple plan says it doesn't stop Apple's charges | Mac, iPhone | None yet |
 
 ### [SampleGroups.md](SampleGroups.md)
 

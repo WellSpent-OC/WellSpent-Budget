@@ -122,6 +122,7 @@ struct AccountSheet: View {
     var openNames: [String] = []
     var onChangeWhatStaysOpen: () -> Void = {}
     @State private var flow: AccountFlow
+    @State private var deleting: DeleteAccountScreen?
     @Environment(\.dismiss) private var dismiss
 
     init(sync: SyncCoordinator, plans: PurchaseCoordinator? = nil, openNames: [String] = [],
@@ -275,6 +276,17 @@ struct AccountSheet: View {
                     .accessibilityIdentifier(AccessibilityID.accountSignOutEverywhere)
             }
             .disabled(flow.isWorking)
+            #if os(macOS)
+            Button(DeleteAccountScreen.Words.button, role: .destructive) {
+                deleting = DeleteAccountScreen(answer: plans?.answer, device: "Mac") { [sync] password in
+                    try await sync.deleteAccount(password: password)
+                }
+            }
+            .foregroundStyle(Palette.warning)
+            .disabled(flow.isWorking)
+            .accessibilityIdentifier(AccessibilityID.accountDelete)
+            .sheet(item: $deleting) { screen in DeleteAccountSheet(screen: screen) }
+            #endif
 
         case .changePassword:
             Form {

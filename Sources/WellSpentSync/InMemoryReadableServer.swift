@@ -314,6 +314,19 @@ public final class InMemoryReadableServer: @unchecked Sendable {
         }
     }
 
+    /// The account and its sessions go. Its groups are left as they are:
+    /// the server's own tests cover what happens to them.
+    func deleteAccount(password: String, _ token: String?) throws {
+        try lock.withLock {
+            let (user, _) = try caller(token)
+            guard user.password == password else {
+                throw ReadableTransportError.http(status: 403, reason: "the password is wrong")
+            }
+            accounts[user.id] = nil
+            sessionsByToken = sessionsByToken.filter { $0.value.user != user.id }
+        }
+    }
+
     func signOutEverywhere(_ token: String?) throws {
         try lock.withLock {
             let (user, _) = try caller(token)
@@ -888,7 +901,7 @@ public final class InMemoryReadableServer: @unchecked Sendable {
 
 /// One client of an `InMemoryReadableServer`, holding its own session as
 /// `ReadableHTTPTransport` does.
-public actor InMemoryReadableSession: ReadableAccountTransport {
+public actor InMemoryReadableSession: ReadableAccountTransport, AccountDeleting {
     public nonisolated let server: InMemoryReadableServer
     private var session: ServerSession?
 
@@ -955,6 +968,11 @@ public actor InMemoryReadableSession: ReadableAccountTransport {
 
     public func changePassword(current: String, new: String) async throws {
         try server.changePassword(current: current, new: new, token)
+    }
+
+    public func deleteAccount(password: String) async throws {
+        try server.deleteAccount(password: password, token)
+        session = nil
     }
 
     public func groups() async throws -> [ServerGroup] { try server.listGroups(token) }

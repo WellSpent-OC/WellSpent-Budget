@@ -383,6 +383,38 @@ public final class SyncCoordinator {
         state = .signedOut
     }
 
+    /// Why deleting the account didn't go through.
+    public enum DeleteFailure: Error, Equatable, Sendable {
+        case wrongPassword
+        /// A website plan Paddle wouldn't cancel. Nothing was deleted.
+        case planNotCanceled
+        case unreachable
+    }
+
+    /// Deletes the account on the server, with its password, then signs this
+    /// device out. This device keeps its own copy of the budgets.
+    public func deleteAccount(password: String) async throws {
+        do {
+            try await signedIn { transport in
+                guard let deleting = transport as? any AccountDeleting else { throw DeleteFailure.unreachable }
+                try await deleting.deleteAccount(password: password)
+            }
+        } catch ReadableTransportError.http(status: 403, _) {
+            throw DeleteFailure.wrongPassword
+        } catch ReadableTransportError.http(status: 409, _) {
+            throw DeleteFailure.planNotCanceled
+        } catch let failure as DeleteFailure {
+            throw failure
+        } catch let error as ReadableTransportError {
+            if case .sessionEnded = error { throw error }
+            throw DeleteFailure.unreachable
+        } catch {
+            throw DeleteFailure.unreachable
+        }
+        forgetSession()
+        state = .signedOut
+    }
+
     /// Runs an account call with this device's session. One the server has
     /// ended signs the device out, as a sync would.
     private func signedIn(_ call: (any ReadableAccountTransport) async throws -> Void) async throws {

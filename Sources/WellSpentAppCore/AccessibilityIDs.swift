@@ -72,6 +72,12 @@ public enum AccessibilityID {
     public static let accountConfirmEmail = "account.confirmEmail"
     public static let accountSignOut = "account.signOut"
     public static let accountSignOutEverywhere = "account.signOutEverywhere"
+    public static let accountDelete = "account.delete"
+    public static let deletePassword = "delete.password"
+    public static let deleteConfirm = "delete.confirm"
+    public static let deleteCancel = "delete.cancel"
+    public static let deleteFailure = "delete.failure"
+    public static let deleteOpenAppleSettings = "delete.openAppleSettings"
     public static let accountChangePassword = "account.changePassword"
 
     // MARK: Budgets and groups

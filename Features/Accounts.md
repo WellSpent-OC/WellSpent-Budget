@@ -171,3 +171,23 @@ Platforms: Mac
 - Then its Dock icon carries a "STAGING" badge
 - When Robin holds the pointer over the orange bar
 - Then it says "A test build, with its own budgets. It never connects to the live server."
+
+## ACCT-18 Deleting the account says what goes and what stays
+
+- Given Robin is signed in on the free plan
+- When he presses "Delete Account…"
+- Then "Delete your account?" says his account and budgets are deleted from the server, and from backups in about a month
+- And it says shared budgets stay for the people still in the group
+- And it says purchase records are kept 7 years, no longer tied to his account
+- And it says this device keeps its own copy until the app is deleted
+- When he types his password and presses "Delete Account"
+- Then he is signed out, and his budgets are still on this device
+
+## ACCT-19 Deleting an account with an Apple plan says it doesn't stop Apple's charges
+
+Platforms: Mac, iPhone
+
+- Given Robin pays for Growth through Apple
+- When he presses "Delete Account…"
+- Then it says, in bold, that deleting his account doesn't stop his Growth plan
+- And it offers "Open Apple Settings"

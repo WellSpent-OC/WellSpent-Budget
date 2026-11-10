@@ -13,7 +13,7 @@ import FoundationNetworking      // URLSession lives here on Linux
 ///
 /// Dates are ISO 8601 and bytes are base64 in both directions, as the server
 /// encodes them.
-public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport {
+public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport, AccountDeleting {
     /// /api/v2 on the server.
     private let apiURL: URL
     /// The server itself, where `/health` lives.
@@ -170,6 +170,16 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         try await sendIgnoringReply(.post, "password/change",
                                     body: PasswordChange(currentPassword: current, newPassword: new),
                                     as: .changingPassword)
+    }
+
+    private struct DeleteAccountBody: Encodable { let password: String }
+
+    /// `POST /api/v2/account/delete`. 204 once it's done. Signed in, so a 401
+    /// still ends the session; 403 is only the password.
+    public func deleteAccount(password: String) async throws {
+        try await sendIgnoringReply(.post, "account/delete", body: DeleteAccountBody(password: password),
+                                    as: .signedIn)
+        session = nil
     }
 
     // MARK: - Groups, members and invites

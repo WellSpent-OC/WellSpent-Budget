@@ -130,6 +130,18 @@ struct PlanViewTests {
         #expect(RestoreResultScreen(answer: nil, device: "Mac").id != RestoreResultScreen(answer: answer(.growth, state: .active), device: "Mac").id)
     }
 
+    @Test func theDeleteSheetSaysEveryLineAndAsksForThePassword() throws {
+        let screen = DeleteAccountScreen(answer: answer(.growth, state: .active), device: "Mac") { _ in }
+        let view = DeleteAccountSheet(screen: screen)
+        draw(view, width: 460)
+        let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(screen.lines.allSatisfy(texts.contains), "a line is missing: \(texts)")
+        #expect(texts.contains(DeleteAccountScreen.Words.passwordPrompt))
+        #expect(throws: Never.self) { try view.inspect().find(button: DeleteAccountScreen.Words.openAppleSettings) }
+        #expect(try view.inspect().find(button: DeleteAccountScreen.Words.delete).isDisabled())
+        draw(DeleteAccountSheet(screen: DeleteAccountScreen(answer: nil, device: "Mac") { _ in }), width: 460)
+    }
+
     @Test func theAccountSheetCarriesThePlanWhenGivenOne() async throws {
         let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
                                    keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())

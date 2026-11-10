@@ -177,6 +177,28 @@ struct ReadableHTTPTransportTests {
         await #expect(throws: PlanLockError.unreachable) { try await transport(session: signedIn).savePick(pick) }
     }
 
+    /// Deleting the account sends the password, signed in. A wrong password
+    /// is a 403, so the device stays signed in; Paddle's refusal is a 409.
+    @Test func deletingTheAccountSendsItsPassword() async throws {
+        ReadableStub.reset { request in
+            #expect(request.url?.path == "/api/v2/account/delete")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer session-token")
+            return (204, "")
+        }
+        try await transport(session: signedIn).deleteAccount(password: "a-long-password")
+        #expect(try object(ReadableStub.requests.first?.body)["password"] as? String == "a-long-password")
+
+        ReadableStub.reset { _ in (403, refusal("the password is wrong")) }
+        await #expect(throws: ReadableTransportError.http(status: 403, reason: "the password is wrong")) {
+            try await transport(session: signedIn).deleteAccount(password: "typo")
+        }
+        ReadableStub.reset { _ in (409, #"{"status":409,"reason":"paddleCancelFailed"}"#) }
+        await #expect(throws: ReadableTransportError.http(status: 409, reason: "paddleCancelFailed")) {
+            try await transport(session: signedIn).deleteAccount(password: "a-long-password")
+        }
+    }
+
     @Test func extensionsStayOnTheirOwnAuthenticatedServerRoute() async throws {
         ReadableStub.reset { request in
             #expect(request.url?.path == "/extensions/wartable/v1/groups/group-1/messages")

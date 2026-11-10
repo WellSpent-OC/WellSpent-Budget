@@ -6,7 +6,7 @@ import WellSpentSync
 /// The readable server in memory, with the knobs the app tests turn: what it
 /// says it is, refusals, failures, and counts of what was asked. Two of these
 /// over one `server` are two devices or two people on one server.
-final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable {
+final class StubReadableTransport: ReadableAccountTransport, AccountDeleting, @unchecked Sendable {
     let server: InMemoryReadableServer
     private let lock = NSLock()
     private var inner: InMemoryReadableSession
@@ -113,6 +113,10 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     func endSession(_ id: UUID) async throws { try await client.endSession(id) }
     func verifyEmail(code: String) async throws { try await client.verifyEmail(code: code) }
     func resendVerification() async throws { try await client.resendVerification() }
+    func deleteAccount(password: String) async throws {
+        try await client.deleteAccount(password: password)
+    }
+
     func changePassword(current: String, new: String) async throws {
         try await client.changePassword(current: current, new: new)
     }
