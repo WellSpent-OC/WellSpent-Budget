@@ -125,6 +125,10 @@ public final class SyncCoordinator {
     }
     /// Who is signed in, so the app can say "You" on their own transactions.
     public private(set) var userID: UserID?
+    /// The upgrade sheet a refused change asks for, until the app shows it.
+    public private(set) var planSheet: PlanLimitRefusal?
+    /// The records whose refusal already offered a sheet.
+    @ObservationIgnored private var refusalsOffered: Set<UUID> = []
 
     /// With no `defaults`, the environment's own: never live's settings for a
     /// staging build.
@@ -418,6 +422,8 @@ public final class SyncCoordinator {
     private func forgetSession(keepingAccount: Bool = false) {
         sessionGeneration += 1
         clearInvitations()
+        planSheet = nil
+        refusalsOffered = []
         try? keyStore.delete(.session)
         account = nil
         extensionServer = nil
@@ -552,6 +558,10 @@ public final class SyncCoordinator {
             for action in actions {
                 do {
                     combined.add(try await perform(action))
+                } catch let refusal as PlanLimitRefusal {
+                    // Past the plan is not a failed sync: a locked group waits
+                    // behind its card, and anything else offers its sheet.
+                    combined.planRefusal = combined.planRefusal ?? refusal
                 } catch let error as ReadableTransportError {
                     if case .sessionEnded = error { throw error }
                     firstFailure = firstFailure ?? error
@@ -572,6 +582,7 @@ public final class SyncCoordinator {
             }
             lastReport = combined
             lastSyncedAt = Date()
+            noteRefusal(combined.planRefusal)
             if let firstFailure { throw firstFailure }
             if !missingOnServer.isEmpty { throw Failure.server(Self.missingOnServerReason) }
             state = .signedIn(email: email)
@@ -585,6 +596,28 @@ public final class SyncCoordinator {
         didSync?()
         return combined
     }
+
+    /// Every group's next pull starts from the beginning. After a plan opens
+    /// what was locked: pulls left those records out, behind the cursor.
+    public func readEverythingAgain() {
+        for group in (try? store.groups()) ?? [] {
+            try? store.resetPullCursor(in: group.id)
+        }
+    }
+
+    /// Offers the upgrade sheet once for each new refusal. The same records
+    /// refused again on the next timed sync don't open it again, and a locked
+    /// group shows its own card instead.
+    func noteRefusal(_ refusal: PlanLimitRefusal?) {
+        guard let refusal, !refusal.isLockedGroup else { return }
+        let key = Set(refusal.refused.map(\.uuid))
+        guard key.isEmpty || !key.isSubset(of: refusalsOffered) else { return }
+        refusalsOffered.formUnion(key)
+        planSheet = refusal
+    }
+
+    /// The sheet was shown, or closed: it isn't offered again for the same records.
+    public func planSheetShown() { planSheet = nil }
 
     nonisolated static let sessionEndedReason = """
         You were signed out on this device. Sign in again. Your budgets are still here.
@@ -1247,6 +1280,7 @@ extension SyncReport {
         deferred += other.deferred
         unsaved += other.unsaved
         serverSeq = max(serverSeq, other.serverSeq)
+        planRefusal = planRefusal ?? other.planRefusal
     }
 }
 
