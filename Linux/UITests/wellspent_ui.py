@@ -1074,7 +1074,7 @@ class App:
 
     def sync(self):
         """The Sync button, then waits until it's done. While it runs, the
-        button says what it's doing ("Syncing…"), and a slow network can keep
+        button still says "Sync" and is greyed, and a slow network can keep
         it there past the usual wait."""
         self.button("Sync", within=self.main).press()
         time.sleep(1)
