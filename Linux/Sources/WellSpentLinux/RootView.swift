@@ -4,6 +4,10 @@ import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentExtensionKitLinux
+#if canImport(WellSpentPropertiesLinux)
+import WellSpentPropertiesLinux
+#endif
 
 /// The window, drawn from MainScreen: groups and budgets on the left, the
 /// chosen budget, a group's page or an invite link's page on the right, and
@@ -13,6 +17,8 @@ struct RootView: View {
     var workspace: Workspace
     @State var screen: MainScreen
     @State var showingAccount = false
+    /// Choose a plan, from the plan card's See Plans.
+    @State var showingPlans = false
     /// The sheet a menu or a button asked for.
     @State var sheet: MainScreen.Action?
     @State var showingEntry = false
@@ -97,6 +103,9 @@ struct RootView: View {
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                     case .properties:
                         if isPropertiesActive {
+                            #if canImport(WellSpentPropertiesLinux)
+                            HousesTab(host: AppExtensionHost(model: workspace.model))
+                            #else
                             HousesView(
                                 openCatalog: { activeExtension = .catalog },
                                 turnOff: {
@@ -105,6 +114,7 @@ struct RootView: View {
                                     activeExtension = .budgets
                                 }
                             )
+                            #endif
                         } else {
                             budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                         }
@@ -135,6 +145,10 @@ struct RootView: View {
                             },
                             openProperties: {
                                 activeExtension = .properties
+                            },
+                            turnOffProperties: {
+                                isPropertiesInstalled = false
+                                workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
                             }
                         )
                     }
@@ -144,7 +158,24 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $showingAccount) {
-            AccountView(sync: sync, isPresented: $showingAccount)
+            AccountView(sync: sync, plans: workspace.plans, isPresented: $showingAccount, seePlans: {
+                // One sheet at a time: the account closes, then the plans open.
+                showingAccount = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    showingPlans = true
+                }
+            })
+                .tabMovesFocus()
+        }
+        .sheet(isPresented: $showingPlans) {
+            PlanChoicesView(answer: workspace.plans.answer,
+                            checkout: { product in
+                                WebLink.open(PlanLinks.checkout(product.tier, product.period).absoluteString)
+                                showingPlans = false
+                            },
+                            emailUs: { WebLink.open(PlanLinks.emailUs.absoluteString) },
+                            close: { showingPlans = false })
                 .tabMovesFocus()
         }
         .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {

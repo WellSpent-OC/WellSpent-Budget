@@ -304,11 +304,11 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac |
-| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac |
-| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac |
-| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | None yet |
-| PLAN-05 | More than 15 properties offers an email to us | Linux | None yet |
+| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac, Linux |
+| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac, Linux |
+| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux |
+| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
+| PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
 | PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac |
 | PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac |
 | PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac |

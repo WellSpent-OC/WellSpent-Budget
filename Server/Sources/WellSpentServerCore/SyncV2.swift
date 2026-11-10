@@ -159,8 +159,9 @@ func registerSyncRoutesV2(_ routes: any RoutesBuilder) throws {
         guard body.records.count <= SyncRulesV2.maxRecordsPerPush else {
             throw Abort(.payloadTooLarge, reason: "at most \(SyncRulesV2.maxRecordsPerPush) records per push")
         }
+        let plansOn = request.application.plansEnabled
         return try await request.db.transaction { database in
-            try await applyPushV2(body.records, groupID: groupID, user: user.id, on: database)
+            try await applyPushV2(body.records, groupID: groupID, user: user.id, plansOn: plansOn, on: database)
         }
     }
 
@@ -173,6 +174,10 @@ func registerSyncRoutesV2(_ routes: any RoutesBuilder) throws {
         // Removed members are refused at once. A deleted group still answers,
         // so every device learns it was deleted.
         let (group, membership) = try await requireMembership(groupID, user: user.id, needed: .read, on: request.db)
+        // A locked group or person gets the locked sheet; a locked house's
+        // records are left out of the page (`PlanLocks`).
+        let locks = group.deletedAt == nil ? try await PlanLocks.forGroup(group, on: request) : nil
+        try PlanLocks.requireOpen(group, user: user.id, locks: locks)
 
         // The history floor is applied in the query, before the page limit.
         // Applied after, a page whose records were all hidden would leave the
@@ -196,7 +201,14 @@ func registerSyncRoutesV2(_ routes: any RoutesBuilder) throws {
         // cursor behind them would hand them over again.
         let lastHandedOver = page.last?.serverSeq ?? since
         let next = hasMore ? lastHandedOver : max(since, group.lastSeq, lastHandedOver)
-        return PullV2Response(records: try page.map(wire), serverSeq: next, hasMore: hasMore)
+        // Left out after the cursor is worked out, so a page of locked records
+        // still moves it on.
+        let shown = page.filter { row in
+            guard let locks, let id = row.id, let type = Optional(RecordType(rawValue: row.recordType)),
+                  let inside = PlanRecord(row.body, type: type) else { return true }
+            return !inside.isLocked(id: id, locks: locks, group: groupID)
+        }
+        return PullV2Response(records: try shown.map(wire), serverSeq: next, hasMore: hasMore)
     }
 }
 
@@ -213,7 +225,7 @@ private func wire(_ row: SyncRecordRow) throws -> SyncRecordV2 {
 /// commit. So pushes to one group take turns, and sequence numbers become
 /// visible in order: a device pulling never skips a lower number that was
 /// still being written.
-private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
+private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID, plansOn: Bool,
                          on database: any Database) async throws -> PushV2Response {
     guard let sql = database as? any SQLDatabase else {
         throw Abort(.internalServerError, reason: "sync needs a SQL database")
@@ -226,6 +238,12 @@ private func applyPushV2(_ records: [SyncRecordV2], groupID: UUID, user: UUID,
     // so an in-flight push cannot write with a removed member's old level.
     let (group, membership) = try await requireMembership(groupID, user: user, needed: .write, on: database)
     let level = AccessLevel(rawValue: membership.level) ?? .none
+    // Past the payer's limit, nothing in the push is written (`PlanLocks`).
+    if plansOn, group.deletedAt == nil {
+        let locks = try await PayerLocks.of(group.payerID, on: database)
+        try PlanLocks.requireOpen(group, user: user, locks: locks)
+        try await PlanLocks.checkPush(records, group: group, locks: locks, on: database)
+    }
 
     var accepted: [UUID] = []
     var rejected: [String: String] = [:]

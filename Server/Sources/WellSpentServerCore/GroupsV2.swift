@@ -231,6 +231,12 @@ func registerGroupRoutesV2(_ routes: any RoutesBuilder) throws {
               try await SyncRecordRow.find(body.id, on: request.db) == nil else {
             throw Abort(.conflict, reason: "that ID is already used")
         }
+        if request.application.plansEnabled {
+            let locks = try await PayerLocks.of(user.id, on: request.db)
+            if let max = locks.tier.maxGroups, locks.groups.count >= max {
+                throw PlanRefusal.limit(PlanLimit.groups, sheet: PlanSheet.addGroup, tier: locks.tier)
+            }
+        }
         let group = GroupRow(id: body.id, founderID: user.id)
         group.importKey = body.importKey ?? Data([UInt8].random(count: InviteRules.importKeyLength))
         let membership = MembershipRow(groupID: body.id, userID: user.id,

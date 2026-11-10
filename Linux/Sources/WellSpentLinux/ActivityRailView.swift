@@ -1,6 +1,7 @@
 import Foundation
 import SwiftCrossUI
 import WellSpentAppCore
+import WellSpentExtensionKitLinux
 
 /// The far-left Activity Rail, inspired by VS Code.
 /// Budgets is the default built-in extension.
