@@ -443,13 +443,12 @@ static void on_window_destroy(GtkWidget *win, gpointer user_data) {
     void *context = shell->context;
     // Every widget belonged to the window, so none of these may be touched again.
     WellSpentGtkShell cleared = {0};
-    cleared.wheel_arc = shell->wheel_arc;
     *shell = cleared;
     if (cb) cb(context, "window:destroyed");
 }
 
 /// Screen readers and the UI tests find a control by its name and role. A
-/// rail button shows a glyph, so its name is set here, in the same words the
+/// rail button shows a drawn icon, so its name is set here, in the same words the
 /// SwiftCrossUI rail uses.
 void wellspent_gtk_set_accessible_name(GtkWidget *widget, const char *name) {
     if (!widget || !name) return;
@@ -461,56 +460,6 @@ void wellspent_gtk_on_btn_clicked(GtkButton *btn, gpointer user_data) {
     WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
     if (shell && shell->action_cb && action) {
         shell->action_cb(shell->context, action);
-    }
-}
-
-static void on_draw_wheel(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)user_data;
-    if (!shell) return;
-
-    double cx = width / 2.0;
-    double cy = height / 2.0;
-    double radius = (width < height ? width : height) / 2.0 - 18.0;
-    if (radius < 15.0) return;
-
-    // Background track ring
-    cairo_set_line_width(cr, 14.0);
-    cairo_set_source_rgba(cr, 0.22, 0.22, 0.22, 1.0);
-    cairo_arc(cr, cx, cy, radius, 0, 2.0 * M_PI);
-    cairo_stroke(cr);
-
-    // Inner and outer border rings
-    cairo_set_line_width(cr, 1.0);
-    cairo_set_source_rgba(cr, 0.30, 0.30, 0.30, 1.0);
-    cairo_arc(cr, cx, cy, radius - 7.0, 0, 2.0 * M_PI);
-    cairo_stroke(cr);
-    cairo_arc(cr, cx, cy, radius + 7.0, 0, 2.0 * M_PI);
-    cairo_stroke(cr);
-
-    // Arc fill
-    if (shell->wheel_arc > 0.0) {
-        if (shell->wheel_is_over) {
-            cairo_set_source_rgba(cr, 0.859, 0.494, 0.337, 1.0);
-        } else {
-            cairo_set_source_rgba(cr, 0.463, 0.635, 0.302, 1.0);
-        }
-        cairo_set_line_width(cr, 14.0);
-        double start_angle = -M_PI / 2.0;
-        double end_angle = start_angle + (shell->wheel_arc * 2.0 * M_PI);
-        cairo_arc(cr, cx, cy, radius, start_angle, end_angle);
-        cairo_stroke(cr);
-    }
-
-    // Pace tick line
-    if (shell->wheel_tick >= 0.0) {
-        double angle = -M_PI / 2.0 + (shell->wheel_tick * 2.0 * M_PI);
-        double r_in = radius - 10.0;
-        double r_out = radius + 10.0;
-        cairo_set_line_width(cr, 2.5);
-        cairo_set_source_rgba(cr, 0.95, 0.95, 0.95, 0.95);
-        cairo_move_to(cr, cx + r_in * cos(angle), cy + r_in * sin(angle));
-        cairo_line_to(cr, cx + r_out * cos(angle), cy + r_out * sin(angle));
-        cairo_stroke(cr);
     }
 }
 
@@ -628,7 +577,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     shell->rail_box = rail;
     gtk_widget_add_css_class(rail, "activity-rail");
 
-    GtkWidget *btn_bud = gtk_button_new_with_label("👝");
+    GtkWidget *btn_bud = wellspent_gtk_rail_button("budget");
     shell->btn_budgets = btn_bud;
     gtk_widget_add_css_class(btn_bud, "rail-btn");
     gtk_widget_add_css_class(btn_bud, "active");
@@ -638,7 +587,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_bud, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_bud);
 
-    GtkWidget *btn_run = gtk_button_new_with_label("🏡");
+    GtkWidget *btn_run = wellspent_gtk_rail_button("house");
     shell->btn_runway = btn_run;
     gtk_widget_add_css_class(btn_run, "rail-btn");
     gtk_widget_set_tooltip_text(btn_run, "Runway & Properties");
@@ -647,7 +596,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_run, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_run);
 
-    GtkWidget *btn_wt = gtk_button_new_with_label("⚔");
+    GtkWidget *btn_wt = wellspent_gtk_rail_button("swords");
     shell->btn_wartable = btn_wt;
     gtk_widget_add_css_class(btn_wt, "rail-btn");
     gtk_widget_set_tooltip_text(btn_wt, "WarTable");
@@ -656,7 +605,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_wt, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_wt);
 
-    GtkWidget *btn_cat = gtk_button_new_with_label("⬚");
+    GtkWidget *btn_cat = wellspent_gtk_rail_button("extensions");
     shell->btn_catalog = btn_cat;
     gtk_widget_add_css_class(btn_cat, "rail-btn");
     gtk_widget_set_tooltip_text(btn_cat, "Extensions Catalog");
@@ -669,7 +618,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_set_vexpand(rail_spacer, TRUE);
     gtk_box_append(GTK_BOX(rail), rail_spacer);
 
-    GtkWidget *btn_sync = gtk_button_new_with_label("🔄");
+    GtkWidget *btn_sync = wellspent_gtk_rail_button("sync");
     shell->btn_sync = btn_sync;
     gtk_widget_add_css_class(btn_sync, "rail-btn");
     gtk_widget_set_tooltip_text(btn_sync, "Sync now");
@@ -678,7 +627,7 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     g_signal_connect(btn_sync, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
     gtk_box_append(GTK_BOX(rail), btn_sync);
 
-    GtkWidget *btn_acct = gtk_button_new_with_label("👤");
+    GtkWidget *btn_acct = wellspent_gtk_rail_button("account");
     shell->btn_account = btn_acct;
     gtk_widget_add_css_class(btn_acct, "rail-btn");
     gtk_widget_set_tooltip_text(btn_acct, "Account");
@@ -720,145 +669,12 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_set_vexpand(stack, TRUE);
     gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_CROSSFADE);
 
-    // Page 0: Budgets Detail Pane
-    GtkWidget *detail = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    // Page 0: a budget's page, drawn by wellspent_gtk_budget_page.c.
+    GtkWidget *detail = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     shell->detail_pane = detail;
-    gtk_widget_add_css_class(detail, "detail-pane");
-
-    // Header row: Title + Subtitle on left, + Add Transaction on right
-    GtkWidget *head_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    
-    GtkWidget *title_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    GtkWidget *d_title = gtk_label_new("Groceries");
-    shell->detail_title = d_title;
-    gtk_widget_add_css_class(d_title, "detail-title");
-    gtk_widget_set_halign(d_title, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(title_vbox), d_title);
-
-    GtkWidget *d_sub = gtk_label_new("October · Current month");
-    shell->detail_subtitle = d_sub;
-    gtk_widget_add_css_class(d_sub, "detail-subtitle");
-    gtk_widget_set_halign(d_sub, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(title_vbox), d_sub);
-    gtk_box_append(GTK_BOX(head_row), title_vbox);
-
-    GtkWidget *head_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_set_hexpand(head_spacer, TRUE);
-    gtk_box_append(GTK_BOX(head_row), head_spacer);
-
-    GtkWidget *btn_add_tx = gtk_button_new_with_label("+ Add Transaction");
-    shell->btn_add_tx = btn_add_tx;
-    gtk_widget_add_css_class(btn_add_tx, "add-trans-btn");
-    gtk_widget_set_valign(btn_add_tx, GTK_ALIGN_CENTER);
-    g_object_set_data_full(G_OBJECT(btn_add_tx), "action_id", g_strdup("action:new_transaction"), g_free);
-    g_signal_connect(btn_add_tx, "clicked", G_CALLBACK(wellspent_gtk_on_btn_clicked), shell);
-    gtk_box_append(GTK_BOX(head_row), btn_add_tx);
-
-    gtk_box_append(GTK_BOX(detail), head_row);
-
-    // Money Wheel Card Box
-    GtkWidget *wheel_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_widget_add_css_class(wheel_card, "card-box");
-
-    GtkWidget *wheel_overlay = gtk_overlay_new();
-    gtk_widget_set_halign(wheel_overlay, GTK_ALIGN_CENTER);
-
-    GtkWidget *draw_area = gtk_drawing_area_new();
-    shell->wheel_drawing_area = draw_area;
-    gtk_widget_set_size_request(draw_area, 200, 200);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(draw_area), on_draw_wheel, shell, NULL);
-    gtk_overlay_set_child(GTK_OVERLAY(wheel_overlay), draw_area);
-
-    // Center overlay inside money wheel
-    GtkWidget *center_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    gtk_widget_set_halign(center_vbox, GTK_ALIGN_CENTER);
-    gtk_widget_set_valign(center_vbox, GTK_ALIGN_CENTER);
-
-    GtkWidget *lbl_key = gtk_label_new("Remaining");
-    shell->wheel_mid_key = lbl_key;
-    gtk_widget_add_css_class(lbl_key, "wheel-mid-key");
-    gtk_box_append(GTK_BOX(center_vbox), lbl_key);
-
-    GtkWidget *lbl_amt = gtk_label_new("$420.00");
-    shell->wheel_mid_amount = lbl_amt;
-    gtk_widget_add_css_class(lbl_amt, "wheel-mid-amount");
-    gtk_box_append(GTK_BOX(center_vbox), lbl_amt);
-
-    GtkWidget *lbl_of = gtk_label_new("of $600.00");
-    shell->wheel_mid_of = lbl_of;
-    gtk_widget_add_css_class(lbl_of, "wheel-mid-of");
-    gtk_box_append(GTK_BOX(center_vbox), lbl_of);
-
-    gtk_overlay_add_overlay(GTK_OVERLAY(wheel_overlay), center_vbox);
-    gtk_box_append(GTK_BOX(wheel_card), wheel_overlay);
-
-    GtkWidget *lbl_pace = gtk_label_new("On track to stay within budget");
-    shell->wheel_pace_lbl = lbl_pace;
-    gtk_widget_add_css_class(lbl_pace, "wheel-pace");
-    gtk_widget_set_halign(lbl_pace, GTK_ALIGN_CENTER);
-    gtk_box_append(GTK_BOX(wheel_card), lbl_pace);
-
-    gtk_box_append(GTK_BOX(detail), wheel_card);
-
-    // Transactions Card Box
-    GtkWidget *tx_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_widget_add_css_class(tx_card, "card-box");
-    gtk_widget_set_vexpand(tx_card, TRUE);
-
-    GtkWidget *tx_head_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    GtkWidget *tx_title = gtk_label_new("Transactions");
-    gtk_widget_add_css_class(tx_title, "ext-card-title");
-    gtk_box_append(GTK_BOX(tx_head_row), tx_title);
-
-    GtkWidget *tx_head_sp = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_set_hexpand(tx_head_sp, TRUE);
-    gtk_box_append(GTK_BOX(tx_head_row), tx_head_sp);
-
-    GtkWidget *tx_count = gtk_label_new("0 entries");
-    shell->tx_count_lbl = tx_count;
-    gtk_widget_add_css_class(tx_count, "detail-subtitle");
-    gtk_box_append(GTK_BOX(tx_head_row), tx_count);
-
-    gtk_box_append(GTK_BOX(tx_card), tx_head_row);
-
-    // Table Column Headers
-    GtkWidget *th_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_add_css_class(th_row, "table-header");
-
-    GtkWidget *th_date = gtk_label_new("DATE");
-    gtk_widget_set_halign(th_date, GTK_ALIGN_START);
-    gtk_widget_add_css_class(th_date, "tx-date");
-    gtk_box_append(GTK_BOX(th_row), th_date);
-
-    GtkWidget *th_merch = gtk_label_new("MERCHANT");
-    gtk_widget_set_halign(th_merch, GTK_ALIGN_START);
-    gtk_widget_set_hexpand(th_merch, TRUE);
-    gtk_box_append(GTK_BOX(th_row), th_merch);
-
-    GtkWidget *th_src = gtk_label_new("SOURCE");
-    gtk_widget_set_halign(th_src, GTK_ALIGN_START);
-    gtk_widget_add_css_class(th_src, "tx-source");
-    gtk_box_append(GTK_BOX(th_row), th_src);
-
-    GtkWidget *th_amt = gtk_label_new("AMOUNT");
-    gtk_widget_set_halign(th_amt, GTK_ALIGN_END);
-    gtk_widget_add_css_class(th_amt, "tx-amount");
-    gtk_box_append(GTK_BOX(th_row), th_amt);
-
-    gtk_box_append(GTK_BOX(tx_card), th_row);
-
-    // Scrolled list of transactions
-    GtkWidget *tx_scroll = gtk_scrolled_window_new();
-    shell->tx_scroll = tx_scroll;
-    gtk_widget_set_vexpand(tx_scroll, TRUE);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tx_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-
-    GtkWidget *tx_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    shell->tx_box = tx_box;
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(tx_scroll), tx_box);
-    gtk_box_append(GTK_BOX(tx_card), tx_scroll);
-
-    gtk_box_append(GTK_BOX(detail), tx_card);
+    gtk_widget_add_css_class(detail, "ws-budget");
+    gtk_widget_set_hexpand(detail, TRUE);
+    gtk_widget_set_vexpand(detail, TRUE);
 
     gtk_stack_add_named(GTK_STACK(stack), detail, "budgets");
 
@@ -1021,99 +837,12 @@ void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing) {
     if (!shell || !shell->btn_sync) return;
 
     if (is_syncing) {
-        gtk_button_set_label(GTK_BUTTON(shell->btn_sync), "⏳");
+        wellspent_gtk_rail_button_set_icon(shell->btn_sync, "syncing");
         gtk_widget_set_tooltip_text(shell->btn_sync, "Syncing with server...");
     } else {
-        gtk_button_set_label(GTK_BUTTON(shell->btn_sync), "🔄");
+        wellspent_gtk_rail_button_set_icon(shell->btn_sync, "sync");
         gtk_widget_set_tooltip_text(shell->btn_sync, "Sync now");
     }
-}
-
-void wellspent_gtk_update_detail_wheel(void *shell_ptr,
-                                       const char *budget_name,
-                                       const char *day_line,
-                                       const char *middle_key,
-                                       const char *middle_amount,
-                                       const char *middle_of,
-                                       const char *pace_text,
-                                       double arc,
-                                       double tick,
-                                       int is_over) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell) return;
-
-    if (shell->detail_title && budget_name) {
-        gtk_label_set_text(GTK_LABEL(shell->detail_title), budget_name);
-    }
-    if (shell->detail_subtitle && day_line) {
-        gtk_label_set_text(GTK_LABEL(shell->detail_subtitle), day_line);
-    }
-    if (shell->wheel_mid_key && middle_key) {
-        gtk_label_set_text(GTK_LABEL(shell->wheel_mid_key), middle_key);
-    }
-    if (shell->wheel_mid_amount && middle_amount) {
-        gtk_label_set_text(GTK_LABEL(shell->wheel_mid_amount), middle_amount);
-    }
-    if (shell->wheel_mid_of && middle_of) {
-        gtk_label_set_text(GTK_LABEL(shell->wheel_mid_of), middle_of);
-    }
-    if (shell->wheel_pace_lbl && pace_text) {
-        gtk_label_set_text(GTK_LABEL(shell->wheel_pace_lbl), pace_text);
-    }
-
-    shell->wheel_arc = arc;
-    shell->wheel_tick = tick;
-    shell->wheel_is_over = is_over;
-
-    if (shell->wheel_drawing_area) {
-        gtk_widget_queue_draw(shell->wheel_drawing_area);
-    }
-}
-
-void wellspent_gtk_clear_transactions(void *shell_ptr) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->tx_box) return;
-    GtkWidget *child = gtk_widget_get_first_child(shell->tx_box);
-    while (child) {
-        GtkWidget *next = gtk_widget_get_next_sibling(child);
-        gtk_box_remove(GTK_BOX(shell->tx_box), child);
-        child = next;
-    }
-}
-
-void wellspent_gtk_add_transaction_row(void *shell_ptr,
-                                       const char *date,
-                                       const char *merchant,
-                                       const char *source,
-                                       const char *amount) {
-    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
-    if (!shell || !shell->tx_box) return;
-
-    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_add_css_class(row, "transaction-row");
-
-    GtkWidget *d_lbl = gtk_label_new(date ? date : "");
-    gtk_widget_add_css_class(d_lbl, "tx-date");
-    gtk_widget_set_halign(d_lbl, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(row), d_lbl);
-
-    GtkWidget *m_lbl = gtk_label_new(merchant ? merchant : "");
-    gtk_widget_add_css_class(m_lbl, "tx-merchant");
-    gtk_widget_set_halign(m_lbl, GTK_ALIGN_START);
-    gtk_widget_set_hexpand(m_lbl, TRUE);
-    gtk_box_append(GTK_BOX(row), m_lbl);
-
-    GtkWidget *s_lbl = gtk_label_new(source ? source : "");
-    gtk_widget_add_css_class(s_lbl, "tx-source");
-    gtk_widget_set_halign(s_lbl, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(row), s_lbl);
-
-    GtkWidget *a_lbl = gtk_label_new(amount ? amount : "");
-    gtk_widget_add_css_class(a_lbl, "tx-amount");
-    gtk_widget_set_halign(a_lbl, GTK_ALIGN_END);
-    gtk_box_append(GTK_BOX(row), a_lbl);
-
-    gtk_box_append(GTK_BOX(shell->tx_box), row);
 }
 
 // Dialog: New Budget

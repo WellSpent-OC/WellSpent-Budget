@@ -44,27 +44,6 @@ typedef void (*wellspent_lifecycle_receiver)(int came_to_front);
 void wellspent_watch_lifecycle(const char *app_id, unsigned int clock_seconds,
                               wellspent_lifecycle_receiver receive);
 
-/// What a screen reader names `widget` (a GtkWidget), in place of what it
-/// shows: for a widget whose look carries its meaning, such as an arrow.
-void wellspent_accessible_set_label(void *widget, const char *label);
-
-/// What a screen reader says after the widget's name, such as how much of a
-/// budget is used.
-void wellspent_accessible_set_description(void *widget, const char *description);
-
-/// Whether a screen reader hears the widget as the one picked, such as the
-/// open budget's row. 1 for picked, 0 for not.
-void wellspent_accessible_set_selected(void *widget, int selected);
-
-/// The four arrows of the GTK calendar inside `widget` (a GtkWidget): names
-/// them, since GTK leaves them unnamed and a screen reader hears four plain
-/// buttons, in the order GTK shows them (the month back and on, then the
-/// year back and on). A move by them chooses the day the calendar then shows
-/// chosen, as a click on a day does. And the arrow keys move the chosen day
-/// by a day or a week, as on the Mac. Call after every update.
-void wellspent_calendar_arrows(void *widget, const char *previous_month, const char *next_month,
-                               const char *previous_year, const char *next_year);
-
 /// Quits the way the app's own last window would when the system asks it to
 /// stop (SIGTERM), as a desktop does at log out, instead of the process just
 /// ending. Call once, after the app's GtkApplication is made.
@@ -86,10 +65,6 @@ void wellspent_new_entry_shortcut(void *widget);
 
 /// Names a multiline chat editor and marks it as the Ctrl+Enter target.
 void wellspent_wartable_composer(void *widget);
-void wellspent_wartable_control_label(void *widget, const char *label);
-/// The accessible description of the control inside a composite view, with
-/// GTK's own name for it kept, such as a list's chosen option.
-void wellspent_control_description(void *widget, const char *description);
 /// Ctrl+Enter in that editor activates this visible, enabled Send button.
 void wellspent_wartable_send(void *widget);
 /// Follow appended messages only while reading the bottom. A new conversation
@@ -155,24 +130,73 @@ void wellspent_gtk_ask(void *shell_ptr, const char *title, const char *message,
 int wellspent_gtk_init_css_file(const char *path);
 int wellspent_fonts_add_file(const char *path);
 
-void wellspent_gtk_update_detail_wheel(void *shell_ptr,
-                                       const char *budget_name,
-                                       const char *day_line,
-                                       const char *middle_key,
-                                       const char *middle_amount,
-                                       const char *middle_of,
-                                       const char *pace_text,
-                                       double arc,
-                                       double tick,
-                                       int is_over);
+// MARK: - A budget's page (wellspent_gtk_budget_page.c)
 
-void wellspent_gtk_clear_transactions(void *shell_ptr);
+typedef struct {
+    double red, green, blue;
+} wellspent_rgb;
 
-void wellspent_gtk_add_transaction_row(void *shell_ptr,
-                                       const char *date,
-                                       const char *merchant,
-                                       const char *source,
-                                       const char *amount);
+/// A money wheel as the shared WheelGeometry places it, in points with y down
+/// and the origin at the top left of a square `size` across.
+typedef struct {
+    double size, radius, band, outer_edge, inner_edge, edge_width, tick_width;
+    /// How much of the ring is drawn, clockwise from the top, 0 to 1.
+    double arc;
+    /// The tick, from inside the band to the square's edge, when has_tick is 1.
+    int has_tick;
+    double tick_from_x, tick_from_y, tick_to_x, tick_to_y;
+    wellspent_rgb track, edge, arc_color;
+} wellspent_gtk_wheel;
+
+/// Empties the page, before render() draws it again.
+void wellspent_gtk_page_clear(void *shell_ptr);
+
+/// The budget's name, then Import statement ("page:import") and Add
+/// ("page:add") when `may_add` is 1, then the budget's menu as buttons, one
+/// per line of `menu_spec` (a line of "-" ends a part), each firing
+/// "menu:budget:<index>".
+void wellspent_gtk_page_add_head(void *shell_ptr, const char *title, int may_add,
+                                 const char *import_title, const char *add_title, const char *menu_spec);
+
+/// The strip after a delete, with its button ("page:undo").
+void wellspent_gtk_page_add_undo(void *shell_ptr, const char *message, const char *button_title);
+
+/// The day of the period, the wheel with the words in its middle, and beside
+/// it the pace words with Edit Budget… ("page:edit_budget") when `edit_title`
+/// is not NULL. The figures follow with wellspent_gtk_page_add_figure.
+/// `spoken` is what a screen reader says for the wheel.
+void wellspent_gtk_page_add_wheel(void *shell_ptr, const char *day_line, const wellspent_gtk_wheel *wheel,
+                                  const char *middle_key, const char *middle_amount, const char *middle_of,
+                                  wellspent_rgb amount_color, const char *spoken,
+                                  const char *pace_text, const char *edit_title);
+
+/// One figure beside the wheel: its label and amount. The amount's
+/// description, when not NULL, is what a screen reader says after it.
+void wellspent_gtk_page_add_figure(void *shell_ptr, const char *label, const char *amount,
+                                   const char *description, int is_warning);
+
+/// "3 transactions since Oct 1", and "2 repeats" ("page:repeats") when not NULL.
+void wellspent_gtk_page_add_count(void *shell_ptr, const char *count_line, const char *repeats_title);
+
+/// The entries card and its heading row. `added_by` NULL leaves that column out.
+void wellspent_gtk_page_add_columns(void *shell_ptr, const char *date, const char *description,
+                                    const char *added_by, const char *source, const char *amount);
+
+/// One entry's row, a button that fires "entry:<id>". Its labels read in this
+/// order: date, merchant, the note and the notice when there are any, who
+/// added it when `added_by` is not NULL, source, amount.
+void wellspent_gtk_page_add_entry(void *shell_ptr, const char *entry_id, const char *date,
+                                  const char *merchant, const char *note, const char *notice,
+                                  const char *added_by, const char *source,
+                                  const char *amount, const char *help);
+
+/// In the entries card when the budget has none this period.
+void wellspent_gtk_page_add_empty(void *shell_ptr, const char *text);
+
+/// The whole page as a message, when no budget is open: a title, its words,
+/// and a button ("action:add_budget") when `button_title` is not NULL.
+void wellspent_gtk_page_show_message(void *shell_ptr, const char *title, const char *text,
+                                     const char *button_title);
 
 void wellspent_gtk_set_active_tab(void *shell_ptr, const char *tab_name);
 

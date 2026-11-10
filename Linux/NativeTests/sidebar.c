@@ -116,6 +116,28 @@ static void activate(GtkApplication *app, gpointer user_data) {
     settle(50);
     expect(named(side, "HOUSEHOLD") != NULL, "the sidebar can be rebuilt after a clear");
 
+    // The rail draws its icons, so none hangs on a font the computer may not
+    // have: no text on a rail button, a drawing in its place, and its name.
+    struct { GtkWidget *button; const char *name, *icon; } rail[] = {
+        {shell->btn_budgets, "Budget", "budget"},     {shell->btn_runway, "Properties", "house"},
+        {shell->btn_wartable, "WarTable", "swords"},  {shell->btn_catalog, "Extensions", "extensions"},
+        {shell->btn_sync, "Sync", "sync"},            {shell->btn_account, "Account", "account"},
+    };
+    for (size_t i = 0; i < G_N_ELEMENTS(rail); i++) {
+        GtkWidget *button = rail[i].button;
+        expect(gtk_button_get_label(GTK_BUTTON(button)) == NULL, "a rail button has no text to draw");
+        expect(GTK_IS_DRAWING_AREA(gtk_button_get_child(GTK_BUTTON(button))), "a rail button draws its icon");
+        const char *icon = wellspent_gtk_rail_button_icon(button);
+        expect(icon && strcmp(icon, rail[i].icon) == 0, "each rail button draws its own icon");
+        expect(named(button, rail[i].name) == button, "each rail button keeps its name");
+    }
+    wellspent_gtk_set_sync_state(shell_ptr, 1);
+    const char *icon = wellspent_gtk_rail_button_icon(shell->btn_sync);
+    expect(icon && strcmp(icon, "syncing") == 0, "while syncing, Sync draws the hourglass");
+    wellspent_gtk_set_sync_state(shell_ptr, 0);
+    icon = wellspent_gtk_rail_button_icon(shell->btn_sync);
+    expect(icon && strcmp(icon, "sync") == 0, "after syncing, Sync draws its arrows again");
+
     gtk_window_destroy(GTK_WINDOW(shell->window));
     settle(100);
     wellspent_gtk_free_shell(shell_ptr);

@@ -80,6 +80,8 @@ public func registerRoutes(_ app: Application) throws {
     try registerAccountRoutesV2(v2)
     try registerGroupRoutesV2(v2)
     try registerSyncRoutesV2(v2)
+    registerPlanRoutes(v2)
+    registerPlanLockRoutes(v2)
 }
 
 // MARK: - Sessions
