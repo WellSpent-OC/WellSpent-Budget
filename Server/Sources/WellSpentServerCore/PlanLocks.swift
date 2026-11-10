@@ -130,11 +130,10 @@ struct AddPlanLocks: AsyncMigration {
 
 // MARK: - What one payer's plan leaves open
 
-/// One house: its record, its group, and the key its stays name it by.
+/// One house: its record and its group. Its stays name it by the record's ID.
 struct HouseRef: Equatable {
     let id: UUID
     let groupID: UUID
-    let key: String?
 }
 
 /// Everything one payer pays for, and what of it is locked.
@@ -217,9 +216,10 @@ struct PayerLocks {
         lockedGroups.contains(group) || lockedPeople.contains(Person(groupID: group, userID: user))
     }
 
-    /// The keys locked houses in a group go by, which their stays name.
-    func lockedHouseKeys(in group: UUID) -> Set<String> {
-        Set(houses.filter { $0.groupID == group && lockedHouses.contains($0.id) }.compactMap(\.key))
+    /// Whether a stay's house is locked. A stay names its house by the house
+    /// record's ID, as Properties writes it.
+    func isLockedHouse(named houseID: String) -> Bool {
+        UUID(uuidString: houseID).map(lockedHouses.contains) ?? false
     }
 }
 
@@ -251,7 +251,7 @@ enum PlanLocks {
         return rows.compactMap { row in
             guard let record = PlanRecord(row.body, type: .extensionSetting), record.isHouse,
                   let id = row.id else { return nil }
-            return HouseRef(id: id, groupID: row.groupID, key: record.sourceKey)
+            return HouseRef(id: id, groupID: row.groupID)
         }
     }
 
@@ -278,7 +278,7 @@ struct PlanRecord {
     let kind: String
     let sourceKey: String?
     let isDeleted: Bool
-    /// For a stay: the key of its house.
+    /// For a stay: its house's record ID.
     let houseKey: String?
 
     private struct StayHouse: Decodable { let houseID: String }
@@ -309,7 +309,7 @@ struct PlanRecord {
     func isLocked(id: UUID, locks: PayerLocks, group: UUID) -> Bool {
         if Plans.paidExtensions.contains(extensionID), !locks.tier.extensionsOpen.contains(extensionID) { return true }
         if isHouse { return locks.lockedHouses.contains(id) }
-        if let houseKey { return locks.lockedHouseKeys(in: group).contains(houseKey) }
+        if let houseKey { return locks.isLockedHouse(named: houseKey) }
         return false
     }
 }
@@ -328,7 +328,8 @@ extension PlanLocks {
         var newHouses: [UUID] = []
         for record in records {
             let type = RecordType(rawValue: record.type)
-            guard type == .extensionSetting || type == .extensionEntry,
+            // Removing something never needs a plan: it only frees room.
+            guard !record.isDeleted, type == .extensionSetting || type == .extensionEntry,
                   let inside = PlanRecord(record.body, type: type) else { continue }
             if Plans.paidExtensions.contains(inside.extensionID),
                !locks.tier.extensionsOpen.contains(inside.extensionID) {
@@ -457,8 +458,10 @@ func registerPlanLockRoutes(_ routes: any RoutesBuilder) {
         let (group, _) = try await requireMembership(groupID, user: user.id, needed: .read, on: request.db)
         guard group.deletedAt == nil else { throw Abort(.gone, reason: SyncRulesV2.groupDeletedRefusal) }
         if group.payerID != user.id {
+            // Taking over needs a plan with room for the group. Free never
+            // has it: two free accounts could otherwise open each other's.
             let mine = try await PayerLocks.of(user.id, on: request.db)
-            if let max = mine.tier.maxGroups, mine.groups.count >= max {
+            if mine.tier == .free || mine.tier.maxGroups.map({ mine.groups.count >= $0 }) == true {
                 throw PlanRefusal.limit(PlanLimit.groups, sheet: PlanSheet.locked, tier: mine.tier)
             }
             group.paidByUserID = user.id

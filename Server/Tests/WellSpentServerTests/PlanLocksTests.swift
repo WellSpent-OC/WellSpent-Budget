@@ -92,9 +92,10 @@ private func house(_ listing: String, in group: UUID) -> ExtensionSetting {
                      sourceKey: listing, body: "{}")
 }
 
-private func stay(_ key: String, at listing: String, in group: UUID) -> ExtensionEntry {
+/// A stay names its house by the house record's ID, as Properties writes it.
+private func stay(_ key: String, at house: ExtensionSetting, in group: UUID) -> ExtensionEntry {
     ExtensionEntry(groupID: GroupID(group), extensionID: Plans.propertiesExtension, kind: Plans.stayKind,
-                   sourceKey: key, body: #"{"houseID":"\#(listing)"}"#)
+                   sourceKey: key, body: #"{"houseID":"\#(house.id.uuid.uuidString)"}"#)
 }
 
 private func rec(_ value: ExtensionSetting, lamport: UInt64 = 1) throws -> Rec {
@@ -244,7 +245,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
             let host = try await v2SignUp("houses@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
             let kept = house("kept", in: group), held = house("held", in: group)
-            let heldStay = stay("s1", at: "held", in: group), keptStay = stay("s2", at: "kept", in: group)
+            let heldStay = stay("s1", at: held, in: group), keptStay = stay("s2", at: kept, in: group)
             #expect(try await push([try rec(kept), try rec(held), try rec(keptStay), try rec(heldStay)],
                                    to: group, as: host, on: app).status == .ok)
             app.plansEnabled = true
@@ -253,7 +254,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
             let ids = Set(pulled?.records.map(\.id) ?? [])
             #expect(ids.contains(kept.id.uuid) && ids.contains(keptStay.id.uuid))
             #expect(!ids.contains(held.id.uuid) && !ids.contains(heldStay.id.uuid))
-            let refused = try await push([try rec(stay("s3", at: "held", in: group))], to: group, as: host, on: app)
+            let refused = try await push([try rec(stay("s3", at: held, in: group))], to: group, as: host, on: app)
             #expect(refused.status == .paymentRequired && refused.refusal?.sheet == "locked")
 
             let answer = try await call(.GET, "plan", as: host, on: app).answer
@@ -264,6 +265,12 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
             #expect(tooMany.status == .unprocessableEntity && tooMany.refusal?.reason == "tooMany")
             let picked = try await call(.POST, "plan/pick", as: host, body: Pick(houseIDs: [held.id.uuid]), on: app)
             #expect(picked.answer?.open?.houseIDs == [held.id.uuid] && picked.answer?.locked?.houseIDs == [kept.id.uuid])
+
+            // Removing a locked house is allowed: it only frees room.
+            var gone = kept
+            gone.isDeleted = true
+            #expect(try await push([try rec(gone, lamport: 2)], to: group, as: host, on: app).status == .ok)
+            #expect(try await SyncRecordRow.find(kept.id.uuid, on: app.db)?.isDeleted == true)
         }
     }
 
@@ -294,10 +301,11 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
             app.plansEnabled = true
             #expect(try await call(.GET, "groups/\(group)/pull?since=0", as: locked, on: app).status == .paymentRequired)
 
-            // On free, with a group of their own already, they can't take on another.
-            _ = try await newGroup(as: locked, on: app)
+            // On free they can't take it over, even with no group of their own:
+            // two free accounts could otherwise open each other's groups.
             let free = try await call(.POST, "groups/\(group)/pay", as: locked, on: app)
-            #expect(free.status == .paymentRequired && free.refusal?.limit == "maxGroups")
+            #expect(free.status == .paymentRequired && free.refusal?.sheet == "locked")
+            #expect(try await GroupRow.find(group, on: app.db)?.paidByUserID == nil)
 
             try await setTier(.starter, for: locked.userID, on: app.db)
             #expect(try await call(.POST, "groups/\(group)/pay", as: locked, on: app).status == .ok)
