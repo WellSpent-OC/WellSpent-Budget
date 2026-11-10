@@ -304,20 +304,20 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | None yet |
-| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | None yet |
-| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | None yet |
+| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac |
+| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac |
+| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac |
 | PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | None yet |
 | PLAN-05 | More than 15 properties offers an email to us | Linux | None yet |
-| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | None yet |
-| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | None yet |
-| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | None yet |
-| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | None yet |
-| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | None yet |
-| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | None yet |
-| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | None yet |
-| PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | None yet |
-| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | None yet |
+| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac |
+| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac |
+| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac |
+| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac |
+| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac |
+| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac |
+| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac |
+| PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac |
+| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | None yet |
 
 ### [Lifecycle.md](Lifecycle.md)
