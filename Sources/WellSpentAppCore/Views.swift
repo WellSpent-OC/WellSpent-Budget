@@ -94,7 +94,7 @@ struct RootView: View {
                 case .properties:
                     if isPropertiesActive {
                         #if canImport(WellSpentPropertiesViews) && os(macOS)
-                        HousesTab(host: AppExtensionHost(model: workspace.model))
+                        HousesTab(host: AppExtensionHost(model: workspace.model, lockedCard: lockedHouse))
                         #else
                         HousesPlaceholderView(
                             openCatalog: { activeExtension = .catalog },
@@ -275,6 +275,20 @@ struct RootView: View {
         .toolbar { accountButtons }
         #endif
     }
+
+    #if os(macOS)
+    /// A locked house's card, in place of its page in Houses (LOCK-06).
+    private func lockedHouse(_ record: String) -> AnyView? {
+        workspace.lockedScreen(property: record).map { locked in
+            AnyView(LockedCardView(screen: locked) { action in
+                switch action {
+                case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+                case .seePlans, .payForThisGroup: choosingPlan = ChoosePlanRequest(payFor: nil)
+                }
+            })
+        }
+    }
+    #endif
 
     private func openPick() {
         #if os(macOS)

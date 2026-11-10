@@ -45,6 +45,16 @@ extension Workspace {
                             now: now, calendar: calendar)
     }
 
+    /// The card that takes a locked property's place, or nil when it's open.
+    /// `record` is the property's record id, as the Properties extension asks.
+    public func lockedScreen(property record: String) -> LockedScreen? {
+        guard let answer = plans.answer, let id = UUID(uuidString: record),
+              PlanLocks(answer).isLocked(property: id) else { return nil }
+        let houses = planProperties(in: paidForGroups())
+        let open = (answer.open?.houseIDs ?? []).compactMap { open in houses.first { $0.id == open }?.name }
+        return LockedScreen(.property(open: open))
+    }
+
     /// What the plan card's "Open now" names, in its order: the open group,
     /// the open properties, then the open person. Empty with nothing open.
     public var planOpenNames: [String] {
