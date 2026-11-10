@@ -61,9 +61,11 @@ From a bank statement, a line that is money in is offered as **Money in**, as **
 
 The steps are the same as on a Mac, except **Money in** is a check box. Tick it.
 
+> You see the line under it, such as "Adds to Bookings instead of spending from it."
+
 ## Related
 
 - [Quest 5: Add your first transaction](add-your-first-transaction.md)
 - [Side quest: Change a budget from its wheel](../budgets/change-a-budget-from-its-wheel.md)
 
-<!-- Scenarios: INC-01, INC-02, WHEEL-14, WHEEL-15, WHEEL-16, WHEEL-17, WHEEL-18, WHEEL-19, WHEEL-20 -->
+<!-- Scenarios: INC-01, INC-02, WHEEL-14, WHEEL-15, WHEEL-16, WHEEL-17, WHEEL-18, WHEEL-19, WHEEL-20, INC-04 -->
