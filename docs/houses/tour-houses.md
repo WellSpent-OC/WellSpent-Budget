@@ -38,7 +38,7 @@ Click a house in the list.
 
 ![A house's page on a Mac, with numbers 1 to 17](../assets/shots/tour-houses-a-house.svg)
 
-Numbers 14 to 16 come to the Mac in the next update, as **Against your plan**, without **Market** (16).
+Numbers 14 and 15 come to the Mac in the next update, in a card called **Against your plan**. **Market** (16) doesn't come to the Mac.
 
 1. **Lake House**, picked in the list: the house that's open.
 2. **Lake House**: the house's name.
