@@ -84,11 +84,15 @@ public struct PlanAnswer: Codable, Equatable, Sendable {
         public let groupID: UUID?
         public let person: Person?
         public let houseIDs: [UUID]
+        /// When the person last changed the open group. It can change once in
+        /// 30 days. Nil when they never have.
+        public let groupChangedAt: Date?
 
-        public init(groupID: UUID?, person: Person?, houseIDs: [UUID]) {
+        public init(groupID: UUID?, person: Person?, houseIDs: [UUID], groupChangedAt: Date? = nil) {
             self.groupID = groupID
             self.person = person
             self.houseIDs = houseIDs
+            self.groupChangedAt = groupChangedAt
         }
     }
 

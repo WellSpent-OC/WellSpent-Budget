@@ -399,6 +399,16 @@ struct AccountsTests {
     /// A UI test puts the money wheel on one day of this month, so the pace
     /// words it checks show whatever day it runs. Only a staging build takes
     /// the day, and only a day a month can have.
+    /// The Mac and iPhone buy through Apple's store; Linux has none and
+    /// pays on the website.
+    @Test func theAppleAppsGetApplesStoreAndLinuxNone() {
+        #if canImport(StoreKit)
+        #expect(Workspace.appStore() != nil)
+        #else
+        #expect(Workspace.appStore() == nil)
+        #endif
+    }
+
     @Test func onlyAStagingBuildReadsThePinnedDay() {
         let set = [Workspace.pinnedDayVariable: "18"]
         #expect(Workspace.pinnedDay(for: .staging, in: set) == 18)

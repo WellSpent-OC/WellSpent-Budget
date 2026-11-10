@@ -82,3 +82,28 @@ public protocol PlanCache: Sendable {
     /// Forgets the last answer, as when the account signs out.
     func clear()
 }
+
+/// A server that answers with what a staging UI test pinned
+/// (`Workspace.pinnedPlanVariable`). Given a file, it reads it on every call,
+/// so a test can rewrite it and bring the app to the front for the next state,
+/// with no relaunch. A purchase changes nothing, so the test sees the state it
+/// asked for.
+public struct PinnedPlanService: PlanService, PlanLockService {
+    private let read: @Sendable () throws -> PlanAnswer
+
+    public init(answer: PlanAnswer) { read = { answer } }
+
+    /// Reads `path` each time. A file that's gone or isn't an answer is
+    /// refused, as an unreachable server is, so the last answer stays.
+    public init(file path: String) {
+        read = {
+            guard let data = FileManager.default.contents(atPath: path) else { throw PlanServiceError.unreachable }
+            return try PlanAnswer.decode(data)
+        }
+    }
+
+    public func plan() async throws -> PlanAnswer { try read() }
+    public func submitApple(signedTransaction: String) async throws -> PlanAnswer { try read() }
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer { try read() }
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer { try read() }
+}

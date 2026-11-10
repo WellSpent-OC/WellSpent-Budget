@@ -1254,13 +1254,27 @@ extension SyncReport {
 
 /// The plan calls go to the signed-in account's server, as extension calls
 /// do. Signed out, there is no plan to ask about.
-extension SyncCoordinator: PlanService {
+extension SyncCoordinator: PlanService, PlanLockService {
     public func plan() async throws -> PlanAnswer {
         try await planCall { try await $0.plan() }
     }
 
     public func submitApple(signedTransaction: String) async throws -> PlanAnswer {
         try await planCall { try await $0.submitApple(signedTransaction: signedTransaction) }
+    }
+
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer {
+        try await planCall { client in
+            guard let locks = client as? any PlanLockService else { throw PlanLockError.unreachable }
+            return try await locks.savePick(pick)
+        }
+    }
+
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        try await planCall { client in
+            guard let locks = client as? any PlanLockService else { throw PlanLockError.unreachable }
+            return try await locks.payForGroup(groupID)
+        }
     }
 
     private func planCall(_ call: (any PlanService) async throws -> PlanAnswer) async throws -> PlanAnswer {
