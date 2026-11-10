@@ -18,4 +18,8 @@ public final class DefaultsPlanCache: PlanCache, @unchecked Sendable {
     public func save(_ answer: PlanAnswer) {
         if let data = try? answer.encoded() { defaults.set(data, forKey: key) }
     }
+
+    public func clear() {
+        defaults.removeObject(forKey: key)
+    }
 }

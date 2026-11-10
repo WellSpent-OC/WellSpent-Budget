@@ -57,6 +57,13 @@ public final class PurchaseCoordinator {
         }
     }
 
+    /// Signed out: the last account's plan is no one's now.
+    public func forget() {
+        answer = nil
+        status = .idle
+        cache.clear()
+    }
+
     /// The store's offers, empty when there is no store or it can't answer.
     public func offers() async -> [StoreOffer] {
         guard let store else { return [] }

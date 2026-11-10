@@ -1,5 +1,6 @@
 import Foundation
 import WellSpentCrypto
+import WellSpentPlans
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking      // URLSession lives here on Linux
@@ -539,3 +540,45 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         }
     }
 }
+
+// MARK: - Plans
+
+extension ReadableHTTPTransport: PlanService {
+    private struct AppleBody: Encodable { let signedTransaction: String }
+
+    /// `GET /api/v2/plan`: what plan this account has.
+    public func plan() async throws -> PlanAnswer {
+        try await planAnswer { try request(.get, "plan", query: [], as: .signedIn) }
+    }
+
+    /// `POST /api/v2/plan/apple`: hands the server Apple's signed record of a
+    /// purchase. 409 means the account pays on the website; 422 means the
+    /// record didn't check out.
+    public func submitApple(signedTransaction: String) async throws -> PlanAnswer {
+        try await planAnswer {
+            try withBody(try request(.post, "plan/apple", query: [], as: .signedIn),
+                         AppleBody(signedTransaction: signedTransaction))
+        }
+    }
+
+    private func planAnswer(_ make: () throws -> URLRequest) async throws -> PlanAnswer {
+        let data: Data
+        do {
+            data = try await perform(try make(), as: .signedIn)
+        } catch ReadableTransportError.http(status: 409, _) {
+            throw PlanServiceError.paddlePlanLive
+        } catch ReadableTransportError.http(status: 422, _) {
+            throw PlanServiceError.notGenuine
+        } catch let error as ReadableTransportError {
+            throw error
+        } catch {
+            throw PlanServiceError.unreachable
+        }
+        do {
+            return try PlanAnswer.decode(data)
+        } catch {
+            throw ReadableTransportError.malformed("PlanAnswer: \(error)")
+        }
+    }
+}
+

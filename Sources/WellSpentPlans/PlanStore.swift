@@ -79,4 +79,6 @@ public enum PlanServiceError: Error, Equatable, Sendable {
 public protocol PlanCache: Sendable {
     func load() -> PlanAnswer?
     func save(_ answer: PlanAnswer)
+    /// Forgets the last answer, as when the account signs out.
+    func clear()
 }

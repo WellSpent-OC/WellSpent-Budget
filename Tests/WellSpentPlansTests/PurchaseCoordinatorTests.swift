@@ -85,6 +85,7 @@ private final class MemoryCache: PlanCache, @unchecked Sendable {
     init(_ stored: PlanAnswer? = nil) { self.stored = stored }
     func load() -> PlanAnswer? { stored }
     func save(_ answer: PlanAnswer) { stored = answer }
+    func clear() { stored = nil }
 }
 
 private let token = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
@@ -314,5 +315,19 @@ struct PurchaseCoordinatorTests {
 
         #expect(cache.stored?.tier == .portfolio)
         #expect(await coordinator.offers().count == 6)
+    }
+
+    @Test func signingOutForgetsThePlan() async {
+        let log = Log()
+        let cache = MemoryCache(answer(.growth))
+        let coordinator = PurchaseCoordinator(store: FakeStore(log: log),
+                                              service: FakeService(log: log, answer: answer(.growth)), cache: cache)
+        #expect(coordinator.answer?.tier == .growth)
+
+        coordinator.forget()
+
+        #expect(coordinator.answer == nil)
+        #expect(cache.stored == nil)
+        #expect(coordinator.status == .idle)
     }
 }

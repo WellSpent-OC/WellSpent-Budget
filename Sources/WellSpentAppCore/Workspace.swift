@@ -3,6 +3,7 @@ import Observation
 import WellSpentCrypto
 import WellSpentStore
 import WellSpentSync
+import WellSpentPlans
 #if canImport(WellSpentPropertiesViews)
 import WellSpentPropertiesViews
 #endif
@@ -42,16 +43,21 @@ public final class Workspace {
     public let features: FeatureFlags
     /// Which extensions this person turned on, on this device, per account.
     public let extensionSwitches: ExtensionSwitches
+    /// Buying, restoring and showing a plan. The Mac and iPhone hand in Apple's
+    /// store; Linux has none and pays on the website.
+    public let plans: PurchaseCoordinator
     @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
         [.era, .year, .month, .day], from: Date())
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
-                features: FeatureFlags? = nil,
+                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
+        self.plans = PurchaseCoordinator(store: planStore, service: sync,
+                                         cache: DefaultsPlanCache(defaults: sync.defaults))
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
         self.features = features ?? FeatureFlags.resolve(for: sync.environment, defaults: sync.defaults)
@@ -71,6 +77,12 @@ public final class Workspace {
             self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
                                   opensFirstBudget: self.model.opensFirstBudget)
             self.afterReload.forEach { $0() }
+            // Signing in asks for the new account's plan; signing out forgets the old one's.
+            if self.sync.account == nil {
+                self.plans.forget()
+            } else {
+                Task { await self.plans.refresh() }
+            }
         }
         watchForEdits()
         // A new day moves every wheel's day and tick, and on the 1st starts a
@@ -180,6 +192,9 @@ public final class Workspace {
     public func cameToFront() async {
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
+        // The plan may have changed elsewhere: bought on the website, renewed,
+        // or ended. Every platform asks here, so none drifts.
+        if sync.account != nil { await plans.refresh() }
     }
 
     // MARK: - Opened links
