@@ -125,8 +125,9 @@ public struct PlanCardScreen: Equatable, Sendable {
     }
 
     public enum Action: Equatable, Sendable {
+        /// Opens Choose a plan, on every platform. On Linux its button goes on
+        /// to the website's checkout.
         case seePlans
-        case seePlansOnWebsite
         case changePlan
         case keepPlan
         case openAppleSettings
@@ -135,7 +136,6 @@ public struct PlanCardScreen: Equatable, Sendable {
         public var title: String {
             switch self {
             case .seePlans: "See Plans"
-            case .seePlansOnWebsite: "See Plans on wellspent.space"
             case .changePlan: "Change Plan"
             case .keepPlan: "Keep My Plan"
             case .openAppleSettings: "Open Apple Settings"
@@ -198,13 +198,13 @@ public struct PlanCardScreen: Equatable, Sendable {
                 if !openNames.isEmpty { lines.append("Open now: \(PlanWording.list(openNames)).") }
                 changeWhatStaysOpen = true
             }
-            action = platform == .appleStore ? .seePlans : .seePlansOnWebsite
+            action = .seePlans
             primary = false
         case (.free, _), (_, nil):
             title = "Free plan"
             badge = "Free"
             lines = [PlanWording.freeShort, PlanWording.freeForever]
-            action = platform == .appleStore ? .seePlans : .seePlansOnWebsite
+            action = .seePlans
         case (.active, let tier?):
             title = "\(tierName) · \(prices.price(tier, period)) \(PlanWording.per(period))"
             lines = [Self.usage(answer)]
