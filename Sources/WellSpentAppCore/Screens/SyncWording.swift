@@ -93,7 +93,8 @@ public enum SyncWording {
     /// shows a spinner beside it while a sync runs. The label stays put, so
     /// the button keeps its width.
     public static func syncButtonTitle(for state: SyncCoordinator.State) -> String {
-        syncTitle(for: state)
+        if case .busy = state { return syncTitle(for: .signedIn(email: "")) }
+        return syncTitle(for: state)
     }
 
     /// The detail behind the sync button: a button has no room for a sentence,
