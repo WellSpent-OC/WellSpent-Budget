@@ -15,7 +15,12 @@ let package = Package(
         // which differs from checkout to checkout.
         .package(name: "WellSpentBudget", path: ".."),
         .package(name: "WarTable", path: "../Extensions/WarTable"),
+        // Pinned exactly, the same in three places: here, WellSpent-ExtensionKit
+        // and WellSpent-Properties. SwiftPM resolves one version for the whole
+        // app, so the three pins move together.
         .package(url: "https://github.com/stackotter/swift-cross-ui.git", exact: "0.10.0"),
+        // What a screen reader hears on Linux, shared with the extensions' screens.
+        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.4.0"),
     ],
     targets: [
         .systemLibrary(name: "CLibsecret", pkgConfig: "libsecret-1"),
@@ -42,6 +47,7 @@ let package = Package(
                 .product(name: "WellSpentStore", package: "WellSpentBudget"),
                 .product(name: "WellSpentSync", package: "WellSpentBudget"),
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
+                .product(name: "WellSpentExtensionKitLinux", package: "WellSpent-ExtensionKit"),
             ],
             // "live" or "staging", written by the packaging step. Only the exact
             // word "live" is live, as on the Mac.

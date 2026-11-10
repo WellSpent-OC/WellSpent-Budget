@@ -4,6 +4,7 @@ import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentExtensionKitLinux
 
 /// The window, drawn from MainScreen: groups and budgets on the left, the
 /// chosen budget, a group's page or an invite link's page on the right, and
