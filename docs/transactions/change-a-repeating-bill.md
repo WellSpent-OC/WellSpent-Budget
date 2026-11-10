@@ -47,8 +47,6 @@ A change here reaches this month and every month after. To change one month, ope
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 1. ![A thumb taps this month's bill](../assets/shots/change-a-repeating-bill-iphone-1.svg)
    In the budget, tap the month's bill.
 

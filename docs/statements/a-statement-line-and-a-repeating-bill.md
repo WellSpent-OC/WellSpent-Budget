@@ -32,8 +32,6 @@ The bank's line keeps the bill's budget, and its house if it had one.
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 The steps are the same, except **Keep both** is a switch on the row. Turn it on, and the row says **Will be added**. Turn it off again, and the line goes back to replacing the bill.
 
 ## On Linux

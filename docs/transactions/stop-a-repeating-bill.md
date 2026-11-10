@@ -47,8 +47,6 @@ To start it again, turn the switch back on and save. The repeat starts again fro
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 1. ![A thumb taps 2 repeats](../assets/shots/stop-a-repeating-bill-iphone-1.svg)
    In the budget, tap the count line, such as **2 repeats**.
 

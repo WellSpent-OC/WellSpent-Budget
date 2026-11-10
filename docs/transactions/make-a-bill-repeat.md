@@ -28,8 +28,6 @@ From now on, the bill shows up on the same day each month, with its **Source** r
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 1. ![A thumb taps a bill in a budget](../assets/shots/make-a-bill-repeat-iphone-1.svg)
    In the budget, tap the bill. For a new bill, tap **Add** at the bottom instead.
 
