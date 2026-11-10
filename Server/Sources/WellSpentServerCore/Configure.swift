@@ -89,6 +89,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddReadableSync())
     app.migrations.add(CreateWarTable())
     app.migrations.add(AddEmailInvitations())
+    app.migrations.add(CreatePlans())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
@@ -137,6 +138,9 @@ public func configure(_ app: Application) async throws {
         app.logger.notice("LEGACY_API is no longer read: /api/v1 is gone and asks old apps to update")
     }
 
+    // What an account has. Off until switch day, so live keeps today's behavior.
+    app.plansEnabled = Plans.isOn(Environment.get("WELLSPENT_PLANS"))
+    app.logger.notice("plans: \(app.plansEnabled ? "on" : "off")")
     try registerRoutes(app)
     try registerWarTableRoutes(app)
     registerInvitationEmailStopRoutes(app)

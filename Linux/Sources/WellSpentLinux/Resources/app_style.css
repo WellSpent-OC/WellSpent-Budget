@@ -95,6 +95,40 @@ menubutton.ws-button > button { border: 3px solid #4A4A4A; border-radius: 10px; 
 .ws-button:disabled { color: #9A9A9A; border-color: #BDBDBD; box-shadow: none; }
 .ws-button.danger { color: #B4532A; border-color: #B4532A; box-shadow: none; }
 
+/* ---------- a budget's page ---------- */
+.ws-budget { padding: 22px 26px; }
+.ws-budget > * { margin-bottom: 14px; }
+.ws-title { font-size: 34px; color: #111111; }
+.ws-day, .ws-count { font-family: "Inter", sans-serif; font-size: 12px; color: #666666; }
+.ws-pace { font-family: "Inter", sans-serif; font-size: 12px; color: #111111; }
+.ws-wheel-key, .ws-wheel-of { font-family: "Inter", sans-serif; font-size: 11px; font-weight: 600; color: #666666; }
+.ws-wheel-amount { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 500; font-feature-settings: "tnum"; }
+.ws-figure { padding: 5px 0; }
+.ws-figure.ruled { border-top: 1px solid #E6E6E6; }
+.ws-figure-label { font-family: "Inter", sans-serif; font-size: 13px; color: #111111; }
+.ws-money { font-family: "Inter", sans-serif; font-size: 14px; font-weight: 600; color: #111111; font-feature-settings: "tnum"; }
+.ws-money.over { color: #B4532A; }
+.ws-undo { background-color: #F4EEDC; border: 2px solid #111111; border-radius: 10px; padding: 6px 12px; }
+.ws-undo-text { font-family: "Inter", sans-serif; font-size: 12px; color: #111111; }
+.ws-link { background: none; border: none; box-shadow: none; padding: 0; min-height: 0; color: #111111; font-size: 12px; text-decoration-line: underline; }
+/* The entry list sits on a white card with the sticker outline. */
+.ws-entries { background-color: #FFFFFF; border: 3px solid #111111; border-radius: 14px; box-shadow: 4px 4px 0 0 #111111; }
+.ws-entries scrolledwindow, .ws-entries viewport { background-color: #FFFFFF; border-radius: 0 0 12px 12px; }
+.ws-entries-head { padding: 9px 14px; border-bottom: 1px solid #E6E6E6; }
+.ws-section { font-size: 12px; color: #666666; }
+.ws-entry { background-color: transparent; background-image: none; border: none; border-bottom: 1px solid #E6E6E6; border-radius: 0; box-shadow: none; padding: 9px 14px; min-height: 0; }
+.ws-entry:hover { background-color: #F4EEDC; }
+.ws-entry .ws-date { font-family: "Inter", sans-serif; font-size: 12px; color: #666666; font-feature-settings: "tnum"; }
+.ws-entry .ws-name { font-family: "Inter", sans-serif; font-size: 14px; color: #111111; }
+.ws-entry .ws-memo, .ws-entry .ws-source { font-family: "Inter", sans-serif; font-size: 11px; color: #666666; }
+.ws-entry .ws-notice { font-family: "Inter", sans-serif; font-size: 11px; color: #B4532A; }
+.ws-who { font-family: "Inter", sans-serif; font-size: 12px; font-weight: 600; color: #111111; background-color: #F4EEDC; border: 2px solid #111111; border-radius: 10px; padding: 1px 8px; }
+.ws-entries .ws-empty-text { padding: 20px 14px; }
+
+/* ---------- empty state ---------- */
+.ws-empty-title { font-size: 34px; color: #111111; }
+.ws-empty-text { font-family: "Inter", sans-serif; font-size: 14px; color: #666666; }
+
 /* ---------- sheets ---------- */
 .ws-sheet { background-color: #FFFFFF; }
 .ws-sheet-band { background-color: #1A1A1A; padding: 14px 20px; }
