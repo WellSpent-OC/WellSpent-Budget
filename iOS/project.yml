@@ -123,6 +123,10 @@ targets:
       - path: ../Tests/UITestShared
       - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/iPhone
         optional: true
+      # What the Mac's and the iPhone's Houses tests share, such as the
+      # headless account's houses.
+      - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/Shared
+        optional: true
     dependencies:
       - target: WellSpentPhone
       - package: WellSpentBudget
