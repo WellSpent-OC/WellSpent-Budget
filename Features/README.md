@@ -304,11 +304,11 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | None yet |
-| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | None yet |
-| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | None yet |
-| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | None yet |
-| PLAN-05 | More than 15 properties offers an email to us | Linux | None yet |
+| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Linux |
+| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Linux |
+| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Linux |
+| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
+| PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
 
 ### [Lifecycle.md](Lifecycle.md)
 
