@@ -135,6 +135,10 @@ struct RootView: View {
                             },
                             openProperties: {
                                 activeExtension = .properties
+                            },
+                            turnOffProperties: {
+                                isPropertiesInstalled = false
+                                workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
                             }
                         )
                     }
