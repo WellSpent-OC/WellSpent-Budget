@@ -30,6 +30,10 @@ public final class PurchaseCoordinator {
         case storeFailed
     }
 
+    /// Told when a new answer opens something the last one locked, so the
+    /// app reads its groups again from the start.
+    @ObservationIgnored public var didOpen: (@MainActor () -> Void)?
+
     /// The server's last answer, from this run or a cached one.
     public private(set) var answer: PlanAnswer?
     public private(set) var status: Status = .idle
@@ -148,8 +152,10 @@ public final class PurchaseCoordinator {
     }
 
     private func accept(_ new: PlanAnswer) {
+        let opened = new.locksLess(than: answer)
         answer = new
         cache.save(new)
+        if opened { didOpen?() }
     }
 
     private static func failure(for error: PlanServiceError) -> Failure {

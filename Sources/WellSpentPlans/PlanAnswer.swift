@@ -142,6 +142,21 @@ public struct PlanAnswer: Codable, Equatable, Sendable {
         self.open = open
     }
 
+    /// Whether this answer opens something `old` kept locked: a group, a
+    /// person or a house leaves the locked list, or the plan grows. Pulls
+    /// left those records out, behind the device's cursor, so the app then
+    /// reads its groups from the start.
+    public func locksLess(than old: PlanAnswer?) -> Bool {
+        guard let old else { return false }
+        let order = PlanTier.allCases
+        if let was = order.firstIndex(of: old.tier), let now = order.firstIndex(of: tier), now > was { return true }
+        guard let before = old.locked else { return false }
+        guard let after = locked else { return true }
+        return !Set(before.groupIDs).isSubset(of: Set(after.groupIDs))
+            || !Set(before.people).isSubset(of: Set(after.people))
+            || !Set(before.houseIDs).isSubset(of: Set(after.houseIDs))
+    }
+
     /// Reads the server's JSON, with its ISO 8601 dates.
     public static func decode(_ data: Data) throws -> PlanAnswer {
         let decoder = JSONDecoder()

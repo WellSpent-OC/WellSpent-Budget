@@ -463,6 +463,8 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         // Vapor's errors read {"error": true, "reason": "..."}. Anything else,
         // such as a proxy's HTML page, gives no reason: its text is never
         // shown to anyone.
+        // The plan's 402 has a body of its own, which says what to open.
+        if status == 402, let refusal = PlanLimitRefusal.decode(data) { throw refusal }
         struct ServerError: Decodable { let reason: String? }
         let reason = (try? JSONDecoder().decode(ServerError.self, from: data))?.reason ?? ""
         switch (caller, status) {
@@ -584,6 +586,8 @@ extension ReadableHTTPTransport: PlanService, PlanLockService {
             throw PlanLockError.tooMany
         } catch ReadableTransportError.http(status: 422, _) {
             throw PlanLockError.notYours
+        } catch is PlanLimitRefusal {
+            throw PlanLockError.planDoesNotCover
         } catch ReadableTransportError.http(status: 402, _) {
             throw PlanLockError.planDoesNotCover
         } catch let error as ReadableTransportError {

@@ -392,3 +392,53 @@ struct PlanLockCallTests {
         await #expect(throws: PlanLockError.unreachable) { try await plans.payFor(group: UUID()) }
     }
 }
+
+private func locking(_ tier: PlanTier = .free, groups: [UUID] = [], people: [PlanAnswer.Person] = [],
+                     houses: [UUID] = []) -> PlanAnswer {
+    let base = answer(tier)
+    let locked = groups.isEmpty && people.isEmpty && houses.isEmpty
+        ? nil : PlanAnswer.Locked(groupIDs: groups, people: people, houseIDs: houses)
+    return PlanAnswer(tier: base.tier, period: base.period, state: base.state, source: base.source,
+                      paidUntil: nil, renews: base.renews, nextTier: nil, limits: base.limits, used: base.used,
+                      extensionsOpen: [], canSyncPriceLabs: false, refreshMinutes: 60, appleAccountToken: token,
+                      locked: locked)
+}
+
+/// Pulls leave out what's locked, behind the device's cursor. So when a new
+/// answer opens any of it, the app reads its groups again from the start.
+struct LocksLessTests {
+    @Test func openingAnythingLockedCounts() {
+        let group = UUID(), house = UUID(), person = PlanAnswer.Person(groupID: UUID(), userID: UUID())
+        let before = locking(groups: [group], people: [person], houses: [house])
+        #expect(locking().locksLess(than: before), "nothing locked now")
+        #expect(locking(people: [person], houses: [house]).locksLess(than: before), "the group opened")
+        #expect(locking(groups: [group], houses: [house]).locksLess(than: before), "the person opened")
+        #expect(locking(groups: [group], people: [person]).locksLess(than: before), "the house opened")
+        #expect(locking(.growth).locksLess(than: locking(.free)), "a bigger plan")
+    }
+
+    @Test func lockingTheSameOrMoreDoesNot() {
+        let group = UUID(), house = UUID()
+        let before = locking(groups: [group])
+        #expect(!locking(groups: [group]).locksLess(than: before))
+        #expect(!locking(groups: [group], houses: [house]).locksLess(than: before))
+        #expect(!locking().locksLess(than: locking()), "nothing was locked")
+        #expect(!locking(.free).locksLess(than: locking(.growth)), "a smaller plan opens nothing")
+        #expect(!locking().locksLess(than: nil), "a first answer has nothing to compare")
+    }
+
+    @MainActor
+    @Test func theCoordinatorSaysWhenAnAnswerOpensSomething() async {
+        let service = FakeService(log: Log(), answer: locking(groups: [UUID()]))
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache())
+        var opened = 0
+        plans.didOpen = { opened += 1 }
+        await plans.refresh()
+        #expect(opened == 0, "the first answer opens nothing")
+        await plans.refresh()
+        #expect(opened == 0, "the same answer opens nothing")
+        service.answer = locking()
+        await plans.refresh()
+        #expect(opened == 1)
+    }
+}
