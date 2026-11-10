@@ -19,6 +19,10 @@ struct RootView: View {
     @State var showingAccount = false
     /// Choose a plan, from the plan card's See Plans.
     @State var showingPlans = false
+    /// Pick what stays open, while it shows.
+    @State var picking: PickOpenScreen?
+    /// The locked group Choose a plan was opened to pay for, from its lock card.
+    @State var payingFor: GroupID?
     /// The sheet a menu or a button asked for.
     @State var sheet: MainScreen.Action?
     @State var showingEntry = false
@@ -64,6 +68,7 @@ struct RootView: View {
         let invitation = screen.invitation
         let openGroup = screen.openGroup
         let people = openPage.screen(for: openGroup, sync: sync)
+        let pick = picking
         VStack(spacing: 0) {
             if workspace.environment == .staging {
                 StagingBanner()
@@ -158,24 +163,36 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $showingAccount) {
-            AccountView(sync: sync, plans: workspace.plans, isPresented: $showingAccount, seePlans: {
-                // One sheet at a time: the account closes, then the plans open.
-                showingAccount = false
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(250))
-                    showingPlans = true
-                }
-            })
+            AccountView(sync: sync, plans: workspace.plans, openNames: workspace.planOpenNames,
+                        isPresented: $showingAccount,
+                        seePlans: {
+                            // One sheet at a time: the account closes, then the plans open.
+                            showingAccount = false
+                            afterSheetCloses { showingPlans = true }
+                        },
+                        changeWhatStaysOpen: {
+                            showingAccount = false
+                            afterSheetCloses(openPick)
+                        })
                 .tabMovesFocus()
+        }
+        .sheet(isPresented: Binding(get: { pick != nil }, set: { if !$0 { picking = nil } })) {
+            if let pick {
+                PickOpenView(screen: pick, plans: workspace.plans, close: { picking = nil })
+                    .tabMovesFocus()
+            }
         }
         .sheet(isPresented: $showingPlans) {
             PlanChoicesView(answer: workspace.plans.answer,
                             checkout: { product in
+                                // Paid on the website, so the group waits for
+                                // the plan to reach the server, then opens.
+                                if let payingFor { workspace.plans.payForGroupLater(payingFor.uuid) }
                                 WebLink.open(PlanLinks.checkout(product.tier, product.period).absoluteString)
-                                showingPlans = false
+                                closePlans()
                             },
                             emailUs: { WebLink.open(PlanLinks.emailUs.absoluteString) },
-                            close: { showingPlans = false })
+                            close: closePlans)
                 .tabMovesFocus()
         }
         .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
@@ -234,12 +251,14 @@ struct RootView: View {
 
     private func budgetSplitView(invitation: JoinScreen?, openGroup: BudgetGroup?, people: MembersScreen?) -> some View {
         NavigationSplitView {
-            SidebarView(screen: screen, perform: perform,
+            SidebarView(screen: screen, perform: perform, locks: workspace.planLocks,
                         showsAccountInFooter: !workspace.features.areExtensionsEnabled,
                         showingAccount: $showingAccount)
         } detail: {
             if let invitation {
                 InvitationPageView(screen: invitation, main: screen, openAccount: { showingAccount = true })
+            } else if let openGroup, let locked = workspace.lockedScreen(group: openGroup.id) {
+                LockedCardView(screen: locked) { lockedAction($0, group: openGroup.id) }
             } else if let openGroup, let people {
                 GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
                               invite: { sheet = .share(openGroup) })
@@ -259,6 +278,10 @@ struct RootView: View {
     @ViewBuilder
     private var detail: some View {
         switch screen.detail {
+        case .budget(let summary) where workspace.lockedScreen(group: summary.budget.groupID) != nil:
+            if let locked = workspace.lockedScreen(group: summary.budget.groupID) {
+                LockedCardView(screen: locked) { lockedAction($0, group: summary.budget.groupID) }
+            }
         case .budget(let summary):
             BudgetDetailView(screen: BudgetScreen(summary: summary, model: model, me: sync.userID),
                              model: model, menu: screen.budgetMenu(summary.budget), perform: perform,
@@ -278,6 +301,36 @@ struct RootView: View {
             } description: {
                 Text(MainScreen.Words.noneSelectedText)
             }
+        }
+    }
+
+    /// A lock card's buttons. Pay for This Group opens Choose a plan, which on
+    /// Linux continues on the website.
+    private func lockedAction(_ action: LockedScreen.Action, group: GroupID) {
+        switch action {
+        case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+        case .seePlans: showingPlans = true
+        case .payForThisGroup:
+            payingFor = group
+            showingPlans = true
+        }
+    }
+
+    private func closePlans() {
+        showingPlans = false
+        payingFor = nil
+    }
+
+    private func openPick() {
+        picking = workspace.pickScreen()
+    }
+
+    /// SwiftCrossUI shows one sheet at a time, so the next one opens a moment
+    /// after the last closes.
+    private func afterSheetCloses(_ open: @escaping @MainActor () -> Void) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            open()
         }
     }
 
@@ -373,6 +426,8 @@ enum SidebarRow: Identifiable {
 struct SidebarView: View {
     var screen: MainScreen
     var perform: (MainScreen.Action) -> Void
+    /// What the plan locks, for "Locked" beside a group's name (LOCK-03).
+    var locks = PlanLocks(nil)
     /// True when the activity rail is hidden, so the footer carries Sign in
     /// and Sync instead.
     var showsAccountInFooter: Bool = false
@@ -473,12 +528,20 @@ struct SidebarView: View {
                             .padding(.vertical, 2)
                             .background(RoundedRectangle(cornerRadius: 4)
                                 .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
+                        if isLocked(section) {
+                            Text("🔒 \(PlanLocks.mark)")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(Palette.sidebarHeader)
+                        }
                         Spacer()
                     }
                     .frame(maxWidth: Self.widestLine)
                 }
                 // Before the style, which wraps the button in a widget of its own.
-                .accessibility(selected: section.isPageOpen)
+                // Named by the group alone, with Locked as its value, so the
+                // mark doesn't change the name a screen reader or a test knows.
+                .accessibility(label: section.title.uppercased(), value: isLocked(section) ? PlanLocks.mark : "",
+                               selected: section.isPageOpen)
                 .buttonStyle(.plain)
                 // GTK has no right-click menu here, so each group has a button
                 // that opens the menu the Mac shows on a right-click.
@@ -487,6 +550,10 @@ struct SidebarView: View {
                 }
             }
         }
+    }
+
+    private func isLocked(_ section: MainScreen.Section) -> Bool {
+        locks.isLocked(group: section.id.uuid)
     }
 
     /// How wide the button with a group's name may grow. SwiftCrossUI 0.10.0's

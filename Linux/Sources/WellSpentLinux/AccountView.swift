@@ -12,18 +12,24 @@ struct AccountView: View {
     var sync: SyncCoordinator
     /// The account's plan, for its card once signed in.
     var plans: PurchaseCoordinator
+    /// What the plan keeps open, for the card's "Open now".
+    var openNames: [String]
     /// See Plans on the card: closes this sheet, then opens Choose a plan.
     var seePlans: () -> Void
+    /// Change what stays open on the card: closes this sheet, then opens the pick.
+    var changeWhatStaysOpen: () -> Void
     @Binding var isPresented: Bool
     @State var flow: AccountFlow
 
     private typealias Words = AccountFlow.Words
 
-    init(sync: SyncCoordinator, plans: PurchaseCoordinator, isPresented: Binding<Bool>,
-         seePlans: @escaping () -> Void) {
+    init(sync: SyncCoordinator, plans: PurchaseCoordinator, openNames: [String], isPresented: Binding<Bool>,
+         seePlans: @escaping () -> Void, changeWhatStaysOpen: @escaping () -> Void) {
         self.sync = sync
         self.plans = plans
+        self.openNames = openNames
         self.seePlans = seePlans
+        self.changeWhatStaysOpen = changeWhatStaysOpen
         _isPresented = isPresented
         _flow = State(wrappedValue: AccountFlow(actions: sync, email: sync.signInPrompt?.email,
                                                 reason: sync.signInPrompt?.reason,
@@ -136,7 +142,8 @@ struct AccountView: View {
             if let answer = plans.answer {
                 Text(PlanWording.yourPlan)
                     .font(.system(size: 13, weight: .semibold))
-                PlanCardView(card: PlanCardScreen(answer: answer, platform: .website), act: openPlanAction)
+                PlanCardView(card: PlanCardScreen(answer: answer, platform: .website, openNames: openNames),
+                             act: openPlanAction, changeWhatStaysOpen: changeWhatStaysOpen)
             }
             HStack {
                 Button(Words.changePassword) { flow.go(to: .changePassword) }
