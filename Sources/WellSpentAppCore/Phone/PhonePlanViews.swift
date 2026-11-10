@@ -195,7 +195,8 @@ struct PhoneChoosePlanSheet: View {
                         Text(screen.buy).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(plans.status == .working)
+                    // "Coming soon" until the App Store sells plans (PLAN-17).
+                    .disabled(!screen.canBuy || plans.status == .working)
                     .accessibilityIdentifier(AccessibilityID.planBuy)
                     if let status = PlanStatusWording.line(plans.status) {
                         Text(status)

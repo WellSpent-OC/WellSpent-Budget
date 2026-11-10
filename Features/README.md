@@ -320,7 +320,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
-| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac |
+| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac, iPhone |
 
 ### [Locks.md](Locks.md)
 

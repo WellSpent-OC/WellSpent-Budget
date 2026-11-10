@@ -145,6 +145,36 @@ final class PhonePlanTests: XCTestCase {
         XCTAssertTrue(run.has(AccessibilityID.planCard), "Not Now didn't go back to Account")
     }
 
+    // Scenario PLAN-17
+    /// Build A: the plans and their prices show, and nothing can be bought or
+    /// restored.
+    @MainActor
+    func testComingSoonBeforeTheStoreSellsPlans() throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let free = Self.states[0].1
+        let run = try launch(with: free, buyingIsOpen: false)
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        openAccount(run)
+        XCTAssertTrue(run.has(AccessibilityID.planCard), "no plan card")
+        XCTAssertTrue(run.lacks(AccessibilityID.planRestore), "Restore Purchases under the card")
+
+        run.tap(AccessibilityID.planCardAction)
+        XCTAssertTrue(run.app.navigationBars[PlanWording.choosePlan].waitForExistence(timeout: 10), "no Choose a plan")
+        let screen = PlanChoicesScreen(answer: free, platform: .appleStore, period: .monthly, storefrontIsUS: true,
+                                       buyingIsOpen: false)
+        for row in screen.rows {
+            let label = run.element(AccessibilityID.planRow(row.tier)).label
+            XCTAssertTrue(label.contains(row.name) && label.contains(row.price), "\(row.name) reads \"\(label)\"")
+        }
+        let buy = run.scrollTo(AccessibilityID.planBuy)
+        XCTAssertEqual(buy.label, PlanBuying.comingSoon, "no Coming soon in Subscribe's place")
+        XCTAssertFalse(buy.isEnabled, "Coming soon can be pressed")
+        XCTAssertTrue(run.lacks(AccessibilityID.planRestore), "Restore Purchases in Choose a plan")
+
+        run.tap(AccessibilityID.planNotNow)
+        XCTAssertTrue(run.has(AccessibilityID.planCard), "Not Now didn't go back to Account")
+    }
+
     // Scenario PLAN-15
     @MainActor
     func testRestoreWithNothingToRestoreSaysSo() throws {
@@ -205,7 +235,9 @@ final class PhonePlanTests: XCTestCase {
     // MARK: - Launching with an answer
 
     @MainActor
-    private func launch(with answer: PlanAnswer) throws -> PhoneTestApp {
+    /// `buyingIsOpen` is build B, where Subscribe and Restore Purchases show.
+    /// Closed is build A, which says "Coming soon" (PLAN-17).
+    private func launch(with answer: PlanAnswer, buyingIsOpen: Bool = true) throws -> PhoneTestApp {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("plan-\(UUID().uuidString).json")
@@ -216,6 +248,7 @@ final class PhonePlanTests: XCTestCase {
         // every run, with no Apple account. The real store is checked in
         // Apple's sandbox on a device.
         run.app.launchEnvironment[Workspace.emptyStoreVariable] = "empty"
+        if buyingIsOpen { run.app.launchEnvironment[PlanBuying.variable] = "open" }
         run.launch()
         return run
     }

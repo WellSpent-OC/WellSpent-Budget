@@ -200,7 +200,8 @@ struct PhoneAccountSheet: View {
             .listRowBackground(Palette.surface)
             PhonePlanCardSection(plans: plans, openNames: openNames, seePlans: { choosingPlan = true },
                                  changeWhatStaysOpen: changeWhatStaysOpen)
-            if plans.answer != nil {
+            // Nothing to restore until the App Store sells plans (PLAN-17).
+            if plans.answer != nil, PlanBuying.isOpen() {
                 Section { PhoneRestoreRow(plans: plans) }
                     .listRowBackground(Palette.surface)
             }
