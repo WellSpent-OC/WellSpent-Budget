@@ -2,8 +2,11 @@ import Foundation
 import WellSpentPlans
 
 /// What Restore Purchases found, as a small sheet: the plan is back, or there
-/// was nothing to restore.
-public struct RestoreResultScreen: Equatable, Sendable {
+/// was nothing to restore. Identifiable, so each app can show it with
+/// `.sheet(item:)`.
+public struct RestoreResultScreen: Equatable, Sendable, Identifiable {
+    public var id: String { title + lines.joined() }
+
     public let title: String
     public let lines: [String]
     /// "Done" when a plan came back, "OK" when nothing did.

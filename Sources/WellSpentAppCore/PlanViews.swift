@@ -277,8 +277,4 @@ struct RestoreResultSheet: View {
         .frame(width: 380)
     }
 }
-
-extension RestoreResultScreen: Identifiable {
-    public var id: String { title + lines.joined() }
-}
 #endif

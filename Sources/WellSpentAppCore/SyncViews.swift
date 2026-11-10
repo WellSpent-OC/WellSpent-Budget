@@ -255,9 +255,11 @@ struct AccountSheet: View {
         case .account:
             Text(flow.signedInAs)
                 .font(.system(size: 13))
+            #if os(macOS)
             if let plans {
                 PlanSection(plans: plans, openNames: openNames, onChangeWhatStaysOpen: onChangeWhatStaysOpen)
             }
+            #endif
             if flow.needsConfirming {
                 note(ConfirmEmailScreen.reason)
                 Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
