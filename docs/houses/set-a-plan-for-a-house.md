@@ -8,7 +8,7 @@ title: "Side quest: Set a plan for a house"
 
 > *Set your target, then see how you stack up against the other players.*
 
-On a house's page, **Against your plan and the market** puts how the house is doing beside your plan and the market. It's for comparing only. It doesn't change NOI, the wheel or Runway.
+On a house's page, **Against your plan and the market** puts how the house is doing beside your plan. It's for comparing only. It doesn't change NOI, the wheel or Runway.
 
 **Before you start:** the Manage level in the house's group. Below it, **Your plan** reads **Not set** until a manager adds it.
 
@@ -27,11 +27,10 @@ On a house's page, **Against your plan and the market** puts how the house is do
 5. ![A hand presses Save](../assets/shots/set-a-plan-for-a-house-5.svg)
    Press **Save**.
 
-   > You see two rows, **Booked, next 30 days** and **Nightly rate, this month**, under **You**, **Your plan** and **Market**.
+   > You see two rows, **Booked, next 30 days** and **Nightly rate, this month**, under **You** and **Your plan**.
 
 - **You:** from your stays.
 - **Your plan:** what you typed. Everyone in the group sees it.
-- **Market:** comes from PriceLabs, on the device that holds the key. Everywhere else, and for a house with no PriceLabs listing, it reads **Not available**. PriceLabs sends no market nightly rate, so that one reads **Not available** too.
 
 ## On an iPhone
 

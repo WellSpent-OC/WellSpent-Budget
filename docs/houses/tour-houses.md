@@ -17,7 +17,7 @@ title: "Tour: Houses"
 1. **Houses** on the rail: open Houses. It's on the rail once Properties is on. [Side quest: Turn on Properties](turn-on-properties.md)
 2. **Home**: a group with houses. Click it to open its page.
 3. **Lake House**: a house in the group, with its NOI this month. Click it to open its page.
-4. **Add House**: a menu with **Connect PriceLabs** and **Import earnings file**. [Side quest: Connect PriceLabs](connect-pricelabs.md)
+4. **Add House**: add a house from an earnings file. Until the next update, **Connect PriceLabs** is here too. [Side quest: Import an earnings file](import-an-earnings-file.md)
 5. **NOI this month**: what the list's amounts are.
 6. **Home**: the group's name.
 7. **November 20 · a group, shared with Robin**: today's date, and who shares the group.
@@ -28,7 +28,7 @@ title: "Tour: Houses"
 12. **NOI**: net operating income, what the houses bring in less their operating expenses, before the mortgage.
 13. **Next 30 days**: nights already booked, of the nights there are.
 14. The line about NOI: what NOI means.
-15. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
+15. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. It's gone from the next update. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
 16. A house's row: click it to open the house.
 17. **Needs you**: today's turnovers, tomorrow's check-ins, and empty nights between stays. Until setup is done, **Finish setting up** is here instead. [Side quest: Finish setting up](finish-setting-up.md)
 
@@ -53,7 +53,7 @@ Click a house in the list.
 13. **Coming up**: the next stays.
 14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**.
 15. **Your plan**: click a number to change it. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
-16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**.
+16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**. It's gone from the next update.
 17. **Try**: try an upgrade, and see what it might pay back. [Side quest: Try an improvement](try-an-improvement.md)
 
 ## On an iPhone: a group's page
@@ -66,7 +66,7 @@ The **Houses** tab opens on your first group's page.
 
 1. **Home**: the group's name. Once two groups have houses, tap it to pick another.
 2. **October 18 · a group**: today's date, and that this is a group.
-3. **…**: for a manager, **Import earnings file** and **Connect PriceLabs**.
+3. **…**: for a manager, **Import earnings file**.
 4. **About 8 months**: Runway, about how long the group can keep going at this month's pace.
 5. The four lines under it: what Home spends after house bills, its NOI share, the gap each month, and what it has on hand. Runway comes from these.
 6. **Booked this month**: what the group's houses booked, and how much has come in.
@@ -74,7 +74,7 @@ The **Houses** tab opens on your first group's page.
 8. **NOI**: net operating income, what the houses bring in less their operating expenses, before the mortgage.
 9. **Next 30 days**: nights already booked, of the nights there are.
 10. The line about NOI: what NOI means.
-11. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
+11. The PriceLabs line. It doesn't show on the iPhone.
 12. **Houses in Home, NOI this month**: the group's houses.
 13. **Lake House**: a house. Tap its row to open its page.
 14. **$700.00**: the house's NOI this month.
@@ -102,7 +102,7 @@ Tap a house on its group's page.
 11. **Add**: add a bill with **House** already set to this house. [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md)
 12. **Booked by month**: what the house booked each month.
 13. **Coming up**: the next stays.
-14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
+14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**. **Market** doesn't show on the iPhone. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
 15. **Add** under **Your plan**: a manager sets the plan. Everyone else sees **Not set**.
 16. **What it costs**: the price of an upgrade you're thinking about. [Side quest: Try an improvement](try-an-improvement.md)
 17. **More a night**: how much more you'd charge a night after it.

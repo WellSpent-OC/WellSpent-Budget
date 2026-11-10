@@ -6,6 +6,8 @@ title: "Side quest: Connect PriceLabs"
 
 > *Call in your scout. PriceLabs reports every stay.*
 
+**PriceLabs leaves the app in the next update.** Houses and stays it already brought in stay, but they stop updating. To add houses after that, [import an earnings file](import-an-earnings-file.md).
+
 **Before you start:**
 
 - Properties is on. See [Side quest: Turn on Properties](turn-on-properties.md).
@@ -45,29 +47,11 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 ## On an iPhone
 
-**Coming in the next update.**
-
-1. ![A thumb taps Connect PriceLabs](../assets/shots/connect-pricelabs-iphone-1.svg)
-   In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
-
-2. ![A thumb pastes the key](../assets/shots/connect-pricelabs-iphone-2.svg)
-   Tap **Paste your key here**, and paste your key.
-
-3. ![A thumb taps Continue](../assets/shots/connect-pricelabs-iphone-3.svg)
-   Tap **Continue**.
-
-4. ![A thumb ticks a listing](../assets/shots/connect-pricelabs-iphone-4.svg)
-   Tick each listing that is one of your houses.
-
-5. ![A thumb picks a group](../assets/shots/connect-pricelabs-iphone-5.svg)
-   For each one, pick its group.
-
-6. ![A thumb taps Add 2 Houses](../assets/shots/connect-pricelabs-iphone-6.svg)
-   Tap **Add 2 Houses**. The button counts what you ticked.
+PriceLabs isn't on the iPhone.
 
 ## On Linux
 
-Properties isn't on Linux yet.
+PriceLabs isn't on Linux.
 
 ## If it doesn't work
 
