@@ -37,3 +37,9 @@ GDK_BACKEND=x11 GTK_A11Y=test xvfb-run --server-num=100 -a dbus-run-session -- "
 "${CC:-clang}" -Wall -Werror -Wno-unused-parameter $CF -c "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_gtk_budget_page.c" -o "$SCRATCH/budget-page-impl.o"
 "${CC:-clang}" "$SCRATCH/budget-page.o" "$SCRATCH/shell.o" "$SCRATCH/sidebar-impl.o" "$SCRATCH/rail-icon.o" "$SCRATCH/budget-page-impl.o" $(pkg-config --libs gtk4 fontconfig) -lm -o "$SCRATCH/budget-page-test"
 GDK_BACKEND=x11 GTK_A11Y=test xvfb-run --server-num=100 -a dbus-run-session -- "$SCRATCH/budget-page-test"
+# Which links the app opens in the browser.
+"${CC:-clang}" -Wall -Wextra -Werror $(pkg-config --cflags gtk4) \
+    -I"$ROOT/Linux/Sources/WellSpentLinuxNative/include" \
+    "$ROOT/Linux/NativeTests/open_link.c" "$ROOT/Linux/Sources/WellSpentLinuxNative/wellspent_open_link.c" \
+    $(pkg-config --libs gtk4) -o "$SCRATCH/open-link-test"
+"$SCRATCH/open-link-test"
