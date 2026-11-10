@@ -193,3 +193,37 @@ struct PlanPickTests {
         #expect(try decoder.decode(PlanAnswer.Open.self, from: Data(bare.utf8)).groupChangedAt == nil)
     }
 }
+
+/// A UI test pins a plan answer from a file, so it can show any plan state.
+/// Only a staging build reads it, and the coordinator then shows that answer.
+struct PinnedPlanTests {
+    private func file(_ text: String) throws -> String {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("plan-\(UUID()).json")
+        try Data(text.utf8).write(to: url)
+        return url.path
+    }
+
+    private let canceled = #"""
+    {"tier":"growth","period":"monthly","state":"canceled","source":"apple","paidUntil":"2026-12-09T12:00:00Z",
+     "renews":false,"nextTier":null,"limits":{"properties":5},"used":{"properties":3},"extensionsOpen":[],
+     "canSyncPriceLabs":true,"refreshMinutes":60,"appleAccountToken":null}
+    """#
+
+    @Test func onlyAStagingBuildReadsThePinnedPlan() throws {
+        let set = [Workspace.pinnedPlanVariable: try file(canceled)]
+        #expect(Workspace.pinnedPlan(for: .staging, in: set)?.state == .canceled)
+        #expect(Workspace.pinnedPlan(for: .live, in: set) == nil, "no variable changes the live app")
+        #expect(Workspace.pinnedPlan(for: .staging, in: [:]) == nil)
+        #expect(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: "/no/such/file"]) == nil)
+        #expect(Workspace.pinnedPlan(for: .staging, in: [Workspace.pinnedPlanVariable: try file("soon")]) == nil)
+        #expect(Workspace.pinnedPlanVariable == "WELLSPENT_PLAN_ANSWER_FILE")
+    }
+
+    @Test func thePinnedServiceAlwaysGivesItsAnswer() async throws {
+        let answer = try #require(Workspace.pinnedPlan(for: .staging,
+                                                       in: [Workspace.pinnedPlanVariable: try file(canceled)]))
+        let service = PinnedPlanService(answer: answer)
+        #expect(try await service.plan() == answer)
+        #expect(try await service.submitApple(signedTransaction: "anything") == answer)
+    }
+}

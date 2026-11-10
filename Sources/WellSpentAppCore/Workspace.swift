@@ -52,11 +52,12 @@ public final class Workspace {
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
-                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
+                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil, pinnedPlan: PlanAnswer? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
-        self.plans = PurchaseCoordinator(store: planStore, service: sync,
+        self.plans = PurchaseCoordinator(store: planStore,
+                                         service: pinnedPlan.map { PinnedPlanService(answer: $0) } ?? sync,
                                          cache: DefaultsPlanCache(defaults: sync.defaults))
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
@@ -162,6 +163,24 @@ public final class Workspace {
         parts.day = min(max(day, days.lowerBound), days.upperBound - 1)
         parts.hour = 12
         return calendar.date(from: parts) ?? now
+    }
+
+    // MARK: - The plan a UI test shows
+
+    /// The environment variable a UI test sets to a JSON file holding a plan
+    /// answer, in the server's shape. A staging build then shows that answer
+    /// in place of the server's, so a test can put the app in any plan state:
+    /// grace, billing problem, canceled, ended, refunded, or bought on the
+    /// website. A live build never reads it.
+    nonisolated public static let pinnedPlanVariable = "WELLSPENT_PLAN_ANSWER_FILE"
+
+    /// The answer the file holds, for a staging build. Nil for a live build,
+    /// and for a file that is missing or isn't a plan answer.
+    nonisolated public static func pinnedPlan(for environment: AppEnvironment,
+                                  in processEnvironment: [String: String]) -> PlanAnswer? {
+        guard environment == .staging, let path = processEnvironment[pinnedPlanVariable],
+              let data = FileManager.default.contents(atPath: path) else { return nil }
+        return try? PlanAnswer.decode(data)
     }
 
     // MARK: - Coming to the front
@@ -271,6 +290,7 @@ public final class Workspace {
                           undoWindow: undoWindow(for: environment, in: processEnvironment),
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
+                          pinnedPlan: pinnedPlan(for: environment, in: processEnvironment),
                           features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
                                                          processEnvironment: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
@@ -317,6 +337,7 @@ public final class Workspace {
                        undoWindow: Duration = AppModel.defaultUndoWindow,
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
+                       pinnedPlan: PlanAnswer? = nil,
                        features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
@@ -336,6 +357,6 @@ public final class Workspace {
         accounts.samplesSeeded = true
         let resolvedFeatures = features ?? FeatureFlags.resolve(for: environment, defaults: defaults)
         return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
-                         pinnedDay: pinnedDay, features: resolvedFeatures)
+                         pinnedDay: pinnedDay, features: resolvedFeatures, pinnedPlan: pinnedPlan)
     }
 }
