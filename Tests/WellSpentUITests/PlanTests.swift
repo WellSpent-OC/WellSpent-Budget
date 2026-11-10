@@ -158,6 +158,9 @@ final class PlanTests: XCTestCase {
 
     @MainActor
     private func openAccount(_ run: TestApp) {
+        // Coming to the front syncs, and Account waits until it's done.
+        let account = run.element(AccessibilityID.toolbarAccount)
+        XCTAssertTrue(run.wait(for: account, until: "enabled == true", timeout: 60), "Account stayed disabled")
         run.click(AccessibilityID.toolbarAccount)
         XCTAssertTrue(run.element(AccessibilityID.planCard).waitForExistence(timeout: 15),
                       "no plan card. On screen: \(run.visibleTexts())")
