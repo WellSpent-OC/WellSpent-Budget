@@ -88,6 +88,12 @@ public final class PurchaseCoordinator {
         return (try? await store.offers()) ?? []
     }
 
+    /// Whether the store is the US one. Apple allows "Email us" past 15
+    /// properties only there. False with no store or no answer.
+    public func storefrontIsUS() async -> Bool {
+        await store?.storefrontCountry() == "USA"
+    }
+
     /// Buys a product, then hands the purchase to the server.
     public func buy(_ product: PlanProduct) async {
         guard let store else { return status = .failed(.noStore) }

@@ -53,7 +53,8 @@ private final class FakeStore: PlanStore, @unchecked Sendable {
     func send(_ transaction: StoreTransaction) { continuation?.yield(transaction) }
     func end() { continuation?.finish() }
 
-    func storefrontCountry() async -> String? { "USA" }
+    var country: String? = "USA"
+    func storefrontCountry() async -> String? { country }
 }
 
 private final class FakeService: PlanService, @unchecked Sendable {
@@ -390,5 +391,23 @@ struct PlanLockCallTests {
         let plans = PurchaseCoordinator(store: nil, service: FakeService(log: Log(), answer: answer(.free)),
                                         cache: MemoryCache())
         await #expect(throws: PlanLockError.unreachable) { try await plans.payFor(group: UUID()) }
+    }
+}
+
+@MainActor
+struct StorefrontTests {
+    /// "Email us" past 15 properties shows in the app only on the US store.
+    @Test func onlyTheUSStoreCountsAsUS() async {
+        let store = FakeStore(log: Log())
+        let plans = PurchaseCoordinator(store: store, service: FakeService(log: Log(), answer: answer(.free)),
+                                        cache: MemoryCache())
+        #expect(await plans.storefrontIsUS())
+        store.country = "CAN"
+        #expect(await !plans.storefrontIsUS())
+        store.country = nil
+        #expect(await !plans.storefrontIsUS())
+        let none = PurchaseCoordinator(store: nil, service: FakeService(log: Log(), answer: answer(.free)),
+                                       cache: MemoryCache())
+        #expect(await !none.storefrontIsUS())
     }
 }
