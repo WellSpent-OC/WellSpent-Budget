@@ -143,6 +143,13 @@ struct PlanViewTests {
         draw(own, width: 600)
         try own.inspect().find(button: "Change What's Open").tap()
         #expect(acted.last == .changeWhatsOpen)
+        let house = LockedCardView(screen: LockedScreen(.property(open: ["Pool House"]))) { acted.append($0) }
+        draw(house, width: 600)
+        #expect(try house.inspect().find(text: "Your free plan keeps Pool House open.").string()
+                    == "Your free plan keeps Pool House open.")
+        try house.inspect().find(button: "Switch Which Is Open").tap()
+        try house.inspect().find(button: "See Plans").tap()
+        #expect(acted.suffix(2) == [.switchWhichIsOpen, .seePlans])
     }
 
     @Test func thePickSheetListsWhatItCanKeep() async throws {
@@ -163,6 +170,11 @@ struct PlanViewTests {
         }
         #expect(throws: Never.self) { try view.inspect().find(button: "Keep These Open") }
         #expect(throws: Never.self) { try view.inspect().find(button: "Skip") }
+        // Choosing rows, then each way out, runs without a crash.
+        for name in ["Cabin", "Sam", "Maple St"] { try view.inspect().find(button: name).tap() }
+        try view.inspect().find(button: "Keep These Open").tap()
+        try view.inspect().find(button: "Skip").tap()
+        try await Task.sleep(for: .milliseconds(50))
     }
 
     @Test func theAccountSheetCarriesThePlanWhenGivenOne() async throws {
