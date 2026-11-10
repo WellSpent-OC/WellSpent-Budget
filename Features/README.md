@@ -320,6 +320,18 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | None yet |
 
+### [Locks.md](Locks.md)
+
+| ID | Scenario | Platforms | Has a test on |
+| - | - | - | - |
+| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | None yet |
+| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | None yet |
+| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | None yet |
+| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | None yet |
+| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | None yet |
+| LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
+| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | None yet |
+
 ### [Lifecycle.md](Lifecycle.md)
 
 | ID | Scenario | Platforms | Has a test on |
