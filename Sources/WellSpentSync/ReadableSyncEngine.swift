@@ -408,7 +408,7 @@ public actor ReadableSyncEngine {
             // Past the plan: nothing in the push was written. The refused
             // records wait in the queue, set aside for this round, and the
             // rest go again. Each round sets more aside, so this ends.
-            report.planRefusal = refusal
+            report.planRefusal = report.planRefusal ?? refusal
             let refused = Set(refusal.refused)
             guard !refused.isEmpty, refused.isSubset(of: Set(sent.map(\.recordID))) else { throw refusal }
             planHeld.formUnion(refused)
