@@ -96,7 +96,7 @@ struct PlanChoicesView: View {
                 .accessibility(label: "\(row.name) \(row.price)\(row.unit)", selected: row.tier == screen.selected)
                 .buttonStyle(.plain)
             }
-            note(screen.everyFeature)
+            note(screen.paidAdds)
             note(screen.peopleFree)
             // "More than 15 properties? Email us.", with Email us as its link.
             if screen.moreThan15 != nil {
