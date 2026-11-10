@@ -244,3 +244,20 @@ public struct LockedScreen: Equatable, Sendable {
         }
     }
 }
+
+/// What the pick sheet says when the server refuses a pick.
+public enum PickWording {
+    public static let tooSoon = "The open group changed less than 30 days ago, so it stays for now."
+    public static let notYours = "Something here isn't yours to pick any more. Close this and try again."
+    public static let tooMany = "That's more properties than your plan keeps open."
+    public static let unreachable = "We couldn't reach our server, so nothing changed. Try again."
+
+    public static func failure(_ error: any Error) -> String {
+        switch error as? PlanLockError {
+        case .pickTooSoon?: tooSoon
+        case .notYours?: notYours
+        case .tooMany?: tooMany
+        default: unreachable
+        }
+    }
+}
