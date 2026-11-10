@@ -31,26 +31,11 @@ typedef struct {
     // Content Stack
     GtkWidget *content_stack;
     
-    // Budget Detail View
+    // A budget's page (wellspent_gtk_budget_page.c): the pane, the figures
+    // column beside the wheel, and the list inside the entries card.
     GtkWidget *detail_pane;
-    GtkWidget *detail_title;
-    GtkWidget *detail_subtitle;
-    GtkWidget *btn_add_tx;
-    
-    // Money Wheel
-    GtkWidget *wheel_drawing_area;
-    GtkWidget *wheel_mid_key;
-    GtkWidget *wheel_mid_amount;
-    GtkWidget *wheel_mid_of;
-    GtkWidget *wheel_pace_lbl;
-    double wheel_arc;
-    double wheel_tick;
-    int wheel_is_over;
-    
-    // Transactions
-    GtkWidget *tx_scroll;
-    GtkWidget *tx_box;
-    GtkWidget *tx_count_lbl;
+    GtkWidget *page_figures;
+    GtkWidget *page_list;
     
     // Extensions Catalog View
     GtkWidget *catalog_pane;
@@ -64,5 +49,12 @@ void wellspent_gtk_on_btn_clicked(GtkButton *btn, gpointer user_data);
 
 /// What a screen reader and the UI tests call a control.
 void wellspent_gtk_set_accessible_name(GtkWidget *widget, const char *name);
+
+/// A rail button with a drawn icon (wellspent_gtk_rail_icon.c): "budget",
+/// "house", "swords", "extensions", "sync", "syncing" or "account".
+GtkWidget *wellspent_gtk_rail_button(const char *icon);
+void wellspent_gtk_rail_button_set_icon(GtkWidget *button, const char *icon);
+/// The icon a rail button draws now, for the fixtures.
+const char *wellspent_gtk_rail_button_icon(GtkWidget *button);
 
 #endif
