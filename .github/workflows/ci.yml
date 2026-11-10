@@ -350,6 +350,15 @@ jobs:
           swift build --build-tests
           swift test --skip-build --no-parallel --filter PropertiesRegistrationTests
 
+      # The Linux app with Houses' Linux screens linked, as testers get it.
+      - name: Build the Linux app with the package linked
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        env:
+          WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
+        run: |
+          apt-get install -y -q --no-install-recommends libgtk-4-dev libsecret-1-dev pkg-config
+          swift build --package-path Linux
+
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
   # screen through GTK's accessibility tree and act as a person does. Not a
   # required check until its first green run. In two parts at once, as the
