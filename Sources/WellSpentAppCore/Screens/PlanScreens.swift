@@ -67,9 +67,8 @@ public enum PlanWording {
     public static let changeWhatStaysOpen = "Change what stays open"
     public static let freeShort = "1 property, sync on every device, and 1 group shared with 1 person."
     public static let freeForever = "Free forever. No card, no end date."
-    public static let everyFeature = "Every paid plan has every feature: PriceLabs income sync, the lodging tax "
-        + "ledger, Schedule E, the portfolio view, and as many groups and people as you like. Plans differ only "
-        + "in how many properties."
+    public static let paidAdds = "Every paid plan adds more properties, and as many groups and people as you "
+        + "like. Plans differ only in how many properties."
     public static let peopleFree = "The people you invite never pay. They sign in with an email code."
     public static let moreThan15 = "More than 15 properties?"
     public static let emailUs = "Email us"
@@ -295,7 +294,7 @@ public struct PlanChoicesScreen: Equatable, Sendable {
     public let yearlyNote = "2 months free"
     public let rows: [Row]
     public let selected: PaidTier
-    public let everyFeature = PlanWording.everyFeature
+    public let paidAdds = PlanWording.paidAdds
     public let peopleFree = PlanWording.peopleFree
     /// "More than 15 properties? Email us." Nil where Apple's rules don't
     /// allow it: in the app, outside the US.
