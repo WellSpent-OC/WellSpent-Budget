@@ -524,14 +524,16 @@ struct SidebarView: View {
                         Text(section.title.uppercased())
                             .font(.system(size: 9.5, weight: .bold))
                             .foregroundColor(Palette.sidebarHeader)
+                            // The whole name, never wrapped to make room for Locked.
+                            .fixedSize(horizontal: true, vertical: false)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
                             .background(RoundedRectangle(cornerRadius: 4)
                                 .fill(section.isPageOpen ? Palette.railButtonActive : Color.clear))
                         if isLocked(section) {
-                            Text("🔒 \(PlanLocks.mark)")
+                            Text(PlanLocks.mark)
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(Palette.sidebarHeader)
+                                .foregroundColor(Palette.muted)
                         }
                         Spacer()
                     }

@@ -12,11 +12,10 @@ struct LockedCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("🔒").font(.system(size: 17))
-                Text(screen.title)
-                    .font(.system(size: 17, weight: .semibold))
-            }
+            // No lock glyph: a desktop may have no emoji font, and then it
+            // draws as a box. The title says it.
+            Text(screen.title)
+                .font(.system(size: 17, weight: .semibold))
             ForEach(screen.lines, id: \.self) { line in
                 Text(line)
                     .font(.system(size: 13))
