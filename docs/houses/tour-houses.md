@@ -28,7 +28,7 @@ title: "Tour: Houses"
 12. **NOI**: net operating income, what the houses bring in less their operating expenses, before the mortgage.
 13. **Next 30 days**: nights already booked, of the nights there are.
 14. The line about NOI: what NOI means.
-15. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. It's gone from the next update. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
+15. The PriceLabs line: when PriceLabs last brought in bookings. If PriceLabs is paused, **Reconnect** is here. It goes away in the next update. [Side quest: Reconnect PriceLabs](reconnect-pricelabs.md)
 16. A house's row: click it to open the house.
 17. **Needs you**: today's turnovers, tomorrow's check-ins, and empty nights between stays. Until setup is done, **Finish setting up** is here instead. [Side quest: Finish setting up](finish-setting-up.md)
 
@@ -53,7 +53,7 @@ Click a house in the list.
 13. **Coming up**: the next stays.
 14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**.
 15. **Your plan**: click a number to change it. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
-16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**. It's gone from the next update.
+16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**. It goes away in the next update.
 17. **Try**: try an upgrade, and see what it might pay back. [Side quest: Try an improvement](try-an-improvement.md)
 
 ## On an iPhone: a group's page
@@ -102,7 +102,7 @@ Tap a house on its group's page.
 11. **Add**: add a bill with **House** already set to this house. [Side quest: Mark a bill with a house](mark-a-bill-with-a-house.md)
 12. **Booked by month**: what the house booked each month.
 13. **Coming up**: the next stays.
-14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**. **Market** doesn't show on the iPhone. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
+14. **Against your plan**: what's booked and the nightly rate, beside **Your plan**. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
 15. **Add** under **Your plan**: a manager sets the plan. Everyone else sees **Not set**.
 16. **What it costs**: the price of an upgrade you're thinking about. [Side quest: Try an improvement](try-an-improvement.md)
 17. **More a night**: how much more you'd charge a night after it.
