@@ -38,14 +38,29 @@ static gboolean mail_to_us(const char *url) {
     return ours;
 }
 
+/// A host made only of ASCII letters, digits, dots and hyphens, in a raw
+/// authority with no escapes and no backslash. GLib keeps a backslash, %5C,
+/// %2F or %23 inside the host, but a browser reads them as the host's end, so
+/// "https://evil.com\.wellspent.space/" would open evil.com.
+static gboolean plain_host(const char *url, const char *host) {
+    for (const char *c = host; *c; c++) {
+        if (!g_ascii_isalnum(*c) && *c != '.' && *c != '-') return FALSE;
+    }
+    const char *authority = strstr(url, "://");
+    if (!authority) return FALSE;
+    authority += 3;
+    size_t length = strcspn(authority, "/?#");
+    return !memchr(authority, '%', length) && !memchr(authority, '\\', length);
+}
+
 int wellspent_link_is_ours(const char *url) {
     if (!url) return 0;
     if (mail_to_us(url)) return 1;
     GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
     if (!uri) return 0;
     const char *host = g_uri_get_host(uri);
-    gboolean ours = g_strcmp0(g_uri_get_scheme(uri), "https") == 0 && host && !g_uri_get_userinfo(uri) &&
-        g_uri_get_port(uri) == -1 &&
+    gboolean ours = g_strcmp0(g_uri_get_scheme(uri), "https") == 0 && host && plain_host(url, host) &&
+        !g_uri_get_userinfo(uri) && g_uri_get_port(uri) == -1 &&
         (g_ascii_strcasecmp(host, "wellspent.space") == 0 || ends_with(host, ".wellspent.space"));
     g_uri_unref(uri);
     return ours ? 1 : 0;

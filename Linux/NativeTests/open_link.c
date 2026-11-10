@@ -19,6 +19,11 @@ int main(void) {
     expect(!wellspent_link_is_ours("https://evilwellspent.space/"), "a host that only ends the same is refused");
     expect(!wellspent_link_is_ours("https://user:secret@wellspent.space/"), "a user name is refused");
     expect(!wellspent_link_is_ours("https://wellspent.space:8443/"), "a port is refused");
+    // A browser reads a backslash as a slash, so these open evil.com.
+    expect(!wellspent_link_is_ours("https://evil.com\\.wellspent.space/"), "a backslash in the host is refused");
+    expect(!wellspent_link_is_ours("https://evil.com%5C.wellspent.space/"), "an escaped backslash is refused");
+    expect(!wellspent_link_is_ours("https://evil.com%2F.wellspent.space/"), "an escaped slash is refused");
+    expect(!wellspent_link_is_ours("https://evil.com%23.wellspent.space/"), "an escaped # is refused");
     expect(!wellspent_link_is_ours("file:///etc/passwd"), "a file is refused");
     expect(!wellspent_link_is_ours("javascript:alert(1)"), "script is refused");
     expect(!wellspent_link_is_ours(""), "nothing is refused");
