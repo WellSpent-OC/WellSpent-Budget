@@ -11,6 +11,11 @@
 # OUT            where the result goes (default Linux/dist)
 # SWIFT_SCRATCH_PATH optional external SwiftPM cache for a read-only checkout
 # SWIFT_BUILD_JOBS   optional compiler job limit
+# WELLSPENT_PROPERTIES_PATH  a checkout of the private Properties extension, so
+#                Houses draws its real screens. A live build needs it, because
+#                one without it quietly ships the Houses placeholder. A public
+#                live build without the extension says so with
+#                WELLSPENT_PROPERTIES_PATH=none.
 #
 # Staging is the default because a test build mistaken for live could reach real
 # budgets, and the reverse cannot. The same rule as the Mac's make-app.sh.
@@ -45,6 +50,20 @@ case "$WELLSPENT_ENV" in
         ;;
 esac
 
+PROPERTIES="${WELLSPENT_PROPERTIES_PATH:-}"
+if [ "$PROPERTIES" = none ]; then
+    PROPERTIES=""
+elif [ -n "$PROPERTIES" ] && [ ! -f "$PROPERTIES/Package.swift" ]; then
+    echo "WELLSPENT_PROPERTIES_PATH is not a Properties checkout: $PROPERTIES" >&2
+    exit 1
+elif [ -z "$PROPERTIES" ] && [ "$WELLSPENT_ENV" = live ]; then
+    echo "A live build needs WELLSPENT_PROPERTIES_PATH, or WELLSPENT_PROPERTIES_PATH=none to leave Houses out" >&2
+    exit 1
+fi
+# Linux/Package.swift reads the path from the environment.
+WELLSPENT_PROPERTIES_PATH="$PROPERTIES"
+export WELLSPENT_PROPERTIES_PATH
+
 set -- --package-path Linux -c release --static-swift-stdlib
 if [ -n "${SWIFT_SCRATCH_PATH:-}" ]; then set -- "$@" --scratch-path "$SWIFT_SCRATCH_PATH"; fi
 if [ -n "${SWIFT_BUILD_JOBS:-}" ]; then set -- "$@" -j "$SWIFT_BUILD_JOBS"; fi
@@ -66,4 +85,5 @@ sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" -e "s/@S
 chmod +x "$DEST/install.sh" "$DEST/$SLUG"
 
 tar -C "$OUT" -czf "$OUT/$SLUG.tar.gz" "$SLUG"
-echo "Built $NAME: $DEST and $OUT/$SLUG.tar.gz"
+if [ -n "$PROPERTIES" ]; then HOUSES="Houses linked from $PROPERTIES"; else HOUSES="Houses is the placeholder"; fi
+echo "Built $NAME: $DEST and $OUT/$SLUG.tar.gz. $HOUSES."
