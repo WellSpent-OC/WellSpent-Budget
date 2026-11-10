@@ -12,6 +12,8 @@ struct PlanSection: View {
     let openNames: [String]
     /// "Change what stays open", once a paid plan has ended.
     var onChangeWhatStaysOpen: () -> Void = {}
+    /// False in build A: no Restore Purchases until the App Store sells plans.
+    var buyingIsOpen = PlanBuying.isOpen()
 
     @State private var choosing = false
     @State private var restored: RestoreResultScreen?
@@ -24,18 +26,20 @@ struct PlanSection: View {
                 Text(PlanWording.yourPlan)
                     .font(.system(size: 13, weight: .semibold))
                 PlanCardView(card: card, act: act, changeWhatStaysOpen: onChangeWhatStaysOpen)
-                HStack {
-                    Button(PlanWording.restore) { restore() }
-                        .linkButtonStyle()
-                        .accessibilityIdentifier(AccessibilityID.planRestore)
-                        .disabled(plans.status == .working)
-                    Spacer()
-                    Text(PlanWording.restoreHint)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.muted)
+                if buyingIsOpen {
+                    HStack {
+                        Button(PlanWording.restore) { restore() }
+                            .linkButtonStyle()
+                            .accessibilityIdentifier(AccessibilityID.planRestore)
+                            .disabled(plans.status == .working)
+                        Spacer()
+                        Text(PlanWording.restoreHint)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Palette.muted)
+                    }
                 }
             }
-            .sheet(isPresented: $choosing) { ChoosePlanSheet(plans: plans) }
+            .sheet(isPresented: $choosing) { ChoosePlanSheet(plans: plans, buyingIsOpen: buyingIsOpen) }
             .sheet(item: $restored) { result in RestoreResultSheet(result: result) }
         }
     }
@@ -112,6 +116,7 @@ struct PlanCardView: View {
 /// Choose a plan: monthly or yearly, the three sizes, and Apple's fine print.
 struct ChoosePlanSheet: View {
     let plans: PurchaseCoordinator
+    var buyingIsOpen = PlanBuying.isOpen()
     /// Run once a purchase is through, before the sheet closes: taking over
     /// a locked group, when the sheet was opened for one.
     var afterBuying: (() async -> Void)? = nil
@@ -126,7 +131,7 @@ struct ChoosePlanSheet: View {
 
     private var screen: PlanChoicesScreen {
         PlanChoicesScreen(answer: plans.answer, platform: .appleStore, period: period, selected: selected,
-                          prices: prices, storefrontIsUS: storefrontIsUS)
+                          prices: prices, storefrontIsUS: storefrontIsUS, buyingIsOpen: buyingIsOpen)
     }
 
     var body: some View {
@@ -188,6 +193,7 @@ struct ChoosePlanSheet: View {
                 Button(screen.buy) { buy(screen.product(period)) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
+                    .disabled(!screen.canBuy)
                     .accessibilityIdentifier(AccessibilityID.planBuy)
             }
             .disabled(plans.status == .working)

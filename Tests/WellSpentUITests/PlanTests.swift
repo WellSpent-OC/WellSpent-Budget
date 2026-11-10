@@ -11,6 +11,8 @@ import WellSpentAppCore
 final class PlanTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
     nonisolated(unsafe) private static var planFile: URL?
+    /// PlanBuying.variable, which this bundle doesn't link.
+    private static let buyingVariable = "WELLSPENT_PLAN_BUYING"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -25,9 +27,10 @@ final class PlanTests: XCTestCase {
         super.tearDown()
     }
 
-    /// Signed in on the free plan, the account sheet closed.
+    /// Signed in on the free plan, the account sheet closed. Buying is open
+    /// (`PlanBuying.variable`) unless a test asks for build A's closed store.
     @MainActor
-    private func signedIn() throws -> TestApp {
+    private func signedIn(buyingIsOpen: Bool = true) throws -> TestApp {
         let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
         Self.dataRootPath = run.dataRoot.path
@@ -35,6 +38,7 @@ final class PlanTests: XCTestCase {
         Self.planFile = file
         try Self.write(Self.answer(), to: file)
         run.app.launchEnvironment[Workspace.pinnedPlanVariable] = file.path
+        if buyingIsOpen { run.app.launchEnvironment[Self.buyingVariable] = "open" }
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         return run
@@ -138,6 +142,27 @@ final class PlanTests: XCTestCase {
         }
         XCTAssertTrue(run.visibleTexts().contains { $0.contains("2 months free") }, "Yearly doesn't say 2 months free")
 
+        run.click(AccessibilityID.planNotNow)
+        XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
+    }
+
+    // Scenario PLAN-17
+    /// Build A: the plans show, and nothing can be bought or restored.
+    @MainActor
+    func testComingSoonBeforeTheStoreSellsPlans() throws {
+        let run = try signedIn(buyingIsOpen: false)
+        openAccount(run)
+        XCTAssertFalse(run.element(AccessibilityID.planRestore).exists, "Restore Purchases under the card")
+        run.click(AccessibilityID.planCardAction)
+        XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
+        for price in ["$19", "$49", "$99"] {
+            XCTAssertTrue(run.visibleTexts().contains(price), "no \(price). On screen: \(run.visibleTexts())")
+        }
+        let buy = run.element(AccessibilityID.planBuy)
+        XCTAssertTrue(buy.exists, "no button in Subscribe's place")
+        XCTAssertEqual(buy.label, "Coming soon")
+        XCTAssertFalse(buy.isEnabled, "Coming soon can be pressed")
+        XCTAssertFalse(run.element(AccessibilityID.planRestore).exists, "Restore Purchases in Choose a plan")
         run.click(AccessibilityID.planNotNow)
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
     }

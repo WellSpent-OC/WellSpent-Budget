@@ -319,6 +319,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac |
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | None yet |
+| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac |
 
 ### [Locks.md](Locks.md)
 
