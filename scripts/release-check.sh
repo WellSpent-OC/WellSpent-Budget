@@ -10,7 +10,7 @@
 # For both apps it checks the version and build number, the bundle ID, that the
 # build is live, that its code holds Apple's encryption only (crypto-check.sh)
 # and its export answer says so, that no test build launch variable is in it
-# (WELLSPENT_PRICELABS), its one invite link type, and that the provisioning
+# (WELLSPENT_PRICELABS, WELLSPENT_PLAN_BUYING), its one invite link type, and that the provisioning
 # profile fits the app (profile-fit.sh).
 # For the Mac app: every icon size, the signature, and the sandbox. For the iPhone app, told apart by its Info.plist sitting at the
 # top of the app: iPhone only, the oldest iOS, the icon, the privacy file, a
@@ -56,7 +56,7 @@ expect WellSpentEnvironment live
 # Test builds' launch variables are compiled out of a release, so nobody can
 # turn on test behaviour by launching the app with one. Their names in the app
 # mean a debug build, or a check left outside its #if DEBUG.
-for variable in WELLSPENT_PRICELABS; do
+for variable in WELLSPENT_PRICELABS WELLSPENT_PLAN_BUYING; do
     ! grep -r -a -q "$variable" "$app" || problem "the app reads $variable, a test build's launch variable"
 done
 # The export answer: no encryption that export rules do not exempt. Without it,
