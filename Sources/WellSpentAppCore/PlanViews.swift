@@ -112,6 +112,9 @@ struct PlanCardView: View {
 /// Choose a plan: monthly or yearly, the three sizes, and Apple's fine print.
 struct ChoosePlanSheet: View {
     let plans: PurchaseCoordinator
+    /// Run once a purchase is through, before the sheet closes: taking over
+    /// a locked group, when the sheet was opened for one.
+    var afterBuying: (() async -> Void)? = nil
 
     @State private var period: BillingPeriod = .monthly
     @State private var selected: PaidTier?
@@ -211,7 +214,10 @@ struct ChoosePlanSheet: View {
         Task {
             await plans.buy(product)
             // Bought and accepted by the server: the card shows the new plan.
-            if plans.status == .idle, plans.answer?.state != .free { dismiss() }
+            if plans.status == .idle, plans.answer?.state != .free {
+                await afterBuying?()
+                dismiss()
+            }
         }
     }
 

@@ -46,6 +46,10 @@ struct RootView: View {
     @State private var showingFileImporter = false
     @State private var showingAccount = false
     @State private var editor: EditorSheet?
+    #if os(macOS)
+    @State private var picking: PickRequest?
+    @State private var choosingPlan: ChoosePlanRequest?
+    #endif
     @State private var activeExtension: ActiveExtension = .budgets
     @State private var isWarTableInstalled = false
     @State private var isPropertiesInstalled = false
@@ -150,8 +154,34 @@ struct RootView: View {
             EntrySheet(model: model, request: request)
         }
         .sheet(isPresented: $showingAccount) {
-            AccountSheet(sync: sync, plans: workspace.plans, openNames: workspace.planOpenNames)
+            AccountSheet(sync: sync, plans: workspace.plans, openNames: workspace.planOpenNames,
+                         onChangeWhatStaysOpen: {
+                             showingAccount = false
+                             openPick()
+                         })
         }
+        #if os(macOS)
+        .sheet(item: $picking) { request in PickOpenSheet(screen: request.screen, plans: workspace.plans) }
+        .sheet(item: $choosingPlan) { request in
+            ChoosePlanSheet(plans: workspace.plans, afterBuying: request.payFor.map { group in
+                { [plans = workspace.plans] in try? await plans.payFor(group: group.uuid) }
+            })
+        }
+        // A change refused past the plan asks once for the sheet it names.
+        .onChange(of: sync.planSheet) { _, refusal in
+            guard refusal != nil else { return }
+            sync.planSheetShown()
+            choosingPlan = ChoosePlanRequest(payFor: nil)
+        }
+        // When a paid plan ends, the pick shows once, on its own.
+        .onChange(of: workspace.plans.answer?.lastPlan) { _, last in
+            guard let last, workspace.plans.answer?.locked != nil else { return }
+            let key = "plan.pickShown.\(last.endedOn.timeIntervalSince1970)"
+            guard !sync.defaults.bool(forKey: key) else { return }
+            sync.defaults.set(true, forKey: key)
+            openPick()
+        }
+        #endif
         // Signed out without asking, by the server or by the update to
         // readable sync: the sign-in opens with the reason.
         .onAppear { if sync.signInPrompt != nil { showingAccount = true } }
@@ -197,6 +227,8 @@ struct RootView: View {
                 InvitationPage(sync: sync, screen: invitation, main: screen, showingAccount: $showingAccount)
                     // A page of its own for each link opened.
                     .id(ObjectIdentifier(invitation))
+            } else if let group = screen.openGroup, let locked = workspace.lockedScreen(group: group.id) {
+                lockedCard(locked, group: group.id)
             } else if let group = screen.openGroup {
                 GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
                           invite: { editor = .share(group) },
@@ -206,6 +238,8 @@ struct RootView: View {
                     .id([group.id.uuid.uuidString, group.name])
             } else {
                 switch screen.detail {
+                case .budget(let summary) where workspace.lockedScreen(group: summary.budget.groupID) != nil:
+                    lockedCard(workspace.lockedScreen(group: summary.budget.groupID)!, group: summary.budget.groupID)
                 case .budget(let summary):
                     BudgetDetailView(model: model, sync: sync, summary: summary,
                                      showingAddTransaction: $showingAddTransaction,
@@ -226,6 +260,26 @@ struct RootView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func lockedCard(_ locked: LockedScreen, group: GroupID) -> some View {
+        #if os(macOS)
+        LockedCardView(screen: locked) { action in
+            switch action {
+            case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+            case .seePlans: choosingPlan = ChoosePlanRequest(payFor: nil)
+            case .payForThisGroup: choosingPlan = ChoosePlanRequest(payFor: group)
+            }
+        }
+        .toolbar { accountButtons }
+        #endif
+    }
+
+    private func openPick() {
+        #if os(macOS)
+        if let screen = workspace.pickScreen() { picking = PickRequest(screen: screen) }
+        #endif
     }
 
     /// Every page has these, so someone with no budgets can still reach their
@@ -427,6 +481,14 @@ struct SidebarView: View {
     /// element for VoiceOver and the UI tests whatever is inside it, and it would
     /// read as the arrow. So the line says the group's name itself, opens the
     /// page when used, and offers the arrow's Hide or Show budgets as an action.
+    /// A group the plan locks says so beside its name.
+    private func isLocked(_ section: MainScreen.Section) -> Bool {
+        guard let me = screen.workspace.sync.userID else { return false }
+        let locks = screen.workspace.planLocks
+        return locks.isLocked(group: section.group.id.uuid)
+            || locks.isLocked(person: me.uuid, in: section.group.id.uuid)
+    }
+
     private func header(_ section: MainScreen.Section) -> some View {
         HStack(spacing: 2) {
             Button {
@@ -453,6 +515,11 @@ struct SidebarView: View {
                         .padding(.vertical, 2)
                         .background(section.isPageOpen ? Palette.accent.opacity(0.15) : .clear,
                                     in: RoundedRectangle(cornerRadius: 4))
+                    if isLocked(section) {
+                        Label(PlanLocks.mark, systemImage: "lock.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Palette.muted)
+                    }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
@@ -461,6 +528,7 @@ struct SidebarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(section.title.uppercased())
+        .accessibilityValue(isLocked(section) ? PlanLocks.mark : "")
         .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
         .accessibilityAddTraits(section.isPageOpen ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction { screen.openPage(of: section.group.id) }

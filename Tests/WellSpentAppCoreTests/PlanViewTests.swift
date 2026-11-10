@@ -130,6 +130,41 @@ struct PlanViewTests {
         #expect(RestoreResultScreen(answer: nil, device: "Mac").id != RestoreResultScreen(answer: answer(.growth, state: .active), device: "Mac").id)
     }
 
+    @Test func aLockCardSaysWhyAndActs() throws {
+        var acted: [LockedScreen.Action] = []
+        let view = LockedCardView(screen: LockedScreen(.memberGroup(payer: "Robin"))) { acted.append($0) }
+        draw(view, width: 600)
+        let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(texts.contains("This group needs a paid plan"))
+        #expect(texts.contains("Robin's plan doesn't cover it right now."))
+        try view.inspect().find(button: "Pay for This Group").tap()
+        #expect(acted == [.payForThisGroup])
+        let own = LockedCardView(screen: LockedScreen(.ownGroup(open: "Home"))) { acted.append($0) }
+        draw(own, width: 600)
+        try own.inspect().find(button: "Change What's Open").tap()
+        #expect(acted.last == .changeWhatsOpen)
+    }
+
+    @Test func thePickSheetListsWhatItCanKeep() async throws {
+        let home = PlanItem(id: UUID(), name: "Home"), cabin = PlanItem(id: UUID(), name: "Cabin")
+        let sam = PlanItem(id: UUID(), name: "Sam"), maple = PlanItem(id: UUID(), name: "Maple St")
+        let ended = PlanAnswer(tier: .free, period: .none, state: .free, source: .none, paidUntil: nil, renews: false,
+                               nextTier: nil, limits: .init(properties: 1, groups: 1, invitedPerGroup: 1),
+                               used: .init(properties: 1, groups: 2, invitedPerGroup: 1), extensionsOpen: [],
+                               canSyncPriceLabs: false, refreshMinutes: 60, appleAccountToken: nil)
+        let screen = PickOpenScreen(answer: ended, groups: [home, cabin], people: [home.id: [sam]],
+                                    properties: [maple])
+        let view = PickOpenSheet(screen: screen, plans: await plans(ended))
+        draw(view, width: 460)
+        let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        for wanted in ["Pick what stays open", "Home", "Cabin", "Sam", "Maple St",
+                       "Skip keeps Home, Sam and Maple St open."] {
+            #expect(texts.contains(wanted), "\(wanted) is missing: \(texts)")
+        }
+        #expect(throws: Never.self) { try view.inspect().find(button: "Keep These Open") }
+        #expect(throws: Never.self) { try view.inspect().find(button: "Skip") }
+    }
+
     @Test func theAccountSheetCarriesThePlanWhenGivenOne() async throws {
         let sync = SyncCoordinator(store: Store(database: try WellSpentDatabase.inMemory()),
                                    keyStore: InMemoryKeyStore(), defaults: isolatedDefaults())
