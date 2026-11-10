@@ -123,7 +123,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     func freeLimitsRefuseWithTheirSheet() async throws {
         try await withV2App { app, _ in
             app.plansEnabled = true
-            let host = try await v2SignUpConfirmed("free@example.com", on: app)
+            let host = try await v2SignUpConfirmed("locks-free@example.com", on: app)
             let (made, group) = try await newGroup(as: host, on: app)
             #expect(made == .created)
 
@@ -155,7 +155,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     func aRefusedPushWritesNothing() async throws {
         try await withV2App { app, _ in
             app.plansEnabled = true
-            let host = try await v2SignUp("whole@example.com", on: app)
+            let host = try await v2SignUp("locks-whole@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
             let one = house("a", in: group), two = house("b", in: group)
             let reply = try await push([try rec(one), try rec(two)], to: group, as: host, on: app)
@@ -168,7 +168,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     func aRemovedHouseFreesItsPlace() async throws {
         try await withV2App { app, _ in
             app.plansEnabled = true
-            let host = try await v2SignUp("swap@example.com", on: app)
+            let host = try await v2SignUp("locks-swap@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
             var old = house("old", in: group)
             #expect(try await push([try rec(old)], to: group, as: host, on: app).status == .ok)
@@ -182,7 +182,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("Past free's one group, the oldest stays open and the rest are locked, until the payer picks")
     func lockedGroupsAndThePick() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUp("two@example.com", on: app)
+            let host = try await v2SignUp("locks-two@example.com", on: app)
             let (_, home) = try await newGroup(as: host, on: app)
             let (_, rentals) = try await newGroup(as: host, on: app)
             let (_, beach) = try await newGroup(as: host, on: app)
@@ -208,7 +208,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
             // Picking the group already open changes nothing, so it isn't refused.
             #expect(try await call(.POST, "plan/pick", as: host, body: Pick(groupID: rentals), on: app).status == .ok)
 
-            let stranger = try await v2SignUp("stranger@example.com", on: app)
+            let stranger = try await v2SignUp("locks-stranger@example.com", on: app)
             let (_, theirs) = try await newGroup(as: stranger, on: app)
             let notYours = try await call(.POST, "plan/pick", as: host, body: Pick(groupID: theirs), on: app)
             #expect(notYours.status == .unprocessableEntity && notYours.refusal?.reason == "notYours")
@@ -218,10 +218,10 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("Past free's one invited person, the first to join stays open and the others are locked out")
     func lockedPeople() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUpConfirmed("payer@example.com", on: app)
+            let host = try await v2SignUpConfirmed("locks-payer@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
-            let first = try await join("first@example.com", group, invitedBy: host, on: app)
-            let second = try await join("second@example.com", group, invitedBy: host, on: app)
+            let first = try await join("locks-first@example.com", group, invitedBy: host, on: app)
+            let second = try await join("locks-second@example.com", group, invitedBy: host, on: app)
             app.plansEnabled = true
 
             #expect(try await call(.GET, "groups/\(group)/pull?since=0", as: first, on: app).status == .ok)
@@ -242,7 +242,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("A locked house and its stays are left out of pulls, refused on push, and open once picked")
     func lockedHouses() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUp("houses@example.com", on: app)
+            let host = try await v2SignUp("locks-houses@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
             let kept = house("kept", in: group), held = house("held", in: group)
             let heldStay = stay("s1", at: held, in: group), keptStay = stay("s2", at: kept, in: group)
@@ -277,7 +277,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("Paying opens everything up to the new limits")
     func payingOpensEverything() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUp("pays@example.com", on: app)
+            let host = try await v2SignUp("locks-pays@example.com", on: app)
             let (_, home) = try await newGroup(as: host, on: app)
             let (_, rentals) = try await newGroup(as: host, on: app)
             app.plansEnabled = true
@@ -294,10 +294,10 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("Anyone in a locked group can pay to open it, and the group's payer becomes them")
     func aMemberTakesOverPaying() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUpConfirmed("founder@example.com", on: app)
+            let host = try await v2SignUpConfirmed("locks-founder@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
-            _ = try await join("one@example.com", group, invitedBy: host, on: app)
-            let locked = try await join("two@example.com", group, invitedBy: host, on: app)
+            _ = try await join("locks-stayer@example.com", group, invitedBy: host, on: app)
+            let locked = try await join("locks-taker@example.com", group, invitedBy: host, on: app)
             app.plansEnabled = true
             #expect(try await call(.GET, "groups/\(group)/pull?since=0", as: locked, on: app).status == .paymentRequired)
 
@@ -319,7 +319,7 @@ private func setTier(_ tier: Tier, for user: UUID, on db: any Database) async th
     @Test("While plans are off, nothing is limited or locked")
     func offLimitsNothing() async throws {
         try await withV2App { app, _ in
-            let host = try await v2SignUp("off-limits@example.com", on: app)
+            let host = try await v2SignUp("locks-off-limits@example.com", on: app)
             let (_, group) = try await newGroup(as: host, on: app)
             #expect(try await newGroup(as: host, on: app).0 == .created)
             #expect(try await push([try rec(house("a", in: group)), try rec(house("b", in: group))],
