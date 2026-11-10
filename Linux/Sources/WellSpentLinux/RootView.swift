@@ -4,6 +4,10 @@ import SwiftCrossUI
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentExtensionKitLinux
+#if canImport(WellSpentPropertiesLinux)
+import WellSpentPropertiesLinux
+#endif
 
 /// The window, drawn from MainScreen: groups and budgets on the left, the
 /// chosen budget, a group's page or an invite link's page on the right, and
@@ -97,6 +101,9 @@ struct RootView: View {
                         budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                     case .properties:
                         if isPropertiesActive {
+                            #if canImport(WellSpentPropertiesLinux)
+                            HousesTab(host: AppExtensionHost(model: workspace.model))
+                            #else
                             HousesView(
                                 openCatalog: { activeExtension = .catalog },
                                 turnOff: {
@@ -105,6 +112,7 @@ struct RootView: View {
                                     activeExtension = .budgets
                                 }
                             )
+                            #endif
                         } else {
                             budgetSplitView(invitation: invitation, openGroup: openGroup, people: people)
                         }
