@@ -45,6 +45,11 @@ enum Plans {
     static let taxExtension = "wellspent.tax"
     /// A house is a Properties record of this kind (`HouseRecordKind.house`).
     static let houseKind = "house"
+    /// A stay at a house (`HouseRecordKind.stay`). Its body names the house.
+    static let stayKind = "stay"
+    /// Extensions only a paid plan opens. Properties isn't one: free has one
+    /// house.
+    static let paidExtensions: Set<String> = [taxExtension]
     /// How often an app reads PriceLabs, the same on every plan this release.
     static let refreshMinutes = 60
 
@@ -186,10 +191,15 @@ struct PlanAnswer: Content, Equatable {
     let canSyncPriceLabs: Bool
     let refreshMinutes: Int
     let appleAccountToken: UUID
+    /// What's past a limit, and what the payer kept open. Both nil when
+    /// nothing is locked. IDs only: the app names them from its own data.
+    var locked: PlanLockedAnswer? = nil
+    var open: PlanOpenAnswer? = nil
 }
 
 /// How much of each limit an account uses, counting only the groups it pays
-/// for. Until the limits change adds who pays, that's the groups it made.
+/// for: the ones it made, unless someone took one over, and the ones it took
+/// over.
 struct PlanUsage: Equatable {
     var properties = 0
     var groups = 0
@@ -197,10 +207,7 @@ struct PlanUsage: Equatable {
     var invitedPerGroup = 0
 
     static func of(_ userID: UUID, on db: any Database) async throws -> PlanUsage {
-        let groups = try await GroupRow.query(on: db)
-            .filter(\.$founderID == userID)
-            .filter(\.$deletedAt == nil)
-            .all()
+        let groups = try await PlanLocks.groupsPaid(by: userID, on: db)
         let groupIDs = groups.compactMap(\.id)
         var usage = PlanUsage(groups: groupIDs.count)
         guard !groupIDs.isEmpty else { return usage }
@@ -241,6 +248,15 @@ extension PlanAnswer {
                   extensionsOpen: tier.extensionsOpen, canSyncPriceLabs: tier.canSyncPriceLabs,
                   refreshMinutes: Plans.refreshMinutes, appleAccountToken: plan.appleAccountToken)
     }
+
+    /// The whole answer for an account, with what its plan locks.
+    static func of(_ userID: UUID, on db: any Database) async throws -> PlanAnswer {
+        let locks = try await PayerLocks.of(userID, on: db)
+        var answer = PlanAnswer(locks.plan, usage: try await PlanUsage.of(userID, on: db))
+        answer.locked = locks.lockedAnswer
+        answer.open = locks.openAnswer
+        return answer
+    }
 }
 
 // MARK: - Routes
@@ -251,7 +267,6 @@ func registerPlanRoutes(_ routes: any RoutesBuilder) {
     authed.get("plan") { request async throws -> PlanAnswer in
         guard request.application.plansEnabled else { throw Abort(.notFound) }
         let user = try request.auth.require(AuthenticatedUser.self)
-        let plan = try await PlanRow.forUser(user.id, on: request.db)
-        return PlanAnswer(plan, usage: try await PlanUsage.of(user.id, on: request.db))
+        return try await PlanAnswer.of(user.id, on: request.db)
     }
 }
