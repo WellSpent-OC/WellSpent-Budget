@@ -1,4 +1,5 @@
 import Foundation
+import WellSpentPlans
 import Observation
 import WellSpentCrypto
 import WellSpentKeyStore
@@ -1248,3 +1249,43 @@ extension SyncReport {
         serverSeq = max(serverSeq, other.serverSeq)
     }
 }
+
+// MARK: - Plans
+
+/// The plan calls go to the signed-in account's server, as extension calls
+/// do. Signed out, there is no plan to ask about.
+extension SyncCoordinator: PlanService, PlanLockService {
+    public func plan() async throws -> PlanAnswer {
+        try await planCall { try await $0.plan() }
+    }
+
+    public func submitApple(signedTransaction: String) async throws -> PlanAnswer {
+        try await planCall { try await $0.submitApple(signedTransaction: signedTransaction) }
+    }
+
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer {
+        try await planCall { client in
+            guard let locks = client as? any PlanLockService else { throw PlanLockError.unreachable }
+            return try await locks.savePick(pick)
+        }
+    }
+
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        try await planCall { client in
+            guard let locks = client as? any PlanLockService else { throw PlanLockError.unreachable }
+            return try await locks.payForGroup(groupID)
+        }
+    }
+
+    private func planCall(_ call: (any PlanService) async throws -> PlanAnswer) async throws -> PlanAnswer {
+        guard account != nil, let client = transport as? any PlanService else {
+            throw ReadableTransportError.sessionEnded("Sign in to see your plan.")
+        }
+        let generation = sessionGeneration
+        let answer = try await call(client)
+        // An answer for an account signed out of meanwhile is not this one's.
+        guard generation == sessionGeneration else { throw CancellationError() }
+        return answer
+    }
+}
+

@@ -3,6 +3,7 @@ import Observation
 import WellSpentCrypto
 import WellSpentStore
 import WellSpentSync
+import WellSpentPlans
 #if canImport(WellSpentPropertiesViews)
 import WellSpentPropertiesViews
 #endif
@@ -42,16 +43,23 @@ public final class Workspace {
     public let features: FeatureFlags
     /// Which extensions this person turned on, on this device, per account.
     public let extensionSwitches: ExtensionSwitches
+    /// Buying, restoring and showing a plan. The Mac and iPhone hand in Apple's
+    /// store; Linux has none and pays on the website.
+    public let plans: PurchaseCoordinator
     @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
         [.era, .year, .month, .day], from: Date())
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
-                features: FeatureFlags? = nil,
+                features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
+                pinnedPlan: PinnedPlanService? = nil,
                 notifications: NotificationCenter = .default) {
         self.model = model
         self.sync = sync
+        self.plans = PurchaseCoordinator(store: planStore,
+                                         service: pinnedPlan ?? sync,
+                                         cache: DefaultsPlanCache(defaults: sync.defaults))
         self.autoSync = autoSync ?? AutoSync(sync: sync)
         self.pinnedDay = pinnedDay
         self.features = features ?? FeatureFlags.resolve(for: sync.environment, defaults: sync.defaults)
@@ -71,8 +79,19 @@ public final class Workspace {
             self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
                                   opensFirstBudget: self.model.opensFirstBudget)
             self.afterReload.forEach { $0() }
+            // Signing in asks for the new account's plan; signing out forgets the old one's.
+            if self.sync.account == nil {
+                self.plans.forget()
+            } else {
+                Task { await self.plans.refresh() }
+            }
         }
         watchForEdits()
+        // Purchases Apple reports while the app runs, including one made
+        // before the server could be reached, go to the server here.
+        if plans.canBuyInApp {
+            Task { [plans] in await plans.listen() }
+        }
         // A new day moves every wheel's day and tick, and on the 1st starts a
         // new period. A sync reads the budgets again, but signed out nothing
         // syncs, so a window left open overnight would show the new day over
@@ -152,6 +171,26 @@ public final class Workspace {
         return calendar.date(from: parts) ?? now
     }
 
+    // MARK: - The plan a UI test shows
+
+    /// The environment variable a UI test sets to a JSON file holding a plan
+    /// answer, in the server's shape. A staging build then shows that answer
+    /// in place of the server's, so a test can put the app in any plan state:
+    /// grace, billing problem, canceled, ended, refunded, or bought on the
+    /// website. A live build never reads it.
+    nonisolated public static let pinnedPlanVariable = "WELLSPENT_PLAN_ANSWER_FILE"
+
+    /// A service reading the file the variable names, for a staging build.
+    /// Nil for a live build and when it's unset. It reads the file on every
+    /// call, so a test can change the state without a relaunch.
+    nonisolated public static func pinnedPlan(for environment: AppEnvironment,
+                                              in processEnvironment: [String: String]) -> PinnedPlanService? {
+        guard environment == .staging, let path = processEnvironment[pinnedPlanVariable], !path.isEmpty else {
+            return nil
+        }
+        return PinnedPlanService(file: path)
+    }
+
     // MARK: - Coming to the front
 
     /// A desktop without calendar-day notifications checks periodically and
@@ -180,6 +219,9 @@ public final class Workspace {
     public func cameToFront() async {
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
+        // The plan may have changed elsewhere: bought on the website, renewed,
+        // or ended. Every platform asks here, so none drifts.
+        if sync.account != nil { await plans.refresh() }
     }
 
     // MARK: - Opened links
@@ -256,6 +298,8 @@ public final class Workspace {
                           undoWindow: undoWindow(for: environment, in: processEnvironment),
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
+                          pinnedPlan: pinnedPlan(for: environment, in: processEnvironment),
+                          planStore: appStore(),
                           features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
                                                          processEnvironment: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
@@ -302,6 +346,8 @@ public final class Workspace {
                        undoWindow: Duration = AppModel.defaultUndoWindow,
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
+                       pinnedPlan: PinnedPlanService? = nil,
+                       planStore: (any PlanStore)? = nil,
                        features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
@@ -321,6 +367,17 @@ public final class Workspace {
         accounts.samplesSeeded = true
         let resolvedFeatures = features ?? FeatureFlags.resolve(for: environment, defaults: defaults)
         return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
-                         pinnedDay: pinnedDay, features: resolvedFeatures)
+                         pinnedDay: pinnedDay, features: resolvedFeatures, planStore: planStore,
+                         pinnedPlan: pinnedPlan)
+    }
+
+    /// Apple's App Store on the Mac and iPhone. Linux has none: it pays on
+    /// the website.
+    nonisolated static func appStore() -> (any PlanStore)? {
+        #if canImport(StoreKit)
+        return AppleStore()
+        #else
+        return nil
+        #endif
     }
 }

@@ -8,11 +8,6 @@ enum WarTableBrowser {
 }
 
 extension View {
-    func warTableControlLabel(_ label: String) -> some View {
-        inspect([.onCreate, .afterUpdate]) { (widget: Gtk.Widget) in
-            wellspent_wartable_control_label(widget.widgetPointer, label)
-        }
-    }
     /// Apply directly to TextEditor, before wrappers. Return remains a newline.
     func warTableComposer() -> some View {
         inspect([.onCreate, .afterUpdate]) { (widget: Gtk.Widget) in

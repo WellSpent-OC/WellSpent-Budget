@@ -80,11 +80,34 @@ private final class FakeService: PlanService, @unchecked Sendable {
     }
 }
 
+private final class FakeLockService: PlanService, PlanLockService, @unchecked Sendable {
+    var answer: PlanAnswer
+    var refusal: PlanLockError?
+    var picks: [PlanPick] = []
+    var paid: [UUID] = []
+
+    init(answer: PlanAnswer) { self.answer = answer }
+
+    func plan() async throws -> PlanAnswer { answer }
+    func submitApple(signedTransaction: String) async throws -> PlanAnswer { answer }
+    func savePick(_ pick: PlanPick) async throws -> PlanAnswer {
+        if let refusal { throw refusal }
+        picks.append(pick)
+        return answer
+    }
+    func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        if let refusal { throw refusal }
+        paid.append(groupID)
+        return answer
+    }
+}
+
 private final class MemoryCache: PlanCache, @unchecked Sendable {
     var stored: PlanAnswer?
     init(_ stored: PlanAnswer? = nil) { self.stored = stored }
     func load() -> PlanAnswer? { stored }
     func save(_ answer: PlanAnswer) { stored = answer }
+    func clear() { stored = nil }
 }
 
 private let token = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
@@ -314,5 +337,58 @@ struct PurchaseCoordinatorTests {
 
         #expect(cache.stored?.tier == .portfolio)
         #expect(await coordinator.offers().count == 6)
+    }
+
+    @Test func signingOutForgetsThePlan() async {
+        let log = Log()
+        let cache = MemoryCache(answer(.growth))
+        let coordinator = PurchaseCoordinator(store: FakeStore(log: log),
+                                              service: FakeService(log: log, answer: answer(.growth)), cache: cache)
+        #expect(coordinator.answer?.tier == .growth)
+
+        coordinator.forget()
+
+        #expect(coordinator.answer == nil)
+        #expect(cache.stored == nil)
+        #expect(coordinator.status == .idle)
+    }
+}
+
+@MainActor
+struct PlanLockCallTests {
+    @Test func aSavedPickTakesTheServersAnswer() async throws {
+        let cache = MemoryCache(answer(.free))
+        let service = FakeLockService(answer: answer(.growth))
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: cache)
+        let pick = PlanPick(groupID: UUID(), person: nil, houseIDs: [UUID()])
+        try await plans.save(pick)
+        #expect(service.picks == [pick])
+        #expect(plans.answer?.tier == .growth)
+        #expect(cache.stored?.tier == .growth)
+    }
+
+    @Test func aRefusedPickKeepsTheLastAnswerAndSaysWhy() async {
+        let service = FakeLockService(answer: answer(.growth))
+        service.refusal = .pickTooSoon
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(answer(.free)))
+        await #expect(throws: PlanLockError.pickTooSoon) {
+            try await plans.save(PlanPick(groupID: UUID(), person: nil, houseIDs: []))
+        }
+        #expect(plans.answer?.tier == .free)
+    }
+
+    @Test func payingForAGroupTakesTheServersAnswer() async throws {
+        let service = FakeLockService(answer: answer(.starter))
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache())
+        let group = UUID()
+        try await plans.payFor(group: group)
+        #expect(service.paid == [group])
+        #expect(plans.answer?.tier == .starter)
+    }
+
+    @Test func aServerWithoutLockCallsCantBeReached() async {
+        let plans = PurchaseCoordinator(store: nil, service: FakeService(log: Log(), answer: answer(.free)),
+                                        cache: MemoryCache())
+        await #expect(throws: PlanLockError.unreachable) { try await plans.payFor(group: UUID()) }
     }
 }

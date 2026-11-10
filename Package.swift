@@ -103,7 +103,7 @@ let package = Package(
         ),
         .target(
             name: "WellSpentSync",
-            dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto", "WellSpentKeyStore"]
+            dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto", "WellSpentKeyStore", "WellSpentPlans"]
         ),
 
         // The app's logic, split out of the executable so it can be tested and
@@ -112,7 +112,7 @@ let package = Package(
         .target(
             name: "WellSpentAppCore",
             dependencies: ["WellSpentStore", "WellSpentModel", "WellSpentCrypto",
-                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions",
+                           "WellSpentImport", "WellSpentSync", "WellSpentKeyStore", "WellSpentExtensions", "WellSpentPlans",
                            .product(name: "WarTableCore", package: "WarTable"),
                            .product(name: "WellSpentExtensionKit", package: "WellSpent-ExtensionKit")]
                 + propertiesProducts

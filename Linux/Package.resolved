@@ -1,5 +1,5 @@
 {
-  "originHash" : "2042d84e7570d03a81961b79a47fee487d355642921f829ea442bf9b5da331f1",
+  "originHash" : "ed103947c43af89089a091d38dbe059a63eb1569de89a4dcdfeaebb2285cd781",
   "pins" : [
     {
       "identity" : "androidkit",
@@ -222,8 +222,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git",
       "state" : {
-        "revision" : "6969c650ae572b91326993d1f9fdbb807bd9ebbc",
-        "version" : "0.2.0"
+        "revision" : "3b01d6193023430bbf63add88544ba03d2aa3b47",
+        "version" : "0.4.0"
       }
     },
     {

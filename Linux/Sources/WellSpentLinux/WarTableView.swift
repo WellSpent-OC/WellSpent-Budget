@@ -2,6 +2,7 @@ import Foundation
 import SwiftCrossUI
 import WarTableCore
 import WellSpentAppCore
+import WellSpentExtensionKitLinux
 
 enum WarTablePanel: String, CaseIterable { case chat = "Chat", people = "People", context = "Context", work = "Work" }
 enum WarTableSheet {
@@ -99,7 +100,7 @@ struct WarTableView: View {
                     Picker(of: groups, selection: Binding(
                         get: { groups.first { $0.value == screen.selectedGroupID } },
                         set: { if let id = $0?.value { Task { await screen.selectGroup(id) } } }))
-                        .warTableControlLabel("WarTable group")
+                        .controlLabel("WarTable group")
                         .disabled(screen.isBusy)
                     Spacer()
                 }

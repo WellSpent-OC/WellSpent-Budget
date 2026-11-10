@@ -1,5 +1,6 @@
 import Foundation
 import WellSpentCrypto
+import WellSpentPlans
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking      // URLSession lives here on Linux
@@ -539,3 +540,82 @@ public actor ReadableHTTPTransport: ReadableAccountTransport, ExtensionTransport
         }
     }
 }
+
+// MARK: - Plans
+
+extension ReadableHTTPTransport: PlanService, PlanLockService {
+    private struct AppleBody: Encodable { let signedTransaction: String }
+
+    /// `GET /api/v2/plan`: what plan this account has.
+    public func plan() async throws -> PlanAnswer {
+        try await planAnswer { try request(.get, "plan", query: [], as: .signedIn) }
+    }
+
+    /// `POST /api/v2/plan/apple`: hands the server Apple's signed record of a
+    /// purchase. 409 means the account pays on the website; 422 means the
+    /// record didn't check out.
+    public func submitApple(signedTransaction: String) async throws -> PlanAnswer {
+        try await planAnswer {
+            try withBody(try request(.post, "plan/apple", query: [], as: .signedIn),
+                         AppleBody(signedTransaction: signedTransaction))
+        }
+    }
+
+    /// `POST /api/v2/plan/pick`: what stays open on the free plan.
+    public func savePick(_ pick: PlanPick) async throws -> PlanAnswer {
+        try await lockCall { try withBody(try request(.post, "plan/pick", query: [], as: .signedIn), pick) }
+    }
+
+    /// `POST /api/v2/groups/{id}/pay`: this person takes over paying for a
+    /// locked group, once their own plan is live.
+    public func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        try await lockCall {
+            try request(.post, "groups/\(groupID.uuidString.lowercased())/pay", query: [], as: .signedIn)
+        }
+    }
+
+    private func lockCall(_ make: () throws -> URLRequest) async throws -> PlanAnswer {
+        let data: Data
+        do {
+            data = try await perform(try make(), as: .signedIn)
+        } catch ReadableTransportError.http(status: 409, "pickTooSoon") {
+            throw PlanLockError.pickTooSoon
+        } catch ReadableTransportError.http(status: 422, "tooMany") {
+            throw PlanLockError.tooMany
+        } catch ReadableTransportError.http(status: 422, _) {
+            throw PlanLockError.notYours
+        } catch ReadableTransportError.http(status: 402, _) {
+            throw PlanLockError.planDoesNotCover
+        } catch let error as ReadableTransportError {
+            throw error
+        } catch {
+            throw PlanLockError.unreachable
+        }
+        do {
+            return try PlanAnswer.decode(data)
+        } catch {
+            throw ReadableTransportError.malformed("PlanAnswer: \(error)")
+        }
+    }
+
+    private func planAnswer(_ make: () throws -> URLRequest) async throws -> PlanAnswer {
+        let data: Data
+        do {
+            data = try await perform(try make(), as: .signedIn)
+        } catch ReadableTransportError.http(status: 409, _) {
+            throw PlanServiceError.paddlePlanLive
+        } catch ReadableTransportError.http(status: 422, _) {
+            throw PlanServiceError.notGenuine
+        } catch let error as ReadableTransportError {
+            throw error
+        } catch {
+            throw PlanServiceError.unreachable
+        }
+        do {
+            return try PlanAnswer.decode(data)
+        } catch {
+            throw ReadableTransportError.malformed("PlanAnswer: \(error)")
+        }
+    }
+}
+
