@@ -116,11 +116,35 @@ struct WorkspaceLockScreensTests {
         #expect(await world.robin.workspace(ended(locked: nil)).planOpenNames.isEmpty)
     }
 
+    // Scenario LOCK-06
+    /// A locked house gets the property card, through the host the Properties
+    /// extension asks. An open house, or an id that isn't one, gets nothing.
+    @Test func aLockedHouseGetsThePropertyCardThroughTheHost() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await Device("robin@example.com", on: server)
+        let cabin = UUID()
+        let workspace = await robin.workspace(ended(locked: .init(groupIDs: [], people: [], houseIDs: [cabin])))
+        let screen = try #require(workspace.lockedScreen(property: cabin.uuidString))
+        #expect(screen == LockedScreen(.property(open: [])))
+        #expect(screen.title == "This property is locked")
+        #expect(workspace.lockedScreen(property: UUID().uuidString) == nil)
+        #expect(workspace.lockedScreen(property: "not an id") == nil)
+
+        #if canImport(SwiftUI)
+        var asked: [String] = []
+        let host = AppExtensionHost(model: robin.model) { record in asked.append(record); return nil }
+        #expect(host.lockedPage(for: cabin.uuidString) == nil)
+        #expect(asked == [cabin.uuidString])
+        #expect(AppExtensionHost(model: robin.model).lockedPage(for: cabin.uuidString) == nil)
+        #endif
+    }
+
     @Test func withNoAnswerThereIsNothingToShow() async throws {
         let world = try await shared()
         let workspace = Workspace(model: world.robin.model, sync: world.robin.sync)
         #expect(workspace.pickScreen() == nil)
         #expect(workspace.lockedScreen(group: world.cabin) == nil)
+        #expect(workspace.lockedScreen(property: UUID().uuidString) == nil)
         #expect(workspace.planLocks.isEmpty)
         #expect(workspace.planOpenNames.isEmpty)
     }

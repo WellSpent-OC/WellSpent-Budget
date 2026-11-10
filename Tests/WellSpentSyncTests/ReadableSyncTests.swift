@@ -841,3 +841,133 @@ struct MadeRepeatSyncTests {
         #expect(home.server.records(in: home.group.id).filter { $0.id == made.id }.count == 1)
     }
 }
+
+/// The server with the plan's gate in front: pushes naming a refused record
+/// are refused whole with the 402, as the server does, and a locked group
+/// refuses every pull and push.
+private actor PlanGate: ReadableSyncTransport {
+    let inner: any ReadableSyncTransport
+    var refusing: Set<RecordID> = []
+    var groupLocked = false
+    /// When set, each push refuses only the first refused record in it,
+    /// with that record's sheet, so one sync meets several refusals.
+    var oneAtATime: [RecordID: String] = [:]
+    private(set) var pushes: [[RecordID]] = []
+
+    init(_ inner: any ReadableSyncTransport) { self.inner = inner }
+
+    func refuse(_ ids: Set<RecordID>) { refusing = ids }
+    func lock(_ locked: Bool) { groupLocked = locked }
+    func refuseInTurn(_ sheets: [RecordID: String]) { oneAtATime = sheets }
+
+    func push(_ records: [WireRecord], group: GroupID) async throws -> PushResult {
+        pushes.append(records.map(\.id))
+        if groupLocked { throw PlanLimitRefusal(sheet: "locked", limit: "maxGroups") }
+        if let first = records.map(\.id).first(where: { oneAtATime[$0] != nil }), let sheet = oneAtATime[first] {
+            throw PlanLimitRefusal(sheet: sheet, limit: "maxProperties", refused: [first], neededTier: "starter")
+        }
+        let refused = records.map(\.id).filter(refusing.contains)
+        if !refused.isEmpty {
+            throw PlanLimitRefusal(sheet: "add_house", limit: "maxProperties", refused: refused, neededTier: "starter")
+        }
+        return try await inner.push(records, group: group)
+    }
+
+    func pull(group: GroupID, since: UInt64, limit: Int) async throws -> ReadablePull {
+        if groupLocked { throw PlanLimitRefusal(sheet: "locked", limit: "maxGroups") }
+        return try await inner.pull(group: group, since: since, limit: limit)
+    }
+}
+
+@Suite("Readable sync past the plan")
+struct ReadableSyncPlanTests {
+    /// The server refuses one record past the plan and writes nothing. The
+    /// rest go again without it, and it waits in the queue, not lost.
+    @Test func aRefusedRecordWaitsAndTheRestGoAgain() async throws {
+        let home = try await Household()
+        let gate = PlanGate(home.founder.client)
+        let engine = ReadableSyncEngine(store: home.founder.store, transport: gate,
+                                        clientID: home.founder.clientID, userID: home.founder.user)
+        let kept = home.spend(1_200, by: home.founder.user, merchant: "Kept")
+        let held = home.spend(3_400, by: home.founder.user, merchant: "Held")
+        try home.founder.store.save(kept)
+        try home.founder.store.save(held)
+        await gate.refuse([held.id])
+
+        let report = try await engine.sync(group: home.group.id, level: .superadmin)
+        #expect(report.planRefusal?.sheet == "add_house")
+        #expect(report.planRefusal?.refused == [held.id])
+        #expect(report.conflicts == 0, "a plan refusal is not a conflict")
+        let pushes = await gate.pushes
+        #expect(pushes.count == 2 && pushes[1] == pushes[0].filter { $0 != held.id })
+
+        let other = try await home.founderAgain()
+        try await other.sync(home.group.id)
+        #expect(try other.store.transaction(kept.id) != nil)
+        #expect(try other.store.transaction(held.id) == nil)
+        let waiting = try home.founder.store.pendingPushes(in: home.group.id, following: nil, limit: 50)
+        #expect(waiting.map(\.recordID) == [held.id], "the refused record stays queued")
+
+        // Once the plan allows it, the next round sends it.
+        await gate.refuse([])
+        let after = try await engine.sync(group: home.group.id, level: .superadmin)
+        #expect(after.planRefusal == nil && after.pushed == 1)
+        try await other.sync(home.group.id)
+        #expect(try other.store.transaction(held.id) != nil)
+    }
+
+    /// Two refusals in one sync: the first one's sheet is the one shown, so
+    /// the person sees it now, not one timed sync later.
+    @Test func theFirstOfTwoRefusalsIsTheOneReported() async throws {
+        let home = try await Household()
+        let gate = PlanGate(home.founder.client)
+        let engine = ReadableSyncEngine(store: home.founder.store, transport: gate,
+                                        clientID: home.founder.clientID, userID: home.founder.user)
+        let first = home.spend(1_200, by: home.founder.user, merchant: "First")
+        let second = home.spend(3_400, by: home.founder.user, merchant: "Second")
+        try home.founder.store.save(first)
+        try home.founder.store.save(second)
+        let pending = try home.founder.store.pendingPushes(in: home.group.id, following: nil, limit: 50)
+        let order = pending.map(\.recordID)
+        try #require(order.count == 2)
+        await gate.refuseInTurn([order[0]: "add_house", order[1]: "invite"])
+
+        let report = try await engine.sync(group: home.group.id, level: .superadmin)
+        #expect(report.planRefusal?.sheet == "add_house")
+        #expect(report.planRefusal?.refused == [order[0]])
+    }
+
+    /// A locked group refuses the pull: nothing moves, and the cursor stays
+    /// where it was, so paying brings everything.
+    @Test func aLockedGroupStaysWhereItWas() async throws {
+        let home = try await Household()
+        let gate = PlanGate(home.founder.client)
+        let engine = ReadableSyncEngine(store: home.founder.store, transport: gate,
+                                        clientID: home.founder.clientID, userID: home.founder.user)
+        let cursor = try home.founder.store.readableCursor(in: home.group.id)
+        let edit = home.spend(500, by: home.founder.user)
+        try home.founder.store.save(edit)
+        await gate.lock(true)
+        await #expect(throws: PlanLimitRefusal(sheet: "locked", limit: "maxGroups")) {
+            try await engine.sync(group: home.group.id, level: .superadmin)
+        }
+        #expect(try home.founder.store.readableCursor(in: home.group.id) == cursor)
+        #expect(try home.founder.store.pendingPushes(in: home.group.id, following: nil, limit: 50)
+                    .map(\.recordID) == [edit.id], "the edit waits for the group to open")
+        await gate.lock(false)
+        #expect(try await engine.sync(group: home.group.id, level: .superadmin).pushed == 1)
+    }
+
+    @Test func thePlansRefusalIsReadFromItsBody() {
+        let id = UUID()
+        let body = #"{"status":402,"reason":"plan_limit","limit":"maxProperties","tier":"free","neededTier":"starter","sheet":"add_house","refused":["\#(id)"]}"#
+        let refusal = PlanLimitRefusal.decode(Data(body.utf8))
+        #expect(refusal == PlanLimitRefusal(sheet: "add_house", limit: "maxProperties", refused: [RecordID(id)],
+                                            neededTier: "starter"))
+        #expect(refusal?.isLockedGroup == false)
+        let locked = PlanLimitRefusal.decode(Data(#"{"reason":"plan_limit","limit":"maxGroups","sheet":"locked"}"#.utf8))
+        #expect(locked?.isLockedGroup == true)
+        #expect(PlanLimitRefusal.decode(Data(#"{"error":true,"reason":"Payment Required"}"#.utf8)) == nil)
+        #expect(PlanLimitRefusal.decode(Data("<html>".utf8)) == nil)
+    }
+}

@@ -46,6 +46,7 @@ public func configure(_ app: Application) async throws {
     app.invitationPublicBaseURL = try InvitationWeb.baseURL(Environment.get("INVITATION_PUBLIC_BASE_URL"),
                                                           environment: serverEnvironment)
     app.middleware.use(InvitationPageLogging(), at: .beginning)
+    app.middleware.use(PlanRefusalMiddleware())
     app.logger.notice("environment: \(serverEnvironment.rawValue)")
 
     // Three ways to get a database, in order of precedence.
@@ -90,6 +91,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateWarTable())
     app.migrations.add(AddEmailInvitations())
     app.migrations.add(CreatePlans())
+    app.migrations.add(AddPlanLocks())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.

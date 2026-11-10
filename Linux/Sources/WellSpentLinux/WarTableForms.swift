@@ -3,6 +3,7 @@ import SwiftCrossUI
 import WarTableCore
 import WellSpentAppCore
 import WellSpentLinuxNative
+import WellSpentExtensionKitLinux
 
 struct WarTableForm<Content: View>: View {
     let title: String
@@ -48,7 +49,7 @@ struct WarTableIDPicker: View {
             Picker(of: choices, selection: Binding(
                 get: { choices.first { $0.value == selected } },
                 set: { selected = $0?.value }))
-                .warTableControlLabel(label)
+                .controlLabel(label)
         }
     }
 }
@@ -68,7 +69,7 @@ struct WarTableAudiencePicker: View {
                     get: { selected.contains(person.id) },
                     set: { if $0 { selected.insert(person.id) } else { selected.remove(person.id) } }))
                     .toggleStyle(.checkbox)
-                    .warTableControlLabel("\(person.displayName) · \(person.kind == .agent ? "Agent" : "Person")")
+                    .controlLabel("\(person.displayName) · \(person.kind == .agent ? "Agent" : "Person")")
             }
         }
     }
@@ -129,7 +130,7 @@ struct WarTableEnrollmentForm: View {
                     Field(label: "Agent tool", prompt: "The tool you are connecting", text: $provider)
                     Field(label: "Machine label", prompt: "A recognizable label, not a private path", text: $machine)
                     Picker(of: profiles, selection: Binding(get: { profiles.first { $0.value == profile } }, set: { if let value = $0?.value { profile = value } }))
-                        .warTableControlLabel("Agent execution profile")
+                        .controlLabel("Agent execution profile")
                     if profile == "enforced-local" {
                         Note("Local work requires the connector's configured sandbox and separate source grants. Choosing this profile does not start work or prove that the worker is ready.")
                     }
@@ -162,7 +163,7 @@ struct WarTablePersonForm: View {
                      } }) {
             VStack(alignment: .leading, spacing: 12) {
                 Picker(of: choices, selection: Binding(get: { choices.first { $0.value == role } }, set: { role = $0?.value }))
-                    .warTableControlLabel("Extension role")
+                    .controlLabel("Extension role")
                 Note("Admins and managers see every retained conversation, including earlier messages. Source access restrictions still apply.")
                 Note("This changes WarTable oversight only. It does not grant repository access, review or merge rights.")
             }
@@ -257,11 +258,11 @@ struct WarTableSourceForm: View {
             VStack(alignment: .leading, spacing: 12) {
                 Field(label: "Source name", prompt: "Project or knowledge source", text: $name)
                 Picker(of: kinds, selection: Binding(get: { kinds.first { $0.value == kind } }, set: { if let value = $0?.value { kind = value } }))
-                    .warTableControlLabel("Source type")
+                    .controlLabel("Source type")
                 Field(label: "Source reference", prompt: "Repository URL or logical KB reference", text: $reference)
                 Text("Allowed relative paths, one per line").font(.system(size: 12))
                 TextEditor(text: $paths).accessibility(label: "Allowed paths").frame(height: 70)
-                Toggle("Public source", isOn: $isPublic).toggleStyle(.checkbox).warTableControlLabel("Public source")
+                Toggle("Public source", isOn: $isPublic).toggleStyle(.checkbox).controlLabel("Public source")
                 Text("Allowed audience")
                 if let snapshot = screen.snapshot { WarTableAudiencePicker(snapshot: snapshot, selected: $audience) }
                 Note("Do not enter credentials or machine paths. Local mappings stay in the connector. Access must be verified before work starts.")
@@ -298,7 +299,7 @@ struct WarTableGrantForm: View {
                         get: { capabilities.contains(capability) },
                         set: { if $0 { capabilities.insert(capability) } else { capabilities.remove(capability) } }))
                         .toggleStyle(.checkbox)
-                        .warTableControlLabel(WarTableWords.capability(capability))
+                        .controlLabel(WarTableWords.capability(capability))
                 }
                 Field(label: "Expires in hours", prompt: "1 to 24", text: $hours)
                 Note("A grant cannot exceed your own source authority. Execution also requires a connected worker that enforces these limits. This does not grant merge or deployment rights.")
@@ -409,7 +410,7 @@ struct WarTableReviewForm: View {
                 Text("Head commit: \(task.headCommit ?? "Unavailable")").font(.system(size: 12)).textSelectionEnabled()
                 Field(label: "Reviewed base commit", prompt: "Exact base revision", text: $baseCommit)
                 Picker(of: decisions, selection: Binding(get: { decisions.first { $0.value == decision } }, set: { if let value = $0?.value { decision = value } }))
-                    .warTableControlLabel("Review decision")
+                    .controlLabel("Review decision")
                 Text("Findings and evidence").font(.system(size: 12))
                 TextEditor(text: $summary).accessibility(label: "Review findings").frame(height: 110)
                 Note("A WarTable review is advisory until confirmed by the repository provider. A changed commit invalidates this review. Recording a review does not merge or deploy.")
@@ -456,7 +457,7 @@ struct WarTableAttachContextForm: View {
                         let permitted = Set(audience).isSubset(of: Set(source.audienceIDs))
                         Toggle(source.name, isOn: Binding(get: { selected.contains(source.id) }, set: {
                             if $0 { selected.insert(source.id) } else { selected.remove(source.id) }
-                        })).toggleStyle(.checkbox).warTableControlLabel(source.name).disabled(!permitted)
+                        })).toggleStyle(.checkbox).controlLabel(source.name).disabled(!permitted)
                         if !permitted { Note("This source is not approved for the whole conversation.") }
                     }
                 }

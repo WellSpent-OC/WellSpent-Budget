@@ -13,10 +13,25 @@ public final class AppExtensionHost: ExtensionHost {
     private let model: AppModel
     public let calendar: Calendar
 
+    #if canImport(SwiftUI)
+    private let lockedCard: (String) -> AnyView?
+
+    /// `lockedCard` draws the app's locked card for a record the plan has
+    /// locked, and answers nil for an open one.
+    public init(model: AppModel, calendar: Calendar = AppLocale.calendar,
+                lockedCard: @escaping (String) -> AnyView? = { _ in nil }) {
+        self.model = model
+        self.calendar = calendar
+        self.lockedCard = lockedCard
+    }
+
+    public func lockedPage(for record: String) -> AnyView? { lockedCard(record) }
+    #else
     public init(model: AppModel, calendar: Calendar = AppLocale.calendar) {
         self.model = model
         self.calendar = calendar
     }
+    #endif
 
     public func today() -> Date { model.today() }
 

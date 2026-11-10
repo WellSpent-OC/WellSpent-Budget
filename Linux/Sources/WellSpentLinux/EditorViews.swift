@@ -5,6 +5,7 @@ import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentImport
 import WellSpentModel
+import WellSpentExtensionKitLinux
 
 /// One choice in a picker. GTK's picker shows each option's description, so
 /// the words go there and the value beside them.

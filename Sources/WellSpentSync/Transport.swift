@@ -88,6 +88,52 @@ public struct SyncReport: Sendable, Equatable {
     /// on later pulls, its queued row waits meanwhile, and the sync goes on.
     public var unsaved = 0
     public var serverSeq: UInt64 = 0
+    /// The plan's last refusal this round, when something was past the
+    /// payer's limit. Its records stay queued, set aside for the round.
+    public var planRefusal: PlanLimitRefusal?
 
     public init() {}
+}
+
+/// The server's 402: something past the payer's plan. `sheet` names the
+/// upgrade sheet to open; `refused` names the records it would not take, so
+/// the rest of a push goes again without them. Nothing is lost: refused
+/// records stay queued and go once the plan allows them.
+public struct PlanLimitRefusal: Error, Equatable, Sendable {
+    /// "add_house", "add_group", "invite", "taxes" or "locked".
+    public let sheet: String
+    /// "maxProperties", "maxGroups", "maxInvitedPerGroup", "extensionsOpen" or "locked".
+    public let limit: String
+    public let refused: [RecordID]
+    public let neededTier: String?
+
+    public init(sheet: String, limit: String, refused: [RecordID] = [], neededTier: String? = nil) {
+        self.sheet = sheet
+        self.limit = limit
+        self.refused = refused
+        self.neededTier = neededTier
+    }
+
+    /// The whole group, or this person in it, is locked. Nothing in it
+    /// syncs until someone pays, so there is nothing to send again.
+    /// The sheet the server names for a locked group or house.
+    public static let lockedSheet = "locked"
+
+    public var isLockedGroup: Bool { sheet == Self.lockedSheet && refused.isEmpty }
+
+    private struct Body: Decodable {
+        let reason: String?
+        let sheet: String?
+        let limit: String?
+        let refused: [UUID]?
+        let neededTier: String?
+    }
+
+    /// Reads a 402's body, or nil when it isn't the plan's.
+    public static func decode(_ data: Data) -> PlanLimitRefusal? {
+        guard let body = try? JSONDecoder().decode(Body.self, from: data), body.reason == "plan_limit",
+              let sheet = body.sheet else { return nil }
+        return PlanLimitRefusal(sheet: sheet, limit: body.limit ?? "", refused: (body.refused ?? []).map(RecordID.init),
+                                neededTier: body.neededTier)
+    }
 }

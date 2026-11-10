@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftCrossUI
 import WellSpentAppCore
+import WellSpentPlans
 
 /// Draws `AccountFlow`: sign in, create an account, reset or change the
 /// password, confirm the email, sign out. What each step holds, checks and
@@ -9,13 +10,20 @@ import WellSpentAppCore
 /// this is layout only.
 struct AccountView: View {
     var sync: SyncCoordinator
+    /// The account's plan, for its card once signed in.
+    var plans: PurchaseCoordinator
+    /// See Plans on the card: closes this sheet, then opens Choose a plan.
+    var seePlans: () -> Void
     @Binding var isPresented: Bool
     @State var flow: AccountFlow
 
     private typealias Words = AccountFlow.Words
 
-    init(sync: SyncCoordinator, isPresented: Binding<Bool>) {
+    init(sync: SyncCoordinator, plans: PurchaseCoordinator, isPresented: Binding<Bool>,
+         seePlans: @escaping () -> Void) {
         self.sync = sync
+        self.plans = plans
+        self.seePlans = seePlans
         _isPresented = isPresented
         _flow = State(wrappedValue: AccountFlow(actions: sync, email: sync.signInPrompt?.email,
                                                 reason: sync.signInPrompt?.reason,
@@ -123,6 +131,13 @@ struct AccountView: View {
                 Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
                     .disabled(flow.isWorking)
             }
+            // The plan, once the server has answered. Paying is on the
+            // website here, so the card's button opens it.
+            if let answer = plans.answer {
+                Text(PlanWording.yourPlan)
+                    .font(.system(size: 13, weight: .semibold))
+                PlanCardView(card: PlanCardScreen(answer: answer, platform: .website), act: openPlanAction)
+            }
             HStack {
                 Button(Words.changePassword) { flow.go(to: .changePassword) }
                 Button(Words.signOut) { Task { await flow.signOut() } }
@@ -138,6 +153,20 @@ struct AccountView: View {
             field(Words.confirmation,
                   Binding(get: { flow.change.confirmation }, set: { flow.change.confirmation = $0 }),
                   secure: true, problem: flow.change.problems[.confirmation])
+        }
+    }
+
+    /// Where a plan card's button goes on Linux: Choose a plan, or the
+    /// website to manage a paid plan. The Mac's Apple-only action never
+    /// reaches a .website card.
+    private func openPlanAction(_ action: PlanCardScreen.Action) {
+        switch action {
+        case .seePlans:
+            seePlans()
+        case .changePlan, .keepPlan, .manageOnWebsite:
+            WebLink.open(PlanLinks.manage.absoluteString)
+        case .openAppleSettings:
+            break
         }
     }
 

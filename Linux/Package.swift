@@ -7,6 +7,17 @@
 // Build and run on Linux:  swift run --package-path Linux
 import PackageDescription
 
+// The paid Properties extension, as the root package links it: a build that
+// sets WELLSPENT_PROPERTIES_PATH to a checkout of WellSpent-OC/WellSpent-Properties
+// links its Linux screens, and the seam (`#if canImport(WellSpentPropertiesLinux)`)
+// draws Houses. Unset, which is every public build, Houses is the placeholder.
+let propertiesPath = Context.environment["WELLSPENT_PROPERTIES_PATH"].flatMap { $0.isEmpty ? nil : $0 }
+let propertiesDependencies: [Package.Dependency] =
+    propertiesPath.map { [.package(name: "WellSpentProperties", path: $0)] } ?? []
+let propertiesProducts: [Target.Dependency] =
+    propertiesPath == nil ? [] : [.product(name: "WellSpentProperties", package: "WellSpentProperties"),
+                                  .product(name: "WellSpentPropertiesLinux", package: "WellSpentProperties")]
+
 let package = Package(
     name: "WellSpentLinux",
     platforms: [.macOS(.v14)],
@@ -15,8 +26,13 @@ let package = Package(
         // which differs from checkout to checkout.
         .package(name: "WellSpentBudget", path: ".."),
         .package(name: "WarTable", path: "../Extensions/WarTable"),
+        // Pinned exactly, the same in three places: here, WellSpent-ExtensionKit
+        // and WellSpent-Properties. SwiftPM resolves one version for the whole
+        // app, so the three pins move together.
         .package(url: "https://github.com/stackotter/swift-cross-ui.git", exact: "0.10.0"),
-    ],
+        // What a screen reader hears on Linux, shared with the extensions' screens.
+        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.4.0"),
+    ] + propertiesDependencies,
     targets: [
         .systemLibrary(name: "CLibsecret", pkgConfig: "libsecret-1"),
         .systemLibrary(name: "CGtk4", pkgConfig: "gtk4"),
@@ -37,12 +53,14 @@ let package = Package(
                 // Windows-only piece that does not build on Linux.
                 .product(name: "GtkBackend", package: "swift-cross-ui"),
                 .product(name: "WellSpentAppCore", package: "WellSpentBudget"),
+                .product(name: "WellSpentPlans", package: "WellSpentBudget"),
                 .product(name: "WellSpentKeyStore", package: "WellSpentBudget"),
                 .product(name: "WellSpentModel", package: "WellSpentBudget"),
                 .product(name: "WellSpentStore", package: "WellSpentBudget"),
                 .product(name: "WellSpentSync", package: "WellSpentBudget"),
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
-            ],
+                .product(name: "WellSpentExtensionKitLinux", package: "WellSpent-ExtensionKit"),
+            ] + propertiesProducts,
             // "live" or "staging", written by the packaging step. Only the exact
             // word "live" is live, as on the Mac.
             resources: [

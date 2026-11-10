@@ -23,6 +23,9 @@ public actor ReadableSyncEngine {
     /// Records whose pulled version this round could not save. Their queued
     /// rows wait for a later round rather than go out over that version.
     private var heldBack: Set<RecordID> = []
+    /// Records the plan refused this round. They stay queued and go in a
+    /// later round, once the plan allows them; the rest go now.
+    private var planHeld: Set<RecordID> = []
     /// Set when this round's send had a change refused, by the server or by
     /// this Mac's own reading of the server's rules.
     private var refused = false
@@ -52,6 +55,7 @@ public actor ReadableSyncEngine {
     @discardableResult
     public func sync(group: GroupID, level: AccessLevel) async throws -> SyncReport {
         heldBack = []
+        planHeld = []
         refused = false
         var report = try await pull(group: group, level: level, into: SyncReport())
         if level.allows(.write) {
@@ -66,12 +70,14 @@ public actor ReadableSyncEngine {
     @discardableResult
     public func pull(group: GroupID, level: AccessLevel = .read) async throws -> SyncReport {
         heldBack = []
+        planHeld = []
         return try await pull(group: group, level: level, into: SyncReport())
     }
 
     /// Sends what is queued without taking anything in first, or after.
     public func pushWithoutPulling(group: GroupID, level: AccessLevel) async throws -> SyncReport {
         heldBack = []
+        planHeld = []
         guard level.allows(.write) else { return SyncReport() }
         return try await push(group: group, level: level, into: SyncReport())
     }
@@ -347,7 +353,7 @@ public actor ReadableSyncEngine {
         // starts over and brings back the server's copy.
         var startOver = false
 
-        for item in pending where !heldBack.contains(item.recordID) {
+        for item in pending where !heldBack.contains(item.recordID) && !planHeld.contains(item.recordID) {
             // A type this build does not know: a newer build queued it and will send it.
             guard item.recordType.isKnown else { continue }
             guard let payload = try store.outgoingPayload(for: item, userID: userID) else {
@@ -395,7 +401,22 @@ public actor ReadableSyncEngine {
             return report
         }
 
-        let result = try await transport.push(records, group: group)
+        let result: PushResult
+        do {
+            result = try await transport.push(records, group: group)
+        } catch let refusal as PlanLimitRefusal where !refusal.isLockedGroup {
+            // Past the plan: nothing in the push was written. The refused
+            // records wait in the queue, set aside for this round, and the
+            // rest go again. Each round sets more aside, so this ends.
+            report.planRefusal = report.planRefusal ?? refusal
+            let refused = Set(refusal.refused)
+            guard !refused.isEmpty, refused.isSubset(of: Set(sent.map(\.recordID))) else { throw refusal }
+            planHeld.formUnion(refused)
+            // What this page already refused on its own stays refused; the
+            // next pull still starts over for it.
+            if startOver { try startPullOver(in: group) }
+            return try await push(pending, group: group, level: level, into: report)
+        }
         report.pushed += result.accepted.count
         report.rejected += result.rejected.count
         report.serverSeq = max(report.serverSeq, result.serverSeq)

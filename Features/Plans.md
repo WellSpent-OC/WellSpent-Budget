@@ -112,6 +112,17 @@ Platforms: Mac, iPhone
 - When his plan becomes Growth elsewhere, and he comes back to the app
 - Then the card says "Growth · $49 a month", with no sign-in
 
+## PLAN-17 Before the App Store sells plans, Choose a plan says "Coming soon"
+
+Platforms: Mac, iPhone
+
+- Given the app doesn't sell plans yet (0.4.0's first build)
+- When Robin opens Choose a plan on a Mac or iPhone
+- Then the three plans show with their monthly and yearly prices
+- And "Coming soon" stands in place of Subscribe, and can't be pressed
+- And there is no Restore Purchases, in Choose a plan or under the plan card
+- And a release build can't be made to sell early, even with a launch variable
+
 ## PLAN-15 Restore Purchases says what it found
 
 Platforms: Mac, iPhone

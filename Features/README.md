@@ -304,11 +304,11 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | None yet |
-| PLAN-05 | More than 15 properties offers an email to us | Linux | None yet |
+| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
+| PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
 | PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, iPhone |
 | PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, iPhone |
 | PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, iPhone |
@@ -320,6 +320,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
+| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac |
 
 ### [Locks.md](Locks.md)
 
