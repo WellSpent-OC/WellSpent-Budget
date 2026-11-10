@@ -86,6 +86,8 @@ private final class FakeLockService: PlanService, PlanLockService, @unchecked Se
     var refusal: PlanLockError?
     var picks: [PlanPick] = []
     var paid: [UUID] = []
+    /// How long a pay call takes, so two can overlap.
+    var payTakes: Duration = .zero
 
     init(answer: PlanAnswer) { self.answer = answer }
 
@@ -97,6 +99,7 @@ private final class FakeLockService: PlanService, PlanLockService, @unchecked Se
         return answer
     }
     func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        if payTakes > .zero { try await Task.sleep(for: payTakes) }
         if let refusal { throw refusal }
         paid.append(groupID)
         return answer
@@ -537,6 +540,18 @@ struct PendingGroupPayTests {
         service.refusal = refusal
         let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
         await plans.refresh()
+        #expect(plans.pendingGroup == nil)
+    }
+
+    @Test func twoRefreshesAtOnceTakeItOverOnce() async {
+        let group = UUID()
+        let service = FakeLockService(answer: paid(locking: group))
+        service.payTakes = .milliseconds(100)
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        async let first: Void = plans.refresh()
+        async let second: Void = plans.refresh()
+        _ = await (first, second)
+        #expect(service.paid == [group])
         #expect(plans.pendingGroup == nil)
     }
 
