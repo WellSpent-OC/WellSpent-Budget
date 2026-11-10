@@ -31,7 +31,7 @@ On a house's page, **Against your plan** puts how the house is doing beside your
 
 - **You:** from your stays.
 - **Your plan:** what you typed. Everyone in the group sees it.
-- Until the next update, the Mac also shows **Market**, and calls the card **Against your plan and the market**.
+- On the iPhone, until the next update, the card also shows **Market**, and is called **Against your plan and the market**.
 
 ## On an iPhone
 

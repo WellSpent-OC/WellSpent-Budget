@@ -38,6 +38,8 @@ Click a house in the list.
 
 ![A house's page on a Mac, with numbers 1 to 17](../assets/shots/tour-houses-a-house.svg)
 
+Numbers 14 to 16 come to the Mac in the next update, as **Against your plan**, without **Market** (16).
+
 1. **Lake House**, picked in the list: the house that's open.
 2. **Lake House**: the house's name.
 3. **Remove House…**: take the house out. It asks first. [Side quest: Remove a house](remove-a-house.md)
@@ -53,7 +55,7 @@ Click a house in the list.
 13. **Coming up**: the next stays.
 14. **Against your plan and the market**: what's booked and the nightly rate, beside **Your plan** and the **Market**.
 15. **Your plan**: click a number to change it. [Side quest: Set a plan for a house](set-a-plan-for-a-house.md)
-16. **Market**: the market's figures, from PriceLabs. PriceLabs sends no market nightly rate, so that reads **Not available**. It goes away in the next update.
+16. **Market**: the market's figures, from PriceLabs.
 17. **Try**: try an upgrade, and see what it might pay back. [Side quest: Try an improvement](try-an-improvement.md)
 
 ## On an iPhone: a group's page
