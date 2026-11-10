@@ -87,6 +87,11 @@ public final class Workspace {
             }
         }
         watchForEdits()
+        // Purchases Apple reports while the app runs, including one made
+        // before the server could be reached, go to the server here.
+        if plans.canBuyInApp {
+            Task { [plans] in await plans.listen() }
+        }
         // A new day moves every wheel's day and tick, and on the 1st starts a
         // new period. A sync reads the budgets again, but signed out nothing
         // syncs, so a window left open overnight would show the new day over
@@ -294,6 +299,7 @@ public final class Workspace {
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
                           pinnedPlan: pinnedPlan(for: environment, in: processEnvironment),
+                          planStore: appStore(),
                           features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
                                                          processEnvironment: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
@@ -341,6 +347,7 @@ public final class Workspace {
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
                        pinnedPlan: PinnedPlanService? = nil,
+                       planStore: (any PlanStore)? = nil,
                        features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
         let defaults = defaults ?? environment.defaults
@@ -360,6 +367,17 @@ public final class Workspace {
         accounts.samplesSeeded = true
         let resolvedFeatures = features ?? FeatureFlags.resolve(for: environment, defaults: defaults)
         return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
-                         pinnedDay: pinnedDay, features: resolvedFeatures, pinnedPlan: pinnedPlan)
+                         pinnedDay: pinnedDay, features: resolvedFeatures, planStore: planStore,
+                         pinnedPlan: pinnedPlan)
+    }
+
+    /// Apple's App Store on the Mac and iPhone. Linux has none: it pays on
+    /// the website.
+    nonisolated static func appStore() -> (any PlanStore)? {
+        #if canImport(StoreKit)
+        return AppleStore()
+        #else
+        return nil
+        #endif
     }
 }
