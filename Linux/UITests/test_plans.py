@@ -47,7 +47,11 @@ class Plans(unittest.TestCase):
         self.assertTrue(starter.selected)
         # Scenario PLAN-03
         # Yearly shows each plan's price for the year.
+        self.assertTrue(app.find("push button", "Monthly", within=sheet).selected)
         app.button("Yearly 2 months free", within=sheet).press()
+        app.until(lambda: app.find("push button", "Yearly 2 months free", within=app.front).selected,
+                  "Yearly to be picked")
+        self.assertFalse(app.find("push button", "Monthly", within=app.front).selected)
         growth = app.find("push button", "Growth $490 a year", within=sheet)
         growth.press()
         app.until(lambda: app.find("push button", "Growth $490 a year", within=app.front).selected,

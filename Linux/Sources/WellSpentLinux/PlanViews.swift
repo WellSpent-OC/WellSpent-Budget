@@ -119,9 +119,19 @@ struct PlanChoicesView: View {
         .background(Palette.surface)
     }
 
+    /// The picked period takes the picked plan row's darker fill, as on the Mac.
     private func periodButton(_ title: String, _ choice: BillingPeriod) -> some View {
-        Button(title) { period = choice }
-            .accessibility(selected: period == choice)
+        Button(action: { period = choice }) {
+            Text(title)
+                .font(.system(size: 13))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 6)
+                    .fill(period == choice ? Palette.track : Palette.surface))
+        }
+        // The name before the style: SwiftCrossUI hands a wrapper another widget.
+        .accessibility(label: title, selected: period == choice)
+        .buttonStyle(.plain)
     }
 
     private func note(_ text: String) -> some View {
