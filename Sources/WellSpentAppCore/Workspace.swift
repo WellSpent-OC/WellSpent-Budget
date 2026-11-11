@@ -87,6 +87,12 @@ public final class Workspace {
             }
         }
         watchForEdits()
+        // Paying, or a pick, opened what was locked: read it all again.
+        plans.didOpen = { [weak self] in
+            guard let self else { return }
+            self.sync.readEverythingAgain()
+            Task { await self.sync.syncAll(quietly: true) }
+        }
         // Purchases Apple reports while the app runs, including one made
         // before the server could be reached, go to the server here.
         if plans.canBuyInApp {

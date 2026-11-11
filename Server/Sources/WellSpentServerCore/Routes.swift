@@ -82,6 +82,7 @@ public func registerRoutes(_ app: Application) throws {
     try registerSyncRoutesV2(v2)
     registerPlanRoutes(v2)
     registerPlanLockRoutes(v2)
+    registerAccountDeletionRoutes(v2)
 }
 
 // MARK: - Sessions

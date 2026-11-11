@@ -53,6 +53,7 @@ let package = Package(
                 // Windows-only piece that does not build on Linux.
                 .product(name: "GtkBackend", package: "swift-cross-ui"),
                 .product(name: "WellSpentAppCore", package: "WellSpentBudget"),
+                .product(name: "WellSpentPlans", package: "WellSpentBudget"),
                 .product(name: "WellSpentKeyStore", package: "WellSpentBudget"),
                 .product(name: "WellSpentModel", package: "WellSpentBudget"),
                 .product(name: "WellSpentStore", package: "WellSpentBudget"),

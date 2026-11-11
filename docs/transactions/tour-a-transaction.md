@@ -77,7 +77,7 @@ Scroll down on a bill that repeats.
 
 Click a transaction in a budget's list, and it opens like this. Click each field to type in it.
 
-![A transaction opened on Linux, with numbers 1 to 17](../assets/shots/tour-linux-a-transaction.svg)
+![A transaction opened on Linux, with numbers 1 to 18](../assets/shots/tour-linux-a-transaction.svg)
 
 1. **Merchant**: who you paid.
 2. **Amount**: how much. Type it as a number.
@@ -96,9 +96,10 @@ Click a transaction in a budget's list, and it opens like this. Click each field
 15. **Cancel**: close without saving.
 16. **Save**: save your changes. It stays dimmed until something changes.
 17. **Added by you · Repeat**: how it came in, and, in a shared group, who added it.
+18. The line under **Money in**: which budget it adds to, such as "Adds to Bookings instead of spending from it." It shows only while **Money in** is ticked.
 
 Linux has no **House** row. Properties isn't on Linux yet.
 
 **Add** on a budget's page opens a **New transaction** window with the same fields, and **Add** in place of **Save**.
 
-<!-- Scenarios: INC-01, REPEAT-01, REPEAT-05, REPEAT-08, WHEEL-21, PROP-26, ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11 -->
+<!-- Scenarios: INC-01, REPEAT-01, REPEAT-05, REPEAT-08, WHEEL-21, PROP-26, ENTRY-02, ENTRY-03, ENTRY-04, ENTRY-06, EDIT-01, EDIT-02, EDIT-03, EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-10, EDIT-11, INC-04 -->

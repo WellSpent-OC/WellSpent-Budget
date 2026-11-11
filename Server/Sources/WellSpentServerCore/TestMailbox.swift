@@ -1,5 +1,6 @@
 import Foundation
 import Crypto
+import Fluent
 import Vapor
 
 /// Staging only: the last message sent to each test address, for UI tests
@@ -95,7 +96,8 @@ enum TestMailboxChoice {
 extension Application {
     /// Gives this server the test mailbox: every message from here on to a
     /// test address is kept, and `GET /test/mailbox?address=` gives back the
-    /// newest one to a request bearing `token`. Throws on live, where it must
+    /// newest one to a request bearing `token`. `POST /test/plan` sets a test
+    /// account's plan, behind the same token. Throws on live, where neither must
     /// never exist. Call it after the mailer is set.
     func enableTestMailbox(token: String) throws {
         let server = storage[ServerEnvironmentKey.self] ?? .live
@@ -108,22 +110,74 @@ extension Application {
         // The token is compared by its hash, so the time a wrong guess takes
         // says nothing about how much of it was right.
         let expected = SHA256.hash(data: Data(token.utf8))
-        get("test", "mailbox") { request async throws -> TestMailbox.Message in
+        let requireToken = { (request: Request) throws in
             guard let given = request.headers.bearerAuthorization?.token,
                   SHA256.hash(data: Data(given.utf8)) == expected else {
                 throw Abort(.unauthorized)
             }
+        }
+        get("test", "mailbox") { request async throws -> TestMailbox.Message in
+            try requireToken(request)
             guard let address = request.query[String.self, at: "address"],
                   let message = await mailbox.latest(to: address) else {
                 throw Abort(.notFound)
             }
             return message
         }
+        // A UI test's fresh account gets the plan the test asks for, so tests
+        // written before plans can still make a second group. Test addresses
+        // only, behind the same token, and never on live.
+        post("test", "plan") { request async throws -> HTTPStatus in
+            try requireToken(request)
+            let body = try request.content.decode(TestPlanRequest.self)
+            guard TestMailbox.isTestAddress(body.email) else { throw Abort(.forbidden) }
+            let email = try AccountRules.normaliseEmail(body.email)
+            guard let user = try await UserRow.query(on: request.db).filter(\.$email == email).first() else {
+                throw Abort(.notFound)
+            }
+            try await body.apply(to: PlanRow.forUser(try user.requireID(), on: request.db), on: request.db)
+            return .noContent
+        }
         logger.notice("test mailbox: on, for \(TestMailbox.domain) addresses only")
     }
 
     /// Whether `enableTestMailbox` ran. Never on live.
     var hasTestMailbox: Bool { storage[TestMailboxOnKey.self] ?? false }
+}
+
+/// `POST /test/plan`: the plan a test account should have. Paid plans are
+/// active for a year and renew. The source is "none" unless the test asks,
+/// since a Paddle plan makes account deletion ask Paddle, which staging
+/// doesn't have.
+struct TestPlanRequest: Content {
+    let email: String
+    let tier: String
+    let period: String?
+    let source: String?
+
+    func apply(to plan: PlanRow, on db: any Database) async throws {
+        guard let tier = Tier(rawValue: tier) else { throw Abort(.badRequest, reason: "unknown tier") }
+        let source = source ?? "none"
+        guard ["none", "apple", "paddle"].contains(source) else { throw Abort(.badRequest, reason: "unknown source") }
+        plan.tier = tier.rawValue
+        plan.nextTier = nil
+        if tier == .free {
+            plan.period = "none"
+            plan.source = "none"
+            plan.state = "free"
+            plan.paidUntil = nil
+            plan.renews = false
+        } else {
+            let period = period ?? "monthly"
+            guard ["monthly", "yearly"].contains(period) else { throw Abort(.badRequest, reason: "unknown period") }
+            plan.period = period
+            plan.source = source
+            plan.state = "active"
+            plan.paidUntil = Date().addingTimeInterval(365 * 24 * 60 * 60)
+            plan.renews = true
+        }
+        try await plan.save(on: db)
+    }
 }
 
 private struct TestMailboxOnKey: StorageKey {

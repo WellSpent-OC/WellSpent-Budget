@@ -74,6 +74,16 @@ void wellspent_wartable_transcript(void *widget, const char *conversation, const
 /// Opens a valid HTTPS URL with installed Google Chrome. Never substitutes Chromium.
 int wellspent_wartable_open_url(const char *url);
 
+/// Whether `url` is one of WellSpent's own pages: https on wellspent.space or
+/// a part of it, with no user name or port, or mail to one address at
+/// wellspent.space with at most a subject and a body. 1 for yes.
+int wellspent_link_is_ours(const char *url);
+
+/// Opens one of WellSpent's own pages in the person's browser, as the desktop
+/// opens any link. Refuses anything wellspent_link_is_ours refuses. 1 when it
+/// was handed to the browser.
+int wellspent_open_link(const char *url);
+
 // MARK: - Native GTK 4 Shell (Phase 1 & Phase 2)
 
 typedef void (*wellspent_gtk_action_cb)(void *context, const char *action_id);
