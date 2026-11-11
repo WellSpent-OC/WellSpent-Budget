@@ -34,6 +34,9 @@ public final class TestExtensionSlots: ExtensionSlots {
         HostLinkChoices(label: Self.label, choices: [Self.choice])
     }
 
+    /// The test extension's records don't count toward a plan.
+    public func planRecords(in groups: Set<String>) -> [HostLinkChoices.Choice] { [] }
+
     public func groupPageTopLine(for group: String) -> HostTopLine? {
         HostTopLine(text: "Test question", amount: "$1", isWarning: false)
     }

@@ -116,7 +116,10 @@ public struct PlanLimitRefusal: Error, Equatable, Sendable {
 
     /// The whole group, or this person in it, is locked. Nothing in it
     /// syncs until someone pays, so there is nothing to send again.
-    public var isLockedGroup: Bool { sheet == "locked" && refused.isEmpty }
+    /// The sheet the server names for a locked group or house.
+    public static let lockedSheet = "locked"
+
+    public var isLockedGroup: Bool { sheet == Self.lockedSheet && refused.isEmpty }
 
     private struct Body: Decodable {
         let reason: String?

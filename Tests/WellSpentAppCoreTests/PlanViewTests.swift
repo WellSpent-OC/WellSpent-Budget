@@ -83,7 +83,7 @@ struct PlanViewTests {
         let none = PlanSection(plans: await plans(nil), openNames: [])
         draw(none)
         #expect(try none.inspect().findAll(ViewType.Text.self).isEmpty)
-        let some = PlanSection(plans: await plans(answer()), openNames: [])
+        let some = PlanSection(plans: await plans(answer()), openNames: [], buyingIsOpen: true)
         draw(some)
         let texts = try some.inspect().findAll(ViewType.Text.self).map { try $0.string() }
         #expect(texts.contains(PlanWording.yourPlan) && texts.contains(PlanWording.restoreHint))
@@ -91,7 +91,7 @@ struct PlanViewTests {
     }
 
     @Test func choosingAPlanListsTheThreeSizesWithApplesFinePrint() async throws {
-        let sheet = ChoosePlanSheet(plans: await plans(answer()))
+        let sheet = ChoosePlanSheet(plans: await plans(answer()), buyingIsOpen: true)
         draw(sheet)
         let texts = try sheet.inspect().findAll(ViewType.Text.self).map { try $0.string() }
         for wanted in ["Choose a plan", "Starter", "Growth", "Portfolio", "$19", "$49", "$99",
@@ -102,6 +102,20 @@ struct PlanViewTests {
         #expect(throws: Never.self) { try sheet.inspect().find(button: "Not Now") }
         #expect(throws: Never.self) { try sheet.inspect().find(button: PlanWording.restore) }
         try sheet.inspect().find(button: "Growth").tap()
+    }
+
+    // Scenario PLAN-17
+    @Test func beforeTheStoreSellsPlansNothingCanBeBoughtOrRestored() async throws {
+        let section = PlanSection(plans: await plans(answer()), openNames: [], buyingIsOpen: false)
+        draw(section)
+        #expect(throws: (any Error).self) { try section.inspect().find(button: PlanWording.restore) }
+        let sheet = ChoosePlanSheet(plans: await plans(answer()), buyingIsOpen: false)
+        draw(sheet)
+        let soon = try sheet.inspect().find(button: PlanBuying.comingSoon)
+        #expect(soon.isDisabled())
+        #expect(throws: (any Error).self) { try sheet.inspect().find(button: PlanWording.restore) }
+        let texts = try sheet.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(texts.contains("$19") && texts.contains("$49") && texts.contains("$99"))
     }
 
     @Test func eachRowSaysItsPriceAndWhetherItIsPicked() throws {
@@ -128,6 +142,53 @@ struct PlanViewTests {
             #expect(throws: Never.self) { try view.inspect().find(button: result.close) }
         }
         #expect(RestoreResultScreen(answer: nil, device: "Mac").id != RestoreResultScreen(answer: answer(.growth, state: .active), device: "Mac").id)
+    }
+
+    @Test func aLockCardSaysWhyAndActs() throws {
+        var acted: [LockedScreen.Action] = []
+        let view = LockedCardView(screen: LockedScreen(.memberGroup(payer: "Robin"))) { acted.append($0) }
+        draw(view, width: 600)
+        let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        #expect(texts.contains("This group needs a paid plan"))
+        #expect(texts.contains("Robin's plan doesn't cover it right now."))
+        try view.inspect().find(button: "Pay for This Group").tap()
+        #expect(acted == [.payForThisGroup])
+        let own = LockedCardView(screen: LockedScreen(.ownGroup(open: "Home"))) { acted.append($0) }
+        draw(own, width: 600)
+        try own.inspect().find(button: "Change What's Open").tap()
+        #expect(acted.last == .changeWhatsOpen)
+        let house = LockedCardView(screen: LockedScreen(.property(open: ["Pool House"]))) { acted.append($0) }
+        draw(house, width: 600)
+        #expect(try house.inspect().find(text: "Your free plan keeps Pool House open.").string()
+                    == "Your free plan keeps Pool House open.")
+        try house.inspect().find(button: "Switch Which Is Open").tap()
+        try house.inspect().find(button: "See Plans").tap()
+        #expect(acted.suffix(2) == [.switchWhichIsOpen, .seePlans])
+    }
+
+    @Test func thePickSheetListsWhatItCanKeep() async throws {
+        let home = PlanItem(id: UUID(), name: "Home"), cabin = PlanItem(id: UUID(), name: "Cabin")
+        let sam = PlanItem(id: UUID(), name: "Sam"), maple = PlanItem(id: UUID(), name: "Maple St")
+        let ended = PlanAnswer(tier: .free, period: .none, state: .free, source: .none, paidUntil: nil, renews: false,
+                               nextTier: nil, limits: .init(properties: 1, groups: 1, invitedPerGroup: 1),
+                               used: .init(properties: 1, groups: 2, invitedPerGroup: 1), extensionsOpen: [],
+                               canSyncPriceLabs: false, refreshMinutes: 60, appleAccountToken: nil)
+        let screen = PickOpenScreen(answer: ended, groups: [home, cabin], people: [home.id: [sam]],
+                                    properties: [maple])
+        let view = PickOpenSheet(screen: screen, plans: await plans(ended))
+        draw(view, width: 460)
+        let texts = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+        for wanted in ["Pick what stays open", "Home", "Cabin", "Sam", "Maple St",
+                       "Skip keeps Home, Sam and Maple St open."] {
+            #expect(texts.contains(wanted), "\(wanted) is missing: \(texts)")
+        }
+        #expect(throws: Never.self) { try view.inspect().find(button: "Keep These Open") }
+        #expect(throws: Never.self) { try view.inspect().find(button: "Skip") }
+        // Choosing rows, then each way out, runs without a crash.
+        for name in ["Cabin", "Sam", "Maple St"] { try view.inspect().find(button: name).tap() }
+        try view.inspect().find(button: "Keep These Open").tap()
+        try view.inspect().find(button: "Skip").tap()
+        try await Task.sleep(for: .milliseconds(50))
     }
 
     @Test func theAccountSheetCarriesThePlanWhenGivenOne() async throws {

@@ -285,6 +285,7 @@ struct EntryLinkTests {
         let choices = try #require(setup.model.linkChoices(setup.empty))
         #expect(choices.label == TestExtensionSlots.label)
         #expect(choices.choices.map(\.name) == [TestExtensionSlots.choice.name])
+        #expect(TestExtensionSlots().planRecords(in: ["any"]).isEmpty, "its records count toward no plan")
     }
 
     @Test func withNoBudgetsSomeoneBelowManageIsToldToAsk() throws {

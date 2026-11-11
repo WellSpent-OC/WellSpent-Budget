@@ -313,9 +313,12 @@ public struct PlanChoicesScreen: Equatable, Sendable {
     public let showsRestore: Bool
     public let notNow = "Not Now"
     public let buy: String
+    /// False while the App Store isn't selling plans yet: `buy` reads
+    /// "Coming soon" and can't be pressed (PlanBuying).
+    public let canBuy: Bool
 
     public init(answer: PlanAnswer?, platform: PlanPlatform, period: BillingPeriod, selected: PaidTier? = nil,
-                prices: PlanPrices = .us, storefrontIsUS: Bool) {
+                prices: PlanPrices = .us, storefrontIsUS: Bool, buyingIsOpen: Bool = PlanBuying.isOpen()) {
         let used = answer?.used.properties ?? 0
         let current = answer.flatMap { $0.state == .free ? nil : PaidTier(rawValue: $0.tier.rawValue) }
         let fits = PaidTier.allCases.first { Self.limit($0) >= used } ?? .portfolio
@@ -340,11 +343,13 @@ public struct PlanChoicesScreen: Equatable, Sendable {
         moreThan15 = emailAllowed ? "\(PlanWording.moreThan15) \(PlanWording.emailUs)." : nil
         finePrint = platform == .appleStore ? PlanWording.appleFinePrint : PlanWording.websiteFinePrint
         showsTermsAndPrivacy = platform == .appleStore
-        showsRestore = platform == .appleStore
+        let selling = platform != .appleStore || buyingIsOpen
+        canBuy = selling
+        showsRestore = platform == .appleStore && selling
         let period = period == .monthly ? "Month" : "Year"
-        buy = platform == .appleStore
-            ? "Subscribe for \(prices.price(chosen, period == "Month" ? .monthly : .yearly)) a \(period)"
-            : "Continue on wellspent.space"
+        buy = platform != .appleStore ? "Continue on wellspent.space"
+            : !selling ? PlanBuying.comingSoon
+            : "Subscribe for \(prices.price(chosen, period == "Month" ? .monthly : .yearly)) a \(period)"
     }
 
     /// The store product for what's chosen.

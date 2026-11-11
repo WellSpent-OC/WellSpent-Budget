@@ -606,10 +606,11 @@ public final class SyncCoordinator {
     }
 
     /// Offers the upgrade sheet once for each new refusal. The same records
-    /// refused again on the next timed sync don't open it again, and a locked
-    /// group shows its own card instead.
+    /// refused again on the next timed sync don't open it again. A locked
+    /// group or house opens nothing: the change waits, and the group or house
+    /// shows its own locked card when it's opened.
     func noteRefusal(_ refusal: PlanLimitRefusal?) {
-        guard let refusal, !refusal.isLockedGroup else { return }
+        guard let refusal, refusal.sheet != PlanLimitRefusal.lockedSheet else { return }
         let key = Set(refusal.refused.map(\.uuid))
         guard key.isEmpty || !key.isSubset(of: refusalsOffered) else { return }
         refusalsOffered.formUnion(key)

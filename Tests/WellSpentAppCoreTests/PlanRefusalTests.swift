@@ -46,6 +46,14 @@ struct PlanRefusalTests {
         #expect(sync.planSheet == group)
     }
 
+    /// A change at a locked house waits with no sheet. Opening the house
+    /// shows its locked card, the same rule as a locked group.
+    @Test func aLockedHouseOpensNoSheet() throws {
+        let sync = try idle()
+        sync.noteRefusal(PlanLimitRefusal(sheet: "locked", limit: "maxProperties", refused: [RecordID(UUID())]))
+        #expect(sync.planSheet == nil)
+    }
+
     /// Paying, or a pick, opens what was locked. Pulls had left it out, behind
     /// each group's cursor, so every group is read again from the start.
     @Test func aPlanThatOpensSomethingReadsEveryGroupAgain() async throws {

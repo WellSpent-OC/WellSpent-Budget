@@ -197,7 +197,7 @@ struct PlanCardScreenTests {
 struct PlanChoicesScreenTests {
     @Test func monthlyOnTheMacFromTheFreePlan() {
         let choices = PlanChoicesScreen(answer: answer(.free, properties: 1), platform: .appleStore, period: .monthly,
-                                        storefrontIsUS: true)
+                                        storefrontIsUS: true, buyingIsOpen: true)
         #expect(choices.intro == "You're on the free plan: 1 property, sync on every device, and 1 group shared with 1 person.")
         #expect(choices.rows.map(\.name) == ["Starter", "Growth", "Portfolio"])
         #expect(choices.rows.map(\.price) == ["$19", "$49", "$99"])
@@ -215,11 +215,34 @@ struct PlanChoicesScreenTests {
 
     @Test func yearlyPicksTheSmallestPlanThatFits() {
         let choices = PlanChoicesScreen(answer: answer(.free, properties: 4), platform: .appleStore, period: .yearly,
-                                        storefrontIsUS: true)
+                                        storefrontIsUS: true, buyingIsOpen: true)
         #expect(choices.selected == .growth)
         #expect(choices.rows[1].detail == "Up to 5 properties")
         #expect(choices.rows[1].unit == " a year")
         #expect(choices.buy == "Subscribe for $490 a Year")
+    }
+
+    // Scenario PLAN-17
+    @Test func beforeTheStoreSellsPlansItSaysComingSoon() {
+        let choices = PlanChoicesScreen(answer: answer(.free, properties: 1), platform: .appleStore, period: .monthly,
+                                        storefrontIsUS: true, buyingIsOpen: false)
+        #expect(choices.rows.map(\.price) == ["$19", "$49", "$99"], "the plans and prices still show")
+        #expect(choices.buy == "Coming soon" && !choices.canBuy)
+        #expect(!choices.showsRestore)
+        #expect(choices.showsTermsAndPrivacy)
+        let open = PlanChoicesScreen(answer: answer(.free, properties: 1), platform: .appleStore, period: .monthly,
+                                     storefrontIsUS: true, buyingIsOpen: true)
+        #expect(open.canBuy && open.showsRestore)
+        // The website sells through Paddle, so Linux's Continue is always there.
+        let website = PlanChoicesScreen(answer: answer(.free), platform: .website, period: .monthly,
+                                        storefrontIsUS: false, buyingIsOpen: false)
+        #expect(website.canBuy && website.buy == "Continue on wellspent.space")
+    }
+
+    @Test func onlyATestBuildCanOpenBuyingEarly() {
+        #expect(PlanBuying.isOpen(in: [:]) == PlanBuying.opensInThisBuild)
+        #expect(PlanBuying.isOpen(in: [PlanBuying.variable: "open"]))
+        #expect(PlanBuying.isOpen(in: [PlanBuying.variable: "no"]) == PlanBuying.opensInThisBuild)
     }
 
     @Test func aPaidPlanStartsOnItself() {
