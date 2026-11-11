@@ -891,9 +891,13 @@ jobs:
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      - name: Install xcodegen
+      # ExtensionKit's Linux part asks pkg-config for GTK. Without it, Xcode
+      # 26.6 warns while it reads the packages. In the merge queue it then
+      # crashed with an internal error before building anything. GTK is never
+      # linked into the app.
+      - name: Install xcodegen, and GTK for the kit
         if: env.HAS_PROPERTIES_KEY == 'true'
-        run: brew install xcodegen
+        run: brew install xcodegen gtk4
 
       - name: Check out the Properties package with the deploy key
         if: env.HAS_PROPERTIES_KEY == 'true'
