@@ -14,6 +14,11 @@ import WellSpentSync
 /// Needs the four WELLSPENT_UI_TEST_ variables, for accounts on a paid plan
 /// (scripts/fresh-test-accounts.py gives them one), since Robin makes two
 /// groups and joins a third.
+///
+/// What these tests don't prove: with the plan pinned, saving a pick answers
+/// with the pinned file again, so Keep These Open and Skip are checked only
+/// as far as the sheet closing. That the server stores the pick is covered by
+/// the server's PlanLocksTests.
 final class LockTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
     nonisolated(unsafe) private static var planFile: URL?
@@ -100,6 +105,11 @@ final class LockTests: XCTestCase {
         let name = "Cabin \(Self.stamp())"
         let link = try await leslie.shareNewGroup(name, budget: "Groceries", entry: "Market",
                                                   amount: Money(minorUnits: 1250), myName: "Leslie", role: .add)
+        // Runs even when an assertion stops the test, so Cabin never stays on staging.
+        addTeardownBlock { @MainActor in
+            await leslie.deleteGroup(named: name)
+            await leslie.cleanUp()
+        }
         let cabin = try XCTUnwrap(AppModel(store: leslie.sync.store).groups.first { $0.name == name }?.id.uuid,
                                   "Leslie's group has no id")
 
@@ -124,10 +134,7 @@ final class LockTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10),
                       "Pay for This Group didn't open Choose a plan")
         run.click(AccessibilityID.planNotNow)
-
-        await leslie.deleteGroup(named: name)
         run.signOut()
-        await leslie.cleanUp()
     }
 
     // MARK: - Steps
