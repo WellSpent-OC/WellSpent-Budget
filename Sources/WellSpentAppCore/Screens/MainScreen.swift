@@ -426,6 +426,7 @@ public final class MainScreen {
     /// account button is the way in.
     public var showsSync: Bool { sync.account != nil }
     public var syncTitle: String { SyncWording.syncTitle(for: sync.state) }
+    public var syncButtonTitle: String { SyncWording.syncButtonTitle(for: sync.state) }
     public var syncHelp: String { SyncWording.syncHelp(for: sync.state, lastSyncedAt: sync.lastSyncedAt) }
     public var syncShowsProgress: Bool { SyncWording.showsProgress(for: sync.state) }
     /// Why the last sync failed, for a screen with no tooltips to say it in.
