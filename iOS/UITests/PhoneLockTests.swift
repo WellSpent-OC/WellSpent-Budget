@@ -149,6 +149,57 @@ final class PhoneLockTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.pickGroup(beach.id)).isSelected)
     }
 
+    // MARK: - A refused pick, and paying only after buying
+
+    // Scenario LOCK-04
+    /// A pick the server can't take says why, and the sheet stays open with
+    /// the choice still made. The pinned file stands in for the server, so
+    /// taking it away makes the save fail as an unreachable server does.
+    @MainActor
+    func testAPickTheServerCantTakeSaysWhyAndStaysOpen() async throws {
+        let (run, _, beach, _) = try await pickSetUp(changedAt: nil)
+        try FileManager.default.removeItem(at: XCTUnwrap(Self.planFile))
+        run.tap(AccessibilityID.pickGroup(beach.id))
+        run.tap(AccessibilityID.pickKeep)
+        XCTAssertTrue(run.shows(PickWording.unreachable, timeout: 15),
+                      "no word that the pick wasn't saved. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.has(AccessibilityID.pickKeep), "the sheet closed on a pick that wasn't saved")
+        XCTAssertTrue(run.element(AccessibilityID.pickGroup(beach.id)).isSelected, "the choice was lost")
+    }
+
+    // Scenario LOCK-02
+    /// Pay for This Group opens Choose a plan and takes nothing over by
+    /// itself: Not Now leaves the group locked. The pinned file now says the
+    /// group is open, so a takeover sent before buying would show at once.
+    @MainActor
+    func testPayForThisGroupTakesNothingOverWithoutBuying() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let stamp = PhoneTestApp.stamp()
+        let leslie = try await Self.headless(accounts.secondEmail, accounts.secondPassword, accounts.server,
+                                             suite: "leslie")
+        let name = SecondAccount.phoneRunPrefix + stamp
+        let link = try await leslie.shareNewGroup(name, budget: "Costs \(stamp)", entry: "Costco",
+                                                  amount: Money(minorUnits: 9900), myName: "Leslie", role: .add)
+        let cabin = try XCTUnwrap(AppModel(store: leslie.sync.store).groups.first { $0.name == name })
+
+        let locked = Self.ended(locked: .init(groupIDs: [cabin.id.uuid], people: [], houseIDs: []), open: nil)
+        let run = try launch(with: locked)
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.open(link: link.url)
+        run.type("Robin", into: AccessibilityID.invitationName)
+        run.tap(AccessibilityID.invitationJoin)
+        XCTAssertTrue(run.has(AccessibilityID.lockedAction(.payForThisGroup), timeout: 30),
+                      "no Pay for This Group. On screen: \(run.visibleTexts())")
+
+        let open = Self.ended(locked: .init(groupIDs: [], people: [], houseIDs: []), open: nil)
+        try open.encoded().write(to: XCTUnwrap(Self.planFile), options: .atomic)
+        run.tap(AccessibilityID.lockedAction(.payForThisGroup))
+        XCTAssertTrue(run.has(AccessibilityID.planNotNow, timeout: 10), "no Choose a plan")
+        run.tap(AccessibilityID.planNotNow)
+        XCTAssertTrue(run.has(AccessibilityID.lockedCard, timeout: 10),
+                      "the group was taken over without buying. On screen: \(run.visibleTexts())")
+    }
+
     // MARK: - Setting up
 
     nonisolated(unsafe) private static var lastAnswer: PlanAnswer?
