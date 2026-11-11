@@ -198,8 +198,7 @@ jobs:
       # Python reads the coverage report, after the tests.
       - name: Install the SQLite headers GRDB needs, and Python
         run: |
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends libsqlite3-dev python3
+          scripts/apt-install.sh libsqlite3-dev python3
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -250,8 +249,7 @@ jobs:
 
       - name: Install the SQLite headers GRDB needs
         run: |
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends libsqlite3-dev
+          scripts/apt-install.sh libsqlite3-dev
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -275,8 +273,7 @@ jobs:
 
       - name: Install the GTK 4, libsecret and SQLite headers
         run: |
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends libgtk-4-dev libsecret-1-dev libsqlite3-dev pkg-config
+          scripts/apt-install.sh libgtk-4-dev libsecret-1-dev libsqlite3-dev pkg-config
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -313,8 +310,7 @@ jobs:
       - name: Install the SQLite headers GRDB needs, and ssh
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: |
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends libsqlite3-dev openssh-client
+          scripts/apt-install.sh libsqlite3-dev openssh-client
 
       - name: Check out the Properties package with the deploy key
         if: env.HAS_PROPERTIES_KEY == 'true'
@@ -356,7 +352,7 @@ jobs:
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
         run: |
-          apt-get install -y -q --no-install-recommends libgtk-4-dev libsecret-1-dev pkg-config
+          scripts/apt-install.sh libgtk-4-dev libsecret-1-dev pkg-config
           swift build --package-path Linux
 
   # The Linux app's UI tests (Linux/UITests), headless: they find what's on
@@ -383,8 +379,7 @@ jobs:
 
       - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
         run: |
-          apt-get update -q
-          xargs -a Linux/UITests/packages.txt apt-get install -y -q --no-install-recommends
+          xargs -a Linux/UITests/packages.txt scripts/apt-install.sh
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -520,8 +515,7 @@ jobs:
 
       - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
         run: |
-          apt-get update -q
-          xargs -a Linux/UITests/packages.txt apt-get install -y -q --no-install-recommends
+          xargs -a Linux/UITests/packages.txt scripts/apt-install.sh
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -848,7 +842,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install the Linux execution sandbox
-        run: sudo apt-get update -q && sudo apt-get install -y bubblewrap
+        run: sudo scripts/apt-install.sh bubblewrap
       - name: MCP, context, sandbox and provider behavior
         env:
           WARTABLE_REQUIRE_SANDBOX: "1"

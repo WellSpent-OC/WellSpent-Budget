@@ -41,6 +41,10 @@ public final class PurchaseCoordinator {
     /// its way to the server.
     public private(set) var pendingGroup: UUID?
 
+    /// A pay call for the waiting group is on its way. A refresh and a
+    /// purchase can finish together, and only one of them should pay.
+    @ObservationIgnored private var payingPendingGroup = false
+
     private let store: (any PlanStore)?
     private let service: any PlanService
     private let cache: any PlanCache
@@ -92,9 +96,11 @@ public final class PurchaseCoordinator {
     /// opened, is gone, or isn't theirs. A plan that doesn't cover it yet,
     /// or no answer, keeps it for the next refresh.
     private func payForPendingGroup() async {
-        guard let group = pendingGroup, let answer else { return }
+        guard !payingPendingGroup, let group = pendingGroup, let answer else { return }
         guard answer.locked?.groupIDs.contains(group) == true else { return forgetPendingGroup() }
         guard answer.tier != .free else { return }
+        payingPendingGroup = true
+        defer { payingPendingGroup = false }
         do {
             try await payFor(group: group)
             forgetPendingGroup()

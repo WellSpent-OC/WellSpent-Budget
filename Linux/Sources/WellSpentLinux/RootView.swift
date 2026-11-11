@@ -615,7 +615,10 @@ struct SidebarView: View {
                         if screen.syncShowsProgress {
                             ProgressView().frame(width: 16, height: 16)
                         }
-                        Button(screen.syncTitle) { Task { await screen.syncNow() } }
+                        // Greyed with the spinner beside it while a sync runs,
+                        // so its label stays "Sync" and it keeps its width.
+                        Button(screen.syncButtonTitle) { Task { await screen.syncNow() } }
+                            .fixedSize()
                             .help(screen.syncHelp)
                             .disabled(screen.isBusy)
                     }
