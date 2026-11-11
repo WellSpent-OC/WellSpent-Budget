@@ -34,6 +34,8 @@ public enum PlanLockError: Error, Equatable, Sendable {
     case tooMany
     /// Their own plan doesn't cover the group they tried to pay for.
     case planDoesNotCover
+    /// The group they tried to pay for is gone, or they left it.
+    case groupGone
     /// No answer from the server.
     case unreachable
 }

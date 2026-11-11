@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Makes two new staging accounts for one UI test run, through staging's test mailbox.
 
-    python3 -I scripts/fresh-test-accounts.py LABEL FILE
+    python3 -I scripts/fresh-test-accounts.py [--plan TIER] LABEL FILE
 
 Signs up two accounts at example.com, confirms each with the code staging emails it, and
 writes the four WELLSPENT_UI_TEST_ variables for them to FILE, readable by its owner only,
 for the run to source. Runs at the same time then never share an account, so one run's
 groups never crowd another's screens. LABEL, such as mac-ci-1, goes into the addresses,
 so an account on staging says which run made it.
+
+Each account gets a paid plan, portfolio unless --plan says otherwise, through staging's
+test-only plan route, so a test can make groups and invite people past the free limits.
+--plan free leaves them on the free plan, for a test that wants the server itself to refuse.
 
 Reads WELLSPENT_UI_TEST_MAILBOX_TOKEN, and WELLSPENT_UI_TEST_SERVER when it is set. The
 token and the passwords never reach a command line or the output. In GitHub Actions each
@@ -82,9 +86,26 @@ def make_account(server, mailbox, label, stamp, who):
     return address, password
 
 
+TIERS = ("free", "starter", "growth", "portfolio")
+
+
+def set_plan(server, mailbox, address, tier):
+    """Puts the account on this plan, through staging's test route. Free removes any plan."""
+    status, _ = call("POST", f"{server}/test/plan", {"email": address, "tier": tier}, token=mailbox)
+    if status == 401:
+        sys.exit("fresh-test-accounts: the test plan route turned the token down")
+    if status not in (200, 204):
+        sys.exit(f"fresh-test-accounts: staging answered {status} to the {tier} plan for {address}")
+
+
 def main(arguments):
+    tier = "portfolio"
+    if arguments[:1] == ["--plan"]:
+        if len(arguments) < 2 or arguments[1] not in TIERS:
+            sys.exit(f"fresh-test-accounts: --plan takes one of {', '.join(TIERS)}")
+        tier, arguments = arguments[1], arguments[2:]
     if len(arguments) != 2:
-        sys.exit("usage: python3 -I scripts/fresh-test-accounts.py LABEL FILE")
+        sys.exit("usage: python3 -I scripts/fresh-test-accounts.py [--plan TIER] LABEL FILE")
     label, path = arguments
     if not label.replace("-", "").isalnum():
         sys.exit("fresh-test-accounts: LABEL takes letters, digits and dashes only, such as mac-ci-1")
@@ -95,6 +116,9 @@ def main(arguments):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     (email, password), (email_2, password_2) = (make_account(server, mailbox, label, stamp, who)
                                                 for who in ("robin", "leslie"))
+    for address in (email, email_2):
+        set_plan(server, mailbox, address, tier)
+    print(f"fresh-test-accounts: both on the {tier} plan")
     lines = [f"WELLSPENT_UI_TEST_EMAIL='{email}'", f"WELLSPENT_UI_TEST_PASSWORD='{password}'",
              f"WELLSPENT_UI_TEST_EMAIL_2='{email_2}'", f"WELLSPENT_UI_TEST_PASSWORD_2='{password_2}'"]
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

@@ -9,7 +9,7 @@ import WellSpentPlans
 struct PlanCardView: View {
     let card: PlanCardScreen
     var act: (PlanCardScreen.Action) -> Void
-    /// Opens the pick. Nil until it is built: then the link isn't drawn.
+    /// Opens Pick what stays open.
     var changeWhatStaysOpen: (() -> Void)? = nil
 
     var body: some View {
