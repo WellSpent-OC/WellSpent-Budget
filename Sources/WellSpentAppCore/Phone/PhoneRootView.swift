@@ -157,7 +157,7 @@ struct PhoneRootView: View {
                 if isPropertiesActive {
                     NavigationStack {
                         #if canImport(WellSpentPropertiesViews)
-                        PhoneHousesTab(host: AppExtensionHost(model: model))
+                        PhoneHousesTab(host: AppExtensionHost(model: model, lockedCard: lockedHouse))
                         #else
                         HousesPlaceholderView(
                             openCatalog: { showingExtensionsCatalog = true },
@@ -271,6 +271,19 @@ struct PhoneRootView: View {
         .background(Palette.ground)
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.large)
+    }
+
+    /// A house past the plan: the card in place of its page (LOCK-06).
+    /// Houses asks for it through the host.
+    private func lockedHouse(_ record: String) -> AnyView? {
+        workspace.lockedScreen(property: record).map { locked in
+            AnyView(PhoneLockedCard(screen: locked) { action in
+                switch action {
+                case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+                case .seePlans, .payForThisGroup: choosingPlan = true
+                }
+            })
+        }
     }
 
     private func openPick() {
