@@ -9,13 +9,16 @@ thing on screen belongs here, never in a test. When something can't be found
 by its role and words, the fix goes here or in the app's accessibility labels.
 """
 
+import contextlib
 import datetime
+import glob
 import itertools
 import json
 import os
 import secrets
 import shutil
 import signal
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -570,6 +573,19 @@ class App:
         """A group's name in the sidebar, the button that opens its page. The
         sidebar shows names in capitals."""
         return self.find("push button", name.upper(), within=self.main)
+
+    def group_id(self, name):
+        """A group's id, as the server knows it, read from this copy's own
+        data, the way the plan answer names a group."""
+        def found():
+            for path in glob.glob(os.path.join(self.home, ".local/share/*/accounts/*/budget.sqlite")):
+                with contextlib.closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as db:
+                    row = db.execute("SELECT id FROM budgetGroup WHERE name = ? AND NOT isDeleted",
+                                     (name,)).fetchone()
+                if row:
+                    return row[0]
+            return None
+        return self.until(found, f"the group {name!r} in the app's data")
 
     def budget(self, name):
         """A budget's row in the sidebar, a button that says its name, then

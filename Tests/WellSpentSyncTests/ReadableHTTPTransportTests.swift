@@ -177,6 +177,14 @@ struct ReadableHTTPTransportTests {
         await #expect(throws: PlanLockError.unreachable) { try await transport(session: signedIn).savePick(pick) }
     }
 
+    /// Paying for a group that's gone, or that they've left, says so, so the
+    /// app stops asking.
+    @Test(arguments: [404, 410])
+    func payingForAGroupThatIsGoneSaysSo(_ status: Int) async throws {
+        ReadableStub.reset { _ in (status, #"{"error":true,"reason":"Not Found"}"#) }
+        await #expect(throws: PlanLockError.groupGone) { try await transport(session: signedIn).payForGroup(UUID()) }
+    }
+
     @Test func extensionsStayOnTheirOwnAuthenticatedServerRoute() async throws {
         ReadableStub.reset { request in
             #expect(request.url?.path == "/extensions/wartable/v1/groups/group-1/messages")
