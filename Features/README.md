@@ -325,13 +325,13 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Mac |
-| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Mac |
-| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Mac |
-| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Mac |
-| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Mac |
+| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Mac, Linux |
+| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Mac, Linux |
+| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Mac, Linux |
+| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Mac, Linux |
+| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Mac, Linux |
 | LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
-| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Mac |
+| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Mac, Linux |
 
 ### [Lifecycle.md](Lifecycle.md)
 
