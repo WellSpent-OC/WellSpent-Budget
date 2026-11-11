@@ -305,7 +305,7 @@ public final class Workspace {
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
                           pinnedPlan: pinnedPlan(for: environment, in: processEnvironment),
-                          planStore: appStore(),
+                          planStore: appStore(for: environment, in: processEnvironment),
                           features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
                                                          processEnvironment: processEnvironment),
                           opensFirstBudget: opensFirstBudget)
@@ -385,5 +385,17 @@ public final class Workspace {
         #else
         return nil
         #endif
+    }
+
+    /// The environment variable a UI test sets to "empty" so the app's store
+    /// has nothing in it (`EmptyPlanStore`). A live build never reads it.
+    nonisolated public static let emptyStoreVariable = "WELLSPENT_PLAN_STORE"
+
+    /// The store this launch uses: an empty one for a staging test that asks,
+    /// otherwise Apple's where there is one.
+    nonisolated static func appStore(for environment: AppEnvironment,
+                                     in processEnvironment: [String: String]) -> (any PlanStore)? {
+        guard environment == .staging, processEnvironment[emptyStoreVariable] == "empty" else { return appStore() }
+        return appStore() == nil ? nil : EmptyPlanStore()
     }
 }

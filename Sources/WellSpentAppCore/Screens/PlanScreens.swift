@@ -56,6 +56,11 @@ public enum PlanLinks {
     /// "Manage on wellspent.space" and "See Plans on wellspent.space".
     public static let manage = website.appendingPathComponent("account")
     public static let prices = website.appendingPathComponent("prices")
+    /// Apple asks for both beside a subscription's price.
+    public static let terms = website.appendingPathComponent("terms")
+    public static let privacy = website.appendingPathComponent("privacy")
+    /// Where Apple's own subscriptions are managed: keep, change or cancel.
+    public static let appleSubscriptions = URL(string: "https://apps.apple.com/account/subscriptions")!
     /// "Email us", for more than 15 properties.
     public static let emailUs = URL(string: "mailto:dev@wellspent.space?subject=More%20than%2015%20properties")!
 }
@@ -77,6 +82,10 @@ public enum PlanWording {
     public static let websiteFinePrint = "On Linux you pay on our website. The plan works on every device you "
         + "sign in on."
     public static let nothingDeleted = "Nothing was deleted."
+    public static let restore = "Restore Purchases"
+    public static let restoreHint = "If you bought on another Apple account"
+    public static let terms = "Terms"
+    public static let privacy = "Privacy"
     public static let managedOnApple = "Bought through Apple, so it's managed on your Mac or iPhone."
     /// Everything keeps working this long after a renewal fails.
     public static let graceDays = 16

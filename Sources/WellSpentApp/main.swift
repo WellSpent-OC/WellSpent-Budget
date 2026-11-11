@@ -88,9 +88,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Also runs once at launch, so this is the launch sync too.
+    /// Back to the front: the shared step, as on the iPhone and Linux. It
+    /// syncs if nothing else is, reads the budgets again signed out, and asks
+    /// for the plan, which may have changed elsewhere.
     func applicationDidBecomeActive(_ notification: Notification) {
         guard let workspace else { return }
-        Task { await workspace.autoSync.syncIfIdle() }
+        Task { await workspace.cameToFront() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

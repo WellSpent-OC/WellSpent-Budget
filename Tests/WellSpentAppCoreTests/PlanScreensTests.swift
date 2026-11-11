@@ -300,3 +300,46 @@ struct WorkspacePlansTests {
         #expect(cache.load() == nil)
     }
 }
+
+struct PlanResultScreensTests {
+    @Test func restoringAPlanSaysItIsBack() {
+        let found = RestoreResultScreen(answer: answer(.growth), device: "Mac")
+        #expect(found.found && found.title == "Restored" && found.close == "Done")
+        #expect(found.lines == ["Your Growth plan is back on this Mac."])
+        #expect(RestoreResultScreen(answer: answer(.starter), device: "iPhone").lines
+                == ["Your Starter plan is back on this iPhone."])
+    }
+
+    @Test func nothingToRestoreSaysWhereToLookInstead() {
+        for none in [RestoreResultScreen(answer: answer(.free), device: "Mac"),
+                     RestoreResultScreen(answer: nil, device: "Mac")] {
+            #expect(!none.found && none.title == "Nothing to restore" && none.close == "OK")
+            #expect(none.lines == ["This Apple account has no WellSpent plan. You're on the free plan.",
+                                   "If you paid on wellspent.space, sign in with that email instead. "
+                                    + "The plan follows your WellSpent account."])
+        }
+    }
+
+    @Test func eachBuyingStateHasItsLine() {
+        #expect(PlanStatusWording.line(.idle) == nil)
+        #expect(PlanStatusWording.line(.working) == "Working with the App Store…")
+        #expect(PlanStatusWording.line(.waitingForApproval)
+                == "Waiting for approval. Your plan starts once it's approved.")
+        let failures: [PurchaseCoordinator.Failure] = [.noStore, .notReady, .paddlePlanLive, .notGenuine,
+                                                       .unreachable, .storeFailed]
+        let lines = failures.map { PlanStatusWording.line(.failed($0)) }
+        #expect(lines.allSatisfy { $0?.isEmpty == false })
+        #expect(Set(lines).count == failures.count, "each failure says something of its own")
+        #expect(PlanStatusWording.line(.failed(.paddlePlanLive))
+                == "Your plan was bought on wellspent.space, so change it there.")
+        #expect(PlanStatusWording.isWarning(.failed(.storeFailed)))
+        #expect(!PlanStatusWording.isWarning(.working) && !PlanStatusWording.isWarning(.idle))
+    }
+
+    @Test func theLinksBesideThePriceGoToTheWebsite() {
+        #expect(PlanLinks.terms.absoluteString == "https://wellspent.space/terms")
+        #expect(PlanLinks.privacy.absoluteString == "https://wellspent.space/privacy")
+        #expect(PlanLinks.appleSubscriptions.host == "apps.apple.com")
+        #expect(PlanWording.restore == "Restore Purchases")
+    }
+}

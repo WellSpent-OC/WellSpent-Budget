@@ -150,7 +150,7 @@ struct RootView: View {
             EntrySheet(model: model, request: request)
         }
         .sheet(isPresented: $showingAccount) {
-            AccountSheet(sync: sync)
+            AccountSheet(sync: sync, plans: workspace.plans, openNames: workspace.planOpenNames)
         }
         // Signed out without asking, by the server or by the update to
         // readable sync: the sign-in opens with the reason.

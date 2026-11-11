@@ -3,6 +3,7 @@
 #if canImport(SwiftUI)
 import SwiftUI
 import WellSpentCrypto
+import WellSpentPlans
 
 // MARK: - The toolbar buttons
 
@@ -115,11 +116,20 @@ struct SpinningIcon: View {
 /// shared with every desktop; this is layout only.
 struct AccountSheet: View {
     @Bindable var sync: SyncCoordinator
+    /// The plan card's coordinator and what stays open, by name. Nil hides
+    /// the plan, as before plans existed.
+    var plans: PurchaseCoordinator?
+    var openNames: [String] = []
+    var onChangeWhatStaysOpen: () -> Void = {}
     @State private var flow: AccountFlow
     @Environment(\.dismiss) private var dismiss
 
-    init(sync: SyncCoordinator) {
+    init(sync: SyncCoordinator, plans: PurchaseCoordinator? = nil, openNames: [String] = [],
+         onChangeWhatStaysOpen: @escaping () -> Void = {}) {
         self.sync = sync
+        self.plans = plans
+        self.openNames = openNames
+        self.onChangeWhatStaysOpen = onChangeWhatStaysOpen
         _flow = State(initialValue: AccountFlow(actions: sync, email: sync.signInPrompt?.email,
                                                 reason: sync.signInPrompt?.reason,
                                                 afterSigningIn: { await sync.syncAll() }))
@@ -245,6 +255,11 @@ struct AccountSheet: View {
         case .account:
             Text(flow.signedInAs)
                 .font(.system(size: 13))
+            #if os(macOS)
+            if let plans {
+                PlanSection(plans: plans, openNames: openNames, onChangeWhatStaysOpen: onChangeWhatStaysOpen)
+            }
+            #endif
             if flow.needsConfirming {
                 note(ConfirmEmailScreen.reason)
                 Button(Words.confirmEmail) { flow.go(to: .confirmEmail) }
