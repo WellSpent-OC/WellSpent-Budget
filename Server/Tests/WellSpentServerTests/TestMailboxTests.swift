@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import Vapor
 import VaporTesting
+import Fluent
 @testable import WellSpentServerCore
 
 /// Staging's test mailbox: UI tests on other machines read the code staging
@@ -32,6 +33,10 @@ struct TestMailboxTests {
             #expect(throws: (any Error).self) { try app.enableTestMailbox(token: Self.token) }
             try await app.asyncBoot()
             #expect(try await mailboxStatus(address: "uitest@example.com", token: Self.token, on: app) == .notFound)
+            app.plansEnabled = true
+            #expect(try await planStatus(TestPlanRequest(email: "uitest-plan-live@example.com", tier: "portfolio",
+                                                          period: nil, source: nil),
+                                         token: Self.token, on: app) == .notFound, "no plan route on live")
         } catch {
             try? await app.asyncShutdown()
             throw error
@@ -54,6 +59,52 @@ struct TestMailboxTests {
                     "an address in any case")
             #expect(try await v2Status(.POST, "api/v2/email/verify", token: session.token,
                                      body: V2CodeBody(code: try #require(kept.code)), on: app) == .noContent)
+        }
+    }
+
+    /// A test account gets the plan it asks for, so a fresh account can make
+    /// a second group with plans on, and goes back to free when asked.
+    @Test func aTestAccountGetsThePlanItAsksFor() async throws {
+        try await withMailbox { app, _ in
+            app.plansEnabled = true
+            let email = "uitest-plan-paid@example.com"
+            _ = try await v2SignUp(email, on: app)
+            #expect(try await planStatus(TestPlanRequest(email: email.uppercased(), tier: "portfolio",
+                                                         period: nil, source: nil),
+                                         token: Self.token, on: app) == .noContent)
+            let paid = try #require(try await plan(of: email, on: app))
+            #expect(paid.tier == "portfolio" && paid.state == "active" && paid.period == "monthly")
+            #expect(paid.source == "none", "so deleting the account never asks Paddle")
+            #expect(paid.renews && (paid.paidUntil ?? .distantPast) > Date())
+            let answer = try await PlanAnswer.of(paid.userID, on: app.db)
+            #expect(answer.tier == .portfolio)
+
+            #expect(try await planStatus(TestPlanRequest(email: email, tier: "free", period: nil, source: nil),
+                                         token: Self.token, on: app) == .noContent)
+            let free = try #require(try await plan(of: email, on: app))
+            #expect(free.tier == "free" && free.state == "free" && free.source == "none" && free.paidUntil == nil)
+        }
+    }
+
+    /// Only with the token, only for a test address, only for an account that
+    /// exists, and only a real tier, period and source.
+    @Test func thePlanRouteRefusesWhatItShould() async throws {
+        try await withMailbox { app, _ in
+            let email = "uitest-plan-refuse@example.com"
+            _ = try await v2SignUp(email, on: app)
+            func ask(_ tier: String, period: String? = nil, source: String? = nil, for address: String? = nil,
+                     token: String? = Self.token) async throws -> HTTPStatus {
+                try await planStatus(TestPlanRequest(email: address ?? email, tier: tier, period: period, source: source),
+                                     token: token, on: app)
+            }
+            #expect(try await ask("portfolio", token: nil) == .unauthorized)
+            #expect(try await ask("portfolio", token: String(repeating: "x", count: 64)) == .unauthorized)
+            #expect(try await ask("portfolio", for: "someone@wellspent.space") == .forbidden)
+            #expect(try await ask("portfolio", for: "uitest-plan-nobody@example.com") == .notFound)
+            #expect(try await ask("platinum") == .badRequest)
+            #expect(try await ask("growth", period: "weekly") == .badRequest)
+            #expect(try await ask("growth", source: "stripe") == .badRequest)
+            #expect(try await plan(of: email, on: app)?.tier ?? "free" == "free", "nothing refused changed the plan")
         }
     }
 
@@ -226,5 +277,18 @@ struct TestMailboxTests {
             if response.status == .ok { message = try response.content.decode(TestMailbox.Message.self) }
         })
         return message
+    }
+
+    private func planStatus(_ body: TestPlanRequest, token: String?, on app: Application) async throws -> HTTPStatus {
+        var status = HTTPStatus.internalServerError
+        try await app.testing().test(.POST, "test/plan", headers: token.map(v2Bearer) ?? [:], beforeRequest: { request in
+            try request.content.encode(body)
+        }, afterResponse: { response async throws in status = response.status })
+        return status
+    }
+
+    private func plan(of email: String, on app: Application) async throws -> PlanRow? {
+        guard let user = try await UserRow.query(on: app.db).filter(\.$email == email).first() else { return nil }
+        return try await PlanRow.query(on: app.db).filter(\.$userID == user.requireID()).first()
     }
 }
