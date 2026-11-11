@@ -49,9 +49,11 @@ jobs:
         if: steps.classes.outputs.list != ''
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      - name: Install xcodegen
+      # GTK only so Xcode 26.6 doesn't crash reading ExtensionKit's
+      # packages (see the Houses job in ci.yml). Nothing links it.
+      - name: Install xcodegen, and GTK for the kit
         if: steps.classes.outputs.list != ''
-        run: brew install xcodegen
+        run: brew install xcodegen gtk4
 
       - name: Cache SwiftPM
         if: steps.classes.outputs.list != ''
