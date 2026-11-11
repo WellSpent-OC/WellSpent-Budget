@@ -259,5 +259,17 @@ struct PinnedPlanTests {
 private final class NoCache: PlanCache, @unchecked Sendable {
     func load() -> PlanAnswer? { nil }
     func save(_ answer: PlanAnswer) {}
+    func loadPendingGroup() -> UUID? { nil }
+    func savePendingGroup(_ id: UUID?) {}
     func clear() {}
+}
+
+struct PickWordingTests {
+    @Test func eachRefusalSaysWhy() {
+        #expect(PickWording.failure(PlanLockError.pickTooSoon) == PickWording.tooSoon)
+        #expect(PickWording.failure(PlanLockError.notYours) == PickWording.notYours)
+        #expect(PickWording.failure(PlanLockError.tooMany) == PickWording.tooMany)
+        #expect(PickWording.failure(PlanLockError.unreachable) == PickWording.unreachable)
+        #expect(PickWording.failure(URLError(.notConnectedToInternet)) == PickWording.unreachable)
+    }
 }

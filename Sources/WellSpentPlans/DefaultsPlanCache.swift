@@ -19,7 +19,18 @@ public final class DefaultsPlanCache: PlanCache, @unchecked Sendable {
         if let data = try? answer.encoded() { defaults.set(data, forKey: key) }
     }
 
+    public func loadPendingGroup() -> UUID? {
+        defaults.string(forKey: pendingKey).flatMap(UUID.init(uuidString:))
+    }
+
+    public func savePendingGroup(_ id: UUID?) {
+        if let id { defaults.set(id.uuidString, forKey: pendingKey) } else { defaults.removeObject(forKey: pendingKey) }
+    }
+
     public func clear() {
         defaults.removeObject(forKey: key)
+        defaults.removeObject(forKey: pendingKey)
     }
+
+    private var pendingKey: String { "\(key).pendingGroup" }
 }
