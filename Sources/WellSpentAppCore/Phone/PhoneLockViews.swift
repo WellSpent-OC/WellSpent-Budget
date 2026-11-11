@@ -5,11 +5,13 @@ import WellSpentPlans
 
 /// Pick what stays open on the free plan: one group, one person in it, and
 /// the properties the plan keeps. Draws `PickOpenScreen`; Keep and Skip each
-/// hand back what to save.
+/// hand back what to save. A save that fails says why and keeps the sheet
+/// open, as on the Mac.
 struct PhonePickSheet: View {
     @State var screen: PickOpenScreen
-    let save: (PlanPick) async -> Void
+    let save: (PlanPick) async throws -> Void
     @State private var saving = false
+    @State private var failure: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -57,6 +59,15 @@ struct PhonePickSheet: View {
 
                 Section { Text(screen.skipNote).font(.footnote).foregroundStyle(Palette.muted) }
                     .listRowBackground(Color.clear)
+
+                if let failure {
+                    Section {
+                        Label(failure, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.warning)
+                    }
+                    .listRowBackground(Palette.surface)
+                }
             }
             .phoneSheet(title: screen.title)
             .disabled(saving)
@@ -77,10 +88,15 @@ struct PhonePickSheet: View {
 
     private func finish(_ pick: PlanPick) {
         saving = true
+        failure = nil
         Task {
-            await save(pick)
-            saving = false
-            dismiss()
+            defer { saving = false }
+            do {
+                try await save(pick)
+                dismiss()
+            } catch {
+                failure = PickWording.failure(error)
+            }
         }
     }
 

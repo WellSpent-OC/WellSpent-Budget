@@ -26,6 +26,8 @@ struct PhoneRootView: View {
     @State private var showingAccount = false
     /// Choose a plan, opened from a locked page.
     @State private var choosingPlan = false
+    /// A locked group to take over paying for, once a plan is bought.
+    @State private var payingFor: GroupID?
     /// Pick what stays open, opened from Account or a locked page.
     @State private var picking: PickOpenScreen?
     @State private var addingEntry = false
@@ -107,10 +109,15 @@ struct PhoneRootView: View {
                               changeWhatStaysOpen: openPick)
                 .tint(Palette.accent)
         }
-        .sheet(isPresented: $choosingPlan) { PhoneChoosePlanSheet(plans: workspace.plans).tint(Palette.accent) }
+        .sheet(isPresented: $choosingPlan, onDismiss: { payingFor = nil }) {
+            PhoneChoosePlanSheet(plans: workspace.plans, afterBuying: payingFor.map { group in
+                { [plans = workspace.plans] in try? await plans.payFor(group: group.uuid) }
+            })
+            .tint(Palette.accent)
+        }
         .sheet(isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } })) {
             if let picking {
-                PhonePickSheet(screen: picking) { pick in try? await workspace.plans.save(pick) }
+                PhonePickSheet(screen: picking) { pick in try await workspace.plans.save(pick) }
                     .tint(Palette.accent)
             }
         }
@@ -261,10 +268,8 @@ struct PhoneRootView: View {
                 case .switchWhichIsOpen, .changeWhatsOpen: openPick()
                 case .seePlans: choosingPlan = true
                 case .payForThisGroup:
-                    Task {
-                        try? await workspace.plans.payFor(group: group.uuid)
-                        choosingPlan = true
-                    }
+                    payingFor = group
+                    choosingPlan = true
                 }
             }
         }

@@ -133,9 +133,11 @@ struct PhoneRestoreResultSheet: View {
 
 /// Choose a plan: monthly or yearly, the three sizes, and Subscribe. Drawn
 /// from `PlanChoicesScreen`; Apple's own prices replace the US ones once the
-/// store answers.
+/// store answers. `afterBuying` runs once a purchase is accepted, such as
+/// taking over paying for a locked group, as on the Mac.
 struct PhoneChoosePlanSheet: View {
     let plans: PurchaseCoordinator
+    var afterBuying: (() async -> Void)? = nil
     @State private var period: BillingPeriod = .monthly
     @State private var selected: PaidTier?
     @State private var prices: PlanPrices = .us
@@ -271,7 +273,11 @@ struct PhoneChoosePlanSheet: View {
 
     private func buy(_ screen: PlanChoicesScreen) async {
         await plans.buy(screen.product(period))
-        if plans.status == .idle, plans.answer?.state == .active { dismiss() }
+        // Bought and accepted by the server: the card shows the new plan.
+        if plans.status == .idle, plans.answer?.state != .free {
+            await afterBuying?()
+            dismiss()
+        }
     }
 }
 
