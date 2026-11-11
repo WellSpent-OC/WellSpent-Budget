@@ -1,5 +1,5 @@
 # A Mac UI test branch checks its own new or changed test classes on GitHub's
-# Macs, each time it is pushed: only those classes, with fresh staging accounts
+# Macs, each time it is pushed: only the classes it adds or changes against main, with fresh staging accounts
 # of their own. Several branches then check at once, rather than queueing for
 # one Mac's screen, and a branch knows it passes before it joins the train.
 # The train's own pull request still runs every test (ci.yml).
@@ -34,8 +34,8 @@ jobs:
       - name: Find this branch's classes
         id: classes
         run: |
-          git fetch -q origin app/0.2-train
-          files=$(git diff --name-only --diff-filter=AM origin/app/0.2-train...HEAD -- 'Tests/WellSpentUITests/*.swift')
+          git fetch -q origin main
+          files=$(git diff --name-only --diff-filter=AM origin/main...HEAD -- 'Tests/WellSpentUITests/*.swift')
           classes=""
           for f in $files; do
             for c in $(grep -h -o -E 'class [A-Za-z0-9_]+: XCTestCase' "$f" | awk '{print $2}' | tr -d ':'); do
