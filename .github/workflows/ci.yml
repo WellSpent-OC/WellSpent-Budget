@@ -934,6 +934,27 @@ jobs:
           scripts/passed-at-least.sh 4 $bundles
           scripts/skipped-tests.sh $bundles
 
+      # The locked-house test signs in, so it needs staging and accounts of
+      # its own. Nightly and by hand only: staging never gates the merge
+      # queue. It runs after the check above, which has read the Houses
+      # result, so its own result can take that result's place.
+      - name: Make the locked-house test's own staging accounts
+        if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'mac' && github.event_name != 'merge_group'
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: python3 -I scripts/fresh-test-accounts.py "houses-lock-${{ github.run_id }}" "$RUNNER_TEMP/house-lock-accounts.env"
+
+      - name: Run the Mac locked-house test
+        if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'mac' && github.event_name != 'merge_group'
+        env:
+          WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: |
+          set -a; . "$RUNNER_TEMP/house-lock-accounts.env"; set +a
+          make ui-test UI_TEST_ONLY="WellSpentUITests/HouseLockTests"
+          scripts/passed-at-least.sh 1 .build/xcode/ui-test.xcresult
+          scripts/skipped-tests.sh .build/xcode/ui-test.xcresult
+
       - name: Pull the screenshots out of a failed Mac run
         if: failure() && matrix.platform == 'mac'
         run: |

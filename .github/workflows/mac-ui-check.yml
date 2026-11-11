@@ -1,11 +1,16 @@
 # A Mac UI test branch checks its own new or changed test classes on GitHub's
-# Macs, each time it is pushed: only those classes, with fresh staging accounts
+# Macs, each time it is pushed: only the classes it adds or changes against main, with fresh staging accounts
 # of their own. Several branches then check at once, rather than queueing for
 # one Mac's screen, and a branch knows it passes before it joins the train.
 # The train's own pull request still runs every test (ci.yml).
 #
-# Branches only: a fork can't push here, and the run has the mailbox token
-# and nothing else.
+# Branches only: a fork can't push here. The run has the mailbox token, and
+# the Properties deploy key when the branch asks for Properties.
+#
+# A branch may carry .github/mac-ui-check.env with CLASSES (the classes to
+# run, in place of the changed ones) and PROPERTIES_REF (a Properties branch
+# to link, for a Houses test that signs in). Several branches at one commit
+# give several runs at once, each with its own accounts.
 name: Mac UI check
 
 on:
@@ -34,8 +39,17 @@ jobs:
       - name: Find this branch's classes
         id: classes
         run: |
-          git fetch -q origin app/0.2-train
-          files=$(git diff --name-only --diff-filter=AM origin/app/0.2-train...HEAD -- 'Tests/WellSpentUITests/*.swift')
+          if [ -f .github/mac-ui-check.env ]; then
+            . ./.github/mac-ui-check.env
+            if [ -n "${PROPERTIES_REF:-}" ]; then echo "properties=$PROPERTIES_REF" >> "$GITHUB_OUTPUT"; fi
+            if [ -n "${CLASSES:-}" ]; then
+              echo "Classes: $CLASSES"
+              echo "list=$CLASSES" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          git fetch -q origin main
+          files=$(git diff --name-only --diff-filter=AM origin/main...HEAD -- 'Tests/WellSpentUITests/*.swift')
           classes=""
           for f in $files; do
             for c in $(grep -h -o -E 'class [A-Za-z0-9_]+: XCTestCase' "$f" | awk '{print $2}' | tr -d ':'); do
@@ -49,12 +63,32 @@ jobs:
         if: steps.classes.outputs.list != ''
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      - name: Install xcodegen
+      # GTK only so Xcode 26.6 doesn't crash reading ExtensionKit's
+      # packages (see the Houses job in ci.yml). Nothing links it.
+      - name: Install xcodegen, and GTK for the kit
         if: steps.classes.outputs.list != ''
-        run: brew install xcodegen
+        run: brew install xcodegen gtk4
 
+      - name: Check out the Properties package with the deploy key
+        if: steps.classes.outputs.list != '' && steps.classes.outputs.properties != ''
+        env:
+          PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
+          REF: ${{ steps.classes.outputs.properties }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
+          chmod 600 ~/.ssh/properties_deploy_key
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            git clone --depth 1 --branch "$REF" git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
+          rm -f ~/.ssh/properties_deploy_key
+          echo "WELLSPENT_PROPERTIES_PATH=$RUNNER_TEMP/wellspent-properties" >> "$GITHUB_ENV"
+
+      # Not with Properties linked: a cache built without it leaves modules
+      # that make the build think Properties is there when it isn't, or the
+      # other way round.
       - name: Cache SwiftPM
-        if: steps.classes.outputs.list != ''
+        if: steps.classes.outputs.list != '' && steps.classes.outputs.properties == ''
         uses: actions/cache@v4
         with:
           path: .build
