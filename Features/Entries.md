@@ -152,3 +152,11 @@ Platforms: Mac
 - Given a budget's list, in a group with someone else in it
 - When Robin selects a row
 - Then its date, description, who added it, its source and its amount can all still be read on the selection's colour
+
+## ENTRY-15 The app keeps answering a screen reader while it shows a new transaction
+
+Platforms: Linux
+
+- Given Groceries is open, with a busy month of transactions in it, 81 of them
+- When Robin adds a transaction
+- Then the app never goes more than a second without answering his screen reader

@@ -69,6 +69,9 @@ struct RootView: View {
         let openGroup = screen.openGroup
         let people = openPage.screen(for: openGroup, sync: sync)
         let pick = picking
+        #if DEBUG
+        let _ = DebugCounts.drew(workspace)
+        #endif
         VStack(spacing: 0) {
             if workspace.environment == .staging {
                 StagingBanner()
