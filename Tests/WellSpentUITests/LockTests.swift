@@ -204,9 +204,10 @@ final class LockTests: XCTestCase {
     private func expectCard(_ run: TestApp, title: String, lines: [String], actions: [LockedScreen.Action],
                             file: StaticString = #filePath, line: UInt = #line) {
         let shown = run.element(AccessibilityID.lockedTitle)
-        XCTAssertTrue(run.wait(for: shown, until: "label == '\(title.replacingOccurrences(of: "'", with: "\\'"))'",
-                               timeout: 15),
-                      "the card says \(shown.label), not \(title)", file: file, line: line)
+        // On the Mac a Text with an identifier may hold its words in its
+        // value, not its label, so read both.
+        XCTAssertTrue(run.wait(for: shown, holds: title, timeout: 15),
+                      "the card says \(run.text(of: shown)), not \(title)", file: file, line: line)
         let card = run.element(AccessibilityID.lockedCard)
         for wanted in lines {
             XCTAssertTrue(card.staticTexts[wanted].firstMatch.exists, "no line \"\(wanted)\" on the card",

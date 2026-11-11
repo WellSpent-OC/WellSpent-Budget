@@ -200,6 +200,8 @@ struct ChoosePlanSheet: View {
         }
         .padding(20)
         .frame(width: 480)
+        // Contain, so each row keeps its own identifier under the sheet's.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.planChoices)
         .task {
             let offers = await plans.offers()
