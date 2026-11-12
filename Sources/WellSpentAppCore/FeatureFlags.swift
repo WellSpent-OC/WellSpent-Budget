@@ -20,6 +20,9 @@ public struct FeatureFlags: Sendable, Equatable {
     /// The environment variable to control Properties in staging.
     nonisolated public static let propertiesVariable = "WELLSPENT_FEATURE_PROPERTIES"
 
+    /// The environment variable to control the Linux native GTK shell.
+    nonisolated public static let nativeShellVariable = "WELLSPENT_FEATURE_NATIVE"
+
     /// The user defaults key for App Extensions.
     public static let extensionsDefaultsKey = "feature.extensions"
 
@@ -28,6 +31,9 @@ public struct FeatureFlags: Sendable, Equatable {
 
     /// The user defaults key for Properties.
     public static let propertiesDefaultsKey = "feature.properties"
+
+    /// The user defaults key for the Linux native GTK shell.
+    public static let nativeShellDefaultsKey = "feature.native"
 
     /// The Info.plist key: the flags a build carries on, as one string of
     /// names separated by commas, such as "extensions,properties". The build
@@ -39,6 +45,7 @@ public struct FeatureFlags: Sendable, Equatable {
     public static let warTableBundleName = "wartable"
     public static let propertiesBundleName = "properties"
     public static let purchasesBundleName = PlanBuying.bundleName
+    public static let nativeShellBundleName = "native"
 
     /// Whether App Extensions, including the activity rail and catalog, are on.
     public let areExtensionsEnabled: Bool
@@ -52,16 +59,22 @@ public struct FeatureFlags: Sendable, Equatable {
     /// Whether the app sells plans. Off, Choose a plan says "Coming soon".
     public let isPurchasingEnabled: Bool
 
+    /// Whether Linux runs the native GTK shell (sidebar and budget page) in
+    /// place of the SwiftCrossUI one. Linux only; other platforms ignore it.
+    public let isNativeShellEnabled: Bool
+
     public init(
         areExtensionsEnabled: Bool = false,
         isWarTableEnabled: Bool = false,
         isPropertiesEnabled: Bool = false,
-        isPurchasingEnabled: Bool = false
+        isPurchasingEnabled: Bool = false,
+        isNativeShellEnabled: Bool = false
     ) {
         self.areExtensionsEnabled = areExtensionsEnabled
         self.isWarTableEnabled = areExtensionsEnabled && isWarTableEnabled
         self.isPropertiesEnabled = areExtensionsEnabled && isPropertiesEnabled
         self.isPurchasingEnabled = isPurchasingEnabled
+        self.isNativeShellEnabled = isNativeShellEnabled
     }
 
     /// The flags a build carries on, read from its Info.plist. A bare
@@ -101,7 +114,8 @@ public struct FeatureFlags: Sendable, Equatable {
             isWarTableEnabled: flag(warTableVariable, warTableDefaultsKey, warTableBundleName),
             isPropertiesEnabled: flag(propertiesVariable, propertiesDefaultsKey, propertiesBundleName),
             isPurchasingEnabled: PlanBuying.isOpen(processEnvironment: processEnvironment, defaults: defaults,
-                                                   bundleFeatures: bundleFeatures)
+                                                   bundleFeatures: bundleFeatures),
+            isNativeShellEnabled: flag(nativeShellVariable, nativeShellDefaultsKey, nativeShellBundleName)
         )
     }
 

@@ -59,6 +59,7 @@ In a production release, the app is purely a personal finance manager. The Activ
 | WarTable | `isWarTableEnabled` | `WELLSPENT_FEATURE_WARTABLE` | `feature.wartable` | `false` | `true` | Enables the WarTable extension card and rail destination. |
 | Properties | `isPropertiesEnabled` | `WELLSPENT_FEATURE_PROPERTIES` | `feature.properties` | `false` | `false` | Enables the Properties extension card and the Houses rail item (desktop) or tab (iPhone). Runway is a page inside Properties, not a rail destination. |
 | Purchases | `isPurchasingEnabled` | `WELLSPENT_PLAN_BUYING` (test builds only) | `feature.purchases` (test builds only) | `false` | `false` | Lets Choose a plan sell. Off, its button reads "Coming soon" on every platform, Linux's website button too (PLAN-17). A release build reads only its own list, the Info.plist `WellSpentFeatures` or, on Linux, the `features` file `Linux/scripts/package.sh` writes from `WELLSPENT_FEATURES`; its variable and stored default are compiled out, so nobody can make a release sell early. The rule lives in `PlanBuying`, which the screens ask directly. |
+| Native shell | `isNativeShellEnabled` | `WELLSPENT_FEATURE_NATIVE` | `feature.native` | `false` | `false` | Linux only. Runs the native GTK 4 shell, its sidebar and budget page, in place of the SwiftCrossUI one. Replaces the old `WELLSPENT_NATIVE=1` switch, which is gone. Its default flips once every Linux UI test passes on it (card #256). |
 
 ### Hierarchical Coercion Rule
 
