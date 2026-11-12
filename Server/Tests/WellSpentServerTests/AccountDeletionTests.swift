@@ -77,6 +77,16 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 }
 
 @Suite("Deleting an account", .serialized) struct AccountDeletionTests {
+    @Test("While deletion is off, the route isn't there and nothing is deleted")
+    func offIsNotFound() async throws {
+        try await withV2App { app, _ in
+            let me = try await v2SignUp("delete-off@example.com", on: app)
+            #expect(try await deleteAccount(me, on: app).0 == .notFound)
+            #expect(try await UserRow.find(me.userID, on: app.db) != nil)
+            #expect(try await v2Me(me.token, on: app) != nil)
+        }
+    }
+
     @Test("Deleting an account removes it, its sign-ins and the groups only it was in")
     func deletesTheAccountAndItsOwnGroups() async throws {
         try await withV2App { app, _ in
