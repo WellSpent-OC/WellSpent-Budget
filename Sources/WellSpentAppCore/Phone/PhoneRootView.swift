@@ -149,6 +149,13 @@ struct PhoneRootView: View {
         .onChange(of: sync.signInPrompt) { _, prompt in
             if prompt != nil { showingAccount = true }
         }
+        // A change refused past the plan asks once for Choose a plan, as on the Mac.
+        .onChange(of: sync.planSheet) { _, refusal in
+            guard refusal != nil else { return }
+            sync.planSheetShown()
+            payingFor = nil
+            choosingPlan = true
+        }
     }
 
     @ViewBuilder
