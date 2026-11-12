@@ -256,12 +256,13 @@ class App:
     # Starting and stopping
 
     def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None,
-               extensions=None, wartable=None, properties=None, plan_file=None, region="en_US.UTF-8"):
+               extensions=None, wartable=None, properties=None, purchases=None, plan_file=None,
+               region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
         invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
         `undo_seconds` sets how long Undo stays. `autosync_seconds` sets the
-        periodic sync interval. `extensions`, `wartable` and `properties` control feature flags.
+        periodic sync interval. `extensions`, `wartable`, `properties` and `purchases` control feature flags.
         `plan_file` names a file whose plan answer the app shows in place of
         the server's, read again each time the app asks (`write_plan`).
         `region` is the computer's, as a desktop names it."""
@@ -277,6 +278,7 @@ class App:
         env.pop("WELLSPENT_FEATURE_EXTENSIONS", None)
         env.pop("WELLSPENT_FEATURE_WARTABLE", None)
         env.pop("WELLSPENT_FEATURE_PROPERTIES", None)
+        env.pop("WELLSPENT_PLAN_BUYING", None)
         env.pop("WELLSPENT_PLAN_ANSWER_FILE", None)
         if plan_file is not None:
             env["WELLSPENT_PLAN_ANSWER_FILE"] = plan_file
@@ -292,9 +294,11 @@ class App:
             env["WELLSPENT_FEATURE_WARTABLE"] = "1" if wartable else "0"
         if properties is not None:
             env["WELLSPENT_FEATURE_PROPERTIES"] = "1" if properties else "0"
+        if purchases is not None:
+            env["WELLSPENT_PLAN_BUYING"] = "1" if purchases else "0"
         self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds,
                                   extensions=extensions, wartable=wartable, properties=properties,
-                                  plan_file=plan_file, region=region)
+                                  purchases=purchases, plan_file=plan_file, region=region)
         self.env = env
         _record_browser(self.home)
         self.log = open(os.path.join(self.home, "app.log"), "ab")

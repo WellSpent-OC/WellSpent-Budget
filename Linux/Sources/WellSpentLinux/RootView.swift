@@ -184,6 +184,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingPlans) {
             PlanChoicesView(answer: workspace.plans.answer,
+                            buyingIsOpen: workspace.features.isPurchasingEnabled,
                             checkout: { product in
                                 // Paid on the website, so the group waits for
                                 // the plan to reach the server, then opens.

@@ -1,6 +1,7 @@
 import Foundation
 import WellSpentAppCore
 import WellSpentKeyStore
+import WellSpentPlans
 
 /// Which build this is, where it keeps its files and settings, and its keyring.
 /// Everything else starts up exactly as on the Mac, through Workspace.launch.
@@ -12,6 +13,14 @@ enum LinuxSetup {
         let text = url.flatMap { try? String(contentsOf: $0, encoding: .utf8) }?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return AppEnvironment(infoPlistValue: text)
+    }()
+
+    /// The flags this build carries on, from the file the packaging step
+    /// writes, as the Mac's come from its Info.plist list. No file, or an
+    /// empty one, is none.
+    static let buildFeatures: Set<String> = {
+        let url = Bundle.module.url(forResource: "features", withExtension: nil)
+        return BuildFeatures.parse(url.flatMap { try? String(contentsOf: $0, encoding: .utf8) })
     }()
 
     /// $XDG_DATA_HOME, else ~/.local/share, then the build's own folder: "WellSpent"
@@ -55,6 +64,7 @@ enum LinuxSetup {
                                     pinnedDay: Workspace.pinnedDay(for: environment, in: process),
                                     pinnedPlan: Workspace.pinnedPlan(for: environment, in: process),
                                     features: FeatureFlags.resolve(for: environment, defaults: defaults,
-                                                                   processEnvironment: process))
+                                                                   processEnvironment: process,
+                                                                   bundleFeatures: buildFeatures))
     }
 }

@@ -313,8 +313,8 @@ public struct PlanChoicesScreen: Equatable, Sendable {
     public let showsRestore: Bool
     public let notNow = "Not Now"
     public let buy: String
-    /// False while the App Store isn't selling plans yet: `buy` reads
-    /// "Coming soon" and can't be pressed (PlanBuying).
+    /// False while the purchases flag is off: `buy` reads "Coming soon" and
+    /// can't be pressed (PlanBuying).
     public let canBuy: Bool
 
     public init(answer: PlanAnswer?, platform: PlanPlatform, period: BillingPeriod, selected: PaidTier? = nil,
@@ -343,12 +343,13 @@ public struct PlanChoicesScreen: Equatable, Sendable {
         moreThan15 = emailAllowed ? "\(PlanWording.moreThan15) \(PlanWording.emailUs)." : nil
         finePrint = platform == .appleStore ? PlanWording.appleFinePrint : PlanWording.websiteFinePrint
         showsTermsAndPrivacy = platform == .appleStore
-        let selling = platform != .appleStore || buyingIsOpen
+        // The purchases flag holds every platform's button, the website's too.
+        let selling = buyingIsOpen
         canBuy = selling
         showsRestore = platform == .appleStore && selling
         let period = period == .monthly ? "Month" : "Year"
-        buy = platform != .appleStore ? "Continue on wellspent.space"
-            : !selling ? PlanBuying.comingSoon
+        buy = !selling ? PlanBuying.comingSoon
+            : platform != .appleStore ? "Continue on wellspent.space"
             : "Subscribe for \(prices.price(chosen, period == "Month" ? .monthly : .yearly)) a \(period)"
     }
 

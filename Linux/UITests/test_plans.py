@@ -1,5 +1,6 @@
 """Plans (Features/Plans.md) in the real window: the plan card on Account, and
-Choose a plan, which on Linux continues on the website. The browser and the
+Choose a plan, which on Linux continues on the website once the purchases
+flag is on, and says "Coming soon" until then. The browser and the
 mail program are the UI tests' recorder (wellspent_ui._record_browser), so
 nothing leaves the container. The plan answer comes from a file
 (`pinned_plan`), the free plan, as on the Mac. Each test signs up a fresh
@@ -39,7 +40,7 @@ class Plans(unittest.TestCase):
 
     def test_continue_opens_checkout_for_the_picked_plan(self):
         needs_accounts(self)
-        app = launch_fresh(self, plan_file=pinned_plan(self))
+        app = launch_fresh(self, plan_file=pinned_plan(self), purchases=True)
         app.sign_up(unique("plan-checkout"))
         sheet = self.open_plans(app)
         # Scenario PLAN-02
@@ -63,6 +64,20 @@ class Plans(unittest.TestCase):
         app.wait_for_window(1, "Choose a plan to close")
         app.until(lambda: f"{CHECKOUT}?plan=growth&period=yearly" in app.opened_links(),
                   "checkout for Growth, yearly, to open")
+
+    def test_before_the_app_sells_plans_it_says_coming_soon(self):
+        needs_accounts(self)
+        app = launch_fresh(self, plan_file=pinned_plan(self), purchases=False)
+        app.sign_up(unique("plan-soon"))
+        sheet = self.open_plans(app)
+        # Scenario PLAN-17
+        # The plans and their prices show, and Coming soon stands in place of
+        # Continue, and can't be pressed.
+        for plan in ("Starter $19 a month", "Growth $49 a month", "Portfolio $99 a month"):
+            app.find("push button", plan, within=sheet)
+        self.assertFalse(app.button("Coming soon", within=sheet).enabled)
+        self.assertFalse(app.shows("Continue on wellspent.space", within=sheet))
+        self.assertFalse(app.shows("Restore Purchases", within=sheet))
 
     def test_more_than_fifteen_emails_us(self):
         needs_accounts(self)
