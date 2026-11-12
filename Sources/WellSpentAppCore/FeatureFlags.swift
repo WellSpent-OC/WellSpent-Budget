@@ -1,4 +1,5 @@
 import Foundation
+import WellSpentPlans
 
 /// Flags that turn experimental or in-progress features on and off.
 ///
@@ -7,6 +8,8 @@ import Foundation
 /// order: a process environment variable (tests and `make run`), a stored
 /// default, or the build's own Info.plist list (`WellSpentFeatures`), which is
 /// how a TestFlight build carries extensions on for its testers.
+///
+/// Purchases is stricter: a release build reads only the list (PlanBuying).
 public struct FeatureFlags: Sendable, Equatable {
     /// The environment variable to control App Extensions in staging.
     nonisolated public static let extensionsVariable = "WELLSPENT_FEATURE_EXTENSIONS"
@@ -29,12 +32,13 @@ public struct FeatureFlags: Sendable, Equatable {
     /// The Info.plist key: the flags a build carries on, as one string of
     /// names separated by commas, such as "extensions,properties". The build
     /// scripts write it from WELLSPENT_FEATURES. Missing or empty is none.
-    public static let bundleFeaturesKey = "WellSpentFeatures"
+    public static let bundleFeaturesKey = BuildFeatures.infoPlistKey
 
     /// The names in the Info.plist list, one per flag.
     public static let extensionsBundleName = "extensions"
     public static let warTableBundleName = "wartable"
     public static let propertiesBundleName = "properties"
+    public static let purchasesBundleName = PlanBuying.bundleName
 
     /// Whether App Extensions, including the activity rail and catalog, are on.
     public let areExtensionsEnabled: Bool
@@ -45,29 +49,31 @@ public struct FeatureFlags: Sendable, Equatable {
     /// Whether Properties is on. If extensions are off, Properties is always off.
     public let isPropertiesEnabled: Bool
 
+    /// Whether the app sells plans. Off, Choose a plan says "Coming soon".
+    public let isPurchasingEnabled: Bool
+
     public init(
         areExtensionsEnabled: Bool = false,
         isWarTableEnabled: Bool = false,
-        isPropertiesEnabled: Bool = false
+        isPropertiesEnabled: Bool = false,
+        isPurchasingEnabled: Bool = false
     ) {
         self.areExtensionsEnabled = areExtensionsEnabled
         self.isWarTableEnabled = areExtensionsEnabled && isWarTableEnabled
         self.isPropertiesEnabled = areExtensionsEnabled && isPropertiesEnabled
+        self.isPurchasingEnabled = isPurchasingEnabled
     }
 
     /// The flags a build carries on, read from its Info.plist. A bare
     /// executable (`swift run`) has none.
     public static func bundleFeatures(in bundle: Bundle = .main) -> Set<String> {
-        bundleFeatures(from: bundle.object(forInfoDictionaryKey: bundleFeaturesKey))
+        BuildFeatures.list(in: bundle)
     }
 
     /// Parses the Info.plist value: names separated by commas, spaces and case
     /// ignored. Anything but a string is none.
     public static func bundleFeatures(from value: Any?) -> Set<String> {
-        guard let text = value as? String else { return [] }
-        return Set(text.split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .filter { !$0.isEmpty })
+        BuildFeatures.parse(value)
     }
 
     /// Resolves the flags for a build environment.
@@ -93,7 +99,9 @@ public struct FeatureFlags: Sendable, Equatable {
         return FeatureFlags(
             areExtensionsEnabled: flag(extensionsVariable, extensionsDefaultsKey, extensionsBundleName),
             isWarTableEnabled: flag(warTableVariable, warTableDefaultsKey, warTableBundleName),
-            isPropertiesEnabled: flag(propertiesVariable, propertiesDefaultsKey, propertiesBundleName)
+            isPropertiesEnabled: flag(propertiesVariable, propertiesDefaultsKey, propertiesBundleName),
+            isPurchasingEnabled: PlanBuying.isOpen(processEnvironment: processEnvironment, defaults: defaults,
+                                                   bundleFeatures: bundleFeatures)
         )
     }
 

@@ -30,7 +30,7 @@ Every account starts on the free plan, which never ends. A paid plan, in one of 
 
 Platforms: Linux
 
-- Given "Choose a plan" is open on Yearly with Growth picked
+- Given the app sells plans, and "Choose a plan" is open on Yearly with Growth picked
 - When Robin presses "Continue on wellspent.space"
 - Then the website's checkout opens for Growth, yearly
 - And the sheet closes
@@ -112,14 +112,14 @@ Platforms: Mac, iPhone
 - When his plan becomes Growth elsewhere, and he comes back to the app
 - Then the card says "Growth · $49 a month", with no sign-in
 
-## PLAN-17 Before the App Store sells plans, Choose a plan says "Coming soon"
+## PLAN-17 Before the app sells plans, Choose a plan says "Coming soon"
 
-Platforms: Mac, iPhone
+Platforms: Mac, iPhone, Linux
 
-- Given the app doesn't sell plans yet (0.4.0's first build)
-- When Robin opens Choose a plan on a Mac or iPhone
+- Given the app doesn't sell plans yet (the purchases flag is off)
+- When Robin opens Choose a plan
 - Then the three plans show with their monthly and yearly prices
-- And "Coming soon" stands in place of Subscribe, and can't be pressed
+- And "Coming soon" stands in place of Subscribe, or of "Continue on wellspent.space" on Linux, and can't be pressed
 - And there is no Restore Purchases, in Choose a plan or under the plan card
 - And a release build can't be made to sell early, even with a launch variable
 

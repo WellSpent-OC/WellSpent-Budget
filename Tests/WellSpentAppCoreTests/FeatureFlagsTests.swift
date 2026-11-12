@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import WellSpentAppCore
+import WellSpentPlans
 
 @Suite("Feature flags")
 struct FeatureFlagsTests {
@@ -114,6 +115,49 @@ struct FeatureFlagsTests {
                                                 bundleFeatures: carried)
         #expect(!offByDefault.areExtensionsEnabled && !offByDefault.isPropertiesEnabled,
                 "a stored default wins over the list, and extensions off takes Properties with it")
+    }
+
+    @Test func purchasesIsOffUntilAReleaseListsIt() {
+        for environment in AppEnvironment.allCases {
+            #expect(!FeatureFlags.resolve(for: environment, defaults: nil, processEnvironment: [:],
+                                          bundleFeatures: []).isPurchasingEnabled)
+            #expect(FeatureFlags.resolve(for: environment, defaults: nil, processEnvironment: [:],
+                                         bundleFeatures: ["purchases"]).isPurchasingEnabled)
+        }
+        #expect(!FeatureFlags.resolve(for: .live, defaults: nil, processEnvironment: [:],
+                                      bundleFeatures: ["extensions"]).isPurchasingEnabled,
+                "extensions don't bring purchases with them")
+        #expect(FeatureFlags(isPurchasingEnabled: true).isPurchasingEnabled,
+                "purchases doesn't need extensions")
+    }
+
+    @Test func purchasesReadsATestBuildsVariableAndStoredDefault() throws {
+        let on = FeatureFlags.resolve(for: .staging, defaults: nil,
+                                      processEnvironment: [PlanBuying.variable: "1"], bundleFeatures: [])
+        #expect(on.isPurchasingEnabled)
+
+        let suiteName = "test.flags.purchases.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: PlanBuying.defaultsKey)
+        #expect(FeatureFlags.resolve(for: .staging, defaults: defaults, processEnvironment: [:],
+                                     bundleFeatures: []).isPurchasingEnabled)
+    }
+
+    @Test func thePurchasesFlagAndTheScreensAgreeWithNothingStored() throws {
+        // The screens ask PlanBuying with no stored settings; the app's flags
+        // pass its suite. With nothing stored, the two must agree.
+        let suiteName = "test.flags.agree.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let cases: [([String: String], Set<String>)] = [
+            ([:], []), ([:], ["purchases"]), ([PlanBuying.variable: "on"], []), ([PlanBuying.variable: "off"], ["purchases"]),
+        ]
+        for (environment, list) in cases {
+            let flags = FeatureFlags.resolve(for: .staging, defaults: defaults, processEnvironment: environment,
+                                             bundleFeatures: list)
+            #expect(flags.isPurchasingEnabled == PlanBuying.isOpen(processEnvironment: environment, bundleFeatures: list))
+        }
     }
 
     @Test func stagingEnvironmentDisablesFeaturesByDefault() {
