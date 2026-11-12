@@ -269,7 +269,7 @@ final class PlanTests: XCTestCase {
         ]
         if let locked { fields.append(#""locked":\#(locked)"#) }
         if let lastPlan {
-            fields.append(#""lastPlan":{"tier":"growth","endedOn":"\#(date.string(from: day(in: -2)))","reason":"\#(lastPlan)"}"#)
+            fields.append(#""lastPlan":{"tier":"growth","endedOn":"\#(date.string(from: endedOn))","reason":"\#(lastPlan)"}"#)
         }
         return "{" + fields.joined(separator: ",") + "}"
     }
@@ -284,6 +284,11 @@ final class PlanTests: XCTestCase {
             try FileManager.default.moveItem(at: temporary, to: file)
         }
     }
+
+    /// When the last paid plan ended, fixed for the run. The app shows the
+    /// pick once per ended plan, keyed by this date, so each answer about the
+    /// same ended plan must carry the same one.
+    private static let endedOn = day(in: -2)
 
     private static func day(in days: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: days, to: Date())!
