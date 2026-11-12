@@ -78,6 +78,11 @@ struct WellSpentLinuxSxiApp: App {
     typealias Backend = GtkBackend
 
     @State var workspace: Workspace
+    /// Made once. A screen made while the window is laid out would be made
+    /// again on each layout, and the window would redraw for whatever its
+    /// making read.
+    let screen: MainScreen
+    let warTable: WarTableScreen
 
     var backend: GtkBackend {
         let backend = GtkBackend(appIdentifier: LinuxSetup.environment.linuxAppIdentifier)
@@ -99,6 +104,8 @@ struct WellSpentLinuxSxiApp: App {
             exit(1)
         }
         _workspace = State(wrappedValue: workspace)
+        screen = MainScreen(workspace: workspace)
+        warTable = WarTableScreen(workspace: workspace)
         workspace.autoSync.start()
         Task { @MainActor in await workspace.autoSync.syncIfIdle() }
         if let link = OpenedLinks.launchLink {
@@ -108,7 +115,7 @@ struct WellSpentLinuxSxiApp: App {
 
     var body: some Scene {
         WindowGroup(LinuxSetup.environment.appName) {
-            RootView(workspace: workspace)
+            RootView(workspace: workspace, screen: screen, warTable: warTable)
         }
         .defaultSize(width: 1100, height: 720)
     }

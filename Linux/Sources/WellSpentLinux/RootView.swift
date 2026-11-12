@@ -48,10 +48,10 @@ struct RootView: View {
             (isPropertiesInstalled || workspace.extensionSwitches.isOn(PropertiesRegistration.id))
     }
 
-    init(workspace: Workspace) {
+    init(workspace: Workspace, screen: MainScreen, warTable: WarTableScreen) {
         self.workspace = workspace
-        _screen = State(wrappedValue: MainScreen(workspace: workspace))
-        _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
+        _screen = State(wrappedValue: screen)
+        _warTable = State(wrappedValue: warTable)
     }
 
     private var model: AppModel { workspace.model }
