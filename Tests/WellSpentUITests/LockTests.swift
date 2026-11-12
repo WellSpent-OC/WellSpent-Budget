@@ -162,6 +162,7 @@ final class LockTests: XCTestCase {
     private func groupIDs(_ run: TestApp, _ names: [String]) throws -> [String: UUID] {
         try show(run, Self.answer(lastPlan: true))
         openPickFromAccount(run)
+        run.dumpTree("pick sheet")
         let rows = run.app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'pick.group.'")).allElementsBoundByIndex
         var ids: [String: UUID] = [:]

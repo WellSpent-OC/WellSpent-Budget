@@ -205,6 +205,7 @@ final class PlanTests: XCTestCase {
         // value, not its label, so read both.
         XCTAssertTrue(run.wait(for: shown, holds: title, timeout: 15),
                       "the card says \(run.text(of: shown)), not \(title)", file: file, line: line)
+        run.dumpTree("plan card, expecting \(title)")
         let texts = run.visibleTexts()
         if let badge { XCTAssertTrue(texts.contains(badge), "no \(badge) badge. On screen: \(texts)", file: file, line: line) }
         for wanted in lines {

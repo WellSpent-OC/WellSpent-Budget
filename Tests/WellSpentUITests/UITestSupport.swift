@@ -279,6 +279,28 @@ final class TestApp {
         return texts
     }
 
+    /// Diagnostic only: prints every element's type, identifier, label and
+    /// value to the log, one line each, prefixed TREE|, so a GitHub run shows
+    /// what the tests can read.
+    func dumpTree(_ where: String) {
+        print("TREE| ==== \(`where`) ====")
+        let root: XCUIElementSnapshot
+        do { root = try app.snapshot() } catch {
+            print("TREE| snapshot failed: \(error)")
+            return
+        }
+        func walk(_ node: XCUIElementSnapshot, _ depth: Int) {
+            let value = node.value.map { "\($0)" } ?? ""
+            if !node.identifier.isEmpty || !node.label.isEmpty || !value.isEmpty {
+                print("TREE| \(String(repeating: " ", count: depth))type=\(node.elementType.rawValue)"
+                      + " id=\(node.identifier) label=\(node.label) value=\(value)")
+            }
+            node.children.forEach { walk($0, depth + 1) }
+        }
+        walk(root, 0)
+        print("TREE| ==== end \(`where`) ====")
+    }
+
     func visibleMenuItems() -> [String] {
         app.menuItems.allElementsBoundByIndex.map(\.title).filter { !$0.isEmpty }
     }
