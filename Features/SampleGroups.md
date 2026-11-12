@@ -57,12 +57,12 @@ A fresh install opens with two made-up groups, so there is something to look at 
 - And the samples do not come back, even after WellSpent is quit and opened again
 - And an account Leslie then makes on this computer starts empty too
 
-## SAMP-08 A group made before signing in comes along, and the samples do not
+## SAMP-08 A group changed before signing in comes along, and the samples nobody changed do not
 
-- Given a fresh install, where Robin renamed the sample "Household" to "Home", and made a group "Road trip" with a budget "Fuel" and an entry "Gas station"
-- When he signs in to the account he made on another computer
-- Then the list holds that account's groups, "Home" and "Road trip", with their budgets and entries
-- And "Home" and "Road trip" sync to his account, so his other devices get them
+- Given a fresh install, where Robin renamed the sample "Household" to "Home", and added a budget "Fuel" with an entry "Gas station" to it
+- When he signs in to the account he made on another computer, on the free plan
+- Then the list holds "Home", with its budgets and entries
+- And "Home" syncs to his account, so his other devices get it
 - And "Side Business", which he did not change, stays out
 - When he signs out
 - Then the list holds only "Side Business"

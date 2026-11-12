@@ -332,8 +332,10 @@ final class NewAccountTests: XCTestCase {
         run.expectList(groups: ["Pottery"], budgets: ["Materials"], "his new account")
     }
 
-    /// Robin's account was made on another computer. On this fresh install he
-    /// renames a sample, makes a group of his own, then signs in.
+    /// Robin's account was made on another computer, on the free plan, which
+    /// syncs one group. On this fresh install he renames a sample and adds a
+    /// budget of his own to it, then signs in. A second group of his own is
+    /// PLAN-18's test.
     @MainActor
     func testGroupsMadeBeforeSigningInComeAlongAndTheSamplesDoNot() async throws {
         let mailbox = try StagingMailbox.fromEnvironment()
@@ -345,16 +347,15 @@ final class NewAccountTests: XCTestCase {
         let run = try start()
         run.expectTheSamples()
         run.renameGroup("Household", to: "Home")
-        run.addGroup(named: "Road trip")
-        run.addBudget(named: "Fuel", amount: "100", inGroup: "Road trip")
+        run.addBudget(named: "Fuel", amount: "100", inGroup: "Home")
         run.addEntry(merchant: "Gas", amount: "40")
 
         // Scenario SAMP-08
-        // Signed in, the list holds the renamed sample and his own group, with
-        // their budgets. Side Business, which he did not change, stays out.
+        // Signed in, the list holds the renamed sample with its budgets and
+        // his own. Side Business, which he did not change, stays out.
         try run.signIn(email: robin, password: password, server: mailbox.server)
-        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home", "Road trip"])
-        run.expectList(groups: ["Home", "Road trip"], budgets: ["Groceries", "Eating out", "Utilities", "Fuel"],
+        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home"])
+        run.expectList(groups: ["Home"], budgets: ["Groceries", "Eating out", "Utilities", "Fuel"],
                        "after signing in")
         XCTAssertTrue(run.hasEntry("Gas", inBudget: "Fuel"), "his entry did not come along")
 

@@ -87,7 +87,7 @@ It is not kept here, where every pull request would change the same lines.
 | SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-07 | The samples come only once | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| SAMP-08 | A group made before signing in comes along, and the samples do not | Mac, Linux, iPhone | Mac, Linux |
+| SAMP-08 | A group changed before signing in comes along, and the samples nobody changed do not | Mac, Linux, iPhone | Mac, Linux |
 
 ### [Budgets.md](Budgets.md)
 
@@ -321,7 +321,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
 | PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac, iPhone |
-| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | None yet |
+| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac |
 
 ### [Locks.md](Locks.md)
 
