@@ -96,6 +96,9 @@ final class PlanTests: XCTestCase {
 
         // Scenario PLAN-11
         try show(run, Self.answer(locked: Self.twoPropertiesLocked, lastPlan: "ended"))
+        // An ended plan with something locked opens the pick on its own, once
+        // (LOCK-05). Skip it to read the card.
+        skipThePick(run)
         openAccount(run)
         expectCard(run, title: "Free plan", badge: "Free",
                    lines: ["2 properties are locked until you pick a plan. Nothing was deleted."], action: "See Plans")
@@ -140,7 +143,11 @@ final class PlanTests: XCTestCase {
             XCTAssertTrue(priceShows(run, tier, price, timeout: 5),
                           "no \(price) yearly. On screen: \(run.visibleTexts())")
         }
-        XCTAssertTrue(run.visibleTexts().contains { $0.contains("2 months free") }, "Yearly doesn't say 2 months free")
+        // The note is part of the Yearly segment's own label on the Mac.
+        let yearly = run.element(AccessibilityID.planYearly)
+        XCTAssertTrue([yearly.label, run.text(of: yearly)].contains { $0.contains("2 months free") }
+                        || run.visibleTexts().contains { $0.contains("2 months free") },
+                      "Yearly doesn't say 2 months free")
 
         run.click(AccessibilityID.planNotNow)
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
@@ -168,6 +175,16 @@ final class PlanTests: XCTestCase {
     }
 
     // MARK: - Steps
+
+    /// Closes the pick that opens on its own when a plan ends with something
+    /// locked, as LOCK-05 says.
+    @MainActor
+    private func skipThePick(_ run: TestApp) {
+        let sheet = run.element(AccessibilityID.pickSheet)
+        XCTAssertTrue(sheet.waitForExistence(timeout: 15), "the pick didn't open on its own. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.pickSkip)
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 15), "Skip didn't close the pick")
+    }
 
     /// Rewrites the pinned answer, then sends the app to the back and brings
     /// it forward, which asks for the plan again.
