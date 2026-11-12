@@ -140,3 +140,15 @@ Platforms: Mac, iPhone
 - When he presses Subscribe and the App Store refuses the purchase
 - Then "The App Store couldn't finish. Try again." shows under the button
 - And his plan is still the free plan
+
+## PLAN-18 A group past the free plan says it's only on this device
+
+Platforms: Mac, Linux, iPhone
+
+- Given Robin made Home and Beach on his Mac before signing in, and his account is on the free plan
+- When he signs in, and the server syncs Home and refuses Beach
+- Then Beach shows "Only on this Mac" beside its name
+- And Beach's page says "Beach is only on this Mac. Your free plan syncs 1 group, and Home is that group. Nothing in Beach is deleted."
+- And before the App Store sells plans it ends "Paid plans are coming soon.", and after, "Choose a plan to sync it too."
+- And See Plans opens Choose a plan
+- And once a plan lets the server take Beach, neither shows
