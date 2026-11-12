@@ -304,46 +304,36 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac, Linux |
-| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac, Linux |
-| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux |
+| PLAN-01 | Account shows the free plan | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-02 | See Plans opens Choose a plan, with the plan that fits picked | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
 | PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
-| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac |
-| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac |
-| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac |
-| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac |
-| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac |
-| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac |
-| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac |
-| PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac |
-| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac |
-| PLAN-15 | Restore Purchases says what it found | Mac, iPhone | None yet |
-| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac |
+| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac, iPhone |
+| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
+| PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
+| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac, iPhone |
 
 ### [Locks.md](Locks.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | None yet |
-| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | None yet |
-| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | None yet |
-| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | None yet |
-| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | None yet |
+| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Linux, iPhone |
 | LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
-| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | None yet |
+| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Linux, iPhone |
 
-### [Locks.md](Locks.md)
-
-| ID | Scenario | Platforms | Has a test on |
-| - | - | - | - |
-| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Linux |
-| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Linux |
-| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Linux |
-| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Linux |
-| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Linux |
-| LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
-| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Linux |
 
 ### [Lifecycle.md](Lifecycle.md)
 
