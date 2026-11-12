@@ -97,6 +97,9 @@ struct PickOpenSheet: View {
         }
         .padding(20)
         .frame(width: 460)
+        // Contain, so the rows and buttons keep their own identifiers: without
+        // it the Mac gives every child the sheet's identifier.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityID.pickSheet)
     }
 
