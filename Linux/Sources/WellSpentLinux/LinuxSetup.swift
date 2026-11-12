@@ -42,6 +42,13 @@ enum LinuxSetup {
         UserDefaults(suiteName: environment.defaultsSuiteName ?? "app.wellspent")!
     }
 
+    /// The flags this launch runs with: the process environment, then the
+    /// stored default, then the build's own list.
+    static func features(processEnvironment: [String: String] = ProcessInfo.processInfo.environment) -> FeatureFlags {
+        FeatureFlags.resolve(for: environment, defaults: defaults, processEnvironment: processEnvironment,
+                             bundleFeatures: buildFeatures)
+    }
+
     @MainActor
     static func launch() throws -> Workspace {
         // Foundation on Linux answers en_001 whatever the computer's region,
@@ -63,8 +70,6 @@ enum LinuxSetup {
                                     undoWindow: Workspace.undoWindow(for: environment, in: process),
                                     pinnedDay: Workspace.pinnedDay(for: environment, in: process),
                                     pinnedPlan: Workspace.pinnedPlan(for: environment, in: process),
-                                    features: FeatureFlags.resolve(for: environment, defaults: defaults,
-                                                                   processEnvironment: process,
-                                                                   bundleFeatures: buildFeatures))
+                                    features: features(processEnvironment: process))
     }
 }

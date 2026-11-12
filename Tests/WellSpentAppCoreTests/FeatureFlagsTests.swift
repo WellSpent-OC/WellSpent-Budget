@@ -160,6 +160,38 @@ struct FeatureFlagsTests {
         }
     }
 
+    @Test func theNativeShellIsOffUntilSomethingTurnsItOn() throws {
+        for environment in AppEnvironment.allCases {
+            #expect(!FeatureFlags.resolve(for: environment, defaults: nil, processEnvironment: [:],
+                                          bundleFeatures: []).isNativeShellEnabled)
+        }
+        #expect(FeatureFlags.resolve(for: .staging, defaults: nil,
+                                     processEnvironment: [FeatureFlags.nativeShellVariable: "1"],
+                                     bundleFeatures: []).isNativeShellEnabled)
+        #expect(FeatureFlags.resolve(for: .live, defaults: nil, processEnvironment: [:],
+                                     bundleFeatures: ["native"]).isNativeShellEnabled)
+        #expect(!FeatureFlags.resolve(for: .live, defaults: nil,
+                                      processEnvironment: [FeatureFlags.nativeShellVariable: "0"],
+                                      bundleFeatures: ["native"]).isNativeShellEnabled,
+                "the variable outranks the list")
+        #expect(!FeatureFlags.resolve(for: .live, defaults: nil, processEnvironment: [:],
+                                      bundleFeatures: ["extensions"]).isNativeShellEnabled,
+                "extensions don't bring the native shell with them")
+        #expect(FeatureFlags(isNativeShellEnabled: true).isNativeShellEnabled,
+                "the native shell doesn't need extensions")
+
+        let suiteName = "test.flags.native.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: FeatureFlags.nativeShellDefaultsKey)
+        #expect(FeatureFlags.resolve(for: .staging, defaults: defaults, processEnvironment: [:],
+                                     bundleFeatures: []).isNativeShellEnabled)
+        defaults.set(false, forKey: FeatureFlags.nativeShellDefaultsKey)
+        #expect(!FeatureFlags.resolve(for: .staging, defaults: defaults, processEnvironment: [:],
+                                      bundleFeatures: ["native"]).isNativeShellEnabled,
+                "a stored default outranks the list")
+    }
+
     @Test func stagingEnvironmentDisablesFeaturesByDefault() {
         let resolved = FeatureFlags.resolve(for: .staging, defaults: nil, processEnvironment: [:])
         #expect(!resolved.areExtensionsEnabled)
