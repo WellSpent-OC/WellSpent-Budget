@@ -437,6 +437,7 @@ public final class SyncCoordinator {
         emailVerified = false
         waitingForFounder = []
         missingOnServer = []
+        heldOnThisDevice = []
         if let accounts, let thisMac = try? accounts.database(for: nil) {
             // Each account's budgets are its own. Signed out is "This Mac".
             if !keepingAccount { accounts.lastAccount = nil }
@@ -559,6 +560,7 @@ public final class SyncCoordinator {
             // One group's failure does not stop the others. The first is
             // reported once the round is over.
             var firstFailure: (any Error)?
+            var held: Set<GroupID> = []
             for action in actions {
                 do {
                     combined.add(try await perform(action))
@@ -566,6 +568,9 @@ public final class SyncCoordinator {
                     // Past the plan is not a failed sync: a locked group waits
                     // behind its card, and anything else offers its sheet.
                     combined.planRefusal = combined.planRefusal ?? refusal
+                    if refusal.limit == PlanLimitRefusal.groupsLimit, let group = action.groupMadeHere {
+                        held.insert(group)
+                    }
                 } catch let error as ReadableTransportError {
                     if case .sessionEnded = error { throw error }
                     firstFailure = firstFailure ?? error
@@ -586,6 +591,7 @@ public final class SyncCoordinator {
             }
             lastReport = combined
             lastSyncedAt = Date()
+            heldOnThisDevice = held
             noteRefusal(combined.planRefusal)
             if let firstFailure { throw firstFailure }
             if !missingOnServer.isEmpty { throw Failure.server(Self.missingOnServerReason) }

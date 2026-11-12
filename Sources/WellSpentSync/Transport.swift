@@ -121,6 +121,9 @@ public struct PlanLimitRefusal: Error, Equatable, Sendable {
 
     public var isLockedGroup: Bool { sheet == Self.lockedSheet && refused.isEmpty }
 
+    /// The limit a refused new group names: the plan syncs no more groups.
+    public static let groupsLimit = "maxGroups"
+
     private struct Body: Decodable {
         let reason: String?
         let sheet: String?
