@@ -826,6 +826,11 @@ jobs:
         shell: bash
         run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Here because this job is small, needs nothing installed and the gate
+      # waits on it. The Properties pointer is only honest if this passes.
+      - name: The CI scripts' own tests
+        run: make script-test
+
   wartable-connector:
     name: WarTable connector tests
     runs-on: ubuntu-latest

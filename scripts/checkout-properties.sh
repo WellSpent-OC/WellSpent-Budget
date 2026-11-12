@@ -8,12 +8,13 @@
 #
 #   PROPERTIES_DEPLOY_KEY=... scripts/checkout-properties.sh DEST
 #
-# PROPERTIES_URL changes where it fetches from, for testing this script; set,
-# no key is used.
+# PROPERTIES_URL changes where it fetches from and PROPERTIES_REF_FILE which
+# file names the commit, for testing this script (scripts/checkout-properties-test.sh).
+# With PROPERTIES_URL set, no key is used.
 set -eu
 [ "$#" -eq 1 ] || { echo "usage: $0 DEST" >&2; exit 2; }
 dest="$1"
-ref_file="$(dirname "$0")/../.github/properties-ref"
+ref_file="${PROPERTIES_REF_FILE:-$(dirname "$0")/../.github/properties-ref}"
 ref="$(tr -d '[:space:]' < "$ref_file")"
 case "$ref" in
     *[!0-9a-f]*|'') echo "$ref_file must hold one full commit hash, not '$ref'" >&2; exit 1 ;;
