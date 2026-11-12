@@ -6,6 +6,8 @@ title: "Side quest: Connect PriceLabs"
 
 > *Call in your scout. PriceLabs reports every stay.*
 
+**PriceLabs leaves the app in the next update.** Houses and stays it already brought in stay, but they stop updating. To add houses after that, [import an earnings file](import-an-earnings-file.md).
+
 **Before you start:**
 
 - Properties is on. See [Side quest: Turn on Properties](turn-on-properties.md).
@@ -45,8 +47,6 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 1. ![A thumb taps Connect PriceLabs](../assets/shots/connect-pricelabs-iphone-1.svg)
    In the **Houses** tab, tap **Connect PriceLabs**. Once a group has a house, it's in the **…** button at the top right of the group's page. Only a manager sees it there.
 
@@ -67,7 +67,7 @@ Adding houses adds nothing to your budgets. A new group starts with no budgets.
 
 ## On Linux
 
-Properties isn't on Linux yet.
+PriceLabs isn't on Linux.
 
 ## If it doesn't work
 
