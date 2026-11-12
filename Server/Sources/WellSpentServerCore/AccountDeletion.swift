@@ -138,12 +138,29 @@ enum AccountDeletion {
     }
 }
 
+struct AccountDeleteEnabledKey: StorageKey {
+    typealias Value = Bool
+}
+
+extension Application {
+    /// `WELLSPENT_ACCOUNT_DELETE=on` turns on deleting an account. Off, the
+    /// route answers 404 and deletes nothing. The release train that ships
+    /// in-app deletion turns it on.
+    var accountDeleteEnabled: Bool {
+        get { storage[AccountDeleteEnabledKey.self] ?? false }
+        set { storage[AccountDeleteEnabledKey.self] = newValue }
+    }
+}
+
 func registerAccountDeletionRoutes(_ routes: any RoutesBuilder) {
     let authed = routes.grouped(SessionAuthenticator(), AuthenticatedUser.guardMiddleware())
 
     authed.on(.POST, "account", "delete", body: .collect(maxSize: "4kb")) { request async throws -> HTTPStatus in
         try await request.enforceRateLimit(.signIn, scope: "v2-delete")
+        // The body first, as on the plan routes: one that isn't JSON is a 400
+        // whether or not the switch is on.
         let body = try request.content.decode(DeleteAccountRequest.self)
+        guard request.application.accountDeleteEnabled else { throw Abort(.notFound) }
         let user = try await request.currentUser()
         let userID = try user.requireID()
         // 403, not 401: the session is fine, only the password typed is wrong,
