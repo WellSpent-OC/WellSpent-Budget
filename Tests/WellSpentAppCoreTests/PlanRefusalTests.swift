@@ -85,4 +85,28 @@ struct PlanRefusalTests {
         await workspace.plans.refresh()
         #expect(try store.readableCursor(in: group) == 0, "every group is read again from the start")
     }
+
+    /// Scenario PLAN-18. A free account brings two groups. The server makes
+    /// the first and refuses the second, which stays on this device, and the
+    /// app knows which one. Once the server takes it, it isn't held any more.
+    @Test func aGroupPastTheFreePlanIsHeldOnThisDevice() async throws {
+        let server = InMemoryReadableServer()
+        server.seedAccount(email: "robin@example.com", password: "a-long-password")
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let transport = StubReadableTransport(server: server)
+        let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   makeTransport: { _ in transport })
+        let model = AppModel(store: store)
+        model.addGroup(named: "Home")
+        model.addGroup(named: "Beach")
+        let beach = try #require(model.groups.first { $0.name == "Beach" }).id
+        transport.refuseMakingPastThePlan = [beach]
+        try await sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await sync.syncAll()
+        #expect(sync.heldOnThisDevice == [beach])
+
+        transport.refuseMakingPastThePlan = []
+        await sync.syncAll()
+        #expect(sync.heldOnThisDevice.isEmpty, "once the server takes it, it isn't held")
+    }
 }

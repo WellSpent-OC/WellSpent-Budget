@@ -127,6 +127,10 @@ public final class SyncCoordinator {
     public private(set) var userID: UserID?
     /// The upgrade sheet a refused change asks for, until the app shows it.
     public private(set) var planSheet: PlanLimitRefusal?
+    /// Groups made here that the server refused to make because the plan
+    /// syncs no more groups. They stay on this device only, kept, until a
+    /// round makes them on the server. Rebuilt every round.
+    public private(set) var heldOnThisDevice: Set<GroupID> = []
     /// The records whose refusal already offered a sheet.
     @ObservationIgnored private var refusalsOffered: Set<UUID> = []
 
