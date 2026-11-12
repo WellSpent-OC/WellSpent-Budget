@@ -46,10 +46,12 @@ struct PlanCardView: View {
 }
 
 /// Choose a plan: monthly or yearly, the three sizes, and on Linux a button
-/// that continues on the website. What it says is PlanChoicesScreen's.
-/// Layout only.
+/// that continues on the website, or "Coming soon" while the purchases flag is
+/// off. What it says is PlanChoicesScreen's. Layout only.
 struct PlanChoicesView: View {
     let answer: PlanAnswer?
+    /// The purchases flag.
+    let buyingIsOpen: Bool
     /// The chosen plan, to pay for on the website.
     var checkout: (PlanProduct) -> Void
     var emailUs: () -> Void
@@ -60,7 +62,7 @@ struct PlanChoicesView: View {
 
     var body: some View {
         let screen = PlanChoicesScreen(answer: answer, platform: .website, period: period, selected: picked,
-                                       storefrontIsUS: true)
+                                       storefrontIsUS: true, buyingIsOpen: buyingIsOpen)
         VStack(alignment: .leading, spacing: 12) {
             Text(PlanWording.choosePlan)
                 .font(.system(size: 17, weight: .semibold))
@@ -111,6 +113,7 @@ struct PlanChoicesView: View {
                 Button(screen.notNow) { close() }
                 Button(screen.buy) { checkout(screen.product(period)) }
                     .defaultAction()
+                    .disabled(!screen.canBuy)
             }
         }
         .padding(20)

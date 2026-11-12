@@ -125,7 +125,7 @@ class Locks(unittest.TestCase):
     def test_a_member_is_asked_to_pay_for_a_locked_group(self):
         needs_accounts(self)
         path = pinned_plan(self)
-        robin = launch_fresh(self, plan_file=path, autosync_seconds=3600)
+        robin = launch_fresh(self, plan_file=path, autosync_seconds=3600, purchases=True)
         leslie = launch_fresh(self, autosync_seconds=3600)
         robin.sign_in_as("Robin")
         leslie.sign_in_as("Leslie")

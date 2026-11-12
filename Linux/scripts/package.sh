@@ -16,6 +16,9 @@
 #                one without it quietly ships the Houses placeholder. A public
 #                live build without the extension says so with
 #                WELLSPENT_PROPERTIES_PATH=none.
+# WELLSPENT_FEATURES  the flags this build carries on, names separated by
+#                commas, such as "purchases". Default none. The Mac's
+#                Info.plist list; on Linux a file beside the environment one.
 #
 # Staging is the default because a test build mistaken for live could reach real
 # budgets, and the reverse cannot. The same rule as the Mac's make-app.sh.
@@ -82,6 +85,7 @@ strip "$DEST/$SLUG"
 # The resources sit beside the app, where it looks for them.
 cp -R "$BIN/WellSpentLinux_WellSpentLinux.resources" "$DEST/"
 printf '%s\n' "$WELLSPENT_ENV" > "$DEST/WellSpentLinux_WellSpentLinux.resources/environment"
+printf '%s\n' "${WELLSPENT_FEATURES:-}" > "$DEST/WellSpentLinux_WellSpentLinux.resources/features"
 cp Design/AppIcon/AppIcon.svg "$DEST/$SLUG.svg"
 sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" -e "s/@SCHEME@/$SCHEME/g" \
     Linux/scripts/install.sh.in > "$DEST/install.sh"
