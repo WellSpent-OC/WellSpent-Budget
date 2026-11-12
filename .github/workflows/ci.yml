@@ -899,6 +899,15 @@ jobs:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
         run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
 
+      # Only a pull request can lack the token (from a fork). In the queue,
+      # nightly and by hand, a missing token fails the job, so the gate never
+      # passes with the signed-in tests quietly left out.
+      - name: The queue and the nightly have the mailbox token
+        if: env.HAS_PROPERTIES_KEY == 'true' && env.HAS_MAILBOX != 'true' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::WELLSPENT_UI_TEST_MAILBOX_TOKEN is not set, so the Properties tests that sign in can't run."
+          exit 1
+
       # Two fresh accounts on a paid plan for the classes that sign in. A test
       # that wants staging itself to refuse signs up an account of its own,
       # which starts free, through the same mailbox token. Without the token
@@ -953,7 +962,7 @@ jobs:
             bundles=".build/xcode-iphone/ui-test-${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}.xcresult"
           fi
           want=4
-          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
+          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ] || [ "${{ github.event_name }}" != pull_request ]; then
             if [ "${{ matrix.platform }}" = mac ]; then want=$((want + MAC_SIGNED_IN_COUNT)); else want=$((want + IPHONE_SIGNED_IN_COUNT)); fi
           fi
           scripts/passed-at-least.sh "$want" $bundles
