@@ -20,7 +20,7 @@ FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
          -Xlinker -rpath -Xlinker $(CLT)/Library/Developer/usr/lib
 endif
 
-.PHONY: build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
+.PHONY: script-test build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
         iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin
 
@@ -86,11 +86,15 @@ wartable-test:
 		echo "wartable-test: no bwrap here (Linux only), skipped; CI runs it"; \
 	fi
 
+# The tests of the CI scripts. They need only git and a shell, no network.
+script-test:
+	scripts/checkout-properties-test.sh
+
 # Everything the push rule asks for, on the exact head, before any push: every
 # check but the UI tests. `make hooks` makes git run it before each push. On a
 # Mac with Xcode, the Mac UI test target is compiled too. The iPhone's builds
 # are the iPhone seat's own targets, iphone-build and iphone-ui-test-build.
-prepush: gates wartable-test
+prepush: gates wartable-test script-test
 	@if [ -d /Applications/Xcode.app ]; then $(MAKE) ui-test-build; else echo "prepush: no Xcode here, the Mac UI test build is skipped"; fi
 	@echo "prepush: every check passed on $$(git rev-parse --short HEAD)"
 

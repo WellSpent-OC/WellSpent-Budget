@@ -40,6 +40,36 @@ private struct Setup {
     }
 }
 
+/// Holds the first sync round open until released, and says whether the
+/// sync was cancelled while it waited.
+private actor SyncGate {
+    private var held: CheckedContinuation<Void, Never>?
+    private var heldWaiters: [CheckedContinuation<Void, Never>] = []
+    private var used = false
+    private(set) var sawCancel = false
+
+    func hold() async {
+        guard !used else { return }
+        used = true
+        await withCheckedContinuation { continuation in
+            held = continuation
+            heldWaiters.forEach { $0.resume() }
+            heldWaiters = []
+        }
+        sawCancel = Task.isCancelled
+    }
+
+    func waitUntilHeld() async {
+        if held != nil { return }
+        await withCheckedContinuation { heldWaiters.append($0) }
+    }
+
+    func release() {
+        held?.resume()
+        held = nil
+    }
+}
+
 @Suite("Auto sync", .serialized)
 @MainActor
 struct AutoSyncTests {
@@ -58,6 +88,29 @@ struct AutoSyncTests {
         let group = try #require(s.model.groups.first)
         #expect(try s.model.store.outboxCount(in: group.id) == 0)
         #expect(s.sync.state == .signedIn(email: "robin@example.com"))
+    }
+
+    /// A second edit while a sync runs lets that sync finish, then syncs
+    /// again. Cancelling a running sync cancels its requests, and on Linux
+    /// that, from the main thread, froze the app for good.
+    @Test func anEditWhileASyncRunsLetsItFinish() async throws {
+        let s = try Setup()
+        try await s.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let gate = SyncGate()
+        s.transport.whileListing = { await gate.hold() }
+
+        s.spend("Hilltop")
+        let first = try #require(s.autoSync.pending)
+        await gate.waitUntilHeld()
+        s.spend("Sunny's")
+        await gate.release()
+        await first.value
+
+        #expect(await !gate.sawCancel, "the second edit cancelled the sync that was running")
+        await s.autoSync.pending?.value
+        #expect(s.autoSync.runs == 2)
+        let group = try #require(s.model.groups.first)
+        #expect(try s.model.store.outboxCount(in: group.id) == 0)
     }
 
     @Test func nothingSyncsWhenSignedOut() async throws {
