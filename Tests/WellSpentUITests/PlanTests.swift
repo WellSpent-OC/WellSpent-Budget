@@ -127,7 +127,7 @@ final class PlanTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
         for (tier, price) in [("starter", "$19"), ("growth", "$49"), ("portfolio", "$99")] {
             XCTAssertTrue(run.element("plan.row.\(tier)").exists, "no \(tier) row")
-            XCTAssertTrue(run.visibleTexts().contains(price), "no \(price). On screen: \(run.visibleTexts())")
+            XCTAssertTrue(priceShows(run, tier, price), "no \(price). On screen: \(run.visibleTexts())")
         }
         XCTAssertTrue(run.element("plan.row.starter").isSelected, "Starter, the plan that fits, isn't picked")
         XCTAssertTrue(run.visibleTexts().contains("Subscribe for $19 a Month")
@@ -136,8 +136,8 @@ final class PlanTests: XCTestCase {
 
         // Scenario PLAN-03
         run.click(AccessibilityID.planYearly)
-        for price in ["$190", "$490", "$990"] {
-            XCTAssertTrue(run.app.staticTexts[price].waitForExistence(timeout: 5),
+        for (tier, price) in [("starter", "$190"), ("growth", "$490"), ("portfolio", "$990")] {
+            XCTAssertTrue(priceShows(run, tier, price, timeout: 5),
                           "no \(price) yearly. On screen: \(run.visibleTexts())")
         }
         XCTAssertTrue(run.visibleTexts().contains { $0.contains("2 months free") }, "Yearly doesn't say 2 months free")
@@ -155,8 +155,8 @@ final class PlanTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.planRestore).exists, "Restore Purchases under the card")
         run.click(AccessibilityID.planCardAction)
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
-        for price in ["$19", "$49", "$99"] {
-            XCTAssertTrue(run.visibleTexts().contains(price), "no \(price). On screen: \(run.visibleTexts())")
+        for (tier, price) in [("starter", "$19"), ("growth", "$49"), ("portfolio", "$99")] {
+            XCTAssertTrue(priceShows(run, tier, price), "no \(price). On screen: \(run.visibleTexts())")
         }
         let buy = run.element(AccessibilityID.planBuy)
         XCTAssertTrue(buy.exists, "no button in Subscribe's place")
@@ -179,6 +179,22 @@ final class PlanTests: XCTestCase {
         _ = run.app.wait(for: .runningBackground, timeout: 5)
         run.app.activate()
         XCTAssertTrue(run.app.wait(for: .runningForeground, timeout: 10), "the app didn't come back to the front")
+    }
+
+    /// Whether a plan's row shows its price. On the Mac each row is one
+    /// button, so its price is in the row's own label or value, not a text
+    /// of its own.
+    @MainActor
+    private func priceShows(_ run: TestApp, _ tier: String, _ price: String, timeout: TimeInterval = 0) -> Bool {
+        let row = run.element("plan.row.\(tier)")
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if row.label.contains(price) || run.text(of: row).contains(price) || run.visibleTexts().contains(price) {
+                return true
+            }
+            if Date() < deadline { Thread.sleep(forTimeInterval: 0.5) }
+        } while Date() < deadline
+        return false
     }
 
     @MainActor

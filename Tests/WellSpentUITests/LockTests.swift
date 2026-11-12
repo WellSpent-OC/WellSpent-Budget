@@ -38,8 +38,22 @@ final class LockTests: XCTestCase {
 
     /// Robin's own groups: his paid plan ends with "Beach" locked and "Home" open.
     @MainActor
-    func testWhenAPaidPlanEndsTheGroupsPastItLock() throws {
+    func testWhenAPaidPlanEndsTheGroupsPastItLock() async throws {
         let run = try signedIn()
+        // Robin's other device deletes Home and Beach from staging after the
+        // test, even when an assertion stops it. The run's accounts are shared
+        // by every class in it, so groups left here would show in the next
+        // class's tests.
+        let accounts = try TestAccounts.fromEnvironment()
+        let elsewhere = try SecondAccount(server: accounts.server)
+        try await elsewhere.signIn(email: accounts.email, password: accounts.password)
+        addTeardownBlock { @MainActor in
+            // It deletes only what it holds, so it takes in the groups first.
+            await elsewhere.sync.syncAll()
+            await elsewhere.deleteGroup(named: "Home")
+            await elsewhere.deleteGroup(named: "Beach")
+            await elsewhere.cleanUp()
+        }
         run.addGroup(named: "Home")
         run.addGroup(named: "Beach")
         let ids = try groupIDs(run, ["Home", "Beach"])

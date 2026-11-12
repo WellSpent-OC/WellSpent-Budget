@@ -2,6 +2,7 @@
 // the same shared logic with its own screens.
 #if canImport(SwiftUI)
 import SwiftUI
+import WellSpentPlans
 #if canImport(Combine)
 import Combine
 #endif
@@ -173,9 +174,11 @@ struct RootView: View {
             sync.planSheetShown()
             choosingPlan = ChoosePlanRequest(payFor: nil)
         }
-        // When a paid plan ends, the pick shows once, on its own.
-        .onChange(of: workspace.plans.answer?.lastPlan) { _, last in
-            guard let last, workspace.plans.answer?.locked != nil else { return }
+        // When a paid plan ends, the pick shows once, on its own. The locks
+        // may come later than the ended plan (after the grace days), so it
+        // watches both, not the ended plan alone.
+        .onChange(of: PickCue(workspace.plans.answer)) { _, _ in
+            guard let last = workspace.plans.answer?.lastPlan, workspace.plans.answer?.locked != nil else { return }
             let key = "plan.pickShown.\(last.endedOn.timeIntervalSince1970)"
             guard !sync.defaults.bool(forKey: key) else { return }
             sync.defaults.set(true, forKey: key)
@@ -1390,6 +1393,18 @@ extension SidebarView {
         // Whether there is a session, not the signed-in state, which is also
         // false while a sync runs or after one fails.
         SyncWording.footer(signedIn: sync.account != nil)
+    }
+}
+
+/// What makes the pick show on its own: the ended plan and whether anything
+/// is locked. Either can arrive first, so the pick watches both.
+struct PickCue: Equatable {
+    let endedOn: Date?
+    let hasLocks: Bool
+
+    init(_ answer: PlanAnswer?) {
+        endedOn = answer?.lastPlan?.endedOn
+        hasLocks = answer?.locked != nil
     }
 }
 
