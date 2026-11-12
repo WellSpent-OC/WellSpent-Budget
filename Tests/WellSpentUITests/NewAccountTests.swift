@@ -364,6 +364,45 @@ final class NewAccountTests: XCTestCase {
         run.expectList(groups: ["Side Business"], budgets: ["Materials"], "after signing out")
     }
 
+    /// Robin makes Home and Beach on this Mac, then signs in to an account on
+    /// the free plan. The server takes one group and refuses the other, which
+    /// stays on this Mac and says so. Which one it takes isn't fixed, so the
+    /// test reads which one the sidebar marks.
+    @MainActor
+    func testAGroupPastTheFreePlanSaysItIsOnlyOnThisMac() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let robin = StagingMailbox.freshAddress("mac", for: "robin")
+        let password = Self.newPassword()
+        let elsewhere = try await AccountGapTests.desktop(at: mailbox.server)
+        _ = try await elsewhere.signUp(email: robin, password: password, deviceLabel: "Robin's other computer")
+        try await elsewhere.verifyEmail(code: try await mailbox.code(for: robin, timeout: 30))
+        let run = try start()
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+
+        // Scenario PLAN-18
+        try run.signIn(email: robin, password: password, server: mailbox.server)
+        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home", "Beach"])
+        let marker = "Only on this Mac"
+        let marked = ["Home", "Beach"].filter { name in
+            let row = run.element(AccessibilityID.sidebarGroup(name))
+            return run.wait(for: row, holds: marker, timeout: 30)
+        }
+        XCTAssertEqual(marked.count, 1, "one group, not \(marked), says \(marker)")
+        let held = try XCTUnwrap(marked.first)
+        let synced = held == "Home" ? "Beach" : "Home"
+        let expected = HeldGroupScreen(group: held, synced: synced, device: .mac, platform: .appleStore)
+        run.openGroupPage(named: held)
+        XCTAssertTrue(run.element(AccessibilityID.groupHeldNotice).waitForExistence(timeout: 10),
+                      "\(held)'s page has no notice. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.visibleTexts().contains(expected.notice),
+                      "no \"\(expected.notice)\". On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.groupHeldSeePlans)
+        XCTAssertTrue(run.app.staticTexts[PlanWording.choosePlan].firstMatch.waitForExistence(timeout: 10)
+                      || run.visibleTexts().contains(PlanWording.choosePlan),
+                      "See Plans did not open Choose a plan. On screen: \(run.visibleTexts())")
+    }
+
     // MARK: - Setting up and tidying
 
     /// Launches a fresh install, with a data folder of its own, and keeps it
