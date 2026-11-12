@@ -88,6 +88,10 @@ targets:
       - path: ../Tests/UITestShared
       - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/Mac
         optional: true
+      # What the Mac's and the iPhone's Houses tests share, such as the
+      # headless account's houses.
+      - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/Shared
+        optional: true
     # The host, and the package products the headless second account uses.
     # WellSpentCrypto names the IDs a test builds the screens' words with.
     dependencies:

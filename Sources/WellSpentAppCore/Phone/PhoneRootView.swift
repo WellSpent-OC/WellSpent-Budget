@@ -24,6 +24,12 @@ struct PhoneRootView: View {
     /// closed, such as Sign in… in Join a Group.
     @State private var accountAfterSheet = false
     @State private var showingAccount = false
+    /// Choose a plan, opened from a locked page.
+    @State private var choosingPlan = false
+    /// A locked group to take over paying for, once a plan is bought.
+    @State private var payingFor: GroupID?
+    /// Pick what stays open, opened from Account or a locked page.
+    @State private var picking: PickOpenScreen?
     @State private var addingEntry = false
     /// The entry sheet an extension asked for. Kept here, not made while
     /// drawing, so what is typed stays through a redraw.
@@ -97,7 +103,24 @@ struct PhoneRootView: View {
         .onChange(of: model.entrySheetRequest) { _, request in openRequestedEntry(request) }
         // Outside the part rebuilt when an account signs in, so the sheet
         // keeps its step through signing in.
-        .sheet(isPresented: $showingAccount) { PhoneAccountSheet(sync: sync).tint(Palette.accent) }
+        .sheet(isPresented: $showingAccount) {
+            PhoneAccountSheet(sync: sync, plans: workspace.plans,
+                              openNames: workspace.planOpenNames,
+                              changeWhatStaysOpen: openPick)
+                .tint(Palette.accent)
+        }
+        .sheet(isPresented: $choosingPlan, onDismiss: { payingFor = nil }) {
+            PhoneChoosePlanSheet(plans: workspace.plans, afterBuying: payingFor.map { group in
+                { [plans = workspace.plans] in try? await plans.payFor(group: group.uuid) }
+            })
+            .tint(Palette.accent)
+        }
+        .sheet(isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } })) {
+            if let picking {
+                PhonePickSheet(screen: picking) { pick in try await workspace.plans.save(pick) }
+                    .tint(Palette.accent)
+            }
+        }
         .sheet(isPresented: $showingExtensionsCatalog) { extensionsCatalogSheet.tint(Palette.accent) }
         .confirmationDialog(screen.pendingDelete?.title ?? "",
                             isPresented: Binding(get: { screen.pendingDelete != nil },
@@ -141,7 +164,7 @@ struct PhoneRootView: View {
                 if isPropertiesActive {
                     NavigationStack {
                         #if canImport(WellSpentPropertiesViews)
-                        PhoneHousesTab(host: AppExtensionHost(model: model))
+                        PhoneHousesTab(host: AppExtensionHost(model: model, lockedCard: lockedHouse))
                         #else
                         HousesPlaceholderView(
                             openCatalog: { showingExtensionsCatalog = true },
@@ -236,16 +259,59 @@ struct PhoneRootView: View {
         })
     }
 
+    /// A locked group or budget: its name, and the card saying why and what
+    /// opens it, in place of its page.
+    private func lockedPage(_ locked: LockedScreen, title: String, group: GroupID) -> some View {
+        ScrollView {
+            PhoneLockedCard(screen: locked) { action in
+                switch action {
+                case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+                case .seePlans: choosingPlan = true
+                case .payForThisGroup:
+                    payingFor = group
+                    choosingPlan = true
+                }
+            }
+        }
+        .background(Palette.ground)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    /// A house past the plan: the card in place of its page (LOCK-06).
+    /// Houses asks for it through the host.
+    private func lockedHouse(_ record: String) -> AnyView? {
+        workspace.lockedScreen(property: record).map { locked in
+            AnyView(PhoneLockedCard(screen: locked) { action in
+                switch action {
+                case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+                case .seePlans, .payForThisGroup: choosingPlan = true
+                }
+            })
+        }
+    }
+
+    private func openPick() {
+        showingAccount = false
+        picking = workspace.pickScreen()
+    }
+
+
     @ViewBuilder
     private func destination(_ route: PhoneRoute) -> some View {
         switch route {
         case .budget:
-            if case .budget(let summary) = screen.detail {
+            if case .budget(let summary) = screen.detail,
+               let locked = workspace.lockedScreen(group: summary.budget.groupID) {
+                lockedPage(locked, title: summary.budget.name, group: summary.budget.groupID)
+            } else if case .budget(let summary) = screen.detail {
                 PhoneBudgetView(model: model, sync: sync, summary: summary, main: screen, perform: perform,
                                 addingEntry: $addingEntry)
             }
         case .group:
-            if let group = screen.openGroup {
+            if let group = screen.openGroup, let locked = workspace.lockedScreen(group: group.id) {
+                lockedPage(locked, title: group.name, group: group.id)
+            } else if let group = screen.openGroup {
                 PhoneGroupView(sync: sync, group: group, main: screen, perform: perform)
                     // A page of its own for each group, and again after a
                     // rename, so its words name the group as it is now.

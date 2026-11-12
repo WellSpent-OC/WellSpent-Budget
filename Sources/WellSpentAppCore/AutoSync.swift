@@ -25,6 +25,10 @@ public final class AutoSync {
     /// The sync waiting for edits to stop. Each edit replaces it. Internal so a
     /// test can wait for it instead of guessing how long to sleep.
     private(set) var pending: Task<Void, Never>?
+    /// Whether `pending` is past its wait and syncing. A new edit then leaves
+    /// it be and syncs after it: cancelling a running sync cancels its
+    /// requests, and on Linux that, from the main thread, never returns.
+    private var pendingIsSyncing = false
     private var ticking: Task<Void, Never>?
 
     /// How many syncs this has started, for tests.
@@ -40,7 +44,8 @@ public final class AutoSync {
 
     /// Something on this Mac changed. Restarts the wait.
     public func localChange() {
-        pending?.cancel()
+        if !pendingIsSyncing { pending?.cancel() }
+        pendingIsSyncing = false
         pending = Task { [weak self, quietPeriod] in
             try? await Task.sleep(for: quietPeriod)
             guard !Task.isCancelled else { return }
@@ -55,6 +60,7 @@ public final class AutoSync {
             try? await Task.sleep(for: quietPeriod)
             if Task.isCancelled { return }
         }
+        pendingIsSyncing = true
         await syncIfIdle()
     }
 

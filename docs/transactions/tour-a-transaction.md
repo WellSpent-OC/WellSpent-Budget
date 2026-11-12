@@ -98,7 +98,7 @@ Click a transaction in a budget's list, and it opens like this. Click each field
 17. **Added by you · Repeat**: how it came in, and, in a shared group, who added it.
 18. The line under **Money in**: which budget it adds to, such as "Adds to Bookings instead of spending from it." It shows only while **Money in** is ticked.
 
-Linux has no **House** row. Properties isn't on Linux yet.
+Linux has no **House** row yet.
 
 **Add** on a budget's page opens a **New transaction** window with the same fields, and **Add** in place of **Save**.
 

@@ -19,7 +19,7 @@ Properties is an extension for people who rent out a home. It brings in your sta
 3. ![A hand presses Houses on the rail](../assets/shots/turn-on-properties-3.svg)
    Press **Houses**.
 
-   > You see **No houses yet**, with two choices: **Import earnings file** and **Connect PriceLabs**.
+   > You see **No houses yet**, with **Import earnings file**. Until the next update, **Connect PriceLabs** is here too.
 
 To turn it off, open **Extensions** and press **Turn off** on the **Properties** card. Your budgets don't change.
 

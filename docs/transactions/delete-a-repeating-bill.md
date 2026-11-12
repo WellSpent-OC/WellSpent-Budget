@@ -28,8 +28,6 @@ title: "Side quest: Delete a repeating bill"
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 1. ![A thumb swipes a bill to the left](../assets/shots/delete-a-repeating-bill-iphone-1.svg)
    In the budget, swipe the bill to the left.
 
