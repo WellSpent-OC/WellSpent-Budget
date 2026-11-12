@@ -37,8 +37,6 @@ When Nov 28 arrives, the bill counts as spent, and the **Coming by** line goes a
 
 ## On an iPhone
 
-**Coming in the next update.**
-
 The steps are the same. Tap where the Mac says press.
 
 ## On Linux
