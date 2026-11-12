@@ -357,8 +357,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git",
       "state" : {
-        "revision" : "6969c650ae572b91326993d1f9fdbb807bd9ebbc",
-        "version" : "0.2.0"
+        "revision" : "4e9abc8cc8a4a01c4b8ab5719537749837d7f642"
       }
     }
   ],
