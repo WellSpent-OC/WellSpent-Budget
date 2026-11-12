@@ -1,0 +1,152 @@
+{
+  "identifier": "00000000-0000-0000-0000-000000005EED",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_applicationInternalID": "6700000000",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "21000001",
+      "localizations": [],
+      "name": "WellSpent plans",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "19.00",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6700000001",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 2 properties",
+              "displayName": "Starter Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.starter.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Starter monthly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "190.00",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6700000002",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 2 properties",
+              "displayName": "Starter Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.starter.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Starter yearly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "49.00",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "6700000003",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 5 properties",
+              "displayName": "Growth Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.growth.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Growth monthly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "490.00",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "6700000004",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 5 properties",
+              "displayName": "Growth Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.growth.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Growth yearly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "99.00",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "6700000005",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 15 properties",
+              "displayName": "Portfolio Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.portfolio.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Portfolio monthly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "990.00",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "6700000006",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Up to 15 properties",
+              "displayName": "Portfolio Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.wellspent.pro.portfolio.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Portfolio yearly",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

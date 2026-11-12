@@ -123,6 +123,10 @@ targets:
       - path: ../Tests/UITestShared
       - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/iPhone
         optional: true
+      # What the Mac's and the iPhone's Houses tests share, such as the
+      # headless account's houses.
+      - path: ${WELLSPENT_PROPERTIES_PATH}/UITests/Shared
+        optional: true
     dependencies:
       - target: WellSpentPhone
       - package: WellSpentBudget
@@ -139,6 +143,8 @@ targets:
         product: WellSpentModel
       - package: WellSpentBudget
         product: WellSpentImport
+      - package: WellSpentBudget
+        product: WellSpentPlans
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.wellspent.mac.phone-uitests
@@ -157,6 +163,8 @@ schemes:
         WellSpentPhoneUITests: [test]
     run:
       config: Debug
+      # Apple's local test store: the six plans, no App Store Connect needed.
+      storeKitConfiguration: WellSpentPlans.storekit
       environmentVariables:
         - variable: WELLSPENT_FEATURE_EXTENSIONS
           value: "1"

@@ -34,6 +34,10 @@ from gi.repository import Atspi, GLib  # noqa: E402
 # How long a step waits for the screen to show what it expects. The test
 # display is about three times slower than a desktop.
 WAIT = float(os.environ.get("WELLSPENT_UI_WAIT", "15"))
+# How long a control may say it has no action before a press gives up.
+PRESS_WAIT = 5
+# The main window's title: the app's name, "WellSpent" or "WellSpent Staging".
+MAIN_WINDOW = "WellSpent"
 OUT = os.environ.get("WELLSPENT_UI_OUT", "/tmp/wellspent-ui")
 
 
@@ -176,18 +180,32 @@ class Element:
             and (starts is None or _words(n).startswith(starts))
         ]
 
+    def _pressable(self):
+        """This, or for a menu button the button inside that does the
+        pressing, once the tree says it has an action. Else None."""
+        for element in [self] + self.all():
+            actions = element.node.get_action_iface()
+            if actions and actions.get_n_actions() > 0:
+                return element
+        return None
+
     def press(self):
         """A click, or Space on it: its first action."""
-        actions = self.node.get_action_iface()
-        if not actions or actions.get_n_actions() == 0:
+        target = self._pressable()
+        if target is None and self.role != "check box":
+            # While the app redraws, after a sync, the tree can say for a
+            # moment that a control has no action. Ask again before giving up.
+            deadline = time.monotonic() + PRESS_WAIT
+            while target is None and time.monotonic() < deadline:
+                time.sleep(0.2)
+                target = self._pressable()
+        if target is not self:
             # A menu button carries the name and holds the button that does
             # the pressing, so press that, as a screen reader's user does.
-            for inner in self.all():
-                inner_actions = inner.node.get_action_iface()
-                if inner_actions and inner_actions.get_n_actions() > 0:
-                    inner._ask(lambda: Atspi.Action.do_action(inner.node, 0), "press")
-                    self.app.settle()
-                    return
+            if target is not None:
+                target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press")
+                self.app.settle()
+                return
             if self.role == "check box":
                 checked = self._has(Atspi.StateType.CHECKED)
                 self.app.focus(self)
@@ -457,9 +475,7 @@ class App:
         roots[0].clear_cache()
         return roots[0]
 
-    def windows(self):
-        """The windows showing, oldest first: the main window, then any sheet
-        or question over it."""
+    def _showing_windows(self):
         root = self._root()
         if root is None:
             return []
@@ -470,9 +486,20 @@ class App:
                 found.append(Element(self, node))
         return found
 
+    def windows(self):
+        """The windows showing, oldest first: the main window, then any sheet
+        or question over it. For a moment while the app redraws, after a sync,
+        the tree can leave the main window out and list only a sheet, or
+        nothing. A sheet would then pass for the main window, and a count
+        would be one short, so this waits until the main window is back."""
+        def with_main():
+            found = self._showing_windows()
+            return found if any(w.words.startswith(MAIN_WINDOW) for w in found) else None
+        return self.until(with_main, "the main window")
+
     @property
     def main(self):
-        return self.until(lambda: self.windows()[0], "the main window")
+        return self.windows()[0]
 
     @property
     def front(self):
@@ -1090,7 +1117,7 @@ class App:
 
     def sync(self):
         """The Sync button, then waits until it's done. While it runs, the
-        button says what it's doing ("Syncing…"), and a slow network can keep
+        button still says "Sync" and is greyed, and a slow network can keep
         it there past the usual wait."""
         self.button("Sync", within=self.main).press()
         time.sleep(1)

@@ -131,3 +131,12 @@ Platforms: Mac, iPhone
 - When he presses "Restore Purchases" and his Apple account holds no WellSpent plan
 - Then "Nothing to restore" says the Apple account has no WellSpent plan
 - And it says to sign in with the email he paid with on wellspent.space
+
+## PLAN-16 A purchase the store refuses says so and changes nothing
+
+Platforms: Mac, iPhone
+
+- Given Robin is on the free plan, with "Choose a plan" open
+- When he presses Subscribe and the App Store refuses the purchase
+- Then "The App Store couldn't finish. Try again." shows under the button
+- And his plan is still the free plan

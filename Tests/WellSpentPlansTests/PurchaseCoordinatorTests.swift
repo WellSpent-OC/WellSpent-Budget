@@ -86,6 +86,13 @@ private final class FakeLockService: PlanService, PlanLockService, @unchecked Se
     var refusal: PlanLockError?
     var picks: [PlanPick] = []
     var paid: [UUID] = []
+    /// Holds the first pay call until `letFirstPayFinish()`, so a second
+    /// refresh can run while it's in flight.
+    var holdsFirstPay = false
+    private(set) var firstPayIsWaiting = false
+    private var heldPay: CheckedContinuation<Void, Never>?
+
+    func letFirstPayFinish() { heldPay?.resume() }
 
     init(answer: PlanAnswer) { self.answer = answer }
 
@@ -97,6 +104,10 @@ private final class FakeLockService: PlanService, PlanLockService, @unchecked Se
         return answer
     }
     func payForGroup(_ groupID: UUID) async throws -> PlanAnswer {
+        if holdsFirstPay {
+            holdsFirstPay = false
+            await withCheckedContinuation { heldPay = $0; firstPayIsWaiting = true }
+        }
         if let refusal { throw refusal }
         paid.append(groupID)
         return answer
@@ -537,6 +548,20 @@ struct PendingGroupPayTests {
         service.refusal = refusal
         let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
         await plans.refresh()
+        #expect(plans.pendingGroup == nil)
+    }
+
+    @Test func twoRefreshesAtOnceTakeItOverOnce() async {
+        let group = UUID()
+        let service = FakeLockService(answer: paid(locking: group))
+        service.holdsFirstPay = true
+        let plans = PurchaseCoordinator(store: nil, service: service, cache: MemoryCache(pending: group))
+        let first = Task { await plans.refresh() }
+        while !service.firstPayIsWaiting { await Task.yield() }
+        await plans.refresh()
+        service.letFirstPayFinish()
+        await first.value
+        #expect(service.paid == [group])
         #expect(plans.pendingGroup == nil)
     }
 
