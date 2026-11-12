@@ -55,7 +55,7 @@ If the group has no budgets yet, a manager sees **+ New budget**, with **Budget 
 
 ## On Linux
 
-Properties isn't on Linux yet.
+You can't mark a bill with a house on Linux yet. The transaction window has no **House** row.
 
 ## If it doesn't work
 
