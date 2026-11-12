@@ -12,6 +12,9 @@
 # file names the commit, for testing this script (scripts/checkout-properties-test.sh).
 # With PROPERTIES_URL set, no key is used.
 set -eu
+# Run from under a git hook, GIT_DIR and its kin would send the git calls
+# below to the hook's repository. Clear git's own list of them first.
+unset $(git rev-parse --local-env-vars)
 [ "$#" -eq 1 ] || { echo "usage: $0 DEST" >&2; exit 2; }
 dest="$1"
 ref_file="${PROPERTIES_REF_FILE:-$(dirname "$0")/../.github/properties-ref}"
