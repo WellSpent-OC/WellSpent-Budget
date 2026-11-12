@@ -155,6 +155,54 @@ final class PlanTests: XCTestCase {
 
     // Scenario PLAN-17
     /// Build A: the plans show, and nothing can be bought or restored.
+    // Scenario LOCK-05
+    /// After the grace days, the server sends the locks in a later answer than
+    /// the ended plan. The pick still opens on its own, once, and its rows
+    /// keep their own names, so VoiceOver and the tests can tell them apart.
+    @MainActor
+    func testThePickOpensWhenTheLocksComeAfterThePlanEnds() async throws {
+        let run = try signedIn()
+        // Robin's other device deletes the groups from staging after the
+        // test, even when an assertion stops it. A run's accounts are shared
+        // by every class in it.
+        let accounts = try TestAccounts.fromEnvironment()
+        let elsewhere = try SecondAccount(server: accounts.server)
+        try await elsewhere.signIn(email: accounts.email, password: accounts.password)
+        addTeardownBlock { @MainActor in
+            await elsewhere.sync.syncAll()
+            await elsewhere.deleteGroup(named: "Home")
+            await elsewhere.deleteGroup(named: "Beach")
+            await elsewhere.cleanUp()
+        }
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+        // Its own end date, apart from the card test's, so the pick hasn't
+        // been shown for it.
+        let ended = Self.day(in: -20)
+
+        // The plan has ended, and nothing is locked yet: no pick.
+        try show(run, Self.answer(lastPlan: "ended", endedOn: ended))
+        let sheet = run.element(AccessibilityID.pickSheet)
+        XCTAssertFalse(sheet.waitForExistence(timeout: 5), "the pick opened with nothing locked")
+
+        // The grace days are over and the locks arrive: the pick opens on its own.
+        try show(run, Self.answer(locked: Self.twoPropertiesLocked, lastPlan: "ended", endedOn: ended))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 30),
+                      "the pick didn't open when the locks came. On screen: \(run.visibleTexts())")
+
+        // Each group's row has its own identifier, not the sheet's.
+        let rows = run.app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'pick.group.'")).allElementsBoundByIndex
+        let names = Set(rows.compactMap { row in ["Home", "Beach"].first { row.label.contains($0) } })
+        XCTAssertEqual(names, ["Home", "Beach"], "the pick doesn't list every group: \(rows.map(\.label))")
+
+        // It says what Skip keeps before anyone presses it.
+        XCTAssertTrue(run.visibleTexts().contains { $0.hasPrefix("Skip keeps") },
+                      "it doesn't say what Skip keeps. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.pickSkip)
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 15), "Skip didn't close the pick")
+    }
+
     @MainActor
     func testComingSoonBeforeTheStoreSellsPlans() throws {
         let run = try signedIn(buyingIsOpen: false)
@@ -254,7 +302,8 @@ final class PlanTests: XCTestCase {
 
     private static func answer(tier: String = "free", state: String = "free", period: String = "monthly",
                                source: String = "apple", paidUntil: Date? = nil, properties: Int = 1,
-                               locked: String? = nil, lastPlan: String? = nil) -> String {
+                               locked: String? = nil, lastPlan: String? = nil,
+                               endedOn: Date = PlanTests.endedOn) -> String {
         let free = tier == "free"
         let limit = ["free": 1, "starter": 2, "growth": 5, "portfolio": 15][tier] ?? 1
         let date = ISO8601DateFormatter()
