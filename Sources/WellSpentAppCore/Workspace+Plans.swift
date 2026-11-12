@@ -45,6 +45,18 @@ extension Workspace {
                             now: now, calendar: calendar)
     }
 
+    /// PLAN-18: the marker and notice for a group the free plan kept on this
+    /// device, or nil when the server has it. The synced group named is one
+    /// the server does have.
+    public func heldScreen(group: GroupID, device: ThisDevice, platform: PlanPlatform = .appleStore,
+                           buyingIsOpen: Bool = PlanBuying.isOpen()) -> HeldGroupScreen? {
+        let held = sync.heldOnThisDevice
+        guard held.contains(group), let name = model.groups.first(where: { $0.id == group })?.name else { return nil }
+        let synced = model.groups.first { !held.contains($0.id) && sync.founder(of: $0.id) != nil }?.name
+        return HeldGroupScreen(group: name, synced: synced, device: device, platform: platform,
+                               buyingIsOpen: buyingIsOpen)
+    }
+
     /// The card that takes a locked property's place, or nil when it's open.
     /// `record` is the property's record id, as the Properties extension asks.
     public func lockedScreen(property record: String) -> LockedScreen? {
