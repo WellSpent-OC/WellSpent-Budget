@@ -870,6 +870,14 @@ jobs:
         platform: [mac, iphone-light, iphone-dark]
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
+      HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
+      # The Properties classes that sign in to staging, and how many tests
+      # each list holds. A new one adds its class here and its count below,
+      # in the app pull request that moves .github/properties-ref past it.
+      MAC_SIGNED_IN: WellSpentUITests/HouseLockTests
+      MAC_SIGNED_IN_COUNT: 1
+      IPHONE_SIGNED_IN: ""
+      IPHONE_SIGNED_IN_COUNT: 0
     steps:
       - uses: actions/checkout@v4
 
@@ -891,27 +899,51 @@ jobs:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
         run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
 
+      # Two fresh accounts on a paid plan for the classes that sign in. A test
+      # that wants staging itself to refuse signs up an account of its own,
+      # which starts free, through the same mailbox token. Without the token
+      # (a fork) nothing is made, and only the Houses tests that never sign in run.
+      - name: Make this run's own staging accounts
+        if: env.HAS_PROPERTIES_KEY == 'true' && env.HAS_MAILBOX == 'true'
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: |
+          python3 -I scripts/fresh-test-accounts.py "houses-${{ matrix.platform }}" "$RUNNER_TEMP/ui-test-accounts.env"
+
       # make ui-test asks for the four account variables before it runs
-      # anything. The Houses tests never sign in, so these are placeholders.
+      # anything, so a run without accounts passes placeholders.
       - name: Run the Mac Houses UI tests
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'mac'
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
-          WELLSPENT_UI_TEST_EMAIL: unused
-          WELLSPENT_UI_TEST_PASSWORD: unused
-          WELLSPENT_UI_TEST_EMAIL_2: unused
-          WELLSPENT_UI_TEST_PASSWORD_2: unused
-        run: make ui-test UI_TEST_ONLY="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests"
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: |
+          only="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests"
+          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
+            set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+            only="$only $MAC_SIGNED_IN"
+          else
+            export WELLSPENT_UI_TEST_EMAIL=unused WELLSPENT_UI_TEST_PASSWORD=unused
+            export WELLSPENT_UI_TEST_EMAIL_2=unused WELLSPENT_UI_TEST_PASSWORD_2=unused
+          fi
+          make ui-test UI_TEST_ONLY="$only"
 
       - name: Run the iPhone Houses UI tests in one look
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform != 'mac'
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
-        run: make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: |
+          only="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
+          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
+            set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+            only="$only $IPHONE_SIGNED_IN"
+          fi
+          make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="$only"
 
       # Each run must show it tested something: four Houses tests on the
-      # Mac, and four in its iPhone look. Nothing skipped, as for every
-      # UI job.
+      # Mac, and four in its iPhone look, plus the signed-in ones when the
+      # accounts were made. Nothing skipped, as for every UI job.
       - name: The Houses tests ran, and nothing was skipped
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: |
@@ -920,7 +952,11 @@ jobs:
           else
             bundles=".build/xcode-iphone/ui-test-${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}.xcresult"
           fi
-          scripts/passed-at-least.sh 4 $bundles
+          want=4
+          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
+            if [ "${{ matrix.platform }}" = mac ]; then want=$((want + MAC_SIGNED_IN_COUNT)); else want=$((want + IPHONE_SIGNED_IN_COUNT)); fi
+          fi
+          scripts/passed-at-least.sh "$want" $bundles
           scripts/skipped-tests.sh $bundles
 
       - name: Pull the screenshots out of a failed Mac run
