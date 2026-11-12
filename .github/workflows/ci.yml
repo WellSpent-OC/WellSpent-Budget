@@ -853,12 +853,10 @@ jobs:
   houses-ui-test:
     name: Houses UI test, ${{ matrix.platform }}
     needs: unit-tests
-    # In the merge queue, nightly and by hand, not on every push to a pull
-    # request into main: each run takes two of the few Macs GitHub lends, and
-    # main's queue still gates every merge. A release branch has no queue, so a
-    # pull request into one runs them. Anything touching Houses runs these
-    # locally on the exact commit before its pull request.
-    if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
+    # Nightly and by hand only, like every UI suite: a failure becomes a bug,
+    # fixed the next morning. Not in the merge queue or on pull requests, and
+    # Gate doesn't wait on it.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     # Each iPhone look has a Mac of its own: both looks in one job took 81
     # minutes one day and passed 120 the next, as the runners' speed swings.
@@ -899,19 +897,17 @@ jobs:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
         run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
 
-      # Only a pull request can lack the token (from a fork). In the queue,
-      # nightly and by hand, a missing token fails the job, so the gate never
+      # Nightly and by hand, a missing token fails the job, so a run never
       # passes with the signed-in tests quietly left out.
-      - name: The queue and the nightly have the mailbox token
-        if: env.HAS_PROPERTIES_KEY == 'true' && env.HAS_MAILBOX != 'true' && github.event_name != 'pull_request'
+      - name: The run has the mailbox token
+        if: env.HAS_PROPERTIES_KEY == 'true' && env.HAS_MAILBOX != 'true'
         run: |
           echo "::error::WELLSPENT_UI_TEST_MAILBOX_TOKEN is not set, so the Properties tests that sign in can't run."
           exit 1
 
       # Two fresh accounts on a paid plan for the classes that sign in. A test
       # that wants staging itself to refuse signs up an account of its own,
-      # which starts free, through the same mailbox token. Without the token
-      # (a fork) nothing is made, and only the Houses tests that never sign in run.
+      # which starts free, through the same mailbox token.
       - name: Make this run's own staging accounts
         if: env.HAS_PROPERTIES_KEY == 'true' && env.HAS_MAILBOX == 'true'
         env:
@@ -919,23 +915,14 @@ jobs:
         run: |
           python3 -I scripts/fresh-test-accounts.py "houses-${{ matrix.platform }}" "$RUNNER_TEMP/ui-test-accounts.env"
 
-      # make ui-test asks for the four account variables before it runs
-      # anything, so a run without accounts passes placeholders.
       - name: Run the Mac Houses UI tests
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform == 'mac'
         env:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
-          only="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests"
-          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
-            set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
-            only="$only $MAC_SIGNED_IN"
-          else
-            export WELLSPENT_UI_TEST_EMAIL=unused WELLSPENT_UI_TEST_PASSWORD=unused
-            export WELLSPENT_UI_TEST_EMAIL_2=unused WELLSPENT_UI_TEST_PASSWORD_2=unused
-          fi
-          make ui-test UI_TEST_ONLY="$only"
+          set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+          make ui-test UI_TEST_ONLY="WellSpentUITests/HousesTests WellSpentUITests/PropertiesRailTests $MAC_SIGNED_IN"
 
       - name: Run the iPhone Houses UI tests in one look
         if: env.HAS_PROPERTIES_KEY == 'true' && matrix.platform != 'mac'
@@ -943,16 +930,12 @@ jobs:
           WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
-          only="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab"
-          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then
-            set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
-            only="$only $IPHONE_SIGNED_IN"
-          fi
-          make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="$only"
+          set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+          make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab $IPHONE_SIGNED_IN"
 
       # Each run must show it tested something: four Houses tests on the
-      # Mac, and four in its iPhone look, plus the signed-in ones when the
-      # accounts were made. Nothing skipped, as for every UI job.
+      # Mac, and four in its iPhone look, plus the signed-in ones. Nothing
+      # skipped, as for every UI job.
       - name: The Houses tests ran, and nothing was skipped
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: |
@@ -961,10 +944,7 @@ jobs:
           else
             bundles=".build/xcode-iphone/ui-test-${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}.xcresult"
           fi
-          want=4
-          if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ] || [ "${{ github.event_name }}" != pull_request ]; then
-            if [ "${{ matrix.platform }}" = mac ]; then want=$((want + MAC_SIGNED_IN_COUNT)); else want=$((want + IPHONE_SIGNED_IN_COUNT)); fi
-          fi
+          if [ "${{ matrix.platform }}" = mac ]; then want=$((4 + MAC_SIGNED_IN_COUNT)); else want=$((4 + IPHONE_SIGNED_IN_COUNT)); fi
           scripts/passed-at-least.sh "$want" $bundles
           scripts/skipped-tests.sh $bundles
 
@@ -986,7 +966,7 @@ jobs:
 
   gate:
     name: Gate
-    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, linux-client-with-properties, houses-ui-test, ios-build, scenario-check, wartable-connector]
+    needs: [unit-tests, coverage, docker-build, postgres-tests, linux-client-tests, linux-app-build, linux-client-with-properties, ios-build, scenario-check, wartable-connector]
     # Runs after a failure too, so a failed gate blocks the merge. Not after a
     # cancel: a newer push to the same pull request cancelled this run, and
     # its own run reports. Counting the cancel as a failure labelled and
@@ -1005,7 +985,7 @@ jobs:
             --color B60205 --description "CI gates are failing; do not merge" --force || true
 
       - name: Block the merge when a gate fails
-        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success' || (needs.houses-ui-test.result != 'success' && !(github.event_name == 'pull_request' && github.base_ref == 'main' && needs.houses-ui-test.result == 'skipped'))
+        if: needs.unit-tests.result != 'success' || needs.coverage.result != 'success' || needs.docker-build.result != 'success' || needs.postgres-tests.result != 'success' || needs.linux-client-tests.result != 'success' || needs.linux-app-build.result != 'success' || needs.linux-client-with-properties.result != 'success' || needs.ios-build.result != 'success' || needs.scenario-check.result != 'success' || needs.wartable-connector.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
@@ -1030,7 +1010,7 @@ jobs:
           exit 1
 
       - name: Release the merge when every gate passes
-        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success' && (needs.houses-ui-test.result == 'success' || (github.event_name == 'pull_request' && github.base_ref == 'main' && needs.houses-ui-test.result == 'skipped'))
+        if: needs.unit-tests.result == 'success' && needs.coverage.result == 'success' && needs.docker-build.result == 'success' && needs.postgres-tests.result == 'success' && needs.linux-client-tests.result == 'success' && needs.linux-app-build.result == 'success' && needs.linux-client-with-properties.result == 'success' && needs.ios-build.result == 'success' && needs.scenario-check.result == 'success' && needs.wartable-connector.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GATE_TOKEN || secrets.GITHUB_TOKEN }}
           HAS_GATE_TOKEN: ${{ secrets.GATE_TOKEN != '' }}
