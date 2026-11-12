@@ -55,7 +55,7 @@ enum Plans {
 
     /// `WELLSPENT_PLANS=on` turns on the plan routes. Off, they answer 404, so
     /// live keeps today's behavior until switch day.
-    static func isOn(_ variable: String?) -> Bool { variable == "on" }
+    static func isOn(_ variable: String?) -> Bool { ServerSwitch.isOn(variable) }
 }
 
 struct PlansEnabledKey: StorageKey {

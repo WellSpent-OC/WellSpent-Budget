@@ -143,6 +143,9 @@ public func configure(_ app: Application) async throws {
     // What an account has. Off until switch day, so live keeps today's behavior.
     app.plansEnabled = Plans.isOn(Environment.get("WELLSPENT_PLANS"))
     app.logger.notice("plans: \(app.plansEnabled ? "on" : "off")")
+    // Deleting an account. Off until the train that ships in-app deletion.
+    app.accountDeleteEnabled = ServerSwitch.isOn(Environment.get("WELLSPENT_ACCOUNT_DELETE"))
+    app.logger.notice("account delete: \(app.accountDeleteEnabled ? "on" : "off")")
     try registerRoutes(app)
     try registerWarTableRoutes(app)
     registerInvitationEmailStopRoutes(app)
