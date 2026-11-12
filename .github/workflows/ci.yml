@@ -312,20 +312,11 @@ jobs:
         run: |
           scripts/apt-install.sh libsqlite3-dev openssh-client
 
-      - name: Check out the Properties package with the deploy key
+      - name: Check out the Properties package at .github/properties-ref
         if: env.HAS_PROPERTIES_KEY == 'true'
         env:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
-          chmod 600 ~/.ssh/properties_deploy_key
-          # GitHub's published host key, so the clone trusts the right host
-          # without a scan that can fail quietly on a runner.
-          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
-            git clone --depth 1 git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
-          rm -f ~/.ssh/properties_deploy_key
+        run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
 
       - name: Cache SwiftPM
         if: env.HAS_PROPERTIES_KEY == 'true'
@@ -835,6 +826,11 @@ jobs:
         shell: bash
         run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Here because this job is small, needs nothing installed and the gate
+      # waits on it. The Properties pointer is only honest if this passes.
+      - name: The CI scripts' own tests
+        run: make script-test
+
   wartable-connector:
     name: WarTable connector tests
     runs-on: ubuntu-latest
@@ -889,18 +885,11 @@ jobs:
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: brew install xcodegen
 
-      - name: Check out the Properties package with the deploy key
+      - name: Check out the Properties package at .github/properties-ref
         if: env.HAS_PROPERTIES_KEY == 'true'
         env:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
-          chmod 600 ~/.ssh/properties_deploy_key
-          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
-            git clone --depth 1 git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
-          rm -f ~/.ssh/properties_deploy_key
+        run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
 
       # make ui-test asks for the four account variables before it runs
       # anything. The Houses tests never sign in, so these are placeholders.
