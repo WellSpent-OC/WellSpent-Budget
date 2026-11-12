@@ -17,7 +17,9 @@ class EditEntriesShared(unittest.TestCase):
 
     def setUp(self):
         needs_accounts(self)
-        self.robin = launch_fresh(self, undo_seconds=30)
+        # Long enough to outlast the syncs and the level change before Undo
+        # on a slow test machine. Nothing here waits for the bar to time out.
+        self.robin = launch_fresh(self, undo_seconds=120)
         self.leslie = launch_fresh(self)
         self.robin.sign_in_as("Robin")
         self.leslie.sign_in_as("Leslie")
