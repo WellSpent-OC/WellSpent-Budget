@@ -130,8 +130,9 @@ jobs:
 
       # As in ci.yml: the result bundles never leave the runner, because they
       # record what is typed into the sign-in fields. Only pictures are kept.
-      - name: Pull the screenshots out of a failed run
-        if: failure()
+      # On a pass too: a test may keep a picture for its pull request.
+      - name: Pull the screenshots out of the run
+        if: always()
         run: |
           for bundle in .build/xcode/results/*.xcresult; do
             [ -d "$bundle" ] || continue
@@ -140,8 +141,8 @@ jobs:
           done
           [ -d .build/xcode/screenshots ] && scripts/keep-images.sh .build/xcode/screenshots || true
 
-      - name: Keep the screenshots when a class fails
-        if: failure()
+      - name: Keep the screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mac-ui-check-screenshots

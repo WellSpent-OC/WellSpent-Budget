@@ -398,6 +398,11 @@ final class NewAccountTests: XCTestCase {
                       "\(held)'s page has no notice. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.visibleTexts().contains(expected.notice),
                       "no \"\(expected.notice)\". On screen: \(run.visibleTexts())")
+        // Kept on a pass too, for the pull request's picture.
+        let picture = XCTAttachment(screenshot: run.app.windows.firstMatch.screenshot())
+        picture.name = "held-group"
+        picture.lifetime = .keepAlways
+        add(picture)
         run.click(AccessibilityID.groupHeldSeePlans)
         XCTAssertTrue(run.app.staticTexts[PlanWording.choosePlan].firstMatch.waitForExistence(timeout: 10)
                       || run.visibleTexts().contains(PlanWording.choosePlan),
