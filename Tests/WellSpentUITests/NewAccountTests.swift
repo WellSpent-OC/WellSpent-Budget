@@ -238,6 +238,10 @@ final class NewAccountTests: XCTestCase {
         // there, and confirms her email with the code sent to it.
         run.click(AccessibilityID.invitationSignIn)
         try run.createAccount(email: leslie, password: password, server: mailbox.server)
+        // A paid plan, so the server takes both her groups. On the free plan
+        // it keeps the second one on this Mac (PLAN-18). The sign-up may
+        // have sent them already; step 12 syncs again before it looks.
+        try await mailbox.setPlan("starter", for: leslie)
         let otherDevice = try Self.otherDevice(server: mailbox.server, email: leslie, password: password,
                                                deleting: ["Road trip", "Household"])
         run.confirmEmail(with: try await mailbox.code(for: leslie, timeout: 30))
@@ -286,6 +290,8 @@ final class NewAccountTests: XCTestCase {
             XCTAssertTrue(run.entryRow(merchant).waitForExistence(timeout: 30),
                           "\(merchant) did not come along. On screen: \(run.visibleTexts())")
         }
+
+        run.syncNow()
 
         // Scenario SAMP-03, SAMP-04
         // 12. Both sync to her account: her other device gets Road trip and
@@ -390,6 +396,8 @@ final class NewAccountTests: XCTestCase {
             return run.wait(for: row, holds: marker, timeout: 30)
         }
         XCTAssertEqual(marked.count, 1, "one group, not \(marked), says \(marker)")
+        XCTAssertFalse(run.element(AccessibilityID.planChoices).exists,
+                       "Choose a plan opened by itself. On screen: \(run.visibleTexts())")
         let held = try XCTUnwrap(marked.first)
         let synced = held == "Home" ? "Beach" : "Home"
         let expected = HeldGroupScreen(group: held, synced: synced, device: .mac)

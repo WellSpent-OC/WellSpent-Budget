@@ -150,5 +150,6 @@ Platforms: Mac, Linux, iPhone
 - Then Beach shows "Only on this Mac" beside its name
 - And Beach's page says "Beach is only on this Mac. Your free plan syncs 1 group, and Home is that group. Nothing in Beach is deleted."
 - And before the app sells plans it ends "Paid plans are coming soon.", and after, "Choose a plan to sync it too."
+- And Choose a plan doesn't open by itself
 - And See Plans opens Choose a plan
 - And once a plan lets the server take Beach, neither shows

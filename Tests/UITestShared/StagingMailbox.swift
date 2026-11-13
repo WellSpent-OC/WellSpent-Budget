@@ -77,6 +77,26 @@ struct StagingMailbox {
         throw UITestError("no code reached \(address) in \(Int(timeout)) seconds: \(last)")
     }
 
+    /// Gives a test account `tier`, through staging's `POST /test/plan`, behind
+    /// the same token. For a test written before plans that makes a second
+    /// group: on the free plan the server keeps a second group off. A paid
+    /// plan is active for a year and renews.
+    func setPlan(_ tier: String, for address: String) async throws {
+        guard let url = URL(string: "\(server)/test/plan") else {
+            throw UITestError("the test plan route has no address on \(server)")
+        }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["email": address, "tier": tier])
+        let (_, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 204 else {
+            throw UITestError("staging did not set the \(tier) plan: it answered \(status)")
+        }
+    }
+
     /// What a test needs of the mailbox's answer. It also holds the text and
     /// when it was sent.
     private struct Message: Decodable {
