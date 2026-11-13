@@ -130,9 +130,11 @@ Platforms: Mac, Linux, iPhone, for every INC scenario.
 
 ## INC-03 A house's cash flow is money in minus money out, after the mortgage
 
+Ruling, 2026-11-13: kept apart from WHEEL-15. This is one house's figure after the mortgage, and it never says "profit". WHEEL-15 is a group's wheel. The figure reads "+$4,380", as the app shows it on every platform, not "$4,380.00".
+
 - Given Pool House has $9,640.00 in and $5,260.00 out this month, the mortgage included
 - When Robin looks at Pool House
-- Then its cash flow this month says $4,380.00
+- Then its cash flow this month says "+$4,380"
 - And it never says "profit"
 
 ## INC-04 Money in says which budget it adds to
