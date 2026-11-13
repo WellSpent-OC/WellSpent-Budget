@@ -128,7 +128,7 @@ final class LockTests: XCTestCase {
                                   "Leslie's group has no id")
 
         let run = try signedIn()
-        try run.open(link: link.url)
+        try run.click(link: link.url)
         XCTAssertTrue(run.element(AccessibilityID.invitationJoin).waitForExistence(timeout: 30),
                       "no Join. On screen: \(run.visibleTexts())")
         run.pasteAndCheck("Robin", into: AccessibilityID.invitationName)
