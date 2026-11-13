@@ -35,6 +35,10 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     /// Groups the server won't make, as past a free plan's one group: each
     /// is refused with the plan's 402 until it leaves this set.
     var refuseMakingPastThePlan: Set<GroupID> = []
+    /// Records of this type are refused at push with the plan's 402 for a
+    /// house past the plan, as staging refuses a second house on the free
+    /// plan. The rest of the push goes through.
+    var refusePushedPastThePlan: RecordType?
     /// Runs once a listing has been read, before it is handed back.
     var whileListing: (@Sendable () async -> Void)?
     /// Runs while the server is asked what an invite offers, before it
@@ -194,6 +198,10 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     }
     func push(_ records: [WireRecord], group: GroupID) async throws -> PushResult {
         if let error = failNextPush { failNextPush = nil; throw error }
+        if let type = lock.withLock({ refusePushedPastThePlan }) {
+            let refused = records.filter { $0.type == type }.map(\.id)
+            if !refused.isEmpty { throw PlanLimitRefusal(sheet: "add_house", limit: "maxProperties", refused: refused) }
+        }
         return try await client.push(records, group: group)
     }
     func pull(group: GroupID, since: UInt64, limit: Int) async throws -> ReadablePull {
