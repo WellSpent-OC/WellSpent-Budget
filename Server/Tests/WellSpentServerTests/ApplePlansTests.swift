@@ -237,6 +237,26 @@ private func token(of session: V2Session, on app: Application) async throws -> U
         }
     }
 
+    @Test("After an upgrade, the older plan's transaction handed over again doesn't take the plan back")
+    func anUpgradeIsNotUndoneByTheOldTransaction() async throws {
+        let chain = try TestChain()
+        try await withApplePlans(trusting: chain) { app in
+            let me = try await v2SignUp("apple-upgrade@example.com", on: app)
+            let mine = try await token(of: me, on: app)
+            let starter = try chain.sign(purchase(token: mine, product: "app.wellspent.pro.starter.monthly",
+                                                  transaction: "2000000000000001", expires: Date().addingTimeInterval(86_400 * 20)))
+            let upgraded = Date().addingTimeInterval(86_400 * 29)
+            let growth = try chain.sign(purchase(token: mine, product: "app.wellspent.pro.growth.monthly",
+                                                 transaction: "2000000000000002", expires: upgraded))
+            #expect(try await hand(starter, me, on: app).1?.tier == "starter")
+            #expect(try await hand(growth, me, on: app).1?.tier == "growth")
+            let (status, answer, _) = try await hand(starter, me, on: app)
+            #expect(status == .ok && answer?.tier == "growth", "the old Starter transaction took the plan back")
+            let plan = try await PlanRow.forUser(me.userID, on: app.db)
+            #expect(abs((plan.paidUntil ?? .distantPast).timeIntervalSince(upgraded)) < 1, "the end date moved back")
+        }
+    }
+
     @Test("A lapsed or refunded purchase changes nothing, and the answer says what the account has")
     func lapsedOrRefundedChangesNothing() async throws {
         let chain = try TestChain()
