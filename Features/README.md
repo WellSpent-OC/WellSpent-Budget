@@ -132,7 +132,7 @@ It is not kept here, where every pull request would change the same lines.
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | None yet |
-| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Linux |
+| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux |
 
 ### [EditEntry.md](EditEntry.md)
 
