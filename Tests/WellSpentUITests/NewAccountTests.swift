@@ -238,6 +238,10 @@ final class NewAccountTests: XCTestCase {
         // there, and confirms her email with the code sent to it.
         run.click(AccessibilityID.invitationSignIn)
         try run.createAccount(email: leslie, password: password, server: mailbox.server)
+        // A paid plan, so the server takes both her groups. On the free plan
+        // it keeps the second one on this Mac (PLAN-18). The sign-up may
+        // have sent them already; step 12 syncs again before it looks.
+        try await mailbox.setPlan("starter", for: leslie)
         let otherDevice = try Self.otherDevice(server: mailbox.server, email: leslie, password: password,
                                                deleting: ["Road trip", "Household"])
         run.confirmEmail(with: try await mailbox.code(for: leslie, timeout: 30))
@@ -287,6 +291,8 @@ final class NewAccountTests: XCTestCase {
                           "\(merchant) did not come along. On screen: \(run.visibleTexts())")
         }
 
+        run.syncNow()
+
         // Scenario SAMP-03, SAMP-04
         // 12. Both sync to her account: her other device gets Road trip and
         // Household, each with every budget and entry, and no Side Business.
@@ -332,8 +338,10 @@ final class NewAccountTests: XCTestCase {
         run.expectList(groups: ["Pottery"], budgets: ["Materials"], "his new account")
     }
 
-    /// Robin's account was made on another computer. On this fresh install he
-    /// renames a sample, makes a group of his own, then signs in.
+    /// Robin's account was made on another computer, on the free plan, which
+    /// syncs one group. On this fresh install he renames a sample and adds a
+    /// budget of his own to it, then signs in. A second group of his own is
+    /// PLAN-18's test.
     @MainActor
     func testGroupsMadeBeforeSigningInComeAlongAndTheSamplesDoNot() async throws {
         let mailbox = try StagingMailbox.fromEnvironment()
@@ -345,16 +353,15 @@ final class NewAccountTests: XCTestCase {
         let run = try start()
         run.expectTheSamples()
         run.renameGroup("Household", to: "Home")
-        run.addGroup(named: "Road trip")
-        run.addBudget(named: "Fuel", amount: "100", inGroup: "Road trip")
+        run.addBudget(named: "Fuel", amount: "100", inGroup: "Home")
         run.addEntry(merchant: "Gas", amount: "40")
 
         // Scenario SAMP-08
-        // Signed in, the list holds the renamed sample and his own group, with
-        // their budgets. Side Business, which he did not change, stays out.
+        // Signed in, the list holds the renamed sample with its budgets and
+        // his own. Side Business, which he did not change, stays out.
         try run.signIn(email: robin, password: password, server: mailbox.server)
-        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home", "Road trip"])
-        run.expectList(groups: ["Home", "Road trip"], budgets: ["Groceries", "Eating out", "Utilities", "Fuel"],
+        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home"])
+        run.expectList(groups: ["Home"], budgets: ["Groceries", "Eating out", "Utilities", "Fuel"],
                        "after signing in")
         XCTAssertTrue(run.hasEntry("Gas", inBudget: "Fuel"), "his entry did not come along")
 
@@ -362,6 +369,52 @@ final class NewAccountTests: XCTestCase {
         // Signed out, the list holds only Side Business.
         run.signOut()
         run.expectList(groups: ["Side Business"], budgets: ["Materials"], "after signing out")
+    }
+
+    /// Robin makes Home and Beach on this Mac, then signs in to an account on
+    /// the free plan. The server takes one group and refuses the other, which
+    /// stays on this Mac and says so. Which one it takes isn't fixed, so the
+    /// test reads which one the sidebar marks.
+    @MainActor
+    func testAGroupPastTheFreePlanSaysItIsOnlyOnThisMac() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let robin = StagingMailbox.freshAddress("mac", for: "robin")
+        let password = Self.newPassword()
+        let elsewhere = try await AccountGapTests.desktop(at: mailbox.server)
+        _ = try await elsewhere.signUp(email: robin, password: password, deviceLabel: "Robin's other computer")
+        try await elsewhere.verifyEmail(code: try await mailbox.code(for: robin, timeout: 30))
+        let run = try start()
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+
+        // Scenario PLAN-18
+        try run.signIn(email: robin, password: password, server: mailbox.server)
+        _ = try Self.otherDevice(server: mailbox.server, email: robin, password: password, deleting: ["Home", "Beach"])
+        let marker = "Only on this Mac"
+        let marked = ["Home", "Beach"].filter { name in
+            let row = run.element(AccessibilityID.sidebarGroup(name))
+            return run.wait(for: row, holds: marker, timeout: 30)
+        }
+        XCTAssertEqual(marked.count, 1, "one group, not \(marked), says \(marker)")
+        XCTAssertFalse(run.element(AccessibilityID.planChoices).exists,
+                       "Choose a plan opened by itself. On screen: \(run.visibleTexts())")
+        let held = try XCTUnwrap(marked.first)
+        let synced = held == "Home" ? "Beach" : "Home"
+        let expected = HeldGroupScreen(group: held, synced: synced, device: .mac)
+        run.openGroupPage(named: held)
+        XCTAssertTrue(run.element(AccessibilityID.groupHeldNotice).waitForExistence(timeout: 10),
+                      "\(held)'s page has no notice. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.visibleTexts().contains(expected.notice),
+                      "no \"\(expected.notice)\". On screen: \(run.visibleTexts())")
+        // Kept on a pass too, for the pull request's picture.
+        let picture = XCTAttachment(screenshot: run.app.windows.firstMatch.screenshot())
+        picture.name = "held-group"
+        picture.lifetime = .keepAlways
+        add(picture)
+        run.click(AccessibilityID.groupHeldSeePlans)
+        XCTAssertTrue(run.app.staticTexts[PlanWording.choosePlan].firstMatch.waitForExistence(timeout: 10)
+                      || run.visibleTexts().contains(PlanWording.choosePlan),
+                      "See Plans did not open Choose a plan. On screen: \(run.visibleTexts())")
     }
 
     // MARK: - Setting up and tidying

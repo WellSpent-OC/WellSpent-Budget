@@ -32,6 +32,9 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     var leaveOutOfNextListing: Set<GroupID> = []
     /// The next group made is made on the server, and its reply is lost.
     var loseNextCreateReply = false
+    /// Groups the server won't make, as past a free plan's one group: each
+    /// is refused with the plan's 402 until it leaves this set.
+    var refuseMakingPastThePlan: Set<GroupID> = []
     /// Runs once a listing has been read, before it is handed back.
     var whileListing: (@Sendable () async -> Void)?
     /// Runs while the server is asked what an invite offers, before it
@@ -130,6 +133,9 @@ final class StubReadableTransport: ReadableAccountTransport, @unchecked Sendable
     }
 
     func createGroup(id: GroupID, importKey: Data?) async throws -> ServerGroup {
+        if lock.withLock({ refuseMakingPastThePlan.contains(id) }) {
+            throw PlanLimitRefusal(sheet: "add_group", limit: "maxGroups")
+        }
         let made = try await client.createGroup(id: id, importKey: importKey)
         let lose = lock.withLock { () -> Bool in
             defer { loseNextCreateReply = false }

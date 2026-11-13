@@ -1,7 +1,7 @@
 #!/bin/sh
 # Keeps only the screenshots in a folder of attachments exported from a UI
-# test's result bundle, and deletes everything else. CI uploads what is left
-# when a test fails.
+# test's result bundle, and deletes everything else. CI uploads what is left:
+# the Mac UI check on every run, the nightly when a test fails.
 #
 #   scripts/keep-images.sh FOLDER
 #

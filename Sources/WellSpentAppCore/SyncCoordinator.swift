@@ -127,6 +127,10 @@ public final class SyncCoordinator {
     public private(set) var userID: UserID?
     /// The upgrade sheet a refused change asks for, until the app shows it.
     public private(set) var planSheet: PlanLimitRefusal?
+    /// Groups made here that the server refused to make because the plan
+    /// syncs no more groups. They stay on this device only, kept, until a
+    /// round makes them on the server. Rebuilt every round.
+    public private(set) var heldOnThisDevice: Set<GroupID> = []
     /// The records whose refusal already offered a sheet.
     @ObservationIgnored private var refusalsOffered: Set<UUID> = []
 
@@ -433,6 +437,7 @@ public final class SyncCoordinator {
         emailVerified = false
         waitingForFounder = []
         missingOnServer = []
+        heldOnThisDevice = []
         if let accounts, let thisMac = try? accounts.database(for: nil) {
             // Each account's budgets are its own. Signed out is "This Mac".
             if !keepingAccount { accounts.lastAccount = nil }
@@ -555,13 +560,22 @@ public final class SyncCoordinator {
             // One group's failure does not stop the others. The first is
             // reported once the round is over.
             var firstFailure: (any Error)?
+            var held: Set<GroupID> = []
+            var offered: PlanLimitRefusal?
             for action in actions {
                 do {
                     combined.add(try await perform(action))
                 } catch let refusal as PlanLimitRefusal {
                     // Past the plan is not a failed sync: a locked group waits
-                    // behind its card, and anything else offers its sheet.
+                    // behind its card, a group made here past the plan stays
+                    // on this device behind its notice (PLAN-18), and anything
+                    // else offers its sheet.
                     combined.planRefusal = combined.planRefusal ?? refusal
+                    if refusal.limit == PlanLimitRefusal.groupsLimit, let group = action.groupMadeHere {
+                        held.insert(group)
+                    } else {
+                        offered = offered ?? refusal
+                    }
                 } catch let error as ReadableTransportError {
                     if case .sessionEnded = error { throw error }
                     firstFailure = firstFailure ?? error
@@ -582,7 +596,8 @@ public final class SyncCoordinator {
             }
             lastReport = combined
             lastSyncedAt = Date()
-            noteRefusal(combined.planRefusal)
+            heldOnThisDevice = held
+            noteRefusal(offered)
             if let firstFailure { throw firstFailure }
             if !missingOnServer.isEmpty { throw Failure.server(Self.missingOnServerReason) }
             state = .signedIn(email: email)
