@@ -138,6 +138,12 @@ struct PlanRefusalTests {
         let sheet = try #require(sync.planSheet, "a refusal at push opened no Choose a plan")
         #expect(sheet.limit == "maxProperties")
         #expect(sync.heldOnThisDevice.isEmpty, "a refused house held a group")
+
+        // Shown once: the same house refused again on the next round asks nothing.
+        sync.planSheetShown()
+        await sync.syncAll()
+        #expect(sync.lastReport?.planRefusal?.limit == "maxProperties", "the house wasn't refused again")
+        #expect(sync.planSheet == nil, "the same refusal opened Choose a plan twice")
     }
 
     /// The notice names the group the free plan does sync: one Robin made,
