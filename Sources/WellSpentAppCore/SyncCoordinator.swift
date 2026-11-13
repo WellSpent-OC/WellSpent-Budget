@@ -540,7 +540,7 @@ public final class SyncCoordinator {
         let before = state
         let generation = sessionGeneration
         let startingInvitationRevision = invitationRevision
-        state = .busy("Syncing")
+        state = .busy(SyncWording.syncing)
         do {
             let listed = try await transport.groups()
             // Signed out, or in as someone else, while the list was on its way.

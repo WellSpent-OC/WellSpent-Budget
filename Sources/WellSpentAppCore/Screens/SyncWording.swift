@@ -79,6 +79,15 @@ public enum SyncWording {
         return false
     }
 
+    /// What the state says while a sync runs, from either coordinator.
+    public static let syncing = "Syncing"
+
+    /// Whether Account can be pressed, on every desktop and the iPhone.
+    public static func accountCanBePressed(for state: SyncCoordinator.State) -> Bool {
+        if case .busy = state { return false }
+        return true
+    }
+
     /// The sync button's words.
     public static func syncTitle(for state: SyncCoordinator.State) -> String {
         switch state {
