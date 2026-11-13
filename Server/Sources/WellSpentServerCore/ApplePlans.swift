@@ -42,24 +42,26 @@ struct AppleTransaction: JWTPayload, ValidationTimePayload, Equatable {
     var originalTransactionId: String
     var transactionId: String
     var appAccountToken: UUID?
+    var purchaseDate: Date
     var expiresDate: Date?
     var revocationDate: Date?
     var signedDate: Date
     var environment: String
 
     enum CodingKeys: String, CodingKey {
-        case bundleId, productId, originalTransactionId, transactionId, appAccountToken
+        case bundleId, productId, originalTransactionId, transactionId, appAccountToken, purchaseDate
         case expiresDate, revocationDate, signedDate, environment
     }
 
     init(bundleId: String, productId: String, originalTransactionId: String, transactionId: String,
-         appAccountToken: UUID?, expiresDate: Date?, revocationDate: Date? = nil, signedDate: Date,
-         environment: String) {
+         appAccountToken: UUID?, purchaseDate: Date, expiresDate: Date?, revocationDate: Date? = nil,
+         signedDate: Date, environment: String) {
         self.bundleId = bundleId
         self.productId = productId
         self.originalTransactionId = originalTransactionId
         self.transactionId = transactionId
         self.appAccountToken = appAccountToken
+        self.purchaseDate = purchaseDate
         self.expiresDate = expiresDate
         self.revocationDate = revocationDate
         self.signedDate = signedDate
@@ -76,6 +78,10 @@ struct AppleTransaction: JWTPayload, ValidationTimePayload, Equatable {
         originalTransactionId = try c.decode(String.self, forKey: .originalTransactionId)
         transactionId = try c.decode(String.self, forKey: .transactionId)
         appAccountToken = try c.decodeIfPresent(UUID.self, forKey: .appAccountToken)
+        guard let purchased = try date(.purchaseDate) else {
+            throw DecodingError.keyNotFound(CodingKeys.purchaseDate, .init(codingPath: [], debugDescription: "no purchaseDate"))
+        }
+        purchaseDate = purchased
         expiresDate = try date(.expiresDate)
         revocationDate = try date(.revocationDate)
         guard let signed = try date(.signedDate) else {
@@ -93,6 +99,7 @@ struct AppleTransaction: JWTPayload, ValidationTimePayload, Equatable {
         try c.encode(originalTransactionId, forKey: .originalTransactionId)
         try c.encode(transactionId, forKey: .transactionId)
         try c.encodeIfPresent(appAccountToken, forKey: .appAccountToken)
+        try c.encode(ms(purchaseDate), forKey: .purchaseDate)
         try c.encodeIfPresent(expiresDate.map(ms), forKey: .expiresDate)
         try c.encodeIfPresent(revocationDate.map(ms), forKey: .revocationDate)
         try c.encode(ms(signedDate), forKey: .signedDate)
@@ -170,14 +177,17 @@ extension Data {
     }
 }
 
-/// The store that sold a plan, and which of its environments: Apple's
-/// Production or Sandbox.
+/// Which of the store's environments sold a plan (Apple's Production or
+/// Sandbox), and when the purchase the plan stands on was made.
 struct AddPlanStoreEnvironment: AsyncMigration {
+    // One field per change: SQLite adds one column at a time.
     func prepare(on database: any Database) async throws {
         try await database.schema(PlanRow.schema).field("store_environment", .string).update()
+        try await database.schema(PlanRow.schema).field("store_purchased_at", .datetime).update()
     }
 
     func revert(on database: any Database) async throws {
+        try await database.schema(PlanRow.schema).deleteField("store_purchased_at").update()
         try await database.schema(PlanRow.schema).deleteField("store_environment").update()
     }
 }
@@ -254,10 +264,12 @@ func registerApplePlanRoutes(_ routes: any RoutesBuilder) {
             // what the account has now.
             let now = Date()
             guard transaction.revocationDate == nil, let until = transaction.expiresDate, until > now else { return }
-            // A replay of the same purchase, or an older transaction from it,
-            // never moves the end date back.
+            // A replay of the same transaction, or an older one from the same
+            // purchase, changes nothing: not the date, and not the tier after
+            // an upgrade. Apple's purchase date orders them; the end date
+            // doesn't, since an upgrade from yearly to monthly ends sooner.
             if plan.source == "apple", plan.storeID == transaction.originalTransactionId,
-               let current = plan.paidUntil, current >= until, plan.tier == product.tier.rawValue {
+               let last = plan.storePurchasedAt, transaction.purchaseDate <= last {
                 return
             }
             plan.tier = product.tier.rawValue
@@ -266,6 +278,7 @@ func registerApplePlanRoutes(_ routes: any RoutesBuilder) {
             plan.state = "active"
             plan.storeID = transaction.originalTransactionId
             plan.storeEnvironment = transaction.environment
+            plan.storePurchasedAt = transaction.purchaseDate
             plan.paidUntil = until
             plan.renews = true
             plan.nextTier = nil

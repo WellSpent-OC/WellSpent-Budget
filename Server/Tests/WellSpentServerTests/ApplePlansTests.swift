@@ -98,10 +98,14 @@ private func withApplePlans(trusting chain: TestChain,
 
 private func purchase(token: UUID?, product: String = "app.wellspent.pro.growth.yearly",
                       original: String = "2000000000000001", transaction: String = "2000000000000001",
-                      expires: Date? = Date().addingTimeInterval(86_400 * 365), revoked: Date? = nil,
-                      bundle: String = "app.wellspent.mac.staging", environment: String = "Sandbox") -> AppleTransaction {
-    AppleTransaction(bundleId: bundle, productId: product, originalTransactionId: original,
-                     transactionId: transaction, appAccountToken: token, expiresDate: expires,
+                      expires: Date? = Date().addingTimeInterval(86_400 * 365), purchased: Date? = nil,
+                      revoked: Date? = nil, bundle: String = "app.wellspent.mac.staging",
+                      environment: String = "Sandbox") -> AppleTransaction {
+    // Bought a month before it ends, unless the test says otherwise, so a
+    // later end means a later purchase.
+    let purchased = purchased ?? (expires ?? Date()).addingTimeInterval(-86_400 * 30)
+    return AppleTransaction(bundleId: bundle, productId: product, originalTransactionId: original,
+                     transactionId: transaction, appAccountToken: token, purchaseDate: purchased, expiresDate: expires,
                      revocationDate: revoked, signedDate: Date().addingTimeInterval(-60), environment: environment)
 }
 
@@ -254,6 +258,22 @@ private func token(of session: V2Session, on app: Application) async throws -> U
             #expect(status == .ok && answer?.tier == "growth", "the old Starter transaction took the plan back")
             let plan = try await PlanRow.forUser(me.userID, on: app.db)
             #expect(abs((plan.paidUntil ?? .distantPast).timeIntervalSince(upgraded)) < 1, "the end date moved back")
+        }
+    }
+
+    @Test("An upgrade from yearly to monthly is taken, though it ends sooner")
+    func anUpgradeThatEndsSoonerIsTaken() async throws {
+        let chain = try TestChain()
+        try await withApplePlans(trusting: chain) { app in
+            let me = try await v2SignUp("apple-crossgrade@example.com", on: app)
+            let mine = try await token(of: me, on: app)
+            let yearly = purchase(token: mine, product: "app.wellspent.pro.starter.yearly", transaction: "2000000000000001",
+                                  expires: Date().addingTimeInterval(86_400 * 300), purchased: Date().addingTimeInterval(-86_400 * 65))
+            let monthly = purchase(token: mine, product: "app.wellspent.pro.growth.monthly", transaction: "2000000000000002",
+                                   expires: Date().addingTimeInterval(86_400 * 30), purchased: Date().addingTimeInterval(-60))
+            #expect(try await hand(try chain.sign(yearly), me, on: app).1?.tier == "starter")
+            let (_, answer, _) = try await hand(try chain.sign(monthly), me, on: app)
+            #expect(answer?.tier == "growth" && answer?.period == "monthly")
         }
     }
 

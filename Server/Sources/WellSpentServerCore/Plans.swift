@@ -91,6 +91,9 @@ final class PlanRow: Model, @unchecked Sendable {
     /// and TestFlight buy in sandbox, so sandbox plans can be found and ended.
     /// Nil for a plan no store sold (`AddPlanStoreEnvironment`).
     @OptionalField(key: "store_environment") var storeEnvironment: String?
+    /// When the store's transaction the plan stands on was bought. An older
+    /// transaction from the same purchase never takes the plan back.
+    @OptionalField(key: "store_purchased_at") var storePurchasedAt: Date?
     @OptionalField(key: "paid_until") var paidUntil: Date?
     /// When a failed payment's grace period ends and extras lock (`AddPlanTime`).
     @OptionalField(key: "grace_until") var graceUntil: Date?
