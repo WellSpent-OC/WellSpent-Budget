@@ -4,9 +4,9 @@ import WellSpentAppCore
 import WellSpentModel
 
 /// Repeat expenses on the phone: setting one, the short list and a repeat's own
-/// sheet, which months a change reaches, and the two ways to delete. No account.
-/// A later month's bill needs a clock this test can't move, so `RepeatsTests`
-/// holds that.
+/// sheet, which months a change reaches, stopping, the two ways to delete, and
+/// Undo. No account. A later month's bill needs a clock this test can't move,
+/// so `RepeatsTests` holds that.
 final class PhoneRepeatTests: XCTestCase {
     private typealias Words = EntryEditor.Words
     nonisolated(unsafe) private static var dataRootPath: String?
@@ -46,6 +46,8 @@ final class PhoneRepeatTests: XCTestCase {
         XCTAssertTrue(run.showsLine(containing: "of each month"), "no line says when it shows up: \(run.visibleTexts())")
         run.tap(AccessibilityID.entryAdd)
         XCTAssertTrue(run.hasRow(Self.bill), "\(Self.bill) is not in the list. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(run.app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(Self.bill)).count, 1,
+                       "the bill is not in the list once. On screen: \(run.visibleTexts())")
         return run
     }
 
@@ -169,6 +171,9 @@ final class PhoneRepeatTests: XCTestCase {
 
     @MainActor
     func testSettingARepeatShowsInTheListAndOnTheCountLine() throws {
+        // Scenario REPEAT-01
+        // The bill is in Utilities once, and the line under the switch says
+        // the day of each month it shows up on.
         let run = launchedWithARepeat()
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
@@ -190,6 +195,8 @@ final class PhoneRepeatTests: XCTestCase {
         run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
         run.tap(AccessibilityID.budgetAdd)
         XCTAssertTrue(run.has(AccessibilityID.entryRepeats), "no Repeats row")
+
+        // Scenario REPEAT-13
         let moneyIn = run.element(AccessibilityID.entryMoneyIn)
         (moneyIn.switches.firstMatch.exists ? moneyIn.switches.firstMatch : moneyIn).tap()
         XCTAssertTrue(run.lacks(AccessibilityID.entryRepeats), "money in offers Repeats")
@@ -198,32 +205,42 @@ final class PhoneRepeatTests: XCTestCase {
     @MainActor
     func testAChangeSaysWhichMonthsItReaches() throws {
         let run = launchedWithARepeat()
-        run.openEntry(Self.bill)
-        run.type("92.00", into: AccessibilityID.entryAmount)
-
-        // It starts on This month only, each choice saying what it would do.
         let only = run.element(AccessibilityID.entryWhichMonth(Words.thisMonthOnly))
         let later = run.element(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
+
+        // 1. Which months? is on the bill's sheet, starting on This month only,
+        // each choice saying what it would do. Saved that way, this month's
+        // bill changes and the repeat stays at its old amount.
+        run.openEntry(Self.bill)
+        run.type("92.00", into: AccessibilityID.entryAmount)
         run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
         XCTAssertTrue(only.isSelected, "it does not start on This month only")
         XCTAssertTrue((only.value as? String)?.contains("goes back to") == true, "only says: \(String(describing: only.value))")
         XCTAssertTrue((later.value as? String)?.contains("every month after") == true,
                       "later says: \(String(describing: later.value))")
+        run.tap(AccessibilityID.entrySave)
+        run.expectNoSheet()
+        XCTAssertTrue(run.row(Self.bill, says: "$92.00"), "the bill did not change: \(run.rowLabel(Self.bill))")
+        run.expectRepeat(Self.bill, says: "$85.00", "a change to this month only reached the repeat")
+
+        // 2. Saved as This month and later, the bill and the repeat change.
+        run.openEntry(Self.bill)
+        run.type("95.00", into: AccessibilityID.entryAmount)
+        run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
         later.tap()
         XCTAssertTrue(later.isSelected, "This month and later did not take")
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
-        XCTAssertTrue(run.shows("$92.00"), "the bill did not change. On screen: \(run.visibleTexts())")
-
-        // The repeat itself changed, so the list says the new amount.
-        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
-        run.tap(AccessibilityID.budgetRepeats)
-        XCTAssertTrue(run.shows("$92.00"), "the repeat did not change. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.row(Self.bill, says: "$95.00"), "the bill did not change: \(run.rowLabel(Self.bill))")
+        run.expectRepeat(Self.bill, says: "$95.00", "the repeat did not change")
     }
 
     @MainActor
     func testStopRepeatingEndsTheRepeatAndKeepsTheBill() throws {
         let run = launchedWithARepeat()
+
+        // 1. Stop repeating asks, then keeps this month's bill and leaves the
+        // count of repeats at once.
         run.openEntry(Self.bill)
         run.bringUpInSheet(AccessibilityID.entryStopRepeating)
         run.tap(AccessibilityID.entryStopRepeating)
@@ -231,11 +248,20 @@ final class PhoneRepeatTests: XCTestCase {
         run.questionButton(RepeatEditor.Words.stopConfirm)?.tap()
         run.expectNoSheet()
         XCTAssertTrue(run.hasRow(Self.bill), "the bill went with the repeat")
-        XCTAssertTrue(run.has(AccessibilityID.undoButton), "stopping offers no Undo")
+        XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "the stopped repeat is still counted")
 
         // Stopped, the bill's sheet no longer offers it.
         run.openEntry(Self.bill)
         XCTAssertTrue(run.lacks(AccessibilityID.entryStopRepeating), "Stop repeating is still offered")
+        run.tap(AccessibilityID.entryCancel)
+        run.expectNoSheet()
+
+        // Scenario REPEAT-10
+        // 2. Undo carries the repeat on.
+        run.tap(AccessibilityID.undoButton)
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
+                       "Undo did not bring the repeat back. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
@@ -244,18 +270,57 @@ final class PhoneRepeatTests: XCTestCase {
         run.openEntry(Self.bill)
         run.bringUpInSheet(AccessibilityID.entryDelete)
         run.tap(AccessibilityID.entryDelete)
+
+        // 1. Deleting a made bill asks which: this month only, or this month
+        // and the repeat. The second takes both.
+        XCTAssertNotNil(run.questionButton(PendingDelete.deleteThisMonthOnly), "no Delete This Month Only")
         XCTAssertNotNil(run.questionButton(PendingDelete.deleteAndStop), "no Delete and Stop Repeating")
         run.questionButton(PendingDelete.deleteAndStop)?.tap()
         run.expectNoSheet()
         XCTAssertTrue(run.lacksRow(Self.bill), "the bill is still here")
+        XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "the repeat is still counted")
 
-        // Undo brings the bill back, as it does for any delete.
+        // Scenario REPEAT-10
+        // 2. Undo brings back both.
         run.tap(AccessibilityID.undoButton)
         XCTAssertTrue(run.hasRow(Self.bill), "Undo did not bring the bill back. On screen: \(run.visibleTexts())")
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
+                       "Undo did not bring the repeat back. On screen: \(run.visibleTexts())")
+
+        // 3. Delete This Month Only takes the bill and leaves the repeat. A
+        // month deleted this way doesn't come back when the app opens again.
+        run.openEntry(Self.bill)
+        run.bringUpInSheet(AccessibilityID.entryDelete)
+        run.tap(AccessibilityID.entryDelete)
+        try XCTUnwrap(run.questionButton(PendingDelete.deleteThisMonthOnly), "no Delete This Month Only").tap()
+        run.expectNoSheet()
+        XCTAssertTrue(run.lacksRow(Self.bill), "the bill is still here")
+        run.app.terminate()
+        run.launch(pinnedDay: 18)
+        run.openBudget(named: "Utilities")
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
+                       "Delete This Month Only stopped the repeat. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.lacksRow(Self.bill), "the deleted month came back. On screen: \(run.visibleTexts())")
     }
 }
 
 private extension PhoneTestApp {
+    /// Opens the short list of repeats, checks what a row says, and closes it.
+    func expectRepeat(_ name: String, says amount: String, _ problem: String,
+                      file: StaticString = #filePath, line: UInt = #line) {
+        bringToMiddle(scrollTo(AccessibilityID.budgetRepeats))
+        tap(AccessibilityID.budgetRepeats)
+        let row = element(AccessibilityID.repeatRow(name))
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no row for \(name)", file: file, line: line)
+        let inRow = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", amount, amount)
+        XCTAssertTrue(row.label.contains(amount) || row.descendants(matching: .any).matching(inRow).firstMatch.exists,
+                      "\(problem). The row says: \(row.label)", file: file, line: line)
+        app.buttons[RepeatsList.Words.done].firstMatch.tap()
+        XCTAssertTrue(wait(for: row, until: "exists == false", timeout: 5), "the short list stayed open", file: file, line: line)
+    }
+
     func showsLine(containing words: String) -> Bool {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch.waitForExistence(timeout: 10)
     }

@@ -609,13 +609,20 @@ final class PhoneTestApp {
     /// Signs in from the foot of Home, pasting the email and the password, and
     /// waits until the foot says budgets sync through the server.
     func signIn(email: String, password: String, server: String) throws {
-        tap(AccessibilityID.sidebarSignIn)
         let serverField = element(AccessibilityID.accountServer)
+        // After a relaunch, the app asks on its own: a test build keeps its
+        // session in memory (AccountDirectory.testing), so its sheet is open.
+        if !serverField.waitForExistence(timeout: 2) {
+            tap(AccessibilityID.sidebarSignIn)
+        }
         XCTAssertTrue(serverField.waitForExistence(timeout: 10), "the sign-in sheet did not open")
         if (serverField.value as? String) != server {
             type(server, into: AccessibilityID.accountServer)
         }
-        paste(email, into: AccessibilityID.accountEmail)
+        // The app's own prompt already holds the account's email.
+        if element(AccessibilityID.accountEmail).value as? String != email {
+            paste(email, into: AccessibilityID.accountEmail)
+        }
         // Not XCTAssertEqual, which would print the address into the CI log.
         XCTAssertTrue(element(AccessibilityID.accountEmail).value as? String == email, "Paste did not paste the email")
         paste(password, into: AccessibilityID.accountPassword)
