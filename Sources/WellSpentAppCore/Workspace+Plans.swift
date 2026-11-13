@@ -45,12 +45,14 @@ extension Workspace {
 
     /// PLAN-18: the marker and notice for a group the free plan kept on this
     /// device, or nil when the server has it. The synced group named is one
-    /// the server does have.
+    /// the server has and this person made: the free plan counts the groups
+    /// they pay for, not the ones they joined.
     public func heldScreen(group: GroupID, device: ThisDevice,
                            buyingIsOpen: Bool = PlanBuying.isOpen()) -> HeldGroupScreen? {
         let held = sync.heldOnThisDevice
         guard held.contains(group), let name = model.groups.first(where: { $0.id == group })?.name else { return nil }
-        let synced = model.groups.first { !held.contains($0.id) && sync.founder(of: $0.id) != nil }?.name
+        let me = sync.userID
+        let synced = model.groups.first { !held.contains($0.id) && me != nil && sync.founder(of: $0.id) == me }?.name
         return HeldGroupScreen(group: name, synced: synced, device: device,
                                buyingIsOpen: buyingIsOpen)
     }
