@@ -400,22 +400,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Only test names, so nothing else reaches the shell below.
-      - name: The tests named are only test names
+      # Only test names get through, so nothing else reaches the shell below.
+      # Names of Properties' tests go to the Houses job, and when every name
+      # is one of those, this job has nothing to run.
+      - name: The app's tests among the names given
+        id: names
         if: inputs.linux != ''
         env:
           NAMED: ${{ inputs.linux }}
         run: |
-          if printf '%s\n' "$NAMED" | grep -Eq '[^A-Za-z0-9_. ]' || [ -z "$(printf '%s' "$NAMED" | tr -d ' ')" ]; then
-            echo "::error::\"linux\" takes test names separated by spaces, such as test_import.Class.test_name."
-            exit 1
-          fi
+          app="$(scripts/linux-ui-names.sh app $NAMED)"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          if [ -z "$app" ]; then echo "None of the names given is the app's; the Houses job runs them."; fi
 
       - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
+        if: inputs.linux == '' || steps.names.outputs.app != ''
         run: |
           xargs -a Linux/UITests/packages.txt scripts/apt-install.sh
 
       - name: Cache SwiftPM
+        if: inputs.linux == '' || steps.names.outputs.app != ''
         uses: actions/cache@v4
         with:
           path: Linux/.build
@@ -426,14 +430,17 @@ jobs:
       # own code. SwiftPM counts Swift only, so the C helpers get the C
       # compiler's flags too.
       - name: Build the app
+        if: inputs.linux == '' || steps.names.outputs.app != ''
         run: >
           swift build --package-path Linux --enable-code-coverage
           -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping
 
       - name: Build the matching disposable server
+        if: inputs.linux == '' || steps.names.outputs.app != ''
         run: swift build --package-path Server --product WellSpentServer
 
       - name: Run the UI tests
+        if: inputs.linux == '' || steps.names.outputs.app != ''
         env:
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
           # Each copy of the app writes its counts as it quits, one file each.
@@ -442,7 +449,7 @@ jobs:
           WELLSPENT_UI_LEAVE_OUT: test_wartable
           WELLSPENT_UI_SHARD: ${{ matrix.part }}/2
           # Tests named here run instead, and the share is not used.
-          NAMED: ${{ inputs.linux }}
+          NAMED: ${{ steps.names.outputs.app }}
         # A private SQLite database and synthetic mailbox from this revision;
         # no deployed-server version or account secret is needed for this run.
         # NAMED is left unquoted, so each name is its own argument.
@@ -1026,6 +1033,104 @@ jobs:
           name: houses-ui-test-screenshots
           retention-days: 3
           path: .build/xcode/ui-test-screenshots
+
+  # Houses' Linux UI tests, which live in the private Properties repo
+  # (UITests/Linux), on the Linux app built linked with it, as testers get
+  # it. Nightly and by hand, beside the Mac's and iPhone's Houses jobs. A
+  # hand run's "linux" names go here when their module is Properties'. A
+  # throwaway server and mailbox, as the app's Linux job uses, so no staging
+  # account is touched. A fork has no deploy key and passes with a note. It
+  # waits on nothing, as the app's Linux job doesn't, so a Mac runner that
+  # never comes doesn't skip it.
+  houses-linux-ui-test:
+    name: Houses UI test, linux
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: swift:6.2.4-noble
+      options: --cap-add=SYS_PTRACE
+    env:
+      HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No deploy key here, so nothing to test with
+        if: env.HAS_PROPERTIES_KEY != 'true'
+        run: echo "PROPERTIES_DEPLOY_KEY is not set; the Houses UI tests need the private checkout."
+
+      - name: Install the GTK 4 headers, a virtual display, a keyring, the accessibility bus and ssh
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        run: |
+          xargs -a Linux/UITests/packages.txt scripts/apt-install.sh openssh-client
+
+      - name: Check out the Properties package at .github/properties-ref
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        env:
+          PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
+        run: scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
+
+      # Every Properties Linux test, or only the names a hand run gave that
+      # are Properties'. None of those means nothing to run here.
+      - name: Which Houses tests run
+        id: names
+        if: env.HAS_PROPERTIES_KEY == 'true'
+        env:
+          NAMED: ${{ inputs.linux }}
+        run: |
+          if [ -n "$NAMED" ]; then
+            run="$(scripts/linux-ui-names.sh properties $NAMED)"
+          else
+            run="$(cd "$RUNNER_TEMP/wellspent-properties/UITests/Linux" && ls test_*.py | sed 's/\.py$//' | tr '\n' ' ' | sed 's/ $//')"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "Houses tests to run: ${run:-none}"
+
+      - name: Cache SwiftPM
+        if: steps.names.outputs.run != ''
+        uses: actions/cache@v4
+        with:
+          path: Linux/.build
+          key: spm-linux-houses-${{ hashFiles('Linux/Package.resolved', 'Package.resolved') }}
+          restore-keys: spm-linux-houses-
+
+      - name: Build the app with the package linked
+        if: steps.names.outputs.run != ''
+        env:
+          WELLSPENT_PROPERTIES_PATH: ${{ runner.temp }}/wellspent-properties
+        run: swift build --package-path Linux
+
+      # The server depends on the root package, which reads the same
+      # variable, so it is built without it.
+      - name: Build the matching disposable server
+        if: steps.names.outputs.run != ''
+        run: swift build --package-path Server --product WellSpentServer
+
+      - name: Run the Houses UI tests
+        if: steps.names.outputs.run != ''
+        env:
+          WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
+          PYTHONPATH: ${{ runner.temp }}/wellspent-properties/UITests/Linux
+          RUN: ${{ steps.names.outputs.run }}
+        # RUN is left unquoted, so each name is its own argument.
+        run: >
+          WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux"
+          python3 Server/scripts/with-ui-fixture.py
+          --server "$(swift build --package-path Server --show-bin-path)/WellSpentServer"
+          -- Linux/UITests/run.sh $RUN
+
+      - name: Keep the screenshots when the test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: houses-linux-ui-test-screenshots
+          # A failure can show a test address, so these are kept 3 days.
+          retention-days: 3
+          path: |
+            .build/linux-ui-test/*.png
+            .build/linux-ui-test/*-process.txt
+            .build/linux-ui-test/*-words.txt
+          if-no-files-found: ignore
 
   gate:
     name: Gate
