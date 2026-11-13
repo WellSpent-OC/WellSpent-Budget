@@ -547,6 +547,7 @@ public final class SyncCoordinator {
             guard generation == sessionGeneration else { return combined }
             guard let userID else { throw Failure.notSignedIn }
             let actions = try SyncPlan.actions(store: store, listed: listed, me: userID)
+            DiagLog.note("syncAll \(listed.count) groups listed, actions: \(actions.map { String(describing: $0).prefix(40) })")
             for group in listed {
                 try saveServerGroup(ServerGroupInfo(group))
             }

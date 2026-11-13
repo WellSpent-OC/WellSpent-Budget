@@ -22,6 +22,10 @@ import WellSpentSync
 final class LockTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
     nonisolated(unsafe) private static var planFile: URL?
+    // Diagnosis for #199, not for merging.
+    nonisolated(unsafe) private static var logFile: URL?
+    nonisolated(unsafe) private static var lastForward = Date()
+    nonisolated(unsafe) private static var clickCount = 0
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -109,6 +113,15 @@ final class LockTests: XCTestCase {
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 15), "Skip didn't close the pick")
     }
 
+    // Diagnosis for #199: the same test on seven more fresh launches.
+    @MainActor func testWhenAPaidPlanEndsRun2() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun3() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun4() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun5() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun6() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun7() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+    @MainActor func testWhenAPaidPlanEndsRun8() async throws { try await testWhenAPaidPlanEndsTheGroupsPastItLock() }
+
     /// Leslie pays for Cabin, which Robin joined, and her paid plan has ended
     /// with Cabin locked.
     @MainActor
@@ -163,6 +176,9 @@ final class LockTests: XCTestCase {
         Self.planFile = file
         try Self.write(Self.answer(), to: file)
         run.app.launchEnvironment[Workspace.pinnedPlanVariable] = file.path
+        let log = run.dataRoot.appendingPathComponent("diag.log")
+        Self.logFile = log
+        run.app.launchEnvironment[DiagLog.variable] = log.path
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         return run
@@ -193,12 +209,27 @@ final class LockTests: XCTestCase {
 
     /// Account, then Change what stays open, then the pick.
     @MainActor
-    private func openPickFromAccount(_ run: TestApp) {
+    private func openPickFromAccount(_ run: TestApp, _ name: String = #function) {
         let account = run.element(AccessibilityID.toolbarAccount)
         XCTAssertTrue(run.wait(for: account, until: "enabled == true", timeout: 60), "Account stayed disabled")
+        Self.clickCount += 1
+        let label = "\(name)#\(Self.clickCount)"
+        let before = account.isEnabled
+        let click = Date()
         run.click(AccessibilityID.toolbarAccount)
-        XCTAssertTrue(run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10),
-                      "Account didn't open when clicked. On screen: \(run.visibleTexts())")
+        let after = account.exists ? account.isEnabled : false
+        let opened = run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10)
+        print(String(format: "DIAG %@: opened=%@ forward=%+.3f enabledBefore=%@ enabledAfter=%@ sheets=%d",
+                     label, "\(opened)", Self.lastForward.timeIntervalSince(click), "\(before)", "\(after)",
+                     run.app.sheets.count))
+        let text = Self.logFile.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? "(no log)"
+        for line in text.split(separator: "\n") {
+            guard let stamp = Double(line.prefix { $0 != " " }),
+                  stamp >= Self.lastForward.timeIntervalSince1970 - 1 else { continue }
+            print(String(format: "DIAG %@ log %+.3f %@", label, stamp - click.timeIntervalSince1970,
+                         String(line.drop { $0 != " " }.dropFirst())))
+        }
+        XCTAssertTrue(opened, "Account didn't open when clicked. On screen: \(run.visibleTexts())")
         run.click(AccessibilityID.planChangeWhatStaysOpen, timeout: 15)
         XCTAssertTrue(run.element(AccessibilityID.pickSheet).waitForExistence(timeout: 15),
                       "Change what stays open didn't open the pick. On screen: \(run.visibleTexts())")
@@ -212,6 +243,7 @@ final class LockTests: XCTestCase {
         let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
         finder.activate()
         _ = run.app.wait(for: .runningBackground, timeout: 5)
+        Self.lastForward = Date()
         run.app.activate()
         XCTAssertTrue(run.app.wait(for: .runningForeground, timeout: 10), "the app didn't come back to the front")
         // Running in the foreground comes before the window takes clicks: a

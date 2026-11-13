@@ -154,6 +154,7 @@ struct RootView: View {
         .sheet(item: Binding(get: { model.entrySheetRequest }, set: { model.entrySheetRequest = $0 })) { request in
             EntrySheet(model: model, request: request)
         }
+        .background(diagWatcher)
         .sheet(isPresented: $showingAccount) {
             AccountSheet(sync: sync, plans: workspace.plans, openNames: workspace.planOpenNames,
                          onChangeWhatStaysOpen: {
@@ -298,6 +299,21 @@ struct RootView: View {
         }
     }
     #endif
+
+    /// Diagnosis for #199, not for merging: logs the sheets' state.
+    private var diagWatcher: some View {
+        let watched = Color.clear
+            .onChange(of: showingAccount) { _, now in DiagLog.note("showingAccount=\(now)") }
+            .onChange(of: sync.isBusy) { _, now in DiagLog.note("sync.isBusy=\(now)") }
+            .onChange(of: PickCue(workspace.plans.answer)) { _, _ in DiagLog.note("plan answer changed") }
+        #if os(macOS)
+        return watched
+            .onChange(of: picking == nil) { _, isNil in DiagLog.note(isNil ? "picking=nil" : "picking=set") }
+            .onChange(of: choosingPlan == nil) { _, isNil in DiagLog.note(isNil ? "choosingPlan=nil" : "choosingPlan=set") }
+        #else
+        return watched
+        #endif
+    }
 
     private func openPick() {
         #if os(macOS)
