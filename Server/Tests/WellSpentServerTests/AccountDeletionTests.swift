@@ -67,6 +67,14 @@ private func addBudgetAndProfile(_ group: UUID, by session: V2Session, on app: A
     return budget.id.uuid
 }
 
+/// The deletion tests, with deletion turned on as the train that ships it will.
+private func withDeletionOn(_ body: (Application, V2RecordingMailer) async throws -> Void) async throws {
+    try await withV2App { app, mailer in
+        app.accountDeleteEnabled = true
+        try await body(app, mailer)
+    }
+}
+
 private struct RefusingPaddle: PaddleCanceling {
     func cancel(subscriptionID: String) async throws { throw Abort(.badGateway) }
 }
@@ -77,9 +85,25 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 }
 
 @Suite("Deleting an account", .serialized) struct AccountDeletionTests {
+    @Test("While deletion is off, the route isn't there and nothing is deleted")
+    func offIsNotFound() async throws {
+        try await withV2App { app, _ in
+            let me = try await v2SignUp("delete-off@example.com", on: app)
+            #expect(try await deleteAccount(me, on: app).0 == .notFound)
+            #expect(try await UserRow.find(me.userID, on: app.db) != nil)
+            #expect(try await v2Me(me.token, on: app) != nil)
+        }
+    }
+
+    @Test("The switch is on only when its variable says on")
+    func theSwitchReadsOn() {
+        #expect(ServerSwitch.isOn("on"))
+        #expect(!ServerSwitch.isOn(nil) && !ServerSwitch.isOn("") && !ServerSwitch.isOn("off") && !ServerSwitch.isOn("yes"))
+    }
+
     @Test("Deleting an account removes it, its sign-ins and the groups only it was in")
     func deletesTheAccountAndItsOwnGroups() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let me = try await v2SignUp("delete-leaving@example.com", on: app)
             let group = try await newGroup(me, on: app)
             let budget = try await addBudgetAndProfile(group, by: me, on: app)
@@ -98,7 +122,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("A wrong password deletes nothing, and doesn't sign the person out")
     func aWrongPasswordDeletesNothing() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let me = try await v2SignUp("delete-careful@example.com", on: app)
             #expect(try await deleteAccount(me, password: "not it at all", on: app).0 == .forbidden)
             #expect(try await UserRow.find(me.userID, on: app.db) != nil)
@@ -108,7 +132,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("A shared group stays for the others and passes to the next manager, who then pays for it")
     func aSharedGroupPassesOn() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let founder = try await v2SignUpConfirmed("delete-founder@example.com", on: app)
             let group = try await newGroup(founder, on: app)
             let budget = try await addBudgetAndProfile(group, by: founder, on: app)
@@ -134,7 +158,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("Without a manager left, the group passes to whoever joined first")
     func noManagerPassesToTheFirstMember() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let founder = try await v2SignUpConfirmed("delete-only@example.com", on: app)
             let group = try await newGroup(founder, on: app)
             let first = try await join("delete-first@example.com", group, invitedBy: founder, on: app)
@@ -146,7 +170,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("A member who leaves this way takes only themselves out of the group")
     func aMemberLeavesOnlyThemselves() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let founder = try await v2SignUpConfirmed("delete-stays@example.com", on: app)
             let group = try await newGroup(founder, on: app)
             let member = try await join("delete-goes@example.com", group, invitedBy: founder, on: app)
@@ -158,7 +182,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("A group they founded but left, with someone still in it, isn't deleted with them")
     func aFoundedGroupWithMembersSurvives() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let founder = try await v2SignUp("delete-left@example.com", on: app)
             let group = try await newGroup(founder, on: app)
             // Not reachable through the app today, where a founder can't leave.
@@ -172,7 +196,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("A website plan is canceled through Paddle first, and if Paddle refuses, nothing is deleted")
     func aPaddlePlanIsCanceledFirst() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let me = try await v2SignUp("delete-paying@example.com", on: app)
             let plan = try await PlanRow.forUser(me.userID, on: app.db)
             (plan.tier, plan.source, plan.state, plan.storeID) = ("starter", "paddle", "active", "sub_123")
@@ -193,7 +217,7 @@ private final class RecordingPaddle: PaddleCanceling, @unchecked Sendable {
 
     @Test("An Apple plan doesn't stop the delete: only Apple can cancel it")
     func anApplePlanDoesNotBlock() async throws {
-        try await withV2App { app, _ in
+        try await withDeletionOn { app, _ in
             let me = try await v2SignUp("delete-apple@example.com", on: app)
             let plan = try await PlanRow.forUser(me.userID, on: app.db)
             (plan.tier, plan.source, plan.state) = ("growth", "apple", "active")

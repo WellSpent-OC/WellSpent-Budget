@@ -8,16 +8,13 @@ import WellSpentLinuxNative
 
 /// The Linux desktop app launcher. The SwiftCrossUI app is what runs, the
 /// one the Linux UI tests pass on. The straight native GTK 4 shell (Phase 1
-/// of the native move) is opt-in with WELLSPENT_NATIVE=1 until the same
-/// suite passes on it, screen by screen; then the default flips.
+/// of the native move) sits behind the `native` feature flag, off by default,
+/// until the same suite passes on it, screen by screen; then the default flips.
 @main
 struct WellSpentLinuxApp {
-    /// The launch variable that picks the native shell.
-    static let nativeVariable = "WELLSPENT_NATIVE"
-
     @MainActor
     static func main() {
-        if ProcessInfo.processInfo.environment[nativeVariable] == "1" {
+        if LinuxSetup.features().isNativeShellEnabled {
             runNative()
         } else {
             WellSpentLinuxSxiApp.main()
