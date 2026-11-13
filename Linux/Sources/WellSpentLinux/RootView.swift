@@ -628,9 +628,11 @@ struct SidebarView: View {
                 .foregroundColor(Palette.muted)
             if showsAccountInFooter {
                 HStack {
+                    // A sync doesn't turn Account off (#199): only signing
+                    // in, making an account or a new password does.
                     Button(screen.accountTitle) { showingAccount = true }
                         .help(screen.accountHelp)
-                        .disabled(screen.isBusy)
+                        .disabled(!screen.accountCanBePressed)
                     if screen.showsSync {
                         if screen.syncShowsProgress {
                             ProgressView().frame(width: 16, height: 16)
