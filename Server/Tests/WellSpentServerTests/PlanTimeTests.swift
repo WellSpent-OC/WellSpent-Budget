@@ -30,6 +30,21 @@ private func pay(_ session: V2Session, state: String, renews: Bool, paidUntil: D
 }
 
 @Suite("When paid time runs out", .serialized) struct PlanTimeTests {
+    @Test("While plans are off, nothing reads the plan, so the clock never moves one on")
+    func offTheClockDoesNotRun() async throws {
+        try await withV2App { app, _ in
+            app.plansEnabled = false
+            let me = try await v2SignUp("time-off@example.com", on: app)
+            try await pay(me, state: "canceled", renews: false, paidUntil: Date().addingTimeInterval(-3_600), on: app)
+            // The routes that read plans with them on: the answer, and a new group.
+            #expect(try await v2Status(.GET, "api/v2/plan", token: me.token, on: app) == .notFound)
+            #expect(try await v2Status(.POST, "api/v2/groups", token: me.token,
+                                       body: ["id": UUID().uuidString], on: app) == .created)
+            let plan = try #require(try await PlanRow.query(on: app.db).filter(\.$userID == me.userID).first())
+            #expect(plan.state == "canceled" && plan.tier == "growth" && plan.lastTier == nil)
+        }
+    }
+
     @Test("A canceled plan keeps its paid limits to the end of its paid time")
     func canceledKeepsPaidLimitsUntilItsEnd() async throws {
         try await withV2App { app, _ in
