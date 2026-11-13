@@ -15,6 +15,7 @@ struct AccountButton: View {
 
     var body: some View {
         Button {
+            DiagLog.note("account button action")
             showingAccount = true
         } label: {
             Label(Self.title(account: sync.account), systemImage: Self.icon(account: sync.account))

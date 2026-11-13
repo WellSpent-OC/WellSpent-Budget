@@ -3,31 +3,79 @@ import Foundation
 import XCTest
 import WellSpentAppCore
 
-/// Diagnosis for #199, not for merging. Signed in, as LockTests is: is the
-/// lost Account click the first one after the app's first return to the
-/// front? And was the button disabled when the click landed? Coming to the
-/// front starts a sync when signed in, and Account is disabled while one runs.
+/// Diagnosis for #199, not for merging. Signed in with two synced groups, as
+/// LockTests is. The app logs what it does to a file (`DiagLog`), and each
+/// click prints the log around it, so a lost click shows whether Account was
+/// never set to open, or was opened and then closed.
 final class AccountClickDiagTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = true }
 
-    private static let freePlan = #"{"tier":"free","period":"none","state":"free","source":"none","paidUntil":null,"renews":false,"nextTier":null,"limits":{"properties":1,"groups":1,"invitedPerGroup":1},"used":{"properties":0,"groups":0},"extensionsOpen":[],"canSyncPriceLabs":false,"refreshMinutes":60,"appleAccountToken":null}"#
+    private static let ended: String = {
+        ISO8601DateFormatter().string(from: Date().addingTimeInterval(-2 * 86_400))
+    }()
 
-    @MainActor
-    private func launchSignedIn() throws -> TestApp {
-        let accounts = try TestAccounts.fromEnvironment()
-        let run = try TestApp()
-        let file = run.dataRoot.appendingPathComponent("plan.json")
-        try Data(Self.freePlan.utf8).write(to: file)
-        run.app.launchEnvironment[Workspace.pinnedPlanVariable] = file.path
-        run.launch()
-        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
-        return run
+    private static func plan(ended: Bool) -> String {
+        var fields = [
+            #""tier":"free""#, #""period":"none""#, #""state":"free""#, #""source":"none""#,
+            #""paidUntil":null"#, #""renews":false"#, #""nextTier":null"#,
+            #""limits":{"properties":1,"groups":1,"invitedPerGroup":1}"#,
+            #""used":{"properties":0,"groups":0}"#,
+            #""extensionsOpen":[]"#, #""canSyncPriceLabs":false"#, #""refreshMinutes":60"#,
+            #""appleAccountToken":"\#(UUID())""#
+        ]
+        if ended { fields.append(#""lastPlan":{"tier":"growth","endedOn":"\#(Self.ended)","reason":"ended"}"#) }
+        return "{" + fields.joined(separator: ",") + "}"
     }
 
-    /// To the back and forward, then the same waits LockTests makes: the
-    /// window can take a click, and Account is enabled.
+    private static func write(_ json: String, to file: URL) throws {
+        let temporary = file.deletingLastPathComponent().appendingPathComponent("plan-\(UUID()).json")
+        try Data(json.utf8).write(to: temporary)
+        if FileManager.default.fileExists(atPath: file.path) {
+            _ = try FileManager.default.replaceItemAt(file, withItemAt: temporary)
+        } else {
+            try FileManager.default.moveItem(at: temporary, to: file)
+        }
+    }
+
+    private struct Launched {
+        let run: TestApp
+        let planFile: URL
+        let logFile: URL
+    }
+
+    /// Signed in, with Home and Beach: made on the first launch, synced down
+    /// on the others.
     @MainActor
-    private func returnToFront(_ run: TestApp, _ label: String) {
+    private func launch(first: Bool) throws -> Launched {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        let planFile = run.dataRoot.appendingPathComponent("plan.json")
+        let logFile = run.dataRoot.appendingPathComponent("diag.log")
+        try Self.write(Self.plan(ended: false), to: planFile)
+        run.app.launchEnvironment[Workspace.pinnedPlanVariable] = planFile.path
+        run.app.launchEnvironment[DiagLog.variable] = logFile.path
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        if first {
+            run.addGroup(named: "Home")
+            run.addGroup(named: "Beach")
+            run.syncNow()
+        } else {
+            for name in ["Home", "Beach"] {
+                XCTAssertTrue(run.element(AccessibilityID.sidebarGroup(name)).waitForExistence(timeout: 60),
+                              "\(name) didn't sync down")
+            }
+        }
+        // Settle, so the log around the click is only the return to the front.
+        let account = run.element(AccessibilityID.toolbarAccount)
+        _ = run.wait(for: account, until: "enabled == true", timeout: 60)
+        Thread.sleep(forTimeInterval: 2)
+        return Launched(run: run, planFile: planFile, logFile: logFile)
+    }
+
+    /// To the back and forward, with LockTests' waits.
+    @MainActor
+    private func returnToFront(_ run: TestApp) -> Date {
         XCUIApplication(bundleIdentifier: "com.apple.finder").activate()
         _ = run.app.wait(for: .runningBackground, timeout: 5)
         let forward = Date()
@@ -39,68 +87,69 @@ final class AccountClickDiagTests: XCTestCase {
                                    == TestApp.hostBundleIdentifier && window.isHittable) {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
-        let account = run.element(AccessibilityID.toolbarAccount)
-        let enabled = run.wait(for: account, until: "enabled == true", timeout: 60)
-        print("DIAG \(label): ready \(String(format: "%.2f", Date().timeIntervalSince(forward)))s after activate, enabledWait=\(enabled)")
+        _ = run.wait(for: run.element(AccessibilityID.toolbarAccount), until: "enabled == true", timeout: 60)
+        return forward
     }
 
-    /// Clicks Account and logs whether it was enabled just before the click
-    /// and just after.
     @MainActor
-    private func accountOpens(_ run: TestApp, _ label: String) -> Bool {
+    private func accountOpens(_ launched: Launched, _ label: String, forward: Date) -> Bool {
+        let run = launched.run
         let account = run.element(AccessibilityID.toolbarAccount)
         let before = account.isEnabled
-        let start = Date()
+        let click = Date()
         account.click()
-        let after = account.exists ? account.isEnabled : nil
+        let clicked = Date()
+        let after = account.exists ? account.isEnabled : false
         let opened = run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10)
-        var laterEnabled: [String] = []
-        if !opened {
-            for _ in 0..<6 {
-                laterEnabled.append(account.isEnabled ? "y" : "n")
-                Thread.sleep(forTimeInterval: 0.5)
-            }
+        Thread.sleep(forTimeInterval: 1)
+        print(String(format: "DIAG %@: opened=%@ activate=%.3f click=%.3f..%.3f enabledBefore=%@ enabledAfter=%@ sheets=%d",
+                     label, "\(opened)", forward.timeIntervalSince1970, click.timeIntervalSince1970,
+                     clicked.timeIntervalSince1970, "\(before)", "\(after)", run.app.sheets.count))
+        let log = (try? String(contentsOf: launched.logFile, encoding: .utf8)) ?? "(no log)"
+        for line in log.split(separator: "\n") {
+            guard let stamp = Double(line.prefix { $0 != " " }), stamp >= forward.timeIntervalSince1970 - 1 else { continue }
+            print(String(format: "DIAG %@ log %+.3f %@", label, stamp - click.timeIntervalSince1970,
+                         String(line.drop { $0 != " " }.dropFirst())))
         }
-        print("DIAG \(label): opened=\(opened) after \(String(format: "%.2f", Date().timeIntervalSince(start)))s enabledBefore=\(before) enabledAfter=\(after.map(String.init(describing:)) ?? "gone") laterEnabled=\(laterEnabled.joined()) sheets=\(run.app.sheets.count)")
         return opened
     }
 
     @MainActor
-    private func close(_ run: TestApp, opened: Bool) {
-        if opened { run.click(AccessibilityID.accountClose) }
-        run.app.terminate()
-        try? FileManager.default.removeItem(at: run.dataRoot)
+    private func cleanUpGroups() {
+        addTeardownBlock { @MainActor in
+            guard let accounts = try? TestAccounts.fromEnvironment(),
+                  let elsewhere = try? SecondAccount(server: accounts.server) else { return }
+            try? await elsewhere.signIn(email: accounts.email, password: accounts.password)
+            await elsewhere.sync.syncAll()
+            await elsewhere.deleteGroup(named: "Home")
+            await elsewhere.deleteGroup(named: "Beach")
+            await elsewhere.cleanUp()
+        }
     }
 
-    /// D: four fresh signed-in launches; each returns to the front once, then Account.
     @MainActor
-    func testDFirstReturnThenAccount() throws {
+    private func runCase(_ name: String, endPlan: Bool) throws {
+        cleanUpGroups()
         var results: [Bool] = []
         for index in 1...4 {
-            let run = try launchSignedIn()
-            returnToFront(run, "D\(index)")
-            let opened = accountOpens(run, "D\(index)")
+            let launched = try launch(first: index == 1)
+            if endPlan { try Self.write(Self.plan(ended: true), to: launched.planFile) }
+            let forward = returnToFront(launched.run)
+            let opened = accountOpens(launched, "\(name)\(index)", forward: forward)
             results.append(opened)
-            close(run, opened: opened)
+            if opened { launched.run.click(AccessibilityID.accountClose) }
+            launched.run.app.terminate()
+            try? FileManager.default.removeItem(at: launched.run.dataRoot)
         }
-        print("DIAG D results: \(results)")
+        print("DIAG \(name) results: \(results)")
         XCTAssertEqual(results, [true, true, true, true])
     }
 
-    /// E: the same, with a click on the staging banner before Account, so
-    /// the window is key when Account is clicked.
+    /// B: groups, plan unchanged, back to the front, Account.
     @MainActor
-    func testEFirstReturnClickBannerThenAccount() throws {
-        var results: [Bool] = []
-        for index in 1...4 {
-            let run = try launchSignedIn()
-            returnToFront(run, "E\(index)")
-            run.element(AccessibilityID.stagingBanner).click()
-            let opened = accountOpens(run, "E\(index)")
-            results.append(opened)
-            close(run, opened: opened)
-        }
-        print("DIAG E results: \(results)")
-        XCTAssertEqual(results, [true, true, true, true])
-    }
+    func testBGroupsPlanUnchanged() throws { try runCase("B", endPlan: false) }
+
+    /// D: groups, the plan switched to one that ended, back to the front, Account.
+    @MainActor
+    func testDGroupsPlanEnded() throws { try runCase("D", endPlan: true) }
 }

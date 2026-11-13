@@ -223,11 +223,14 @@ public final class Workspace {
     /// month may have begun while the app was away, and this does not wait
     /// for the system to say the day changed.
     public func cameToFront() async {
+        DiagLog.note("cameToFront start")
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
+        DiagLog.note("cameToFront sync done")
         // The plan may have changed elsewhere: bought on the website, renewed,
         // or ended. Every platform asks here, so none drifts.
         if sync.account != nil { await plans.refresh() }
+        DiagLog.note("cameToFront end")
     }
 
     // MARK: - Opened links
