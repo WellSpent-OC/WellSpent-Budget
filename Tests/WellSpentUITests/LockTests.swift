@@ -77,7 +77,10 @@ final class LockTests: XCTestCase {
                           "Home says Locked")
 
         // Scenario LOCK-01
+        print("DIAG before Beach: windows \(run.app.windows.allElementsBoundByIndex.map(\.frame))")
         run.click(AccessibilityID.sidebarGroup("Beach"))
+        _ = run.element(AccessibilityID.lockedTitle).waitForExistence(timeout: 15)
+        print("DIAG Beach card: windows \(run.app.windows.allElementsBoundByIndex.map(\.frame))")
         expectCard(run, title: "This group is locked",
                    lines: ["Your free plan keeps 1 group open: Home.", "The people in this group can't see it either."],
                    actions: [.changeWhatsOpen, .seePlans])
@@ -196,7 +199,14 @@ final class LockTests: XCTestCase {
     private func openPickFromAccount(_ run: TestApp) {
         let account = run.element(AccessibilityID.toolbarAccount)
         XCTAssertTrue(run.wait(for: account, until: "enabled == true", timeout: 60), "Account stayed disabled")
+        print("DIAG before Account: windows \(run.app.windows.allElementsBoundByIndex.map(\.frame)) sheets \(run.app.sheets.allElementsBoundByIndex.map(\.frame))")
         run.click(AccessibilityID.toolbarAccount)
+        _ = run.element(AccessibilityID.accountClose).waitForExistence(timeout: 15)
+        print("DIAG Account open: windows \(run.app.windows.allElementsBoundByIndex.map(\.frame)) sheets \(run.app.sheets.allElementsBoundByIndex.map(\.frame)) planCard \(run.element(AccessibilityID.planCardTitle).frame) change \(run.element(AccessibilityID.planChangeWhatStaysOpen).frame) close \(run.element(AccessibilityID.accountClose).frame)")
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "account-open"
+        shot.lifetime = .keepAlways
+        add(shot)
         run.click(AccessibilityID.planChangeWhatStaysOpen, timeout: 15)
         XCTAssertTrue(run.element(AccessibilityID.pickSheet).waitForExistence(timeout: 15),
                       "Change what stays open didn't open the pick. On screen: \(run.visibleTexts())")
