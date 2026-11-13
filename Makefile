@@ -90,6 +90,7 @@ wartable-test:
 script-test:
 	scripts/checkout-properties-test.sh
 	scripts/scenario-check-test.sh
+	scripts/linux-ui-names-test.sh
 
 # The app's Package.resolved pins nothing from SwiftCrossUI, which is Linux
 # only. With it pinned, Xcode 26.6 crashes reading the file with Properties linked.
