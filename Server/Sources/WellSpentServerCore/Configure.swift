@@ -92,6 +92,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddEmailInvitations())
     app.migrations.add(CreatePlans())
     app.migrations.add(AddPlanLocks())
+    app.migrations.add(AddPlanStoreEnvironment())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
@@ -146,6 +147,9 @@ public func configure(_ app: Application) async throws {
     // Deleting an account. Off until the train that ships in-app deletion.
     app.accountDeleteEnabled = ServerSwitch.isOn(Environment.get("WELLSPENT_ACCOUNT_DELETE"))
     app.logger.notice("account delete: \(app.accountDeleteEnabled ? "on" : "off")")
+    // App Store purchases. Off until a build that sells plans is ready.
+    app.applePlansEnabled = ServerSwitch.isOn(Environment.get("WELLSPENT_APPLE_PLANS"))
+    app.logger.notice("apple plans: \(app.applePlansEnabled ? "on" : "off")")
     try registerRoutes(app)
     try registerWarTableRoutes(app)
     registerInvitationEmailStopRoutes(app)

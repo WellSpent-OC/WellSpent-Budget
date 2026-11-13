@@ -87,6 +87,10 @@ final class PlanRow: Model, @unchecked Sendable {
     @Field(key: "state") var state: String
     /// Apple's original transaction ID or Paddle's subscription ID.
     @OptionalField(key: "store_id") var storeID: String?
+    /// Apple's "Production" or "Sandbox". Live takes both, since App Review
+    /// and TestFlight buy in sandbox, so sandbox plans can be found and ended.
+    /// Nil for a plan no store sold (`AddPlanStoreEnvironment`).
+    @OptionalField(key: "store_environment") var storeEnvironment: String?
     @OptionalField(key: "paid_until") var paidUntil: Date?
     @Field(key: "renews") var renews: Bool
     /// A move down, waiting for the paid period to end.
