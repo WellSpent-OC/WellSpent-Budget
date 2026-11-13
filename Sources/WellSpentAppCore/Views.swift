@@ -236,7 +236,12 @@ struct RootView: View {
                 GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
                           invite: { editor = .share(group) },
                           addBudget: { editor = .newBudget(in: group.id) },
-                          seePlans: { choosingPlan = ChoosePlanRequest(payFor: nil) })
+                          seePlans: {
+                              // The held notice shows on the Mac only (PLAN-18).
+                              #if os(macOS)
+                              choosingPlan = ChoosePlanRequest(payFor: nil)
+                              #endif
+                          })
                     // A page of its own for each group, and again after a
                     // rename, so its words name the group as it is now.
                     .id([group.id.uuid.uuidString, group.name])
