@@ -19,15 +19,18 @@ struct PhoneGroupView: View {
     /// The window's rules: the group's menu and the question a leave asks.
     let main: MainScreen
     let perform: (MainScreen.Action) -> Void
+    /// Opens Choose a plan, from the notice on a group kept on this iPhone.
+    let seePlans: () -> Void
     @State private var screen: MembersScreen
     private typealias Words = MembersScreen.Words
 
     init(sync: SyncCoordinator, group: BudgetGroup, main: MainScreen,
-         perform: @escaping (MainScreen.Action) -> Void) {
+         perform: @escaping (MainScreen.Action) -> Void, seePlans: @escaping () -> Void = {}) {
         self.sync = sync
         self.group = group
         self.main = main
         self.perform = perform
+        self.seePlans = seePlans
         _screen = State(initialValue: MembersScreen(actions: sync, group: group.id, groupName: group.name))
     }
 
@@ -88,6 +91,18 @@ struct PhoneGroupView: View {
     /// The page's rows. The proxy is what the extension's top line scrolls with.
     private func page(scrollingWith proxy: ScrollViewProxy) -> some View {
         List {
+            // PLAN-18: why this group is only on this iPhone, and the way to a plan.
+            if let held = main.workspace.heldScreen(group: group.id, device: .iPhone) {
+                Section {
+                    Text(held.notice)
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier(AccessibilityID.groupHeldNotice)
+                    Button(held.action, action: seePlans)
+                        .accessibilityIdentifier(AccessibilityID.groupHeldSeePlans)
+                }
+                .listRowBackground(Palette.surface)
+            }
             Section {
                 Text(screen.summary)
                     .font(.subheadline)

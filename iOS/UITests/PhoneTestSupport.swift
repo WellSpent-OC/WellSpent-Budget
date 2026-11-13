@@ -312,11 +312,13 @@ final class PhoneTestApp {
     }
 
     /// Takes out whatever a field holds, one Delete key at a time, as a person
-    /// would with the keyboard.
+    /// would with the keyboard. An empty field reports its placeholder as its
+    /// value, so a field holding the placeholder's own words looks empty, as
+    /// the group "Household" does under the prompt "Household". It deletes
+    /// anyway: Delete in an empty field does nothing.
     func clear(_ field: XCUIElement) {
         let current = (field.value as? String) ?? ""
-        let placeholder = field.placeholderValue ?? ""
-        guard !current.isEmpty, current != placeholder else { return }
+        guard !current.isEmpty else { return }
         // To the end first: a tap may land the cursor anywhere in the text.
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
