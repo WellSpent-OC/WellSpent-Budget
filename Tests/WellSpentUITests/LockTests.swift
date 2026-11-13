@@ -197,6 +197,8 @@ final class LockTests: XCTestCase {
         let account = run.element(AccessibilityID.toolbarAccount)
         XCTAssertTrue(run.wait(for: account, until: "enabled == true", timeout: 60), "Account stayed disabled")
         run.click(AccessibilityID.toolbarAccount)
+        XCTAssertTrue(run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10),
+                      "Account didn't open when clicked. On screen: \(run.visibleTexts())")
         run.click(AccessibilityID.planChangeWhatStaysOpen, timeout: 15)
         XCTAssertTrue(run.element(AccessibilityID.pickSheet).waitForExistence(timeout: 15),
                       "Change what stays open didn't open the pick. On screen: \(run.visibleTexts())")
@@ -212,6 +214,16 @@ final class LockTests: XCTestCase {
         _ = run.app.wait(for: .runningBackground, timeout: 5)
         run.app.activate()
         XCTAssertTrue(run.app.wait(for: .runningForeground, timeout: 10), "the app didn't come back to the front")
+        // Running in the foreground comes before the window takes clicks: a
+        // click in between was lost once (#198). So it waits until macOS
+        // names this app the front one and its window can be clicked.
+        let window = run.app.windows.firstMatch
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline, !(NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+                                   == TestApp.hostBundleIdentifier && window.isHittable) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertTrue(window.isHittable, "the window can't take a click after coming to the front")
     }
 
     @MainActor
