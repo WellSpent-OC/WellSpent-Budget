@@ -820,9 +820,10 @@ jobs:
   # Every UI test's "Scenario" line names a real scenario, on a platform that
   # scenario names, and the tables in Features/README.md match the tags (the
   # Definition of Done, item 3). The run's summary lists what still has no
-  # test. The day a platform has nothing left, this adds --require for it
-  # (--require Mac, say), and from then on a scenario without a test on that
-  # platform fails the pull request.
+  # test. The day a platform has nothing left, this adds --require for it,
+  # and from then on a scenario without a test on that platform fails the
+  # pull request. Connector is required. Server, the Mac, Linux and the
+  # iPhone join it as each reaches zero.
   scenario-check:
     name: Scenario check
     runs-on: ubuntu-latest
@@ -832,7 +833,7 @@ jobs:
 
       - name: Tags and tables
         shell: bash
-        run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
+        run: python3 -I scripts/scenario-check.py --require Connector --list | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Here because this job is small, needs nothing installed and the gate
       # waits on it. The Properties pointer is only honest if this passes.
