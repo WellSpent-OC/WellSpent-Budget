@@ -151,6 +151,76 @@ final class LockTests: XCTestCase {
         run.signOut()
     }
 
+    // MARK: - Diagnosis for #199, not for merging
+
+    /// Makes Home and Beach, with the teardown that deletes them.
+    @MainActor
+    private func diagSetUp() async throws -> TestApp {
+        let run = try signedIn()
+        let accounts = try TestAccounts.fromEnvironment()
+        let elsewhere = try SecondAccount(server: accounts.server)
+        try await elsewhere.signIn(email: accounts.email, password: accounts.password)
+        addTeardownBlock { @MainActor in
+            await elsewhere.sync.syncAll()
+            await elsewhere.deleteGroup(named: "Home")
+            await elsewhere.deleteGroup(named: "Beach")
+            await elsewhere.cleanUp()
+        }
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+        return run
+    }
+
+    /// Clicks Account once and says whether it opened, then closes it.
+    @MainActor
+    private func diagAccount(_ run: TestApp, _ label: String) -> Bool {
+        let account = run.element(AccessibilityID.toolbarAccount)
+        _ = run.wait(for: account, until: "enabled == true", timeout: 60)
+        let start = Date()
+        run.click(AccessibilityID.toolbarAccount)
+        let opened = run.element(AccessibilityID.accountClose).waitForExistence(timeout: 10)
+        print("DIAG \(label): opened=\(opened) after \(Date().timeIntervalSince(start))s windows=\(run.app.windows.count) sheets=\(run.app.sheets.count) dialogs=\(run.app.dialogs.count) frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none")")
+        if opened {
+            run.click(AccessibilityID.accountClose)
+            _ = run.element(AccessibilityID.accountClose).waitForNonExistence(timeout: 10)
+        } else {
+            print("DIAG \(label) tree: \(run.app.debugDescription.prefix(3000))")
+        }
+        return opened
+    }
+
+    /// A: no trip to the back, no plan change.
+    @MainActor
+    func testZDiagA_NoActivationNoPlanChange() async throws {
+        let run = try await diagSetUp()
+        let first = diagAccount(run, "A1")
+        let second = diagAccount(run, "A2")
+        XCTAssertTrue(first && second, "A: first \(first), second \(second)")
+    }
+
+    /// B: to the back and forward again, the plan file unchanged.
+    @MainActor
+    func testZDiagB_ActivationOnly() async throws {
+        let run = try await diagSetUp()
+        try show(run, Self.answer())
+        let first = diagAccount(run, "B1")
+        try show(run, Self.answer())
+        let second = diagAccount(run, "B2")
+        XCTAssertTrue(first && second, "B: first \(first), second \(second)")
+    }
+
+    /// C: the plan changes to an ended plan, as the failing step does.
+    @MainActor
+    func testZDiagC_PlanChange() async throws {
+        let run = try await diagSetUp()
+        try show(run, Self.answer(lastPlan: true))
+        let first = diagAccount(run, "C1")
+        try show(run, Self.answer())
+        try show(run, Self.answer(lastPlan: true))
+        let second = diagAccount(run, "C2")
+        XCTAssertTrue(first && second, "C: first \(first), second \(second)")
+    }
+
     // MARK: - Steps
 
     /// Signed in, on the free plan with nothing locked.
