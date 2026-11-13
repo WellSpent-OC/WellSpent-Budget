@@ -334,6 +334,7 @@ class App:
         env.pop("WELLSPENT_FEATURE_EXTENSIONS", None)
         env.pop("WELLSPENT_FEATURE_WARTABLE", None)
         env.pop("WELLSPENT_FEATURE_PROPERTIES", None)
+        env.pop("WELLSPENT_FEATURE_NATIVE", None)
         env.pop("WELLSPENT_PLAN_BUYING", None)
         env.pop("WELLSPENT_PLAN_ANSWER_FILE", None)
         env.pop("WELLSPENT_DEBUG_COUNTS_FILE", None)
