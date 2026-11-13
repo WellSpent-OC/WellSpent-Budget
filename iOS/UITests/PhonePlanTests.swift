@@ -105,38 +105,25 @@ final class PhonePlanTests: XCTestCase {
         }
     }
 
-    /// #199, local only: the first Account tap after the app comes back to
-    /// the front is lost now and then. Each round closes Account, presses
-    /// Home (at once, or 1.2 s later as in the nightly), comes back with a new
-    /// plan answer, and taps Account. Twelve rounds, since the nightly lost
-    /// about one in six.
+    /// #199: a sync used to turn Account off, so a tap that came as one
+    /// started did nothing. The app syncs on its own every 2 minutes, and on
+    /// coming back to the front, so now and then a tap was lost. Here it
+    /// syncs every 3 seconds, so on the old code a tap is lost in the first
+    /// rounds. Each round closes Account, goes to the back and comes forward
+    /// with a new plan answer, and taps Account once.
     @MainActor
-    func testAccountOpensEveryTimeAfterComingBackToTheFront() throws {
+    func testAccountOpensWhileTheAppSyncs() throws {
         let accounts = try TestAccounts.fromEnvironment()
-        let run = try launch(with: Self.states[0].1)
+        let run = try launch(with: Self.states[0].1, syncEvery: 3)
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         openAccount(run)
-        for round in 1...12 {
+        for round in 1...6 {
             run.tap(AccessibilityID.accountClose)
-            if round.isMultiple(of: 2) { Thread.sleep(forTimeInterval: 1.2) }
             let (name, answer) = Self.states[round % Self.states.count]
             try show(answer, in: run)
-            let button = run.element(AccessibilityID.toolbarAccount)
-            XCTAssertTrue(run.wait(for: button, until: "isEnabled == true", timeout: 60),
-                          "round \(round): Account stayed disabled")
             run.tap(AccessibilityID.toolbarAccount)
-            let sheet = run.app.navigationBars[AccountFlow.Step.account.title]
-            if sheet.waitForExistence(timeout: 10) { continue }
-            // Lost. A second tap tells a tap that never arrived (it opens)
-            // from a sheet state left open with nothing on screen (it doesn't).
-            let wait = round.isMultiple(of: 2) ? "1.2 s" : "no"
-            let enabled = button.isEnabled
-            run.tap(AccessibilityID.toolbarAccount)
-            let second = sheet.waitForExistence(timeout: 10)
-            XCTFail("round \(round) (\(name), \(wait) wait): Account didn't open on the first tap. "
-                    + "Account enabled: \(enabled). A second tap \(second ? "opened it" : "did nothing too"). "
-                    + "On screen: \(run.visibleTexts())")
-            return
+            XCTAssertTrue(run.app.navigationBars[AccountFlow.Step.account.title].waitForExistence(timeout: 10),
+                          "round \(round) (\(name)): one tap on Account didn't open it. On screen: \(run.visibleTexts())")
         }
     }
 
@@ -272,7 +259,8 @@ final class PhonePlanTests: XCTestCase {
     @MainActor
     /// `buyingIsOpen` is build B, where Subscribe and Restore Purchases show.
     /// Closed is build A, which says "Coming soon" (PLAN-17).
-    private func launch(with answer: PlanAnswer, buyingIsOpen: Bool = true) throws -> PhoneTestApp {
+    /// `syncEvery` makes the app's timed sync come that often, in seconds.
+    private func launch(with answer: PlanAnswer, buyingIsOpen: Bool = true, syncEvery: Int? = nil) throws -> PhoneTestApp {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("plan-\(UUID().uuidString).json")
@@ -284,6 +272,7 @@ final class PhonePlanTests: XCTestCase {
         // Apple's sandbox on a device.
         run.app.launchEnvironment[Workspace.emptyStoreVariable] = "empty"
         if buyingIsOpen { run.app.launchEnvironment[PlanBuying.variable] = "open" }
+        if let syncEvery { run.app.launchEnvironment[Workspace.autoSyncIntervalVariable] = "\(syncEvery)" }
         run.launch()
         return run
     }
