@@ -601,10 +601,8 @@ jobs:
           ls -d /Applications/Xcode*.app
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      # GTK only so Xcode 26.6 doesn't crash reading ExtensionKit's
-      # packages (see the Houses job). Nothing links it.
-      - name: Install xcodegen, and GTK for the kit
-        run: brew install xcodegen gtk4
+      - name: Install xcodegen
+        run: brew install xcodegen
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -738,10 +736,8 @@ jobs:
       - name: Select the newest Xcode on the image
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      # GTK only so Xcode 26.6 doesn't crash reading ExtensionKit's
-      # packages (see the Houses job). Nothing links it.
-      - name: Install xcodegen, and GTK for the kit
-        run: brew install xcodegen gtk4
+      - name: Install xcodegen
+        run: brew install xcodegen
 
       - name: Show the iPhone simulators on the image
         run: xcrun simctl list runtimes available | grep '^iOS '
@@ -903,13 +899,11 @@ jobs:
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      # ExtensionKit's Linux part asks pkg-config for GTK. Without it, Xcode
-      # 26.6 warns while it reads the packages. In the merge queue it then
-      # crashed with an internal error before building anything. GTK is never
-      # linked into the app.
-      - name: Install xcodegen, and GTK for the kit
+      # No GTK: the kit and Properties read their Linux pieces only on
+      # Linux, so Xcode never asks for it (scripts/check-mac-pins.py).
+      - name: Install xcodegen
         if: env.HAS_PROPERTIES_KEY == 'true'
-        run: brew install xcodegen gtk4
+        run: brew install xcodegen
 
       - name: Check out the Properties package at .github/properties-ref
         if: env.HAS_PROPERTIES_KEY == 'true'
