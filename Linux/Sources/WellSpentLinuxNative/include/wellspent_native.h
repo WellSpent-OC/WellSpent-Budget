@@ -49,12 +49,6 @@ void wellspent_watch_lifecycle(const char *app_id, unsigned int clock_seconds,
 /// ending. Call once, after the app's GtkApplication is made.
 void wellspent_quit_on_terminate(void);
 
-/// Tab and Shift+Tab move the keyboard between the controls of the window that
-/// holds `widget` (a GtkWidget), once it is in one. For a sheet, whose window
-/// lets no Tab through in SwiftCrossUI 0.10.0. Once per window is enough; more
-/// calls change nothing.
-void wellspent_tab_moves_focus(void *widget);
-
 /// Makes `widget` (a GtkButton) the default action in its window. Return in
 /// a single-line entry activates it only while it is enabled. The button
 /// waits until it is in a window, and clears the default when unrealized.
