@@ -82,9 +82,13 @@ public enum SyncWording {
     /// What the state says while a sync runs, from either coordinator.
     public static let syncing = "Syncing"
 
-    /// Whether Account can be pressed, on every desktop and the iPhone.
+    /// Whether Account can be pressed, on every desktop and the iPhone. A
+    /// sync doesn't stop it: the app syncs on its own, and a tap that came
+    /// as one started did nothing (#199). Signing out during a sync is safe,
+    /// since `SyncCoordinator.syncAll` stops when the session changes. It is
+    /// off only while an account is being signed into, made or changed.
     public static func accountCanBePressed(for state: SyncCoordinator.State) -> Bool {
-        if case .busy = state { return false }
+        if case .busy(let what) = state { return what == syncing }
         return true
     }
 
