@@ -104,6 +104,9 @@ struct PlanRefusalTests {
         try await sync.signIn(email: "robin@example.com", password: "a-long-password")
         await sync.syncAll()
         #expect(sync.heldOnThisDevice == [beach])
+        // Its marker and notice say so, and See Plans is one click: no
+        // Choose a plan opens by itself (plan item 35).
+        #expect(sync.planSheet == nil, "a group kept on this device opened Choose a plan")
 
         transport.refuseMakingPastThePlan = []
         await sync.syncAll()
