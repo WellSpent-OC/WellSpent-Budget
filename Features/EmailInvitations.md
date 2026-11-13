@@ -85,11 +85,11 @@ Ruling, 2026-11-13: a failed Accept or Reject moved to EMAIL-10, so this scenari
 
 ## EMAIL-08 A link from an earlier WellSpent version still works
 
-Ruling, 2026-11-13: the email, the invitation page and the retries moved to EMAIL-09 on the server, since no app test can see them. This is the line an app shows.
+Ruling, 2026-11-13: the email, the invitation page and the retries moved to EMAIL-09 on the server, since no app test can see them. This is the line an app shows. An earlier version's link is the old Share link, made by the sync share call with no email sent. The UI test fixtures that make one are `legacyInvite` and `shareNewGroup`. A used link is refused by SHARE-10.
 
-- Given an invitation is pending
-- And Leslie has its link from an earlier WellSpent version
-- Then the link still works until it is used, cancelled or expired
+- Given an invitation link made with an earlier WellSpent version, not yet used, cancelled or expired
+- When the person it was sent to pastes or clicks it, types a name and joins
+- Then they are in the group, and it is on Home
 
 ## EMAIL-09 The invitation email and its page
 

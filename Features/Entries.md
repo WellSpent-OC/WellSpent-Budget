@@ -128,13 +128,13 @@ Platforms: Mac, Linux, iPhone, for every INC scenario.
 - And accepting it as Income makes an income entry on the budget he picks
 - And the next line from the same payer is offered the same way
 
-## INC-03 A house's cash flow is money in minus money out, after the mortgage
+## INC-03 A group's cash flow counts the mortgage as money out
 
-Ruling, 2026-11-13: kept apart from WHEEL-15. This is one house's figure after the mortgage, and it never says "profit". WHEEL-15 is a group's wheel. The figure reads "+$4,380", as the app shows it on every platform, not "$4,380.00".
+Ruling, 2026-11-13: this is the core app, with Properties off. Pool House is a plain group, as in INC-01, and the figure is the middle of its wheel on the group's page. It differs from WHEEL-15 only in that a mortgage payment counts as money out and the figure never says "profit". With Properties on, a house's page shows no cash flow (PROP-32). It shows NOI.
 
-- Given Pool House has $9,640.00 in and $5,260.00 out this month, the mortgage included
-- When Robin looks at Pool House
-- Then its cash flow this month says "+$4,380"
+- Given a group called Pool House has $9,640.00 in and $5,260.00 out this month, a mortgage payment included
+- When Robin opens Pool House's page
+- Then its wheel's cash flow this month says "+$4,380"
 - And it never says "profit"
 
 ## INC-04 Money in says which budget it adds to
