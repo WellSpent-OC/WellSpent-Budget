@@ -320,7 +320,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
-| PLAN-17 | Before the App Store sells plans, Choose a plan says "Coming soon" | Mac, iPhone | Mac, iPhone |
+| PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Locks.md](Locks.md)
 
@@ -330,7 +330,7 @@ It is not kept here, where every pull request would change the same lines.
 | LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Linux, iPhone |
 | LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Linux, iPhone |
 | LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Linux, iPhone |
-| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
 | LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Linux, iPhone |
 

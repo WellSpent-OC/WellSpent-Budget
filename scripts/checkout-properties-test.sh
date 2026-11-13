@@ -5,6 +5,11 @@
 #
 #   scripts/checkout-properties-test.sh
 set -eu
+# A git hook runs this with GIT_DIR and its kin set, which would point every
+# git call below at the real repository instead of the throwaway one. On
+# 2026-11-12 that re-initialised the real one and set core.bare. So git's own
+# list of them is cleared first.
+unset $(git rev-parse --local-env-vars)
 script="$(cd "$(dirname "$0")" && pwd)/checkout-properties.sh"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -39,4 +44,23 @@ expect refused "$(printf '%s' "$good" | cut -c1-7)" "a short hash is refused"
 expect refused main "a branch name is refused"
 expect refused 0000000000000000000000000000000000000000 "a hash the repository lacks is refused"
 expect refused "" "an empty pointer is refused"
+
+# Run from under a hook, with GIT_DIR naming another repository, the checkout
+# leaves that repository alone: still not bare, its HEAD where it was.
+git init -q -b main "$tmp/decoy"
+git -C "$tmp/decoy" -c user.name=test -c user.email=test@example.com commit -q --allow-empty -m decoy
+decoy_head="$(git -C "$tmp/decoy" rev-parse HEAD)"
+printf '%s\n' "$good" > "$tmp/ref"
+rm -rf "$tmp/dest"
+GIT_DIR="$tmp/decoy/.git" PROPERTIES_URL="file://$tmp/repo" PROPERTIES_REF_FILE="$tmp/ref" \
+    "$script" "$tmp/dest" > "$tmp/out" 2>&1 || true
+if [ "$(git -C "$tmp/decoy" config core.bare)" = false ] \
+    && [ "$(git -C "$tmp/decoy" rev-parse HEAD)" = "$decoy_head" ] \
+    && [ "$(git -C "$tmp/dest" rev-parse HEAD 2>/dev/null)" = "$good" ]; then
+    echo "pass: a hook's GIT_DIR leaves that repository alone"
+else
+    echo "FAIL: a hook's GIT_DIR: the checkout touched the repository it named, or didn't check out" >&2
+    sed 's/^/    /' "$tmp/out" >&2
+    failed=1
+fi
 exit "$failed"

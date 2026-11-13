@@ -65,6 +65,10 @@ let package = Package(
             // word "live" is live, as on the Mac.
             resources: [
                 .copy("Resources/environment"),
+                // The flags the build carries on (WELLSPENT_FEATURES), written
+                // by the packaging step: Linux's stand-in for the Mac's
+                // Info.plist list. Empty here, so a dev build has none.
+                .copy("Resources/features"),
                 // The look (Design/App_Makeover) and the two fonts it names.
                 .copy("Resources/app_style.css"),
                 .copy("Resources/Fonts"),

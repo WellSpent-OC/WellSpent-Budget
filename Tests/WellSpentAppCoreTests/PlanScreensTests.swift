@@ -233,16 +233,23 @@ struct PlanChoicesScreenTests {
         let open = PlanChoicesScreen(answer: answer(.free, properties: 1), platform: .appleStore, period: .monthly,
                                      storefrontIsUS: true, buyingIsOpen: true)
         #expect(open.canBuy && open.showsRestore)
-        // The website sells through Paddle, so Linux's Continue is always there.
+        // Linux's website button follows the same flag.
         let website = PlanChoicesScreen(answer: answer(.free), platform: .website, period: .monthly,
                                         storefrontIsUS: false, buyingIsOpen: false)
-        #expect(website.canBuy && website.buy == "Continue on wellspent.space")
+        #expect(website.buy == "Coming soon" && !website.canBuy)
+        #expect(!website.showsRestore)
+        #expect(website.rows.map(\.price) == ["$19", "$49", "$99"])
+        let websiteOpen = PlanChoicesScreen(answer: answer(.free), platform: .website, period: .monthly,
+                                            storefrontIsUS: false, buyingIsOpen: true)
+        #expect(websiteOpen.canBuy && websiteOpen.buy == "Continue on wellspent.space")
     }
 
-    @Test func onlyATestBuildCanOpenBuyingEarly() {
-        #expect(PlanBuying.isOpen(in: [:]) == PlanBuying.opensInThisBuild)
-        #expect(PlanBuying.isOpen(in: [PlanBuying.variable: "open"]))
-        #expect(PlanBuying.isOpen(in: [PlanBuying.variable: "no"]) == PlanBuying.opensInThisBuild)
+    @Test func theScreensFollowThePurchasesFlag() {
+        // No argument asks PlanBuying, which this test run leaves off.
+        #expect(!PlanBuying.isOpen(processEnvironment: [:]))
+        let screen = PlanChoicesScreen(answer: answer(.free), platform: .appleStore, period: .monthly,
+                                       storefrontIsUS: true)
+        #expect(screen.canBuy == PlanBuying.isOpen())
     }
 
     @Test func aPaidPlanStartsOnItself() {
@@ -261,7 +268,7 @@ struct PlanChoicesScreenTests {
 
     @Test func onLinuxTheButtonGoesToTheWebsite() {
         let choices = PlanChoicesScreen(answer: answer(.free), platform: .website, period: .monthly, selected: .growth,
-                                        storefrontIsUS: true)
+                                        storefrontIsUS: true, buyingIsOpen: true)
         #expect(choices.buy == "Continue on wellspent.space")
         #expect(choices.finePrint == "On Linux you pay on our website. The plan works on every device you sign in on.")
         #expect(!choices.showsRestore && !choices.showsTermsAndPrivacy)
