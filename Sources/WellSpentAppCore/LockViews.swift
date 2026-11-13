@@ -40,7 +40,10 @@ struct LockedCardView: View {
             .padding(.top, 4)
         }
         .padding(24)
-        .frame(maxWidth: 520, alignment: .leading)
+        // A smallest width too: the window takes the smallest size its
+        // content allows, and squeezed to a word a line, the lines grew the
+        // window past the screen (#192).
+        .frame(minWidth: 360, maxWidth: 520, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.muted.opacity(0.5), lineWidth: 1.5))
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
