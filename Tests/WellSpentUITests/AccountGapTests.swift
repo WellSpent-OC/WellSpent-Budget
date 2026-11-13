@@ -70,6 +70,9 @@ final class AccountGapTests: XCTestCase {
         let desktop = try await Self.desktop(at: mailbox.server)
         _ = try await desktop.signUp(email: email, password: password, deviceLabel: Self.desktopName)
         try await desktop.verifyEmail(code: try await mailbox.code(for: email, timeout: 30))
+        // A paid plan, so the server takes both groups this test makes. On
+        // the free plan it keeps the second one off (PLAN-18).
+        try await mailbox.setPlan("starter", for: email)
 
         // Scenario ACCT-01
         // 2. Signed out, the foot of the list says the budgets are kept on

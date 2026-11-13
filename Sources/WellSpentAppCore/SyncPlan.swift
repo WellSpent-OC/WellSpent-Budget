@@ -50,6 +50,16 @@ enum GroupAction: Equatable, Sendable {
     /// restore from an older backup. Nothing is hidden, deleted or sent;
     /// the app says so.
     case missingOnServer(GroupID)
+
+    /// The group this action makes on the server for the first time, for a
+    /// group made on this device. A plan that syncs no more groups refuses
+    /// exactly these, and the group then stays here only.
+    var groupMadeHere: GroupID? {
+        switch self {
+        case .create(let group), .moveAsCreator(let group, _): return group
+        default: return nil
+        }
+    }
 }
 
 enum SyncPlan {

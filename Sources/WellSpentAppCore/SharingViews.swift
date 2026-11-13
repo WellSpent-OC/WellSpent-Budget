@@ -312,19 +312,40 @@ struct GroupPage: View {
     let invite: () -> Void
     /// Opens the New Budget sheet for this group.
     let addBudget: () -> Void
+    /// Opens Choose a plan, from the notice on a group kept on this Mac.
+    let seePlans: () -> Void
     @State private var screen: MembersScreen
     private typealias Words = MembersScreen.Words
 
     /// `screen` opens the page on one made already, for tests.
     init(sync: SyncCoordinator, group: BudgetGroup, main: MainScreen, showingAccount: Binding<Bool>,
-         invite: @escaping () -> Void = {}, addBudget: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
+         invite: @escaping () -> Void = {}, addBudget: @escaping () -> Void = {},
+         seePlans: @escaping () -> Void = {}, screen: MembersScreen? = nil) {
         self.sync = sync
         self.group = group
         self.main = main
         _showingAccount = showingAccount
         self.invite = invite
         self.addBudget = addBudget
+        self.seePlans = seePlans
         _screen = State(initialValue: screen ?? MembersScreen(actions: sync, group: group.id, groupName: group.name))
+    }
+
+    /// PLAN-18: why this group is only on this Mac, and the way to a plan.
+    private func heldNotice(_ held: HeldGroupScreen) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(held.notice)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(held.action, action: seePlans)
+                .accessibilityIdentifier(AccessibilityID.groupHeldSeePlans)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityID.groupHeldNotice)
     }
 
     var body: some View {
@@ -348,6 +369,9 @@ struct GroupPage: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if let held = main.workspace.heldScreen(group: group.id, device: .mac) {
+                        heldNotice(held)
+                    }
                     header
                     // Every budget in the group added up for the month, above
                     // its people. None for a group with no budgets.
