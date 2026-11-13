@@ -105,6 +105,32 @@ final class PhonePlanTests: XCTestCase {
         }
     }
 
+    /// #199, local only: the first Account tap after the app comes back to
+    /// the front is lost now and then. Each round closes Account, presses
+    /// Home (at once, or 1.2 s later as in the nightly), comes back with a new
+    /// plan answer, and taps Account. Twelve rounds, since the nightly lost
+    /// about one in six.
+    @MainActor
+    func testAccountOpensEveryTimeAfterComingBackToTheFront() throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try launch(with: Self.states[0].1)
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        openAccount(run)
+        for round in 1...12 {
+            run.tap(AccessibilityID.accountClose)
+            if round.isMultiple(of: 2) { Thread.sleep(forTimeInterval: 1.2) }
+            let (name, answer) = Self.states[round % Self.states.count]
+            try show(answer, in: run)
+            let button = run.element(AccessibilityID.toolbarAccount)
+            XCTAssertTrue(run.wait(for: button, until: "isEnabled == true", timeout: 60),
+                          "round \(round): Account stayed disabled")
+            run.tap(AccessibilityID.toolbarAccount)
+            XCTAssertTrue(run.app.navigationBars[AccountFlow.Step.account.title].waitForExistence(timeout: 10),
+                          "round \(round) (\(name), \(round.isMultiple(of: 2) ? "1.2 s" : "no") wait): Account didn't open. "
+                          + "On screen: \(run.visibleTexts())")
+        }
+    }
+
     // Scenario PLAN-02, PLAN-03
     @MainActor
     func testSeePlansOpensChooseAPlanAndYearlyShowsYearlyPrices() throws {
