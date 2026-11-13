@@ -1,5 +1,5 @@
 {
-  "originHash" : "2d6141fdebf0affea6d05f8cc5debbb7a1038e286560b67b2d9c5c14aa08dacd",
+  "originHash" : "27aae3280ceb7de8eb7657029edf7dde11c70711340ef1da0c053b3f95ecd629",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -42,8 +42,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git",
       "state" : {
-        "revision" : "6969c650ae572b91326993d1f9fdbb807bd9ebbc",
-        "version" : "0.2.0"
+        "revision" : "4e9abc8cc8a4a01c4b8ab5719537749837d7f642"
       }
     }
   ],
