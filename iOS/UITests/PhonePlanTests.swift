@@ -205,7 +205,12 @@ final class PhonePlanTests: XCTestCase {
         let run = try launch(with: free)
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         openAccount(run)
+        Self.note("before Restore", run)
         run.tap(AccessibilityID.planRestore)
+        Thread.sleep(forTimeInterval: 1)
+        Self.note("1 s after Restore", run)
+        Thread.sleep(forTimeInterval: 4)
+        Self.note("5 s after Restore", run)
 
         // The local test store holds no purchase, so nothing comes back.
         let nothing = RestoreResultScreen(answer: free, device: "iPhone")
@@ -219,10 +224,28 @@ final class PhonePlanTests: XCTestCase {
                       + "Status: \(run.element(AccessibilityID.planStatus).exists ? run.element(AccessibilityID.planStatus).label : "none"). "
                       + "Buttons: \(run.visibleButtons()). On screen: \(run.visibleTexts())")
         for line in nothing.lines {
-            XCTAssertTrue(run.shows(line), "missing \"\(line)\"")
+            XCTAssertTrue(run.shows(line), "missing \"\(line)\". On screen: \(run.visibleTexts())")
         }
         run.app.navigationBars[nothing.title].buttons[nothing.close].tap()
         XCTAssertTrue(run.has(AccessibilityID.planCard), "the plan card went away after Restore")
+    }
+
+    /// Proof run only (#202): what the screen shows at a step, as masked
+    /// texts and buttons, and a picture unless a test account's address is
+    /// on screen.
+    @MainActor
+    private static func note(_ step: String, _ run: PhoneTestApp) {
+        let words = XCTAttachment(string: "Texts: \(run.visibleTexts())\nButtons: \(run.visibleButtons())")
+        words.name = "#202 \(step), words"
+        words.lifetime = .keepAlways
+        XCTContext.runActivity(named: "#202 \(step)") { $0.add(words) }
+        print("#202 \(step): texts \(run.visibleTexts()) buttons \(run.visibleButtons())")
+        let apps = [XCUIApplication(), XCUIApplication(bundleIdentifier: "com.apple.springboard")]
+        guard !ScreenPrivacy.showsAnAddress(in: apps) else { return }
+        let picture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        picture.name = "#202 \(step)"
+        picture.lifetime = .keepAlways
+        XCTContext.runActivity(named: "#202 \(step) picture") { $0.add(picture) }
     }
 
     /// Opens Account and waits for it. Account is disabled while a sync
