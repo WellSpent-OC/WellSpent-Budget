@@ -188,7 +188,7 @@ final class EntryEditingTests: XCTestCase {
         let link = try await second.shareNewGroup(groupName, budget: budget, entry: "Costco",
                                                   amount: Money(minorUnits: 2863), myName: "Leslie", role: .add)
 
-        // Scenario PASTE-03, SHARE-07, EMAIL-08
+        // Scenario PASTE-03, SHARE-07
         // 2. The window joins with the link, which takes the group in.
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
