@@ -27,16 +27,23 @@ on:
     - cron: '0 9 * * *'
   # Started by hand, it runs everything, as the nightly does. "houses" runs
   # the Houses UI job without the other UI suites, to prove one change to it.
+  # "linux" names Linux UI tests to run on their own, so one file or one test
+  # is proved on the exact head without the whole two-hour suite.
   workflow_dispatch:
     inputs:
       only:
         description: 'Leave empty to run everything. "houses" skips the other UI suites.'
         required: false
         default: ''
+      linux:
+        description: 'Linux UI tests to run on their own, such as test_import or test_import.Class.test_name, separated by spaces. The other UI suites are skipped.'
+        required: false
+        default: ''
 
-# A newer push to a pull request stops its older run.
+# A newer push to a pull request stops its older run. A run started by hand
+# has a group of its own, so two at once on one branch both finish.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -357,9 +364,10 @@ jobs:
   # screen through GTK's accessibility tree and act as a person does. Not a
   # required check until its first green run. In two parts at once, as the
   # Mac's are: run_tests.py splits the modules by WELLSPENT_UI_SHARD, and one
-  # run took longer than the two hours a job may.
+  # run took longer than the two hours a job may. Started by hand with tests
+  # named in "linux", one job runs just those.
   linux-ui-test-part:
-    name: Linux UI test, part ${{ matrix.part }} of 2
+    name: ${{ inputs.linux != '' && 'Linux UI test, the tests named' || format('Linux UI test, part {0} of 2', matrix.part) }}
     # Nightly and by hand only; a pull request runs the fast checks.
     if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
     runs-on: ubuntu-latest
@@ -367,13 +375,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [1, 2]
+        part: ${{ fromJSON(inputs.linux != '' && '[1]' || '[1, 2]') }}
     container:
       image: swift:6.2.4-noble
       # A failed step reads a stuck app's stacks with lldb, which needs ptrace.
       options: --cap-add=SYS_PTRACE
     steps:
       - uses: actions/checkout@v4
+
+      # Only test names, so nothing else reaches the shell below.
+      - name: The tests named are only test names
+        if: inputs.linux != ''
+        env:
+          NAMED: ${{ inputs.linux }}
+        run: |
+          if printf '%s\n' "$NAMED" | grep -Eq '[^A-Za-z0-9_. ]' || [ -z "$(printf '%s' "$NAMED" | tr -d ' ')" ]; then
+            echo "::error::\"linux\" takes test names separated by spaces, such as test_import.Class.test_name."
+            exit 1
+          fi
 
       - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
         run: |
@@ -405,13 +424,16 @@ jobs:
           # WarTable's tests run in the job below, which does not fail the night.
           WELLSPENT_UI_LEAVE_OUT: test_wartable
           WELLSPENT_UI_SHARD: ${{ matrix.part }}/2
+          # Tests named here run instead, and the share is not used.
+          NAMED: ${{ inputs.linux }}
         # A private SQLite database and synthetic mailbox from this revision;
         # no deployed-server version or account secret is needed for this run.
+        # NAMED is left unquoted, so each name is its own argument.
         run: >
           WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux"
           python3 Server/scripts/with-ui-fixture.py
           --server "$(swift build --package-path Server --show-bin-path)/WellSpentServer"
-          -- Linux/UITests/run.sh
+          -- Linux/UITests/run.sh $NAMED
 
       # The counts go to the job below, which measures both parts together.
       # Part 1's app goes too: the counts are read against the app they came
@@ -470,7 +492,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A run of named tests covers too little to measure, so it skips this.
       - name: Fetch both parts' coverage counts
+        if: inputs.linux == ''
         uses: actions/download-artifact@v4
         with:
           pattern: linux-ui-coverage-*
@@ -481,6 +505,7 @@ jobs:
       # Advisory until the scenarios' tests are all in: the number is low
       # until then, so it reports and does not fail the job yet.
       - name: Line coverage of the Linux app, both parts
+        if: inputs.linux == ''
         continue-on-error: true
         run: Linux/UITests/coverage.sh .build/linux-ui-coverage/WellSpentLinux .build/linux-ui-coverage 90
 
@@ -501,7 +526,7 @@ jobs:
   # again they go back into the job above.
   linux-wartable-ui-test:
     name: Linux UI test, WarTable
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -582,7 +607,7 @@ jobs:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
     runs-on: macos-latest
     # Every Mac scenario has a UI test now, and a part runs close to an hour
     # on GitHub's Macs. 120 leaves room; a hung run still stops.
@@ -671,7 +696,7 @@ jobs:
   mac-ui-test:
     name: Mac UI test
     needs: mac-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -721,7 +746,7 @@ jobs:
     name: iPhone UI test, part ${{ matrix.part }} of 2, ${{ matrix.look }}
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
     runs-on: macos-latest
     timeout-minutes: 240
     strategy:
@@ -803,7 +828,7 @@ jobs:
   iphone-ui-test:
     name: iPhone UI test
     needs: iphone-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -870,7 +895,7 @@ jobs:
     # Nightly and by hand only, like every UI suite: a failure becomes a bug,
     # fixed the next morning. Not in the merge queue or on pull requests, and
     # Gate doesn't wait on it.
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.linux == '') }}
     runs-on: macos-latest
     # Each iPhone look has a Mac of its own: both looks in one job took 81
     # minutes one day and passed 120 the next, as the runners' speed swings.
