@@ -269,6 +269,8 @@ func registerApplePlanRoutes(_ routes: any RoutesBuilder) {
             plan.paidUntil = until
             plan.renews = true
             plan.nextTier = nil
+            plan.graceUntil = nil
+            PlanClock.clearLastPlan(plan)
             try await plan.save(on: db)
         }
         return try await PlanAnswer.of(user.id, on: request.db)

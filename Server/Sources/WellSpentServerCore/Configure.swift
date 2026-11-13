@@ -93,6 +93,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreatePlans())
     app.migrations.add(AddPlanLocks())
     app.migrations.add(AddPlanStoreEnvironment())
+    app.migrations.add(AddPlanTime())
 
     // Migrating at boot is fine for one instance and wrong for several: two
     // starting at once will race on the same schema.
