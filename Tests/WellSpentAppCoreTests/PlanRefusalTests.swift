@@ -112,4 +112,33 @@ struct PlanRefusalTests {
         await sync.syncAll()
         #expect(sync.heldOnThisDevice.isEmpty, "once the server takes it, it isn't held")
     }
+
+    /// The notice names the group the free plan does sync: one Robin made,
+    /// since the server counts the groups he pays for. A group he only
+    /// joined, listed first, is not it.
+    @Test func theNoticeNamesHisOwnSyncedGroupNotOneHeJoined() async throws {
+        let server = InMemoryReadableServer()
+        server.seedAccount(email: "robin@example.com", password: "a-long-password")
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let transport = StubReadableTransport(server: server)
+        let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   makeTransport: { _ in transport })
+        let model = AppModel(store: store)
+        let workspace = Workspace(model: model, sync: sync)
+        model.addGroup(named: "Home")
+        model.addGroup(named: "Beach")
+        let beach = try #require(model.groups.first { $0.name == "Beach" }).id
+        transport.refuseMakingPastThePlan = [beach]
+        try await sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await sync.syncAll()
+        // Leslie's Alps, which Robin joined, listed before his own groups.
+        model.addGroup(named: "Alps")
+        let alps = try #require(model.groups.first { $0.name == "Alps" }).id
+        try store.saveServerGroup(ServerGroupInfo(groupID: alps, founderID: UserID(), level: .write, importKey: Data()))
+        model.reload()
+        #expect(model.groups.first?.name == "Alps", "the joined group isn't listed first: \(model.groups.map(\.name))")
+
+        let held = try #require(workspace.heldScreen(group: beach, device: .mac, buyingIsOpen: false))
+        #expect(held.notice.contains("and Home is that group"), "it names the wrong group: \(held.notice)")
+    }
 }
