@@ -87,7 +87,21 @@ final class PlanRow: Model, @unchecked Sendable {
     @Field(key: "state") var state: String
     /// Apple's original transaction ID or Paddle's subscription ID.
     @OptionalField(key: "store_id") var storeID: String?
+    /// Apple's "Production" or "Sandbox". Live takes both, since App Review
+    /// and TestFlight buy in sandbox, so sandbox plans can be found and ended.
+    /// Nil for a plan no store sold (`AddPlanStoreEnvironment`).
+    @OptionalField(key: "store_environment") var storeEnvironment: String?
+    /// When the store's transaction the plan stands on was bought. An older
+    /// transaction from the same purchase never takes the plan back.
+    @OptionalField(key: "store_purchased_at") var storePurchasedAt: Date?
     @OptionalField(key: "paid_until") var paidUntil: Date?
+    /// When a failed payment's grace period ends and extras lock (`AddPlanTime`).
+    @OptionalField(key: "grace_until") var graceUntil: Date?
+    /// The last paid plan, once it ended or was refunded, until the next
+    /// purchase: its tier, when it ended, and "ended" or "refunded".
+    @OptionalField(key: "last_tier") var lastTier: String?
+    @OptionalField(key: "last_ended_on") var lastEndedOn: Date?
+    @OptionalField(key: "last_reason") var lastReason: String?
     @Field(key: "renews") var renews: Bool
     /// A move down, waiting for the paid period to end.
     @OptionalField(key: "next_tier") var nextTier: String?
@@ -151,6 +165,8 @@ extension PlanRow {
     /// first asks at once both try to make it; the second finds the first's.
     static func forUser(_ userID: UUID, on db: any Database) async throws -> PlanRow {
         if let plan = try await PlanRow.query(on: db).filter(\.$userID == userID).first() {
+            // Paid time that ran out since the last read (PlanClock).
+            if PlanClock.advance(plan) { try await plan.save(on: db) }
             return plan
         }
         let plan = PlanRow(userID: userID)
@@ -195,6 +211,17 @@ struct PlanAnswer: Content, Equatable {
     /// nothing is locked. IDs only: the app names them from its own data.
     var locked: PlanLockedAnswer? = nil
     var open: PlanOpenAnswer? = nil
+    /// When extras lock during a failed payment. Nil outside the grace period.
+    var graceUntil: Date? = nil
+    /// The last paid plan, once it ended or was refunded, until the next purchase.
+    var lastPlan: PlanLastAnswer? = nil
+}
+
+/// `lastPlan`: the tier that ended, when, and "ended" or "refunded".
+struct PlanLastAnswer: Content, Equatable {
+    let tier: Tier
+    let endedOn: Date
+    let reason: String
 }
 
 /// How much of each limit an account uses, counting only the groups it pays
@@ -237,8 +264,9 @@ struct PlanUsage: Equatable {
 
 extension PlanAnswer {
     init(_ plan: PlanRow, usage: PlanUsage) {
-        let tier = Tier(rawValue: plan.tier) ?? .free
-        self.init(tier: tier, period: plan.period, state: plan.state, source: plan.source,
+        // The paid tier stays named in billing problem; only its limits drop.
+        let tier = plan.limitTier
+        self.init(tier: Tier(rawValue: plan.tier) ?? .free, period: plan.period, state: plan.state, source: plan.source,
                   paidUntil: plan.paidUntil, renews: plan.renews,
                   nextTier: plan.nextTier.flatMap(Tier.init(rawValue:)),
                   limits: Counts(properties: plan.maxPropertiesOverride ?? tier.maxProperties,
@@ -247,6 +275,10 @@ extension PlanAnswer {
                                invitedPerGroup: usage.invitedPerGroup),
                   extensionsOpen: tier.extensionsOpen, canSyncPriceLabs: tier.canSyncPriceLabs,
                   refreshMinutes: Plans.refreshMinutes, appleAccountToken: plan.appleAccountToken)
+        graceUntil = plan.state == "grace" ? plan.graceUntil : nil
+        if let last = plan.lastTier.flatMap(Tier.init(rawValue:)), let endedOn = plan.lastEndedOn, let reason = plan.lastReason {
+            lastPlan = PlanLastAnswer(tier: last, endedOn: endedOn, reason: reason)
+        }
     }
 
     /// The whole answer for an account, with what its plan locks.
