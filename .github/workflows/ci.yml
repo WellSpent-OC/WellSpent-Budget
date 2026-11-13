@@ -820,8 +820,9 @@ jobs:
   # Every UI test's "Scenario" line names a real scenario, on a platform that
   # scenario names, and the tables in Features/README.md match the tags (the
   # Definition of Done, item 3). The run's summary lists what still has no
-  # test. Once nothing is left, this adds --require-all, and a scenario
-  # without a test on one of its platforms fails the pull request.
+  # test. The day a platform has nothing left, this adds --require for it
+  # (--require Mac, say), and from then on a scenario without a test on that
+  # platform fails the pull request.
   scenario-check:
     name: Scenario check
     runs-on: ubuntu-latest
