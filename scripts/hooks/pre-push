@@ -9,5 +9,10 @@ if [ "${SKIP_PREPUSH:-}" = "1" ]; then
     exit 0
 fi
 cd "$(git rev-parse --show-toplevel)" || exit 1
+# Git runs hooks with GIT_DIR and its kin set. Left in place, every git call
+# under make prepush goes to this repository: Xcode's package checkouts fail,
+# and a script that makes a throwaway repository writes into this one. Clear
+# git's own list of them, now that the top level is found.
+unset $(git rev-parse --local-env-vars)
 echo "pre-push: running make prepush (about 25 minutes on a Mac; SKIP_PREPUSH=1 skips it)" >&2
 exec make prepush

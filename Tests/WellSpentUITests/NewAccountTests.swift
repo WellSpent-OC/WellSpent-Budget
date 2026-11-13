@@ -392,7 +392,7 @@ final class NewAccountTests: XCTestCase {
         XCTAssertEqual(marked.count, 1, "one group, not \(marked), says \(marker)")
         let held = try XCTUnwrap(marked.first)
         let synced = held == "Home" ? "Beach" : "Home"
-        let expected = HeldGroupScreen(group: held, synced: synced, device: .mac, platform: .appleStore)
+        let expected = HeldGroupScreen(group: held, synced: synced, device: .mac)
         run.openGroupPage(named: held)
         XCTAssertTrue(run.element(AccessibilityID.groupHeldNotice).waitForExistence(timeout: 10),
                       "\(held)'s page has no notice. On screen: \(run.visibleTexts())")

@@ -31,16 +31,15 @@ public struct HeldGroupScreen: Equatable, Sendable {
     /// - Parameters:
     ///   - group: the held group's name.
     ///   - synced: the name of the group the free plan does sync, when there is one.
-    ///   - buyingIsOpen: whether Choose a plan can sell a plan here. While it says
-    ///     "Coming soon", the notice doesn't tell people to pick one.
-    public init(group: String, synced: String?, device: ThisDevice, platform: PlanPlatform,
+    ///   - buyingIsOpen: whether Choose a plan can sell a plan, on any platform.
+    ///     While it says "Coming soon", the notice doesn't tell people to pick one.
+    public init(group: String, synced: String?, device: ThisDevice,
                 buyingIsOpen: Bool = PlanBuying.isOpen()) {
         marker = "Only on \(device.phrase)"
-        let selling = platform != .appleStore || buyingIsOpen
         var words = "\(group) is only on \(device.phrase). Your free plan syncs 1 group"
         words += synced.map { ", and \($0) is that group. " } ?? ". "
         words += "Nothing in \(group) is deleted. "
-        words += selling ? "Choose a plan to sync it too." : "Paid plans are coming soon."
+        words += buyingIsOpen ? "Choose a plan to sync it too." : "Paid plans are coming soon."
         notice = words
     }
 }

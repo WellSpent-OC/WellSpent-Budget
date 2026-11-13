@@ -272,7 +272,12 @@ final class TestApp {
         guard let root = try? app.snapshot() else { return [] }
         var texts: [String] = []
         func walk(_ node: XCUIElementSnapshot) {
-            if node.elementType == .staticText, !node.label.isEmpty { texts.append(node.label) }
+            // On the Mac a static text holds its words in its value and leaves
+            // its label empty, so read the value when the label is empty.
+            if node.elementType == .staticText {
+                let words = node.label.isEmpty ? (node.value as? String ?? "") : node.label
+                if !words.isEmpty { texts.append(words) }
+            }
             node.children.forEach(walk)
         }
         walk(root)

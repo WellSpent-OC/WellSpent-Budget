@@ -36,7 +36,7 @@ struct HeldGroupViewTests {
         try await sync.signIn(email: "robin@example.com", password: "a-long-password")
         await sync.syncAll()
 
-        let expected = HeldGroupScreen(group: "Beach", synced: "Home", device: .mac, platform: .appleStore)
+        let expected = HeldGroupScreen(group: "Beach", synced: "Home", device: .mac)
         let page = try texts(GroupPage(sync: sync, group: beach, main: main, showingAccount: .constant(false)))
         #expect(page.contains(expected.notice), "no notice in \(page)")
         let other = try texts(GroupPage(sync: sync, group: home, main: main, showingAccount: .constant(false)))

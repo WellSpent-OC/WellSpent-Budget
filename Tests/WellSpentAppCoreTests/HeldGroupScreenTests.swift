@@ -5,7 +5,7 @@ import Testing
 @Suite("A group kept on this device only")
 struct HeldGroupScreenTests {
     @Test func beforeTheStoreSellsPlansItDoesNotAskForOne() {
-        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .mac, platform: .appleStore,
+        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .mac,
                                      buyingIsOpen: false)
         #expect(screen.marker == "Only on this Mac")
         #expect(screen.notice == "Beach is only on this Mac. Your free plan syncs 1 group, and Home is that group. "
@@ -14,24 +14,24 @@ struct HeldGroupScreenTests {
     }
 
     @Test func withPlansOnSaleItSaysChooseAPlan() {
-        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .iPhone, platform: .appleStore,
+        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .iPhone,
                                      buyingIsOpen: true)
         #expect(screen.marker == "Only on this iPhone")
         #expect(screen.notice == "Beach is only on this iPhone. Your free plan syncs 1 group, and Home is that group. "
             + "Nothing in Beach is deleted. Choose a plan to sync it too.")
     }
 
-    /// The website always sells plans, so Linux always says Choose a plan.
-    @Test func onTheWebsiteItAlwaysSaysChooseAPlan() {
-        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .computer, platform: .website,
+    /// Linux follows the same switch: no "Choose a plan" until buying is open.
+    @Test func onLinuxItWaitsForBuyingToOpenToo() {
+        let screen = HeldGroupScreen(group: "Beach", synced: "Home", device: .computer,
                                      buyingIsOpen: false)
         #expect(screen.marker == "Only on this computer")
-        #expect(screen.notice.hasSuffix("Choose a plan to sync it too."))
+        #expect(screen.notice.hasSuffix("Paid plans are coming soon."))
     }
 
     /// With no synced group to name, it leaves the name out.
     @Test func withNoSyncedGroupItNamesNone() {
-        let screen = HeldGroupScreen(group: "Beach", synced: nil, device: .mac, platform: .appleStore,
+        let screen = HeldGroupScreen(group: "Beach", synced: nil, device: .mac,
                                      buyingIsOpen: false)
         #expect(screen.notice == "Beach is only on this Mac. Your free plan syncs 1 group. "
             + "Nothing in Beach is deleted. Paid plans are coming soon.")

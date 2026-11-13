@@ -96,6 +96,9 @@ final class PlanTests: XCTestCase {
 
         // Scenario PLAN-11
         try show(run, Self.answer(locked: Self.twoPropertiesLocked, lastPlan: "ended"))
+        // An ended plan with something locked opens the pick on its own, once
+        // (LOCK-05). Skip it to read the card.
+        skipThePick(run)
         openAccount(run)
         expectCard(run, title: "Free plan", badge: "Free",
                    lines: ["2 properties are locked until you pick a plan. Nothing was deleted."], action: "See Plans")
@@ -127,7 +130,7 @@ final class PlanTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
         for (tier, price) in [("starter", "$19"), ("growth", "$49"), ("portfolio", "$99")] {
             XCTAssertTrue(run.element("plan.row.\(tier)").exists, "no \(tier) row")
-            XCTAssertTrue(run.visibleTexts().contains(price), "no \(price). On screen: \(run.visibleTexts())")
+            XCTAssertTrue(priceShows(run, tier, price), "no \(price). On screen: \(run.visibleTexts())")
         }
         XCTAssertTrue(run.element("plan.row.starter").isSelected, "Starter, the plan that fits, isn't picked")
         XCTAssertTrue(run.visibleTexts().contains("Subscribe for $19 a Month")
@@ -136,11 +139,15 @@ final class PlanTests: XCTestCase {
 
         // Scenario PLAN-03
         run.click(AccessibilityID.planYearly)
-        for price in ["$190", "$490", "$990"] {
-            XCTAssertTrue(run.app.staticTexts[price].waitForExistence(timeout: 5),
+        for (tier, price) in [("starter", "$190"), ("growth", "$490"), ("portfolio", "$990")] {
+            XCTAssertTrue(priceShows(run, tier, price, timeout: 5),
                           "no \(price) yearly. On screen: \(run.visibleTexts())")
         }
-        XCTAssertTrue(run.visibleTexts().contains { $0.contains("2 months free") }, "Yearly doesn't say 2 months free")
+        // The note is part of the Yearly segment's own label on the Mac.
+        let yearly = run.element(AccessibilityID.planYearly)
+        XCTAssertTrue([yearly.label, run.text(of: yearly)].contains { $0.contains("2 months free") }
+                        || run.visibleTexts().contains { $0.contains("2 months free") },
+                      "Yearly doesn't say 2 months free")
 
         run.click(AccessibilityID.planNotNow)
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
@@ -148,6 +155,54 @@ final class PlanTests: XCTestCase {
 
     // Scenario PLAN-17
     /// Build A: the plans show, and nothing can be bought or restored.
+    // Scenario LOCK-05
+    /// After the grace days, the server sends the locks in a later answer than
+    /// the ended plan. The pick still opens on its own, once, and its rows
+    /// keep their own names, so VoiceOver and the tests can tell them apart.
+    @MainActor
+    func testThePickOpensWhenTheLocksComeAfterThePlanEnds() async throws {
+        let run = try signedIn()
+        // Robin's other device deletes the groups from staging after the
+        // test, even when an assertion stops it. A run's accounts are shared
+        // by every class in it.
+        let accounts = try TestAccounts.fromEnvironment()
+        let elsewhere = try SecondAccount(server: accounts.server)
+        try await elsewhere.signIn(email: accounts.email, password: accounts.password)
+        addTeardownBlock { @MainActor in
+            await elsewhere.sync.syncAll()
+            await elsewhere.deleteGroup(named: "Home")
+            await elsewhere.deleteGroup(named: "Beach")
+            await elsewhere.cleanUp()
+        }
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+        // Its own end date, apart from the card test's, so the pick hasn't
+        // been shown for it.
+        let ended = Self.day(in: -20)
+
+        // The plan has ended, and nothing is locked yet: no pick.
+        try show(run, Self.answer(lastPlan: "ended", endedOn: ended))
+        let sheet = run.element(AccessibilityID.pickSheet)
+        XCTAssertFalse(sheet.waitForExistence(timeout: 5), "the pick opened with nothing locked")
+
+        // The grace days are over and the locks arrive: the pick opens on its own.
+        try show(run, Self.answer(locked: Self.twoPropertiesLocked, lastPlan: "ended", endedOn: ended))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 30),
+                      "the pick didn't open when the locks came. On screen: \(run.visibleTexts())")
+
+        // Each group's row has its own identifier, not the sheet's.
+        let rows = run.app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'pick.group.'")).allElementsBoundByIndex
+        let names = Set(rows.compactMap { row in ["Home", "Beach"].first { row.label.contains($0) } })
+        XCTAssertEqual(names, ["Home", "Beach"], "the pick doesn't list every group: \(rows.map(\.label))")
+
+        // It says what Skip keeps before anyone presses it.
+        XCTAssertTrue(run.visibleTexts().contains { $0.hasPrefix("Skip keeps") },
+                      "it doesn't say what Skip keeps. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.pickSkip)
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 15), "Skip didn't close the pick")
+    }
+
     @MainActor
     func testComingSoonBeforeTheStoreSellsPlans() throws {
         let run = try signedIn(buyingIsOpen: false)
@@ -155,8 +210,8 @@ final class PlanTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.planRestore).exists, "Restore Purchases under the card")
         run.click(AccessibilityID.planCardAction)
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
-        for price in ["$19", "$49", "$99"] {
-            XCTAssertTrue(run.visibleTexts().contains(price), "no \(price). On screen: \(run.visibleTexts())")
+        for (tier, price) in [("starter", "$19"), ("growth", "$49"), ("portfolio", "$99")] {
+            XCTAssertTrue(priceShows(run, tier, price), "no \(price). On screen: \(run.visibleTexts())")
         }
         let buy = run.element(AccessibilityID.planBuy)
         XCTAssertTrue(buy.exists, "no button in Subscribe's place")
@@ -169,6 +224,16 @@ final class PlanTests: XCTestCase {
 
     // MARK: - Steps
 
+    /// Closes the pick that opens on its own when a plan ends with something
+    /// locked, as LOCK-05 says.
+    @MainActor
+    private func skipThePick(_ run: TestApp) {
+        let sheet = run.element(AccessibilityID.pickSheet)
+        XCTAssertTrue(sheet.waitForExistence(timeout: 15), "the pick didn't open on its own. On screen: \(run.visibleTexts())")
+        run.click(AccessibilityID.pickSkip)
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 15), "Skip didn't close the pick")
+    }
+
     /// Rewrites the pinned answer, then sends the app to the back and brings
     /// it forward, which asks for the plan again.
     @MainActor
@@ -179,6 +244,22 @@ final class PlanTests: XCTestCase {
         _ = run.app.wait(for: .runningBackground, timeout: 5)
         run.app.activate()
         XCTAssertTrue(run.app.wait(for: .runningForeground, timeout: 10), "the app didn't come back to the front")
+    }
+
+    /// Whether a plan's row shows its price. On the Mac each row is one
+    /// button, so its price is in the row's own label or value, not a text
+    /// of its own.
+    @MainActor
+    private func priceShows(_ run: TestApp, _ tier: String, _ price: String, timeout: TimeInterval = 0) -> Bool {
+        let row = run.element("plan.row.\(tier)")
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if row.label.contains(price) || run.text(of: row).contains(price) || run.visibleTexts().contains(price) {
+                return true
+            }
+            if Date() < deadline { Thread.sleep(forTimeInterval: 0.5) }
+        } while Date() < deadline
+        return false
     }
 
     @MainActor
@@ -201,9 +282,10 @@ final class PlanTests: XCTestCase {
     private func expectCard(_ run: TestApp, title: String, badge: String? = nil, lines: [String] = [],
                             action: String? = nil, file: StaticString = #filePath, line: UInt = #line) {
         let shown = run.element(AccessibilityID.planCardTitle)
-        XCTAssertTrue(run.wait(for: shown, until: "label == '\(title.replacingOccurrences(of: "'", with: "\\'"))'",
-                               timeout: 15),
-                      "the card says \(shown.label), not \(title)", file: file, line: line)
+        // On the Mac a Text with an identifier may hold its words in its
+        // value, not its label, so read both.
+        XCTAssertTrue(run.wait(for: shown, holds: title, timeout: 15),
+                      "the card says \(run.text(of: shown)), not \(title)", file: file, line: line)
         let texts = run.visibleTexts()
         if let badge { XCTAssertTrue(texts.contains(badge), "no \(badge) badge. On screen: \(texts)", file: file, line: line) }
         for wanted in lines {
@@ -220,7 +302,8 @@ final class PlanTests: XCTestCase {
 
     private static func answer(tier: String = "free", state: String = "free", period: String = "monthly",
                                source: String = "apple", paidUntil: Date? = nil, properties: Int = 1,
-                               locked: String? = nil, lastPlan: String? = nil) -> String {
+                               locked: String? = nil, lastPlan: String? = nil,
+                               endedOn: Date = PlanTests.endedOn) -> String {
         let free = tier == "free"
         let limit = ["free": 1, "starter": 2, "growth": 5, "portfolio": 15][tier] ?? 1
         let date = ISO8601DateFormatter()
@@ -235,7 +318,7 @@ final class PlanTests: XCTestCase {
         ]
         if let locked { fields.append(#""locked":\#(locked)"#) }
         if let lastPlan {
-            fields.append(#""lastPlan":{"tier":"growth","endedOn":"\#(date.string(from: day(in: -2)))","reason":"\#(lastPlan)"}"#)
+            fields.append(#""lastPlan":{"tier":"growth","endedOn":"\#(date.string(from: endedOn))","reason":"\#(lastPlan)"}"#)
         }
         return "{" + fields.joined(separator: ",") + "}"
     }
@@ -250,6 +333,11 @@ final class PlanTests: XCTestCase {
             try FileManager.default.moveItem(at: temporary, to: file)
         }
     }
+
+    /// When the last paid plan ended, fixed for the run. The app shows the
+    /// pick once per ended plan, keyed by this date, so each answer about the
+    /// same ended plan must carry the same one.
+    private static let endedOn = day(in: -2)
 
     private static func day(in days: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: days, to: Date())!
