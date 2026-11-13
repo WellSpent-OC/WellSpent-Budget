@@ -125,9 +125,18 @@ final class PhonePlanTests: XCTestCase {
             XCTAssertTrue(run.wait(for: button, until: "isEnabled == true", timeout: 60),
                           "round \(round): Account stayed disabled")
             run.tap(AccessibilityID.toolbarAccount)
-            XCTAssertTrue(run.app.navigationBars[AccountFlow.Step.account.title].waitForExistence(timeout: 10),
-                          "round \(round) (\(name), \(round.isMultiple(of: 2) ? "1.2 s" : "no") wait): Account didn't open. "
-                          + "On screen: \(run.visibleTexts())")
+            let sheet = run.app.navigationBars[AccountFlow.Step.account.title]
+            if sheet.waitForExistence(timeout: 10) { continue }
+            // Lost. A second tap tells a tap that never arrived (it opens)
+            // from a sheet state left open with nothing on screen (it doesn't).
+            let wait = round.isMultiple(of: 2) ? "1.2 s" : "no"
+            let enabled = button.isEnabled
+            run.tap(AccessibilityID.toolbarAccount)
+            let second = sheet.waitForExistence(timeout: 10)
+            XCTFail("round \(round) (\(name), \(wait) wait): Account didn't open on the first tap. "
+                    + "Account enabled: \(enabled). A second tap \(second ? "opened it" : "did nothing too"). "
+                    + "On screen: \(run.visibleTexts())")
+            return
         }
     }
 
