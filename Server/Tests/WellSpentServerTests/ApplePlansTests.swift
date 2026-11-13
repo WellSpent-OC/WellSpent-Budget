@@ -134,7 +134,7 @@ private func token(of session: V2Session, on app: Application) async throws -> U
                 app.plansEnabled = plans
                 app.applePlansEnabled = apple
                 app.appleVerifier = AppleJWSVerifier(roots: [try chain.rootPEM])
-                let me = try await v2SignUp("apple-off@example.com", on: app)
+                let me = try await v2SignUp("apple-off-\(plans)-\(apple)@example.com", on: app)
                 let jws = try chain.sign(purchase(token: try await token(of: me, on: app)))
                 #expect(try await hand(jws, me, on: app).0 == .notFound)
                 #expect(try await PlanRow.forUser(me.userID, on: app.db).tier == "free")
