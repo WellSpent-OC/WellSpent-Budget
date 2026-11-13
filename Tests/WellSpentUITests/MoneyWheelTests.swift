@@ -285,18 +285,20 @@ final class MoneyWheelTests: XCTestCase {
         run.expectNoSheet()
 
         // Scenario INC-03
-        // 2. The group's wheel says $4,380 of cash flow this month, and
-        // nothing on the page says profit.
+        // 2. On Pool House's page, the wheel's spoken label says "$4,380
+        // ahead" this month, with the mortgage counted as money out, and
+        // nothing on the page or in the label says profit. The drawn
+        // "+$4,380" sits inside the wheel, which reads as one element, so
+        // the test reads its spoken label, as the scenario allows.
         let money = try XCTUnwrap(TodaysBudget.group(groupName, [
             TodaysBudget(bookings, limit: 600_000, spent: 526_000, moneyIn: 964_000, pinnedDay: day),
         ]))
         XCTAssertEqual(money.cashFlow, Money(minorUnits: 438_000), "the test's own numbers")
         run.openGroupPage(named: groupName)
-        // The wheel is one element read as a whole, so its middle's "+$4,380"
-        // is checked as the figure the wheel draws, and the wheel by its words.
-        XCTAssertEqual(money.wheel.cashFlowAmount, "+$4,380", "the scenario's figure")
         run.expect(wheel: AccessibilityID.groupWheel, reads: money.wheel.spokenSummary, "Pool House")
         let wheelWords = run.element(AccessibilityID.groupWheel).label
+        XCTAssertTrue(wheelWords.contains("$4,380 ahead"), "the wheel does not say $4,380 ahead: \(wheelWords)")
+        XCTAssertTrue(wheelWords.contains("out $5,260"), "the mortgage is not in money out: \(wheelWords)")
         let texts = run.visibleTexts() + [wheelWords]
         XCTAssertFalse(texts.contains { $0.localizedCaseInsensitiveContains("profit") },
                        "the page says profit: \(texts)")

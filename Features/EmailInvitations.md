@@ -89,7 +89,7 @@ Ruling, 2026-11-13: the email, the invitation page and the retries moved to EMAI
 
 - Given an invitation link made with an earlier WellSpent version, not yet used, cancelled or expired
 - When the person it was sent to pastes or clicks it, types a name and joins
-- Then they are in the group, and it is on Home
+- Then they are in the group, and it is in their list of groups: the sidebar on the Mac and Linux, Home on the iPhone
 
 ## EMAIL-09 The invitation email and its page
 
