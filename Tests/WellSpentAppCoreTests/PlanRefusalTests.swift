@@ -113,6 +113,39 @@ struct PlanRefusalTests {
         #expect(sync.heldOnThisDevice.isEmpty, "once the server takes it, it isn't held")
     }
 
+    /// Scenario PROP-58. A house past the plan is refused when its records are
+    /// pushed. The engine sets them aside and the round goes on, so the
+    /// refusal comes back inside the round's report, not thrown. It still
+    /// offers Choose a plan, once.
+    @Test func aRefusalAtPushStillOffersChooseAPlan() async throws {
+        let server = InMemoryReadableServer()
+        server.seedAccount(email: "robin@example.com", password: "a-long-password")
+        let store = Store(database: try WellSpentDatabase.inMemory())
+        let transport = StubReadableTransport(server: server)
+        let sync = SyncCoordinator(store: store, keyStore: InMemoryKeyStore(), defaults: isolatedDefaults(),
+                                   makeTransport: { _ in transport })
+        let model = AppModel(store: store)
+        model.addGroup(named: "Rentals")
+        try await sync.signIn(email: "robin@example.com", password: "a-long-password")
+        await sync.syncAll()
+        #expect(sync.planSheet == nil, "nothing was past the plan yet")
+
+        let group = try #require(model.groups.first { $0.name == "Rentals" }).id
+        transport.refusePushedPastThePlan = .budget
+        #expect(model.addBudget(named: "Pool House", limit: Money(minorUnits: 50_000), in: group) != nil)
+        await sync.syncAll()
+        #expect(sync.lastReport?.planRefusal?.limit == "maxProperties", "the server refused nothing")
+        let sheet = try #require(sync.planSheet, "a refusal at push opened no Choose a plan")
+        #expect(sheet.limit == "maxProperties")
+        #expect(sync.heldOnThisDevice.isEmpty, "a refused house held a group")
+
+        // Shown once: the same house refused again on the next round asks nothing.
+        sync.planSheetShown()
+        await sync.syncAll()
+        #expect(sync.lastReport?.planRefusal?.limit == "maxProperties", "the house wasn't refused again")
+        #expect(sync.planSheet == nil, "the same refusal opened Choose a plan twice")
+    }
+
     /// The notice names the group the free plan does sync: one Robin made,
     /// since the server counts the groups he pays for. A group he only
     /// joined, listed first, is not it.
