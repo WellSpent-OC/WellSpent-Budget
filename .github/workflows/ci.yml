@@ -838,6 +838,11 @@ jobs:
       - name: The CI scripts' own tests
         run: make script-test
 
+      # Xcode 26.6 crashes reading a Package.resolved that pins SwiftCrossUI's
+      # packages with Properties linked. They belong to Linux only.
+      - name: The app's Package.resolved pins nothing Linux-only
+        run: make mac-pins
+
   wartable-connector:
     name: WarTable connector tests
     runs-on: ubuntu-latest
@@ -894,6 +899,8 @@ jobs:
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
+      # No GTK: the kit and Properties read their Linux pieces only on
+      # Linux, so Xcode never asks for it (scripts/check-mac-pins.py).
       - name: Install xcodegen
         if: env.HAS_PROPERTIES_KEY == 'true'
         run: brew install xcodegen

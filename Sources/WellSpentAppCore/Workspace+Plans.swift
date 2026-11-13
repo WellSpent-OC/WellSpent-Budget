@@ -1,9 +1,7 @@
 import Foundation
 import WellSpentCrypto
+import WellSpentExtensionKit
 import WellSpentPlans
-#if canImport(WellSpentPropertiesViews)
-import WellSpentPropertiesViews
-#endif
 
 /// The lock and pick screens, built from the plan answer and this device's
 /// groups and people, so the Mac, iPhone and Linux draw the same thing. The
@@ -72,14 +70,8 @@ extension Workspace {
     /// The properties in these groups, from the Properties extension when
     /// it's on. The core never reads a house record itself.
     func planProperties(in groups: [PlanItem]) -> [PlanItem] {
-        #if canImport(WellSpentPropertiesViews)
-        guard let slots = model.extensionSlots as? PropertiesSlots else { return [] }
-        return slots.planProperties(in: Set(groups.map { $0.id.uuidString })).compactMap { house in
-            UUID(uuidString: house.id).map { PlanItem(id: $0, name: house.name) }
-        }
-        #else
-        return []
-        #endif
+        let records = model.extensionSlots?.planRecords(in: Set(groups.map { $0.id.uuidString })) ?? []
+        return records.compactMap { house in UUID(uuidString: house.id).map { PlanItem(id: $0, name: house.name) } }
     }
 
     /// The groups this person made and pays for, oldest first. Groups they
