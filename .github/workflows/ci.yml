@@ -884,8 +884,8 @@ jobs:
       # The Properties classes that sign in to staging, and how many tests
       # each list holds. A new one adds its class here and its count below,
       # in the app pull request that moves .github/properties-ref past it.
-      MAC_SIGNED_IN: ""
-      MAC_SIGNED_IN_COUNT: 0
+      MAC_SIGNED_IN: WellSpentUITests/HouseLockTests
+      MAC_SIGNED_IN_COUNT: 1
       IPHONE_SIGNED_IN: ""
       IPHONE_SIGNED_IN_COUNT: 0
     steps:
