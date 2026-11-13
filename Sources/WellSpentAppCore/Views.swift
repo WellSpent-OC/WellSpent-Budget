@@ -235,7 +235,13 @@ struct RootView: View {
             } else if let group = screen.openGroup {
                 GroupPage(sync: sync, group: group, main: screen, showingAccount: $showingAccount,
                           invite: { editor = .share(group) },
-                          addBudget: { editor = .newBudget(in: group.id) })
+                          addBudget: { editor = .newBudget(in: group.id) },
+                          seePlans: {
+                              // The held notice shows on the Mac only (PLAN-18).
+                              #if os(macOS)
+                              choosingPlan = ChoosePlanRequest(payFor: nil)
+                              #endif
+                          })
                     // A page of its own for each group, and again after a
                     // rename, so its words name the group as it is now.
                     .id([group.id.uuid.uuidString, group.name])
@@ -499,6 +505,11 @@ struct SidebarView: View {
     /// read as the arrow. So the line says the group's name itself, opens the
     /// page when used, and offers the arrow's Hide or Show budgets as an action.
     /// A group the plan locks says so beside its name.
+    /// PLAN-18: a group the free plan kept on this Mac says so beside its name.
+    private func heldMarker(_ section: MainScreen.Section) -> String? {
+        screen.workspace.heldScreen(group: section.group.id, device: .mac)?.marker
+    }
+
     private func isLocked(_ section: MainScreen.Section) -> Bool {
         guard let me = screen.workspace.sync.userID else { return false }
         let locks = screen.workspace.planLocks
@@ -537,6 +548,11 @@ struct SidebarView: View {
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(Palette.muted)
                     }
+                    if let held = heldMarker(section) {
+                        Label(held, systemImage: "laptopcomputer")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Palette.muted)
+                    }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
@@ -545,7 +561,7 @@ struct SidebarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(section.title.uppercased())
-        .accessibilityValue(isLocked(section) ? PlanLocks.mark : "")
+        .accessibilityValue(isLocked(section) ? PlanLocks.mark : heldMarker(section) ?? "")
         .accessibilityIdentifier(AccessibilityID.sidebarGroup(section.group.name))
         .accessibilityAddTraits(section.isPageOpen ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction { screen.openPage(of: section.group.id) }

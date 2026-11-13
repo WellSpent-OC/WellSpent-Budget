@@ -29,9 +29,9 @@ let package = Package(
         // Pinned exactly, the same in three places: here, WellSpent-ExtensionKit
         // and WellSpent-Properties. SwiftPM resolves one version for the whole
         // app, so the three pins move together.
-        .package(url: "https://github.com/stackotter/swift-cross-ui.git", exact: "0.10.0"),
+        .package(url: "https://github.com/WellSpent-OC/swift-cross-ui.git", exact: "0.10.1-wellspent.2"),
         // What a screen reader hears on Linux, shared with the extensions' screens.
-        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", from: "0.4.0"),
+        .package(url: "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git", revision: "4e9abc8cc8a4a01c4b8ab5719537749837d7f642"),
     ] + propertiesDependencies,
     targets: [
         .systemLibrary(name: "CLibsecret", pkgConfig: "libsecret-1"),

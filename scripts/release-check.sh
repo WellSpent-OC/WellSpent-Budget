@@ -9,8 +9,9 @@
 #
 # For both apps it checks the version and build number, the bundle ID, that the
 # build is live, that its code holds Apple's encryption only (crypto-check.sh)
-# and its export answer says so, its one invite link type, and that the
-# provisioning profile fits the app (profile-fit.sh).
+# and its export answer says so, that no test build launch variable is in it
+# (WELLSPENT_PRICELABS, WELLSPENT_PLAN_BUYING), its one invite link type, and that the provisioning
+# profile fits the app (profile-fit.sh).
 # For the Mac app: every icon size, the signature, and the sandbox. For the iPhone app, told apart by its Info.plist sitting at the
 # top of the app: iPhone only, the oldest iOS, the icon, the privacy file, a
 # profile that is not a development one, and the signature. It reads the app and
@@ -52,6 +53,12 @@ expect CFBundleIdentifier app.wellspent.mac
 expect WellSpentEnvironment live
 # Apple's encryption only, which the export answer counts on.
 "$(dirname "$0")/crypto-check.sh" "$app" || problem "the app holds encryption that is not Apple's own"
+# Test builds' launch variables are compiled out of a release, so nobody can
+# turn on test behaviour by launching the app with one. Their names in the app
+# mean a debug build, or a check left outside its #if DEBUG.
+for variable in WELLSPENT_PRICELABS WELLSPENT_PLAN_BUYING; do
+    ! grep -r -a -q "$variable" "$app" || problem "the app reads $variable, a test build's launch variable"
+done
 # The export answer: no encryption that export rules do not exempt. Without it,
 # App Store Connect holds the upload until someone answers by hand.
 expect ITSAppUsesNonExemptEncryption false

@@ -1,5 +1,5 @@
 {
-  "originHash" : "ed103947c43af89089a091d38dbe059a63eb1569de89a4dcdfeaebb2285cd781",
+  "originHash" : "cb405f54f230e7bb1f818682f9d2675850dad844f6990d579c74ed892f3ba85b",
   "pins" : [
     {
       "identity" : "androidkit",
@@ -85,10 +85,10 @@
     {
       "identity" : "swift-cross-ui",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/stackotter/swift-cross-ui.git",
+      "location" : "https://github.com/WellSpent-OC/swift-cross-ui.git",
       "state" : {
-        "revision" : "0f3ec3958b79cdc39a1a3e604516b71ab33a9043",
-        "version" : "0.10.0"
+        "revision" : "ae00ffd68178d65d330d8cab77d8da8e8b2d2556",
+        "version" : "0.10.1-wellspent.2"
       }
     },
     {
@@ -222,8 +222,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/WellSpent-OC/WellSpent-ExtensionKit.git",
       "state" : {
-        "revision" : "3b01d6193023430bbf63add88544ba03d2aa3b47",
-        "version" : "0.4.0"
+        "revision" : "4e9abc8cc8a4a01c4b8ab5719537749837d7f642"
       }
     },
     {

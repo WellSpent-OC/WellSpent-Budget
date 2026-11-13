@@ -206,6 +206,9 @@ public enum AccessibilityID {
     public static func groupRemove(_ name: String) -> String { "group.remove.\(name)" }
     /// The quiet line at the top after a removal.
     public static let groupRemoved = "group.removed"
+    /// PLAN-18: a group the free plan kept on this device only.
+    public static let groupHeldNotice = "group.held.notice"
+    public static let groupHeldSeePlans = "group.held.seePlans"
     /// A person's row on a phone, which opens their page, by the name the row
     /// shows.
     public static func groupPerson(_ name: String) -> String { "group.person.\(name)" }

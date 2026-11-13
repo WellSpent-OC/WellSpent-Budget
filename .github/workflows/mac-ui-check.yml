@@ -8,8 +8,9 @@
 # the Properties deploy key when the branch asks for Properties.
 #
 # A branch may carry .github/mac-ui-check.env with CLASSES (the classes to
-# run, in place of the changed ones) and PROPERTIES_REF (a Properties branch
-# to link, for a Houses test that signs in). Several branches at one commit
+# run, in place of the changed ones) and PROPERTIES_REF (Properties to link,
+# for a Houses test that signs in): "pinned" for the commit in
+# .github/properties-ref, or a full 40 character Properties commit. Several branches at one commit
 # give several runs at once, each with its own accounts.
 name: Mac UI check
 
@@ -63,25 +64,22 @@ jobs:
         if: steps.classes.outputs.list != ''
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
 
-      # GTK only so Xcode 26.6 doesn't crash reading ExtensionKit's
-      # packages (see the Houses job in ci.yml). Nothing links it.
-      - name: Install xcodegen, and GTK for the kit
+      - name: Install xcodegen
         if: steps.classes.outputs.list != ''
-        run: brew install xcodegen gtk4
+        run: brew install xcodegen
 
+      # The same script as ci.yml: one full commit, never a branch.
       - name: Check out the Properties package with the deploy key
         if: steps.classes.outputs.list != '' && steps.classes.outputs.properties != ''
         env:
           PROPERTIES_DEPLOY_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY }}
           REF: ${{ steps.classes.outputs.properties }}
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$PROPERTIES_DEPLOY_KEY" > ~/.ssh/properties_deploy_key
-          chmod 600 ~/.ssh/properties_deploy_key
-          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/properties_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes" \
-            git clone --depth 1 --branch "$REF" git@github.com:WellSpent-OC/WellSpent-Properties.git "$RUNNER_TEMP/wellspent-properties"
-          rm -f ~/.ssh/properties_deploy_key
+          if [ "$REF" != pinned ]; then
+            printf '%s\n' "$REF" > "$RUNNER_TEMP/properties-ref"
+            export PROPERTIES_REF_FILE="$RUNNER_TEMP/properties-ref"
+          fi
+          scripts/checkout-properties.sh "$RUNNER_TEMP/wellspent-properties"
           echo "WELLSPENT_PROPERTIES_PATH=$RUNNER_TEMP/wellspent-properties" >> "$GITHUB_ENV"
 
       # Not with Properties linked: a cache built without it leaves modules
@@ -130,8 +128,9 @@ jobs:
 
       # As in ci.yml: the result bundles never leave the runner, because they
       # record what is typed into the sign-in fields. Only pictures are kept.
-      - name: Pull the screenshots out of a failed run
-        if: failure()
+      # On a pass too: a test may keep a picture for its pull request.
+      - name: Pull the screenshots out of the run
+        if: always()
         run: |
           for bundle in .build/xcode/results/*.xcresult; do
             [ -d "$bundle" ] || continue
@@ -140,8 +139,8 @@ jobs:
           done
           [ -d .build/xcode/screenshots ] && scripts/keep-images.sh .build/xcode/screenshots || true
 
-      - name: Keep the screenshots when a class fails
-        if: failure()
+      - name: Keep the screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mac-ui-check-screenshots

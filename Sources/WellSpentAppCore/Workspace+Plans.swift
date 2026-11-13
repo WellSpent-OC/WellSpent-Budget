@@ -1,9 +1,7 @@
 import Foundation
 import WellSpentCrypto
+import WellSpentExtensionKit
 import WellSpentPlans
-#if canImport(WellSpentPropertiesViews)
-import WellSpentPropertiesViews
-#endif
 
 /// The lock and pick screens, built from the plan answer and this device's
 /// groups and people, so the Mac, iPhone and Linux draw the same thing. The
@@ -45,6 +43,20 @@ extension Workspace {
                             now: now, calendar: calendar)
     }
 
+    /// PLAN-18: the marker and notice for a group the free plan kept on this
+    /// device, or nil when the server has it. The synced group named is one
+    /// the server has and this person made: the free plan counts the groups
+    /// they pay for, not the ones they joined.
+    public func heldScreen(group: GroupID, device: ThisDevice,
+                           buyingIsOpen: Bool = PlanBuying.isOpen()) -> HeldGroupScreen? {
+        let held = sync.heldOnThisDevice
+        guard held.contains(group), let name = model.groups.first(where: { $0.id == group })?.name else { return nil }
+        let me = sync.userID
+        let synced = model.groups.first { !held.contains($0.id) && me != nil && sync.founder(of: $0.id) == me }?.name
+        return HeldGroupScreen(group: name, synced: synced, device: device,
+                               buyingIsOpen: buyingIsOpen)
+    }
+
     /// The card that takes a locked property's place, or nil when it's open.
     /// `record` is the property's record id, as the Properties extension asks.
     public func lockedScreen(property record: String) -> LockedScreen? {
@@ -72,14 +84,8 @@ extension Workspace {
     /// The properties in these groups, from the Properties extension when
     /// it's on. The core never reads a house record itself.
     func planProperties(in groups: [PlanItem]) -> [PlanItem] {
-        #if canImport(WellSpentPropertiesViews)
-        guard let slots = model.extensionSlots as? PropertiesSlots else { return [] }
-        return slots.planProperties(in: Set(groups.map { $0.id.uuidString })).compactMap { house in
-            UUID(uuidString: house.id).map { PlanItem(id: $0, name: house.name) }
-        }
-        #else
-        return []
-        #endif
+        let records = model.extensionSlots?.planRecords(in: Set(groups.map { $0.id.uuidString })) ?? []
+        return records.compactMap { house in UUID(uuidString: house.id).map { PlanItem(id: $0, name: house.name) } }
     }
 
     /// The groups this person made and pays for, oldest first. Groups they
