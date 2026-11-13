@@ -19,7 +19,7 @@ struct AccountButton: View {
         } label: {
             Label(Self.title(account: sync.account), systemImage: Self.icon(account: sync.account))
         }
-        .disabled(sync.isBusy)
+        .disabled(!SyncWording.accountCanBePressed(for: sync.state))
         .help(Self.help(account: sync.account))
         .accessibilityIdentifier(AccessibilityID.toolbarAccount)
     }

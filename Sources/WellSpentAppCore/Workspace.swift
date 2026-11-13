@@ -325,19 +325,28 @@ public final class Workspace {
         return .seconds(seconds)
     }
 
+    #if DEBUG
     /// The environment variable a UI test sets so the app's timed sync, every
-    /// 2 minutes, comes less often, in whole seconds. A test that needs the
-    /// phone not to hear of a change for a moment, such as one made elsewhere
-    /// just before a Save, can then count on it. A live build never reads it.
+    /// 2 minutes, comes less or more often, in whole seconds. A test that
+    /// needs the phone not to hear of a change for a moment, such as one made
+    /// elsewhere just before a Save, can then count on it, and a test can make
+    /// syncs come often (#199). Test builds only: a release build is compiled
+    /// without it, and the release check fails the build if this name is in
+    /// the app.
     nonisolated public static let autoSyncIntervalVariable = "WELLSPENT_AUTOSYNC_SECONDS"
+    #endif
 
     /// How often the app syncs while open: what the variable says, for a
-    /// staging build, and every 2 minutes otherwise (`AutoSync`).
+    /// staging test build, and every 2 minutes otherwise (`AutoSync`).
     public static func autoSyncInterval(for environment: AppEnvironment,
                                         in processEnvironment: [String: String]) -> Duration {
+        #if DEBUG
         guard environment == .staging, let text = processEnvironment[autoSyncIntervalVariable],
               let seconds = Int(text), seconds > 0 else { return AutoSync.defaultInterval }
         return .seconds(seconds)
+        #else
+        return AutoSync.defaultInterval
+        #endif
     }
 
     /// With no `defaults`, the environment's own. Public for the Linux app,

@@ -421,6 +421,7 @@ public final class MainScreen {
     public var footer: String { SyncWording.footer(signedIn: sync.account != nil) }
     public var accountTitle: String { SyncWording.accountTitle(signedIn: sync.account != nil) }
     public var accountHelp: String { SyncWording.accountHelp(account: sync.account) }
+    public var accountCanBePressed: Bool { SyncWording.accountCanBePressed(for: sync.state) }
 
     /// The sync button is shown only while signed in: signed out, the
     /// account button is the way in.
