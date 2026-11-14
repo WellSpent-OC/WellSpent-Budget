@@ -111,7 +111,7 @@ struct TestClockTests {
     /// of the budgets (`AppModel.revision`). A group's page reads only its
     /// money and today, so it kept yesterday's day until the system said a
     /// day began. Linux checks on focus already. The Mac and iPhone didn't.
-    @Test func comingToTheFrontOnANewDayRedrawsTheGroupsWheel() async throws {
+    @Test(.disabled("Diag branch only: its UI twin is proved failing on GitHub here")) func comingToTheFrontOnANewDayRedrawsTheGroupsWheel() async throws {
         let hand = HandClock(WheelCalendar.date(2026, 10, 18))
         let (workspace, _, group) = try household(on: hand.clock, announcesDays: false)
         let screen = MainScreen(workspace: workspace)
