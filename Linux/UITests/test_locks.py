@@ -118,7 +118,9 @@ class Locks(unittest.TestCase):
         app.wait_shows(changes_on, within=app.main)
         sheet = self.open_pick(app)
         app.wait_shows(changes_on, within=sheet)
-        app.find("push button", beach, within=sheet).press()
+        # Beach is greyed, so picking it changes nothing.
+        self.assertFalse(app.find("push button", beach, within=sheet).enabled, "Beach can be picked")
+        app.find("push button", beach, within=sheet).press(does_nothing=True)
         self.assertTrue(app.find("push button", home, within=app.front).selected)
         self.assertFalse(app.find("push button", beach, within=app.front).selected)
 

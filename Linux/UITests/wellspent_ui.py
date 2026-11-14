@@ -48,11 +48,40 @@ class ScreenError(AssertionError):
 # MARK: - Elements
 
 
+# The signals an app dies of when it crashes, as against being asked to quit.
+_CRASH_SIGNALS = {signal.SIGSEGV, signal.SIGABRT, signal.SIGTRAP, signal.SIGBUS, signal.SIGILL, signal.SIGFPE}
+
+
+def _crashed(status):
+    """Whether an exit status is a crash. The app runs under dbus-run-session,
+    which passes on a signal as 128 plus its number; Python gives a signal
+    that ended the process itself as its negative."""
+    if status is None:
+        return False
+    number = -status if status < 0 else status - 128 if status > 128 else None
+    return number in _CRASH_SIGNALS
+
+
+# What the tree says about a node a redraw replaced, as against an app that
+# stopped answering.
+_REPLACED = ("No such interface", "does not exist")
+
+
+def _absent(error):
+    """Whether a tree error means the thing isn't there: a node a redraw
+    replaced, or one without that part, such as a button with no text. Any
+    other error from the tree means the app didn't answer, and a step that
+    reads it as "not there" would pass on an app that has hung."""
+    return not isinstance(error, GLib.GError) or any(words in str(error) for words in _REPLACED)
+
+
 def _text(node):
     try:
         return Atspi.Text.get_text(node, 0, Atspi.Text.get_character_count(node)) or ""
-    except Exception:
-        return ""
+    except Exception as error:
+        if _absent(error):
+            return ""
+        raise
 
 
 def _words(node):
@@ -60,8 +89,10 @@ def _words(node):
     (GTK 4.14 keeps a menu item's words there), else a label's own text."""
     try:
         name = node.get_name() or ""
-    except Exception:
-        return ""
+    except Exception as error:
+        if _absent(error):
+            return ""
+        raise
     if name:
         return name
     try:
@@ -71,9 +102,21 @@ def _words(node):
                 words = " ".join(_text(t) for t in targets).strip()
                 if words:
                     return words
-    except Exception:
-        pass
-    return _text(node) if node.get_role_name() == "label" else ""
+    except Exception as error:
+        if not _absent(error):
+            raise
+    return _text(node) if _role(node) == "label" else ""
+
+
+def _role(node):
+    """A node's role, or None for a node a redraw replaced. Any other error
+    from the tree means the app didn't answer, and is raised."""
+    try:
+        return node.get_role_name()
+    except Exception as error:
+        if _absent(error):
+            return None
+        raise
 
 
 def _walk(node):
@@ -85,16 +128,13 @@ def _walk(node):
         try:
             count = current.get_child_count()
             children = [current.get_child_at_index(i) for i in reversed(range(count))]
-        except Exception:
-            continue
+        except Exception as error:
+            if _absent(error):
+                continue
+            raise
         # A child can be gone already while GTK rebuilds that part.
         stack.extend(child for child in children if child is not None)
     return found
-
-
-# What the tree says about a node a redraw replaced, as against an app that
-# stopped answering.
-_REPLACED = ("No such interface", "does not exist")
 
 
 class Element:
@@ -175,7 +215,7 @@ class Element:
         return [
             Element(self.app, n)
             for n in _walk(self.node)[1:]
-            if (role is None or n.get_role_name() == role)
+            if (role is None or _role(n) == role)
             and (words is None or _words(n) == words)
             and (starts is None or _words(n).startswith(starts))
         ]
@@ -189,8 +229,11 @@ class Element:
                 return element
         return None
 
-    def press(self):
-        """A click, or Space on it: its first action."""
+    def press(self, does_nothing=False):
+        """A click, or Space on it: its first action. A press the app ignores
+        fails, unless `does_nothing` says that's what the step expects, as for
+        a greyed button. With `does_nothing=None` either is fine, and the
+        press gives back whether it did something."""
         target = self._pressable()
         if target is None and self.role != "check box":
             # While the app redraws, after a sync, the tree can say for a
@@ -203,9 +246,11 @@ class Element:
             # A menu button carries the name and holds the button that does
             # the pressing, so press that, as a screen reader's user does.
             if target is not None:
-                target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press")
+                acted = target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press")
+                if acted == does_nothing:
+                    raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
                 self.app.settle()
-                return
+                return acted
             if self.role == "check box":
                 checked = self._has(Atspi.StateType.CHECKED)
                 self.app.focus(self)
@@ -214,8 +259,11 @@ class Element:
                                "Space to change the checkbox")
                 return
             raise ScreenError(f"{self!r} can't be pressed")
-        self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
+        acted = self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
+        if acted == does_nothing:
+            raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
         self.app.settle()
+        return acted
 
     def type(self, words):
         """Replaces what a text box holds with `words`, as selecting all and
@@ -336,24 +384,33 @@ class App:
 
     def quit(self):
         """Quits as the desktop does when it closes a window: the app saves as
-        it goes, so nothing is lost."""
+        it goes, so nothing is lost. Fails if the app had crashed, before or
+        on quitting, so a test can't pass on an app that died. Closing is
+        best effort: an app slow to close is stopped, and that isn't a
+        failure."""
         if self.process is None:
             return
         pid = self.pid
+        status = self.process.poll()
+        if status is None:
+            try:
+                if pid is None:
+                    self.process.terminate()
+                else:
+                    os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                status = self.process.wait(timeout=WAIT)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
         try:
-            if pid is None:
-                self.process.terminate()
-            else:
-                os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        try:
-            self.process.wait(timeout=WAIT)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait()
-        self.process = None
-        self.log.close()
+            if _crashed(status):
+                raise self.failure(f"the app crashed, exit status {status}")
+        finally:
+            self.process = None
+            self.log.close()
         if pid is not None:
             self.until(lambda: not self._roots_with(pid), "the app to leave the screen")
         self.pid = None
@@ -364,8 +421,10 @@ class App:
         self.launch(**self.launched_with)
 
     def close(self):
-        self.quit()
-        shutil.rmtree(self.home, ignore_errors=True)
+        try:
+            self.quit()
+        finally:
+            shutil.rmtree(self.home, ignore_errors=True)
 
     # Waiting
 
@@ -385,6 +444,11 @@ class App:
                     return result
             except Exception as error:  # the tree changes under a step
                 last_error = error
+            # An app that has quit won't come back, so fail now. Waits nest,
+            # and each would otherwise wait out its whole length.
+            if self.process is not None and self.process.poll() is not None:
+                raise self.failure(f"the app quit while waiting for {what}, "
+                                   f"exit status {self.process.returncode}")
             if time.monotonic() > deadline:
                 cause = f" ({last_error})" if last_error else ""
                 raise self.failure(f"waited {wait:g}s for {what}{cause}")
@@ -1051,17 +1115,15 @@ class App:
         self.button("Sync", within=self.main)
 
     def sign_in_as(self, name):
-        """Signs this copy in to the person's account for this run, making it
-        the first time it's needed. Signed in, with their groups synced."""
-        if name.lower() not in _ACCOUNTS:
-            return self.sign_up(name)
+        """Signs this copy in to the person's account for this run, whichever
+        test asks first. Signed in, with their groups synced."""
         self.button("Sign in", within=self.main).press()
         return self.sign_in_on_sheet(name)
 
     def sign_in_on_sheet(self, name):
         """Signs in on the account sheet something else opened, such as the
         invitation page's Sign in…, to the person's account for this run."""
-        self.email, self.password = _ACCOUNTS[name.lower()]
+        self.email, self.password = account(name)
         sheet = self.wait_for_window(2, "the account sheet")
         if SERVER_OVERRIDE:
             self.field("Server", sheet).type(STAGING)
@@ -1123,7 +1185,12 @@ class App:
         """The Sync button, then waits until it's done. While it runs, the
         button still says "Sync" and is greyed, and a slow network can keep
         it there past the usual wait."""
-        self.button("Sync", within=self.main).press()
+        # A sync already running, such as the one a sign-in or a change
+        # starts by itself, greys Sync, and a press then does nothing, even
+        # one made the moment Sync looked ready. Press until one starts a
+        # sync, so it carries every change made so far.
+        self.until(lambda: self.button("Sync", within=self.main).press(does_nothing=None),
+                   "a press of Sync to start a sync", wait=60)
         time.sleep(1)
 
         def done():

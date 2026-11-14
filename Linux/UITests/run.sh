@@ -35,6 +35,9 @@ fi
 # and transcript scrolling without accounts, on their own virtual display.
 "$HERE/../NativeTests/run.sh"
 
+# The UI tests' own tools, with no app and no screen.
+python3 -I "$HERE/harness_checks.py"
+
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB=$!
 trap 'kill "$XVFB" 2>/dev/null || true' EXIT
