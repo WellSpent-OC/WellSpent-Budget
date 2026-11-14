@@ -340,7 +340,7 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Linux |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux |
 | LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac |
 
 The lifecycle native and shared tests check focus callbacks and date handling.
