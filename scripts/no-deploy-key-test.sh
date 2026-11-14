@@ -29,5 +29,6 @@ expect fails "our own pull request fails" "$ours" pull_request "$ours"
 expect ok "a fork's pull request to us passes with the note" "$ours" pull_request "someone/WellSpent-Budget"
 expect ok "a fork's own Actions pass with the note" "someone/WellSpent-Budget" push ""
 expect fails "a pull request with no head repository named fails" "$ours" pull_request ""
+expect fails "no repository named at all fails" "" schedule ""
 
 exit "$failed"

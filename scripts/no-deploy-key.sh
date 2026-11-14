@@ -10,7 +10,8 @@
 set -eu
 ours="WellSpent-OC/WellSpent-Budget"
 repository="${GITHUB_REPOSITORY:-}"
-if [ "$repository" != "$ours" ]; then
+# Unnamed fails, as here would: only a repository named as someone else's is a fork.
+if [ -n "$repository" ] && [ "$repository" != "$ours" ]; then
     echo "PROPERTIES_DEPLOY_KEY is not set: $repository is a fork, with no private checkout, so the Properties steps don't run here."
     exit 0
 fi
