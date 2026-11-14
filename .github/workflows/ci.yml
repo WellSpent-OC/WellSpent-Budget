@@ -1039,7 +1039,8 @@ jobs:
   # it. Nightly and by hand, beside the Mac's and iPhone's Houses jobs. A
   # hand run's "linux" names go here when their module is Properties'. A
   # throwaway server and mailbox, as the app's Linux job uses, so no staging
-  # account is touched. A fork has no deploy key and passes with a note. It
+  # account is touched. A fork has no deploy key and passes with a note; in
+  # this repository a missing key fails the job. It
   # waits on nothing, as the app's Linux job doesn't, so a Mac runner that
   # never comes doesn't skip it.
   houses-linux-ui-test:
@@ -1055,9 +1056,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A fork's own Actions have no key and pass with a note. In this
+      # repository a missing key fails: a lost secret would otherwise make
+      # every nightly a green job that tested nothing.
       - name: No deploy key here, so nothing to test with
         if: env.HAS_PROPERTIES_KEY != 'true'
-        run: echo "PROPERTIES_DEPLOY_KEY is not set; the Houses UI tests need the private checkout."
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$REPOSITORY" = "WellSpent-OC/WellSpent-Budget" ]; then
+            echo "::error::PROPERTIES_DEPLOY_KEY is not set in this repository, so Houses' Linux UI tests can't run."
+            exit 1
+          fi
+          echo "PROPERTIES_DEPLOY_KEY is not set; a fork has no private checkout, so Houses' Linux UI tests don't run here."
 
       - name: Install the GTK 4 headers, a virtual display, a keyring, the accessibility bus and ssh
         if: env.HAS_PROPERTIES_KEY == 'true'
