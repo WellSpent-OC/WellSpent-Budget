@@ -193,6 +193,93 @@ final class RepeatTests: XCTestCase {
         XCTAssertTrue(run.listText(Self.bill).waitForExistence(timeout: 10), "Undo did not bring the bill back")
         XCTAssertTrue(run.element(AccessibilityID.budgetRepeats).waitForExistence(timeout: 10), "Undo did not bring the repeat back")
     }
+
+    // MARK: - Later months, on the test clock
+
+    /// Utilities in Home on the test clock at `start`, with the $85.00 phone
+    /// bill set to repeat that day.
+    @MainActor
+    private func repeating(from start: String) throws -> TestApp {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        try run.setClock(start)
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        return run
+    }
+
+    /// Quits, moves the clock to `day`, and opens the app again on Utilities.
+    @MainActor
+    private func reopen(_ run: TestApp, on day: String) throws {
+        run.app.terminate()
+        try run.setClock(day)
+        run.launch()
+        run.openBudget(named: "Utilities")
+    }
+
+    /// The open budget's list holds the phone bill once, dated `day`, made by
+    /// its repeat, at $85.00.
+    @MainActor
+    private func expectOneBill(on day: String, in run: TestApp, _ when: String,
+                               file: StaticString = #filePath, line: UInt = #line) throws {
+        let date = BudgetScreen.shortDate(try TestApp.clockDate(day))
+        XCTAssertTrue(run.listText(date).waitForExistence(timeout: 15),
+                      "\(when): no bill dated \(date). On screen: \(run.visibleTexts())", file: file, line: line)
+        let bills = run.app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", Self.bill, Self.bill))
+        XCTAssertEqual(bills.count, 1, "\(when): not one bill. On screen: \(run.visibleTexts())", file: file, line: line)
+        XCTAssertTrue(run.listText(BudgetScreen.Words.repeatSource).exists,
+                      "\(when): Source does not say Repeat. On screen: \(run.visibleTexts())", file: file, line: line)
+        XCTAssertTrue(run.listText("$85.00").exists, "\(when): not $85.00. On screen: \(run.visibleTexts())",
+                      file: file, line: line)
+    }
+
+    @MainActor
+    func testItShowsUpEachMonth() throws {
+        let run = try repeating(from: "2026-11-14T09:00:00")
+
+        // Scenario REPEAT-02
+        // 1. December 14 comes and the app is opened: a new $85.00 bill is in
+        // Utilities, with Source reading Repeat.
+        try reopen(run, on: "2026-12-14T09:00:00")
+        run.expect(dayLine: "December \u{00B7} day 14 of 31", "on December 14")
+        try expectOneBill(on: "2026-12-14T09:00:00", in: run, "on December 14")
+    }
+
+    @MainActor
+    func testCatchingUpAfterTimeAway() throws {
+        let run = try repeating(from: "2026-10-14T09:00:00")
+
+        // Scenario REPEAT-03
+        // 1. Away from the app for two months, it's opened on December 20:
+        // December has its bill, one.
+        try reopen(run, on: "2026-12-20T09:00:00")
+        run.expect(dayLine: "December \u{00B7} day 20 of 31", "on December 20")
+        try expectOneBill(on: "2026-12-14T09:00:00", in: run, "December, after two months away")
+
+        // Scenario REPEAT-03
+        // 2. And so has each month between: the clock goes back to November
+        // and October to show their lists, one bill each.
+        try run.setClock("2026-11-20T09:00:00")
+        run.expect(dayLine: "November \u{00B7} day 20 of 30", "looking at November")
+        try expectOneBill(on: "2026-11-14T09:00:00", in: run, "November, after two months away")
+        try run.setClock("2026-10-20T09:00:00")
+        run.expect(dayLine: "October \u{00B7} day 20 of 31", "looking at October")
+        try expectOneBill(on: "2026-10-14T09:00:00", in: run, "October, after two months away")
+    }
+
+    @MainActor
+    func testAShortMonth() throws {
+        let run = try repeating(from: "2026-10-31T09:00:00")
+
+        // Scenario REPEAT-04
+        // 1. A bill that repeats on the 31st shows up in November on the 30th,
+        // the month's last day.
+        try run.setClock("2026-11-30T09:00:00")
+        run.expect(dayLine: "November \u{00B7} day 30 of 30", "on November 30")
+        try expectOneBill(on: "2026-11-30T09:00:00", in: run, "in November")
+    }
 }
 
 private extension TestApp {
