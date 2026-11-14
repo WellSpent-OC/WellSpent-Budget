@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks that the UI tests name the scenarios in Features/ the way its README says.
 
-    python3 -I scripts/scenario-check.py [--require-all] [--list]
+    python3 -I scripts/scenario-check.py [--require PLATFORM ...] [--require-all] [--list]
         [--root DIR] [--tests PLATFORM=FOLDER ...] [--also DIR]
 
 Each scenario is a "## ID Title" heading in a Features/*.md file. A "Platforms:" line
@@ -17,8 +17,10 @@ Always fails on:
 The per-platform counts are printed, not kept in the README: a count every pull
 request changed was a merge conflict every time two were open.
 
-With --require-all it also fails while any scenario has no test on a platform it
-names (the Definition of Done, item 3). --list prints those scenarios.
+With --require PLATFORM it also fails while a scenario on that platform has no
+test there (the Definition of Done, item 3). It may be given more than once, so
+each platform is locked the day its last test is written. --require-all
+requires every platform. --list prints the scenarios still without a test.
 
 Another repo, such as a private extension's, is checked the same way:
 --root is that repo, and each --tests says where one platform's UI tests live in
@@ -132,11 +134,12 @@ def check_readme(features, scenarios, tested, problems):
 
 
 def options(arguments):
-    """--root, every --tests and --also, read from the arguments."""
+    """--root, every --tests, --also and every --require, read from the arguments."""
     root, also, tests = ROOT, None, {}
+    required = set(PLATFORMS) if "--require-all" in arguments else set()
     for index, argument in enumerate(arguments):
         value = arguments[index + 1] if index + 1 < len(arguments) else None
-        if argument in ("--root", "--also", "--tests") and (value is None or value.startswith("--")):
+        if argument in ("--root", "--also", "--tests", "--require") and (value is None or value.startswith("--")):
             raise SystemExit(f"scenario check: {argument} needs a value after it")
         if argument == "--root":
             root = pathlib.Path(value).resolve()
@@ -147,12 +150,15 @@ def options(arguments):
             if platform not in PLATFORMS or not folder:
                 raise SystemExit(f"scenario check: --tests wants PLATFORM=FOLDER, one of {', '.join(PLATFORMS)}")
             tests.setdefault(platform, []).extend((folder, pattern) for pattern in PATTERNS)
-    return root, also, tests or TESTS
+        elif argument == "--require":
+            if value not in PLATFORMS:
+                raise SystemExit(f"scenario check: --require wants one of {', '.join(PLATFORMS)}, not {value}")
+            required.add(value)
+    return root, also, tests or TESTS, required
 
 
 def main(arguments):
-    require_all = "--require-all" in arguments
-    root, also, tests = options(arguments)
+    root, also, tests, required = options(arguments)
     problems = []
     own = read_scenarios(root / "Features", problems)
     scenarios = dict(own)
@@ -179,10 +185,12 @@ def main(arguments):
 
     for problem in problems:
         print(f"scenario check: {problem}", file=sys.stderr)
-    still = sum(len(ids) for ids in missing.values())
-    if require_all and still:
-        print(f"scenario check: {still} scenario and platform pairs have no UI test yet", file=sys.stderr)
-    if problems or (require_all and still):
+    for name in PLATFORMS:
+        if name in required and missing[name]:
+            print(f"scenario check: {len(missing[name])} scenarios on {name} have no test there yet, "
+                  f"and {name} is required", file=sys.stderr)
+    still = sum(len(missing[name]) for name in required)
+    if problems or still:
         return 1
     print("scenario check: every tag names a real scenario on its own platform, and the tables match.")
     return 0
