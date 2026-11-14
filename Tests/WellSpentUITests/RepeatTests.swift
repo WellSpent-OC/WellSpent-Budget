@@ -247,6 +247,23 @@ final class RepeatTests: XCTestCase {
         try expectOneBill(on: "2026-12-14T09:00:00", in: run, "on December 14")
     }
 
+    /// The phone bill set to repeat on October 15, and the app not opened
+    /// for two months. That every month between gets its bill, once, is
+    /// proven by RepeatsTests: no screen shows an earlier month's bills
+    /// without moving the date, and moving it makes the missing bill itself.
+    @MainActor
+    func testCatchingUpAfterTimeAway() throws {
+        let run = try repeating(from: "2026-10-15T09:00:00")
+
+        // Scenario REPEAT-03
+        // 1. Opened again on December 20, after this month's 15th, Utilities
+        // shows December's phone bill once, dated the 15th, at $85.00. The
+        // clock only moves forward, so this read is the one that caught up.
+        try reopen(run, on: "2026-12-20T09:00:00")
+        run.expect(dayLine: "December \u{00B7} day 20 of 31", "on December 20")
+        try expectOneBill(on: "2026-12-15T09:00:00", in: run, "December, after two months away")
+    }
+
     @MainActor
     func testAShortMonth() throws {
         let run = try repeating(from: "2026-10-31T09:00:00")
