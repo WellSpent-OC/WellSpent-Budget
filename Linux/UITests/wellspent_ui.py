@@ -1093,21 +1093,22 @@ class App:
         self.button(button, within=self.front).press()
         self.until(lambda: len(self.windows()) < count, "the question to close")
 
-    def sign_up(self, name):
+    def sign_up(self, name, server=None):
         """Makes a fresh account on staging for this copy, as a person does:
         Sign in, Create an account, an email and a password, then the emailed
-        code. Signed in afterwards. Gives back the email."""
+        code. Signed in afterwards. Gives back the email. `server` is an
+        address that passes on to staging, such as a HoldingServer's."""
         self.button("Sign in", within=self.main).press()
-        return self.sign_up_on_sheet(name)
+        return self.sign_up_on_sheet(name, server=server)
 
-    def sign_up_on_sheet(self, name):
+    def sign_up_on_sheet(self, name, server=None):
         """Makes a fresh account on the account sheet something opened, and
         confirms its email with the code. Signed in afterwards."""
-        self.sign_up_unconfirmed(name)
+        self.sign_up_unconfirmed(name, server=server)
         self.confirm_on_sheet()
         return self.email
 
-    def sign_up_unconfirmed(self, name):
+    def sign_up_unconfirmed(self, name, server=None):
         """Makes a fresh account and stops before the code: signed in, with
         the email not yet confirmed, the sheet asking for the code."""
         slug = "".join(ch for ch in name.lower() if ch.isalnum())
@@ -1116,8 +1117,8 @@ class App:
         if len(self.windows()) < 2:
             self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
-        if SERVER_OVERRIDE:
-            self.field("Server", sheet).type(STAGING)
+        if server or SERVER_OVERRIDE:
+            self.field("Server", sheet).type(server or STAGING)
         self.button("Create an account", within=sheet).press()
         self.wait_shows("Confirm password")
         sheet = self.front

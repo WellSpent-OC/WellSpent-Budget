@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from holding_server import HoldingServer
 from wellspent_ui import (MAILBOX_TOKEN, RUN, SERVER_OVERRIDE, STAGING, emailed_code, launch_fresh, needs_accounts,
                           unique)
 
@@ -425,6 +426,24 @@ class Accounts(unittest.TestCase):
                          "It lasts 30 minutes.", within=other.front)
         time.sleep(5)
         self.assertIsNone(newest_mail_since(unconfirmed, asked), "an unconfirmed address was sent a code")
+
+    def test_account_opens_while_a_sync_runs(self):
+        """A sync doesn't turn Account off: the app syncs on its own, so a
+        click that came as one started did nothing (#199). The footer's
+        Account, as without the extensions rail. The app talks to staging
+        through a server here that holds the sync open."""
+        needs_accounts(self)
+        server = HoldingServer(STAGING)
+        self.addCleanup(server.close)
+        app = launch_fresh(self, extensions=False, autosync_seconds=3600)
+        app.sign_up("Robin", server=server.url)
+        server.hold()
+        app.button("Sync", within=app.main).press()
+        app.until(lambda: server.waiting > 0 or None, "the sync to reach the server")
+        self.assertFalse(app.button("Sync", within=app.main).enabled, "Sync isn't greyed while it runs")
+        app.button("Account", within=app.main).press()
+        app.wait_for_window(2, "the account sheet, with the sync still running")
+        server.let_go()
 
     def test_sign_out(self):
         needs_accounts(self)
