@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Makes two new staging accounts for one UI test run, through staging's test mailbox.
+"""Makes three new staging accounts for one UI test run, through staging's test mailbox.
 
     python3 -I scripts/fresh-test-accounts.py [--plan TIER] LABEL FILE
 
-Signs up two accounts at example.com, confirms each with the code staging emails it, and
-writes the four WELLSPENT_UI_TEST_ variables for them to FILE, readable by its owner only,
+Signs up three accounts at example.com, confirms each with the code staging emails it, and
+writes the six WELLSPENT_UI_TEST_ variables for them to FILE, readable by its owner only,
 for the run to source. Runs at the same time then never share an account, so one run's
 groups never crowd another's screens. LABEL, such as mac-ci-1, goes into the addresses,
 so an account on staging says which run made it.
@@ -114,13 +114,16 @@ def main(arguments):
     if not mailbox:
         sys.exit("fresh-test-accounts: WELLSPENT_UI_TEST_MAILBOX_TOKEN is not set")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    (email, password), (email_2, password_2) = (make_account(server, mailbox, label, stamp, who)
-                                                for who in ("robin", "leslie"))
-    for address in (email, email_2):
+    # The third, Kim, is for a test with three people, such as an owner, a
+    # member at Add and a manager (REPEAT-11).
+    (email, password), (email_2, password_2), (email_3, password_3) = (
+        make_account(server, mailbox, label, stamp, who) for who in ("robin", "leslie", "kim"))
+    for address in (email, email_2, email_3):
         set_plan(server, mailbox, address, tier)
-    print(f"fresh-test-accounts: both on the {tier} plan")
+    print(f"fresh-test-accounts: all three on the {tier} plan")
     lines = [f"WELLSPENT_UI_TEST_EMAIL='{email}'", f"WELLSPENT_UI_TEST_PASSWORD='{password}'",
-             f"WELLSPENT_UI_TEST_EMAIL_2='{email_2}'", f"WELLSPENT_UI_TEST_PASSWORD_2='{password_2}'"]
+             f"WELLSPENT_UI_TEST_EMAIL_2='{email_2}'", f"WELLSPENT_UI_TEST_PASSWORD_2='{password_2}'",
+             f"WELLSPENT_UI_TEST_EMAIL_3='{email_3}'", f"WELLSPENT_UI_TEST_PASSWORD_3='{password_3}'"]
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.fchmod(descriptor, 0o600)
     with os.fdopen(descriptor, "w") as handle:

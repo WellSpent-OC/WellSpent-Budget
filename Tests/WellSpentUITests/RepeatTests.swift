@@ -382,6 +382,177 @@ final class RepeatTests: XCTestCase {
         let both = TodaysBudget(limit: 60_000, spent: 17_040)
         run.expect(wheel: AccessibilityID.budgetWheel, reads: both.wheel.spokenSummary, "with both kept")
     }
+
+    // MARK: - Two devices
+
+    /// Robin's Mac, the window, and his iPhone, a second device on the same
+    /// account with no window, both hold the repeat set on December 10. Both
+    /// are opened on January 12, and each makes January's bill. Once both
+    /// have synced there is one January bill, on each. The window is on the
+    /// test clock; the second device reads its budgets with January 12 as
+    /// today. Both dates are after the real date (see `NewDayTests`).
+    @MainActor
+    func testTwoDevicesMakeOneBill() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = Self.runStamp()
+        let home = "Repeats \(stamp)", utilities = "Utilities \(stamp)"
+        let january = try TestApp.clockDate("2027-01-12T09:00:00")
+
+        // 1. On the Mac, signed in, on December 10: the phone bill repeats.
+        try run.setClock("2026-12-10T09:00:00")
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.addGroup(named: home)
+        run.addBudget(named: utilities, amount: "600", inGroup: home)
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        run.syncNow()
+
+        // 2. The iPhone takes the repeat in, and is opened on January 12: it
+        // makes January's bill.
+        let phone = try SecondAccount(server: accounts.server)
+        try await phone.signIn(email: accounts.email, password: accounts.password)
+        try await phone.syncAll()
+        let onThePhone = AppModel(store: phone.sync.store, today: { january })
+        onThePhone.me = { [sync = phone.sync] in sync.userID }
+        onThePhone.reload()
+        func januaryBills() throws -> [Transaction] {
+            let group = try XCTUnwrap(onThePhone.groups.first { $0.name == home }, "the phone has no \(home)")
+            let budget = try XCTUnwrap(onThePhone.summaries[group.id]?.first { $0.budget.name == utilities }?.budget.id,
+                                       "the phone has no \(utilities)")
+            return try onThePhone.store.transactions(in: budget)
+                .filter { $0.merchant == Self.bill && $0.repeatMonth == "2027-01" && !$0.isDeleted }
+        }
+        XCTAssertEqual(try januaryBills().count, 1, "the phone did not make January's bill")
+
+        // Scenario REPEAT-05
+        // 3. The Mac is opened on January 12 too, and makes its own. After both
+        // sync, the Mac shows one January bill, and so does the phone.
+        try run.setClock("2027-01-12T09:00:00")
+        run.expect(dayLine: "January \u{00B7} day 12 of 31", "on the Mac, January 12")
+        XCTAssertTrue(run.listText(Self.bill).waitForExistence(timeout: 15),
+                      "the Mac did not make January's bill. On screen: \(run.visibleTexts())")
+        try await phone.syncAll()
+        run.syncNow()
+        try await phone.syncAll()
+        let bills = run.app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", Self.bill, Self.bill))
+        XCTAssertEqual(bills.count, 1, "not one January bill on the Mac. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(try januaryBills().count, 1, "not one January bill on the phone")
+
+        // 4. Tidy: the group goes, for everyone, and both sign out.
+        run.deleteGroup(named: home)
+        run.signOut()
+        await phone.cleanUp()
+    }
+
+
+    // MARK: - Who may change a repeat
+
+    /// Robin sets the phone bill to repeat in Household, then invites Leslie
+    /// at Add and Kim as a manager, with links. The window is each of them in
+    /// turn. Leslie's sheets show the bill and the repeat with nothing to
+    /// change. Kim may change the bill and the repeat.
+    @MainActor
+    func testOnlyTheOwnerOrAManagerChangesTheRule() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let kim = try accounts.third()
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = Self.runStamp()
+        let household = "Household \(stamp)", utilities = "Utilities \(stamp)"
+
+        // 1. Robin sets the repeat, and makes a link at Add for Leslie and one
+        // at Manage for Kim.
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.addGroup(named: household)
+        run.addBudget(named: utilities, amount: "600", inGroup: household)
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        run.syncNow()
+        let leslieLink = try await run.legacyInvite(group: household, myName: "Robin", role: .add)
+        let kimLink = try await run.legacyInvite(group: household, myName: "Robin", role: .manage)
+        run.signOut()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarSignIn).waitForExistence(timeout: 20),
+                      "Robin is still signed in. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-11
+        // 2. Leslie, at Add, opens this month's phone bill: it opens read-only,
+        // with no "Which months?" and no "Stop repeating…".
+        try run.signIn(email: accounts.secondEmail, password: accounts.secondPassword, server: accounts.server)
+        run.join(leslieLink.url, as: "Leslie")
+        run.openBudget(named: utilities)
+        run.syncNow()
+        run.clickRow(Self.bill)
+        XCTAssertTrue(run.element(AccessibilityID.entryDone).waitForExistence(timeout: 10),
+                      "the bill did not open read-only. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.element(AccessibilityID.entrySave).exists, "Save on Leslie's read-only bill")
+        XCTAssertFalse(run.element(AccessibilityID.entryWhichMonths).exists, "Which months? for Leslie")
+        XCTAssertFalse(run.element(AccessibilityID.entryStopRepeating).exists, "Stop repeating… for Leslie")
+        run.click(AccessibilityID.entryDone)
+        run.expectNoSheet()
+
+        // Scenario REPEAT-11
+        // 3. She opens the repeat from Utilities' list of repeats: its sheet
+        // says only Robin or a manager can change it, and has nothing to change.
+        run.click(AccessibilityID.budgetRepeats)
+        run.click(AccessibilityID.repeatRow(Self.bill))
+        let onlyRobin = RepeatEditor.Words.onlyOwner("Robin")
+        XCTAssertTrue(run.listText(onlyRobin).waitForExistence(timeout: 10),
+                      "no line saying \(onlyRobin) On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.element(AccessibilityID.repeatSave).exists, "Save on the repeat for Leslie")
+        XCTAssertFalse(run.element(AccessibilityID.repeatStop).exists, "Stop repeating on the repeat for Leslie")
+        // Close shuts the repeat's read-only sheet, then Done the list under it.
+        let close = run.app.buttons[RepeatEditor.Words.close].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "the repeat's sheet has no Close. On screen: \(run.visibleTexts())")
+        close.click()
+        let done = run.app.buttons[RepeatsList.Words.done].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "the list of repeats has no Done. On screen: \(run.visibleTexts())")
+        done.click()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.repeatRow(Self.bill)), until: "exists == false", timeout: 10),
+                      "the list of repeats stayed open. On screen: \(run.visibleTexts())")
+        run.signOut()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarSignIn).waitForExistence(timeout: 20),
+                      "Leslie is still signed in. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-11
+        // 4. Kim, a manager, opens the same bill and changes its amount: she's
+        // offered "This month only" and "This month and later" under "Which
+        // months?", and "Stop repeating…".
+        try run.signIn(email: kim.email, password: kim.password, server: accounts.server)
+        run.join(kimLink.url, as: "Kim")
+        run.openBudget(named: utilities)
+        run.syncNow()
+        run.clickRow(Self.bill)
+        run.expectSheet(for: Self.bill)
+        run.replaceAmount(with: "92.00")
+        let which = run.element(AccessibilityID.entryWhichMonths)
+        XCTAssertTrue(which.waitForExistence(timeout: 10), "no Which months? for Kim. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(run.text(of: which), Words.thisMonthOnly, "it does not start on This month only")
+        run.click(AccessibilityID.entryWhichMonths)
+        XCTAssertTrue(run.menuItem(Words.thisMonthOnly).waitForExistence(timeout: 5), "This month only is not offered")
+        XCTAssertTrue(run.menuItem(Words.thisMonthAndLater).exists, "This month and later is not offered to Kim")
+        run.app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(run.element(AccessibilityID.entryStopRepeating).exists, "no Stop repeating… for Kim")
+        run.click(AccessibilityID.entryCancel)
+        run.expectNoSheet()
+
+        // 5. Tidy: Robin deletes Household for everyone, and the window signs out.
+        run.signOut()
+        let robin = try SecondAccount(server: accounts.server)
+        try await robin.signIn(email: accounts.email, password: accounts.password)
+        try await robin.syncAll()
+        await robin.deleteGroup(named: household)
+        await robin.cleanUp()
+    }
+
+    /// Part of a group's name, so runs never share one.
+    private static func runStamp() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter.string(from: Date())
+    }
 }
 
 private extension TestApp {
