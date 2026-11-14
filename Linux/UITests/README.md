@@ -39,6 +39,28 @@ helper and `run.sh`, in the same Swift image with the same packages
 `WELLSPENT_UI_SERVER_URL` and `WELLSPENT_UI_TEST_MAILBOX_TOKEN`; do not point the
 WarTable integration fixture at a deployed service.
 
+### On GitHub, by name
+
+To prove one file or one test on GitHub's Linux runners, without the shared
+box and without the whole two-hour suite, start CI by hand with the `linux`
+input: test names separated by spaces, in unittest's form.
+
+```
+gh workflow run ci.yml --ref YOUR-BRANCH -f linux=test_paste
+gh workflow run ci.yml --ref YOUR-BRANCH -f linux="test_import test_paste.Paste.test_signing_in_by_pasting"
+```
+
+The same input is on the Actions tab: CI, then "Run workflow". Names are a
+module (`test_paste`), a class (`test_paste.Paste`) or one test
+(`test_paste.Paste.test_signing_in_by_pasting`). Only letters, digits, `_`,
+`.` and spaces are taken; anything else, or an empty input, is refused before
+any build. A name whose module is in Properties' `UITests/Linux`, such as
+`test_houses`, runs in "Houses UI test, linux", with the app built linked
+with Properties. Every other name runs in "Linux UI test, the tests named".
+The Mac, iPhone and WarTable UI jobs, and the coverage count, are skipped.
+Two hand runs on one branch both finish, and a test that needs an account
+makes its own (`account()`), so a named test runs the same as in a full run.
+
 ## How a test finds things
 
 GTK shows every button, text and text box to the desktop's accessibility tree
