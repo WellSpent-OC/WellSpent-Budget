@@ -20,12 +20,19 @@ struct TestAccounts {
     static let passwordVariable = "WELLSPENT_UI_TEST_PASSWORD"
     static let secondEmailVariable = "WELLSPENT_UI_TEST_EMAIL_2"
     static let secondPasswordVariable = "WELLSPENT_UI_TEST_PASSWORD_2"
+    static let thirdEmailVariable = "WELLSPENT_UI_TEST_EMAIL_3"
+    static let thirdPasswordVariable = "WELLSPENT_UI_TEST_PASSWORD_3"
 
     let server: String
     let email: String
     let password: String
     let secondEmail: String
     let secondPassword: String
+    /// The third account, Kim, for a test with three people. Read here, and
+    /// asked for with `third()`, so the many tests with two people don't
+    /// need it.
+    private let thirdEmail: String?
+    private let thirdPassword: String?
 
     /// Skips the test when any of the four is missing, so a checkout without
     /// accounts, such as a pull request from a fork, passes with nothing run.
@@ -43,7 +50,21 @@ struct TestAccounts {
                             email: try required(emailVariable),
                             password: try required(passwordVariable),
                             secondEmail: try required(secondEmailVariable),
-                            secondPassword: try required(secondPasswordVariable))
+                            secondPassword: try required(secondPasswordVariable),
+                            thirdEmail: environment[thirdEmailVariable].flatMap { $0.isEmpty ? nil : $0 },
+                            thirdPassword: environment[thirdPasswordVariable].flatMap { $0.isEmpty ? nil : $0 })
+    }
+
+    /// The third account's address and password. Skips the test when either
+    /// is missing, as `fromEnvironment` does for the first two, so a checkout
+    /// without accounts passes with nothing run. Through `make`, the run
+    /// stops first when any of the six is unset.
+    func third() throws -> (email: String, password: String) {
+        guard let thirdEmail, let thirdPassword else {
+            throw XCTSkip("\(Self.thirdEmailVariable) and \(Self.thirdPasswordVariable) name the third staging account "
+                          + "a test with three people signs in with; see the Makefile's ui-test target.")
+        }
+        return (thirdEmail, thirdPassword)
     }
 }
 
@@ -60,6 +81,8 @@ struct UITestError: Error, CustomStringConvertible {
 @MainActor
 final class SecondAccount {
     static let settingsSuite = "app.wellspent.uitest.second"
+    /// The third person's, so they never share settings with the second.
+    static let thirdSuite = "app.wellspent.uitest.third"
     /// Where this one keeps its settings: `settingsSuite` unless a test runs
     /// two of them at once.
     let suite: String

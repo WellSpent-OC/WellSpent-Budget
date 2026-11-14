@@ -136,12 +136,14 @@ app:
 
 # The Mac UI test: the real window, driven by XCUITest against the staging
 # server with two test accounts (Tests/WellSpentUITests). It needs Xcode and
-# xcodegen (brew install xcodegen), and these four variables in the shell,
-# exported from a file kept outside the repo and sourced by hand first:
+# xcodegen (brew install xcodegen), and these six variables in the shell,
+# exported from a file kept outside the repo and sourced by hand first
+# (scripts/fresh-test-accounts.py writes one):
 #   WELLSPENT_UI_TEST_EMAIL    WELLSPENT_UI_TEST_PASSWORD
 #   WELLSPENT_UI_TEST_EMAIL_2  WELLSPENT_UI_TEST_PASSWORD_2
+#   WELLSPENT_UI_TEST_EMAIL_3  WELLSPENT_UI_TEST_PASSWORD_3
 # WELLSPENT_UI_TEST_SERVER is optional and defaults to https://staging.wellspent.space.
-# Both accounts must exist on staging with their addresses confirmed.
+# All three accounts must exist on staging with their addresses confirmed.
 # WELLSPENT_UI_TEST_MAILBOX_TOKEN is optional too. With it, the tests that make
 # an account read the code staging emails it (Tests/UITestShared/StagingMailbox.swift).
 # Without it, they skip. The values reach the test runner as TEST_RUNNER_
@@ -161,7 +163,8 @@ app:
 # Everything xcodebuild writes stays under .build/, including the result bundle
 # with the screenshots XCUITest takes when a step fails.
 UI_TEST_PROJECT := Xcode/WellSpentMac.xcodeproj
-UI_TEST_VARS := WELLSPENT_UI_TEST_EMAIL WELLSPENT_UI_TEST_PASSWORD WELLSPENT_UI_TEST_EMAIL_2 WELLSPENT_UI_TEST_PASSWORD_2
+UI_TEST_VARS := WELLSPENT_UI_TEST_EMAIL WELLSPENT_UI_TEST_PASSWORD WELLSPENT_UI_TEST_EMAIL_2 WELLSPENT_UI_TEST_PASSWORD_2 \
+	WELLSPENT_UI_TEST_EMAIL_3 WELLSPENT_UI_TEST_PASSWORD_3
 ifeq ($(findstring Xcode.app,$(DEVELOPER_DIR_PATH)),Xcode.app)
 UI_TEST_DEVELOPER_DIR := $(DEVELOPER_DIR_PATH)
 else
@@ -185,7 +188,7 @@ ui-test-build: ui-test-project
 UI_TEST_VARS_SET = for name in $(UI_TEST_VARS); do \
 		eval "value=\$$$$name"; \
 		if [ -z "$$value" ]; then \
-			echo "$$name is not set. Source the file that exports the four test account variables first."; \
+			echo "$$name is not set. Source the file that exports the six test account variables first."; \
 			exit 1; \
 		fi; \
 	done
@@ -194,6 +197,8 @@ UI_TEST_ACCOUNTS = TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAI
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_3="$$WELLSPENT_UI_TEST_EMAIL_3" \
+	TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_3="$$WELLSPENT_UI_TEST_PASSWORD_3" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN"
 
@@ -257,7 +262,12 @@ iphone-ui-test-build: iphone-project
 # run, the iPhone's own screens included, which no Mac test can reach.
 IPHONE_SIMCTL := DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcrun simctl
 IPHONE_UI_TEST_LOOKS ?= light dark
+# Stops when a test account variable is missing, as the Mac's ui-test does,
+# so the signed-in tests never skip quietly. IPHONE_UI_TEST_WITHOUT_ACCOUNTS=1
+# runs it with none, which CI does only when it has no test mailbox, as for a
+# fork, and says so: the tests that need no account still run.
 iphone-ui-test: iphone-ui-test-build
+	@if [ "$(IPHONE_UI_TEST_WITHOUT_ACCOUNTS)" != "1" ]; then $(UI_TEST_VARS_SET); fi
 	@set -e; \
 	export DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)"; \
 	only="$(foreach test,$(IPHONE_UI_TEST_ONLY),-only-testing:$(test))"; \
@@ -285,6 +295,8 @@ iphone-ui-test: iphone-ui-test-build
 		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_3="$$WELLSPENT_UI_TEST_EMAIL_3" \
+		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_3="$$WELLSPENT_UI_TEST_PASSWORD_3" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 		TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
 		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \

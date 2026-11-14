@@ -761,7 +761,11 @@ jobs:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
           if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a; fi
-          make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2 IPHONE_UI_TEST_LOOKS=${{ matrix.look }}
+          # With no test mailbox there are no accounts, as for a fork: run the
+          # tests that need none, and say so below. With one, a missing account stops the run.
+          without=""; if [ "$HAS_MAILBOX" != "true" ]; then without=1; fi
+          make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2 IPHONE_UI_TEST_LOOKS=${{ matrix.look }} \
+            IPHONE_UI_TEST_WITHOUT_ACCOUNTS=$without
 
       # Nothing skipped, as for the Mac. It warns for now.
       - name: Nothing skipped
