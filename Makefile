@@ -135,7 +135,7 @@ app:
 	scripts/make-app.sh
 
 # The Mac UI test: the real window, driven by XCUITest against the staging
-# server with two test accounts (Tests/WellSpentUITests). It needs Xcode and
+# server with three test accounts (Tests/WellSpentUITests). It needs Xcode and
 # xcodegen (brew install xcodegen), and these six variables in the shell,
 # exported from a file kept outside the repo and sourced by hand first
 # (scripts/fresh-test-accounts.py writes one):

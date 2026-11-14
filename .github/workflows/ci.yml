@@ -573,7 +573,7 @@ jobs:
   # parts run at once. scripts/ui-test-shard.sh picks each part's classes from
   # the test files, so a new class needs no list. The build half runs on every
   # pull request. The run half needs the test mailbox token from this
-  # repository's secrets: with it each part makes its own two staging accounts,
+  # repository's secrets: with it each part makes its own three staging accounts,
   # so parts running at once never see each other's groups, nor does a run on
   # a desk. A pull request from a fork has no secrets, so there only the build
   # is checked. The UI test gates every commit like the other checks (project
@@ -618,7 +618,7 @@ jobs:
       - name: Apple's encryption only, in the built Mac app
         run: scripts/crypto-check.sh .build/xcode/Build/Products/Debug/WellSpentUITestHost.app
 
-      - name: Make this part's own two staging accounts
+      - name: Make this part's own three staging accounts
         if: env.HAS_MAILBOX == 'true'
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
@@ -713,7 +713,7 @@ jobs:
   # made for the run and deleted after. No window opens. It runs in two parts
   # at once, as the Mac's does. The tests that need no account run on every
   # pull request. The signed-in ones run when the test mailbox token is in this
-  # repository's secrets, each job with its own two staging accounts, and skip
+  # repository's secrets, each job with its own three staging accounts, and skip
   # without it, as for a pull request from a fork. Each look is a job of its
   # own: one part's light look alone took 2 h 33 min on a runner, so a part
   # running both looks could never finish inside its 240 minutes.
@@ -750,7 +750,7 @@ jobs:
       - name: Apple's encryption only, in the built iPhone app
         run: scripts/crypto-check.sh .build/xcode-iphone/Build/Products/Debug-iphonesimulator/WellSpentPhone.app
 
-      - name: Make this job's own two staging accounts
+      - name: Make this job's own three staging accounts
         if: env.HAS_MAILBOX == 'true'
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
@@ -926,7 +926,7 @@ jobs:
           echo "::error::WELLSPENT_UI_TEST_MAILBOX_TOKEN is not set, so the Properties tests that sign in can't run."
           exit 1
 
-      # Two fresh accounts on a paid plan for the classes that sign in. A test
+      # Three fresh accounts on a paid plan for the classes that sign in. A test
       # that wants staging itself to refuse signs up an account of its own,
       # which starts free, through the same mailbox token.
       - name: Make this run's own staging accounts

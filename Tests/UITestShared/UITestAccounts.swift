@@ -11,7 +11,8 @@ import WellSpentModel
 import WellSpentStore
 import WellSpentSync
 
-/// The two staging accounts a run uses, read from the environment. `make
+/// The staging accounts a run uses, read from the environment: two that
+/// every signed-in test needs, and a third, asked for with `third()`. `make
 /// ui-test` passes them to xcodebuild as TEST_RUNNER_ variables, which reach
 /// this process with the prefix removed, so they are never on a command line.
 struct TestAccounts {
