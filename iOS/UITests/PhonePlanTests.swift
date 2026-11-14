@@ -210,8 +210,14 @@ final class PhonePlanTests: XCTestCase {
         // The local test store holds no purchase, so nothing comes back.
         let nothing = RestoreResultScreen(answer: free, device: "iPhone")
         XCTAssertFalse(nothing.found)
+        // On a miss, what tells a tap that never acted (#202) from a result
+        // that never showed: whether Restore could be pressed, the status
+        // line under it, and the buttons on screen.
+        let restore = run.element(AccessibilityID.planRestore)
         XCTAssertTrue(run.app.navigationBars[nothing.title].waitForExistence(timeout: 20),
-                      "no \"\(nothing.title)\". On screen: \(run.visibleTexts())")
+                      "no \"\(nothing.title)\". Restore enabled: \(restore.exists && restore.isEnabled). "
+                      + "Status: \(run.element(AccessibilityID.planStatus).exists ? run.element(AccessibilityID.planStatus).label : "none"). "
+                      + "Buttons: \(run.visibleButtons()). On screen: \(run.visibleTexts())")
         for line in nothing.lines {
             XCTAssertTrue(run.shows(line), "missing \"\(line)\"")
         }

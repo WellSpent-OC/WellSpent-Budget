@@ -82,9 +82,13 @@ struct PhonePlanCardSection: View {
 }
 
 /// Restore Purchases, as a row on Account, and what it found.
+/// Restore Purchases. Its result is held by the screen around it, which
+/// presents it: inside a Form this row can be rebuilt while Restore runs (its
+/// status line comes and goes), and a result kept in the row's own state was
+/// lost with it, so nothing showed (#202).
 struct PhoneRestoreRow: View {
     let plans: PurchaseCoordinator
-    @State private var result: RestoreResultScreen?
+    @Binding var result: RestoreResultScreen?
 
     var body: some View {
         Group {
@@ -103,7 +107,6 @@ struct PhoneRestoreRow: View {
                     .accessibilityIdentifier(AccessibilityID.planStatus)
             }
         }
-        .sheet(item: $result) { PhoneRestoreResultSheet(result: $0).tint(Palette.accent) }
     }
 }
 
@@ -142,6 +145,8 @@ struct PhoneChoosePlanSheet: View {
     @State private var selected: PaidTier?
     @State private var prices: PlanPrices = .us
     @State private var storefrontIsUS = true
+    /// What Restore Purchases found, presented from here (#202).
+    @State private var restored: RestoreResultScreen?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -210,7 +215,7 @@ struct PhoneChoosePlanSheet: View {
                     VStack(spacing: 6) {
                         Text(screen.finePrint)
                         HStack(spacing: 12) {
-                            if screen.showsRestore { PhoneRestoreRow(plans: plans) }
+                            if screen.showsRestore { PhoneRestoreRow(plans: plans, result: $restored) }
                             if screen.showsTermsAndPrivacy {
                                 Link("Terms", destination: PlanLinks.terms)
                                 Link("Privacy", destination: PlanLinks.privacy)
@@ -225,6 +230,7 @@ struct PhoneChoosePlanSheet: View {
                 .listRowBackground(Color.clear)
             }
             .phoneSheet(title: PlanWording.choosePlan)
+            .sheet(item: $restored) { PhoneRestoreResultSheet(result: $0).tint(Palette.accent) }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(screen.notNow) { dismiss() }

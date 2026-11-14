@@ -15,6 +15,8 @@ struct PhoneAccountSheet: View {
     let changeWhatStaysOpen: () -> Void
     @State private var flow: AccountFlow
     @State private var choosingPlan = false
+    /// What Restore Purchases found, presented from here (#202).
+    @State private var restored: RestoreResultScreen?
     @Environment(\.dismiss) private var dismiss
     private typealias Words = AccountFlow.Words
 
@@ -65,6 +67,7 @@ struct PhoneAccountSheet: View {
         // except while something is being sent.
         .interactiveDismissDisabled(flow.isWorking)
         .sheet(isPresented: $choosingPlan) { PhoneChoosePlanSheet(plans: plans).tint(Palette.accent) }
+        .sheet(item: $restored) { PhoneRestoreResultSheet(result: $0).tint(Palette.accent) }
         .onChange(of: flow.isFinished) { _, finished in
             if finished { dismiss() }
         }
@@ -202,7 +205,7 @@ struct PhoneAccountSheet: View {
                                  changeWhatStaysOpen: changeWhatStaysOpen)
             // Nothing to restore until the App Store sells plans (PLAN-17).
             if plans.answer != nil, PlanBuying.isOpen() {
-                Section { PhoneRestoreRow(plans: plans) }
+                Section { PhoneRestoreRow(plans: plans, result: $restored) }
                     .listRowBackground(Palette.surface)
             }
             Section {

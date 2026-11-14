@@ -56,7 +56,8 @@ expect WellSpentEnvironment live
 # Test builds' launch variables are compiled out of a release, so nobody can
 # turn on test behaviour by launching the app with one. Their names in the app
 # mean a debug build, or a check left outside its #if DEBUG.
-for variable in WELLSPENT_PRICELABS WELLSPENT_PLAN_BUYING WELLSPENT_AUTOSYNC_SECONDS; do
+for variable in WELLSPENT_PRICELABS WELLSPENT_PLAN_BUYING WELLSPENT_AUTOSYNC_SECONDS \
+        WELLSPENT_CLOCK_FILE WELLSPENT_CLOCK_ANNOUNCES; do
     ! grep -r -a -q "$variable" "$app" || problem "the app reads $variable, a test build's launch variable"
 done
 # The export answer: no encryption that export rules do not exempt. Without it,

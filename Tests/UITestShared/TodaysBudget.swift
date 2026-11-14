@@ -19,15 +19,18 @@ struct TodaysBudget {
     let today: Date
 
     /// `moneyIn`, `borrowed` and `fromSavings` are this period's income,
-    /// loan draws and savings draws, in cents.
+    /// loan draws and savings draws, in cents. With `on`, today is that
+    /// moment, as the app reads it from the test clock
+    /// (`Workspace.clockFileVariable`).
     init(_ name: String = "", limit: Int, spent: Int, moneyIn: Int = 0, borrowed: Int = 0, fromSavings: Int = 0,
-         pinnedDay: Int? = nil) {
+         pinnedDay: Int? = nil, on date: Date? = nil) {
         let budget = Budget(groupID: GroupID(), name: name, limit: Money(minorUnits: limit))
-        summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: Date()),
+        let now = date.map { Workspace.today(pinnedTo: pinnedDay, now: $0) } ?? Workspace.today(pinnedTo: pinnedDay)
+        summary = BudgetSummary(budget: budget, period: budget.reset.period(containing: now),
                                 spent: Money(minorUnits: spent), transactionCount: spent == 0 ? 0 : 1,
                                 moneyIn: Money(minorUnits: moneyIn), borrowed: Money(minorUnits: borrowed),
                                 fromSavings: Money(minorUnits: fromSavings))
-        today = Workspace.today(pinnedTo: pinnedDay)
+        today = now
     }
 
     var wheel: MoneyWheel { MoneyWheel(budget: summary, now: today) }
