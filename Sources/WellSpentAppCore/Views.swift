@@ -1012,6 +1012,13 @@ struct EntrySheet: View {
             Toggle(Words.moneyIn, isOn: Bindable(editor).isMoneyIn)
                 .toggleStyle(.switch)
                 .accessibilityIdentifier(AccessibilityID.entryMoneyIn)
+            // On, a line says which budget the money in adds to (INC-04).
+            if let line = editor.moneyInLine {
+                Text(line)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.muted)
+                    .accessibilityIdentifier(AccessibilityID.entryMoneyInLine)
+            }
             DatePicker(Words.date, selection: Bindable(editor).date, displayedComponents: .date)
                 .accessibilityIdentifier(AccessibilityID.entryDate)
             if let line = editor.periodLine {
