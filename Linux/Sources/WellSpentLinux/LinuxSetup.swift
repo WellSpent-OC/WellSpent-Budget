@@ -63,13 +63,15 @@ enum LinuxSetup {
             KeyringKeyStore(service: environment.keychainService(for: namespace))
         })
         // A staging build takes the same test settings as the Mac's: how long
-        // Undo stays, a pinned day of the month for the money wheel, and a
-        // pinned plan answer. A live build ignores them.
+        // Undo stays, a pinned day of the month for the money wheel, a pinned
+        // plan answer, and the test clock. A live build ignores them.
         let process = ProcessInfo.processInfo.environment
         return try Workspace.launch(accounts: accounts, defaults: defaults, environment: environment,
                                     undoWindow: Workspace.undoWindow(for: environment, in: process),
                                     pinnedDay: Workspace.pinnedDay(for: environment, in: process),
                                     pinnedPlan: Workspace.pinnedPlan(for: environment, in: process),
+                                    clock: Workspace.clock(for: environment, in: process),
+                                    announcesDays: Workspace.clockAnnouncesDays(for: environment, in: process),
                                     features: features(processEnvironment: process))
     }
 }
