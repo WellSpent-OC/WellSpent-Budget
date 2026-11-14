@@ -87,7 +87,7 @@ It is not kept here, where every pull request would change the same lines.
 | SAMP-05 | A sample renamed comes along under its new name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-06 | Signing in to an account made elsewhere leaves the samples here | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | SAMP-07 | The samples come only once | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| SAMP-08 | A group changed before signing in comes along, and the samples nobody changed do not | Mac, Linux, iPhone | Mac, Linux |
+| SAMP-08 | A group changed before signing in comes along, and the samples nobody changed do not | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Budgets.md](Budgets.md)
 
@@ -131,8 +131,8 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-14 | A selected row stays readable | Mac | Mac |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-03 | A house's cash flow is money in minus money out, after the mortgage | Mac, Linux, iPhone | iPhone |
-| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Linux, iPhone |
+| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, iPhone |
+| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [EditEntry.md](EditEntry.md)
 
@@ -192,9 +192,9 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | None yet |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Linux |
-| REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Linux, iPhone |
-| REPEAT-16 | A house's repeat | Mac, iPhone | None yet |
+| REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-16 | A house's repeat | Mac, Linux, iPhone | None yet |
 | REPEAT-17 | Turning it on for a bill already there | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-18 | The switch shows the truth | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
@@ -321,19 +321,19 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
 | PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac |
+| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac, iPhone |
 
 ### [Locks.md](Locks.md)
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Linux, iPhone |
-| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Linux, iPhone |
-| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Linux, iPhone |
-| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-01 | A group the payer kept locked shows why, in place of its page | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| LOCK-02 | A group whose payer is past their plan asks a member to pay for it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
-| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Linux, iPhone |
+| LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 
 ### [Lifecycle.md](Lifecycle.md)
@@ -341,7 +341,7 @@ It is not kept here, where every pull request would change the same lines.
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
 | LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Linux |
-| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | None yet |
+| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac |
 
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.
@@ -380,5 +380,7 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-04 | Reject ends the invitation and requires a fresh one | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-05 | The sender can cancel a pending invitation | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-06 | Invitations enforce account and group permissions | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EMAIL-07 | Pending invitations survive reopening and failed requests | Mac, Linux, iPhone | Linux, iPhone |
-| EMAIL-08 | Email delivery and existing invitation links | Mac, Linux, iPhone | Linux, iPhone |
+| EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Linux, iPhone |
+| EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-09 | The invitation email and its page | Server | None yet |
+| EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | None yet |

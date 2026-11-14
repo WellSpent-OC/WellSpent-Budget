@@ -713,12 +713,12 @@ jobs:
   # made for the run and deleted after. No window opens. It runs in two parts
   # at once, as the Mac's does. The tests that need no account run on every
   # pull request. The signed-in ones run when the test mailbox token is in this
-  # repository's secrets, each part with its own two staging accounts, and skip
-  # without it, as for a pull request from a fork. A runner takes two to three
-  # times as long as a Mac at a desk, and the two looks run one after the
-  # other, so each part has 120 minutes.
+  # repository's secrets, each job with its own two staging accounts, and skip
+  # without it, as for a pull request from a fork. Each look is a job of its
+  # own: one part's light look alone took 2 h 33 min on a runner, so a part
+  # running both looks could never finish inside its 240 minutes.
   iphone-ui-test-part:
-    name: iPhone UI test, part ${{ matrix.part }} of 2
+    name: iPhone UI test, part ${{ matrix.part }} of 2, ${{ matrix.look }}
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
     if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
@@ -728,6 +728,7 @@ jobs:
       fail-fast: false
       matrix:
         part: [1, 2]
+        look: [light, dark]
     env:
       HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
     steps:
@@ -749,24 +750,24 @@ jobs:
       - name: Apple's encryption only, in the built iPhone app
         run: scripts/crypto-check.sh .build/xcode-iphone/Build/Products/Debug-iphonesimulator/WellSpentPhone.app
 
-      - name: Make this part's own two staging accounts
+      - name: Make this job's own two staging accounts
         if: env.HAS_MAILBOX == 'true'
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
-        run: python3 -I scripts/fresh-test-accounts.py "iphone-ci-${{ matrix.part }}" "$RUNNER_TEMP/ui-test-accounts.env"
+        run: python3 -I scripts/fresh-test-accounts.py "iphone-ci-${{ matrix.part }}-${{ matrix.look }}" "$RUNNER_TEMP/ui-test-accounts.env"
 
-      - name: Run this part of the iPhone UI tests
+      - name: Run this part of the iPhone UI tests, in this look
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
           if [ -f "$RUNNER_TEMP/ui-test-accounts.env" ]; then set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a; fi
-          make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2
+          make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2 IPHONE_UI_TEST_LOOKS=${{ matrix.look }}
 
       # Nothing skipped, as for the Mac. It warns for now.
       - name: Nothing skipped
         if: ${{ !cancelled() && env.HAS_MAILBOX == 'true' }}
         continue-on-error: true
-        run: scripts/skipped-tests.sh .build/xcode-iphone/ui-test-light.xcresult .build/xcode-iphone/ui-test-dark.xcresult
+        run: scripts/skipped-tests.sh .build/xcode-iphone/ui-test-${{ matrix.look }}.xcresult
 
       - name: Say why the signed-in tests were skipped
         if: env.HAS_MAILBOX != 'true'
@@ -778,19 +779,18 @@ jobs:
       - name: Pull the screenshots out of a failed run
         if: failure()
         run: |
-          for look in light dark; do
-            bundle=.build/xcode-iphone/ui-test-$look.xcresult
-            if [ -d "$bundle" ]; then
-              xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/screenshots-$look
-              scripts/keep-images.sh .build/xcode-iphone/screenshots-$look
-            fi
-          done
+          look=${{ matrix.look }}
+          bundle=.build/xcode-iphone/ui-test-$look.xcresult
+          if [ -d "$bundle" ]; then
+            xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/screenshots-$look
+            scripts/keep-images.sh .build/xcode-iphone/screenshots-$look
+          fi
 
       - name: Keep the screenshots when the test fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: iphone-ui-test-screenshots-${{ matrix.part }}
+          name: iphone-ui-test-screenshots-${{ matrix.part }}-${{ matrix.look }}
           # A failure on the sign-in screen can show the test account's
           # email, and artifacts on a public repo are public. Kept briefly.
           retention-days: 3
@@ -798,7 +798,7 @@ jobs:
           if-no-files-found: ignore
 
   # Gate 9's check, under the name the branch rules require. It passes only
-  # when every part passed, and runs after a failed part too, for the reason
+  # when every part passed, in both looks, and runs after a failed part too, for the reason
   # given at Gate 7's.
   iphone-ui-test:
     name: iPhone UI test
@@ -820,8 +820,10 @@ jobs:
   # Every UI test's "Scenario" line names a real scenario, on a platform that
   # scenario names, and the tables in Features/README.md match the tags (the
   # Definition of Done, item 3). The run's summary lists what still has no
-  # test. Once nothing is left, this adds --require-all, and a scenario
-  # without a test on one of its platforms fails the pull request.
+  # test. The day a platform has nothing left, this adds --require for it,
+  # and from then on a scenario without a test on that platform fails the
+  # pull request. Connector is required. Server, the Mac, Linux and the
+  # iPhone join it as each reaches zero.
   scenario-check:
     name: Scenario check
     runs-on: ubuntu-latest
@@ -831,7 +833,7 @@ jobs:
 
       - name: Tags and tables
         shell: bash
-        run: python3 -I scripts/scenario-check.py --list | tee -a "$GITHUB_STEP_SUMMARY"
+        run: python3 -I scripts/scenario-check.py --require Connector --list | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Here because this job is small, needs nothing installed and the gate
       # waits on it. The Properties pointer is only honest if this passes.
@@ -881,13 +883,14 @@ jobs:
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
       HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
-      # The Properties classes that sign in to staging, and how many tests
-      # each list holds. A new one adds its class here and its count below,
-      # in the app pull request that moves .github/properties-ref past it.
-      MAC_SIGNED_IN: ""
-      MAC_SIGNED_IN_COUNT: 0
-      IPHONE_SIGNED_IN: ""
-      IPHONE_SIGNED_IN_COUNT: 0
+      # The classes that sign in to staging, the app's own and Properties',
+      # and how many tests each list holds. A new one adds its class here and
+      # its count below; a Properties one in the app pull request that moves
+      # .github/properties-ref past it.
+      MAC_SIGNED_IN: WellSpentUITests/PlanLimitTests WellSpentUITests/SharedHousesTests WellSpentUITests/MemberHousesTests WellSpentUITests/HouseLockTests
+      MAC_SIGNED_IN_COUNT: 6
+      IPHONE_SIGNED_IN: WellSpentPhoneUITests/PhoneLockedHouseTests WellSpentPhoneUITests/PhonePlanLimitTests WellSpentPhoneUITests/PhoneSharedHousesTests WellSpentPhoneUITests/PhoneMemberHousesTests WellSpentPhoneUITests/PhonePlansOffTests
+      IPHONE_SIGNED_IN_COUNT: 7
     steps:
       - uses: actions/checkout@v4
 

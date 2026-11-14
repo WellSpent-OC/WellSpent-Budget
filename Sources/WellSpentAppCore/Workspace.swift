@@ -46,15 +46,26 @@ public final class Workspace {
     /// Buying, restoring and showing a plan. The Mac and iPhone hand in Apple's
     /// store; Linux has none and pays on the website.
     public let plans: PurchaseCoordinator
-    @ObservationIgnored private var lastCheckedDay = AppLocale.calendar.dateComponents(
-        [.era, .year, .month, .day], from: Date())
+    /// Where today's date comes from: the system's clock, or in a staging
+    /// test build, a file a UI test moves (`clockFileVariable`).
+    public let clock: AppClock
+    /// Whether a test moved the clock. Linux can then check for a new day
+    /// every second rather than every 30, so a test need not wait.
+    public var clockIsPinned: Bool { clock.isPinned }
+    @ObservationIgnored private var lastCheckedDay: DateComponents
+    /// The last day the test clock's watch said began (`watchTheTestClock`).
+    @ObservationIgnored private var lastAnnouncedDay: DateComponents
 
     /// `notifications` is where the system says the day changed: the
     /// process's own, unless a test hands in one of its own.
     public init(model: AppModel, sync: SyncCoordinator, autoSync: AutoSync? = nil, pinnedDay: Int? = nil,
                 features: FeatureFlags? = nil, planStore: (any PlanStore)? = nil,
-                pinnedPlan: PinnedPlanService? = nil,
+                pinnedPlan: PinnedPlanService? = nil, clock: AppClock = .system, announcesDays: Bool = true,
                 notifications: NotificationCenter = .default) {
+        self.clock = clock
+        let today = AppLocale.calendar.dateComponents([.era, .year, .month, .day], from: clock.now())
+        self.lastCheckedDay = today
+        self.lastAnnouncedDay = today
         self.model = model
         self.sync = sync
         self.plans = PurchaseCoordinator(store: planStore,
@@ -110,10 +121,35 @@ public final class Workspace {
         // comes from the main thread.
         #if !os(Linux)
         _ = notifications.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reloadForNewDay() }
+            MainActor.assumeIsolated { self?.noteNewDay() }
         }
+        #if DEBUG
+        if clock.isPinned, announcesDays { watchTheTestClock(notifications) }
+        #endif
         #endif
     }
+
+    #if DEBUG && !os(Linux)
+    /// The system says a day began from its own clock, which a test can't
+    /// move. So with the test clock set, this says it instead, in the same
+    /// words and to the same watcher, once a second when the clock's day has
+    /// changed. Only the clock's source is swapped. What the system does
+    /// itself, saying so at midnight or on waking, no test here can show.
+    /// `WELLSPENT_CLOCK_ANNOUNCES=0` turns it off, so a test can show what
+    /// coming to the front does on its own (#209).
+    private func watchTheTestClock(_ notifications: NotificationCenter) {
+        Task { @MainActor [weak self, clock] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                let day = AppLocale.calendar.dateComponents([.era, .year, .month, .day], from: clock.now())
+                guard day != self.lastAnnouncedDay else { continue }
+                self.lastAnnouncedDay = day
+                notifications.post(name: .NSCalendarDayChanged, object: nil)
+            }
+        }
+    }
+    #endif
 
     /// Every edit syncs a moment later, what this person may add or change
     /// comes from the server's levels, and today is the clock's or the pinned
@@ -127,7 +163,7 @@ public final class Workspace {
         model.mayManageEntries = { [sync] group in sync.mayManageBudgets(in: group) }
         model.me = { [sync] in sync.userID }
         model.thisDevice = { [sync] in sync.clientID }
-        model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
+        model.today = { [pinnedDay, clock] in Workspace.today(pinnedTo: pinnedDay, now: clock.now()) }
         // The model first loaded before it had this day, so read again for a pinned one.
         if pinnedDay != nil { model.reload() }
         installExtensionSlots()
@@ -164,6 +200,48 @@ public final class Workspace {
         guard environment == .staging, let text = processEnvironment[pinnedDayVariable],
               let day = Int(text), (1 ... 31).contains(day) else { return nil }
         return day
+    }
+
+    #if DEBUG
+    /// The environment variable a UI test sets to a file holding one local
+    /// date and time, such as `2026-12-14T09:00:00`. A staging test build then
+    /// reads today from that file each time it asks, so a test moves the
+    /// whole date, day, month and year, by writing it again, with no
+    /// relaunch (`AppClock.file`). Test builds only: a release build is
+    /// compiled without it, and the release check fails the build if this
+    /// name is in the app.
+    nonisolated public static let clockFileVariable = "WELLSPENT_CLOCK_FILE"
+
+    /// Set to "0" with the clock file, so the app doesn't say a new day began
+    /// when the file's day changes (`watchTheTestClock`). A test can then show
+    /// what coming to the front does by itself. Test builds only, like the
+    /// clock file.
+    nonisolated public static let clockAnnouncesVariable = "WELLSPENT_CLOCK_ANNOUNCES"
+    #endif
+
+    /// The clock today comes from: the file the variable names, in a staging
+    /// test build, and otherwise the system's.
+    nonisolated public static func clock(for environment: AppEnvironment,
+                                         in processEnvironment: [String: String]) -> AppClock {
+        #if DEBUG
+        guard environment == .staging, let path = processEnvironment[clockFileVariable], !path.isEmpty else {
+            return .system
+        }
+        return .file(path)
+        #else
+        return .system
+        #endif
+    }
+
+    /// Whether the test clock's watch says when its day changes. Always, but
+    /// for a staging test build launched with the variable at "0".
+    nonisolated public static func clockAnnouncesDays(for environment: AppEnvironment,
+                                                      in processEnvironment: [String: String]) -> Bool {
+        #if DEBUG
+        return !(environment == .staging && processEnvironment[clockAnnouncesVariable] == "0")
+        #else
+        return true
+        #endif
     }
 
     /// Today for the money wheel: `now`, or with a day pinned, that day of
@@ -203,17 +281,25 @@ public final class Workspace {
     /// on waking. Read again only when the local date changes, even signed
     /// out. Compare date components so a time-zone change that moves the
     /// calendar to another day counts too, in either direction.
-    public func checkForNewDay(now: Date = Date(), calendar: Calendar = AppLocale.calendar) {
-        let day = calendar.dateComponents([.era, .year, .month, .day], from: now)
+    /// With no `now`, the app's clock (`clock`).
+    public func checkForNewDay(now: Date? = nil, calendar: Calendar = AppLocale.calendar) {
+        let day = calendar.dateComponents([.era, .year, .month, .day], from: now ?? clock.now())
         guard day != lastCheckedDay else { return }
         lastCheckedDay = day
+        reloadForNewDay()
+    }
+
+    /// The system said a day began. It may say so a moment early, so this
+    /// reads again without comparing days, and remembers today as checked.
+    private func noteNewDay() {
+        lastCheckedDay = AppLocale.calendar.dateComponents([.era, .year, .month, .day], from: clock.now())
         reloadForNewDay()
     }
 
     private func reloadForNewDay() {
         // Equal summaries do not notify observers. The wheel still needs
         // to redraw its day, tick and pace even when no money changed.
-        model.today = { [pinnedDay] in Workspace.today(pinnedTo: pinnedDay) }
+        model.today = { [pinnedDay, clock] in Workspace.today(pinnedTo: pinnedDay, now: clock.now()) }
         model.reload()
     }
 
@@ -222,7 +308,14 @@ public final class Workspace {
     /// out, nothing syncs, so the budgets are read again here: a day or a
     /// month may have begun while the app was away, and this does not wait
     /// for the system to say the day changed.
+    ///
+    /// First it checks the date, on every platform. A read of the budgets
+    /// that changes no money redraws a budget's page but not a group's, so
+    /// without this a group's wheel kept yesterday's day after a night in the
+    /// background until the system said a day began (#209). Linux also checks
+    /// on every focus change, so there the second check finds nothing new.
     public func cameToFront() async {
+        checkForNewDay()
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
         // The plan may have changed elsewhere: bought on the website, renewed,
@@ -305,6 +398,8 @@ public final class Workspace {
                           autoSyncInterval: autoSyncInterval(for: environment, in: processEnvironment),
                           pinnedDay: pinnedDay(for: environment, in: processEnvironment),
                           pinnedPlan: pinnedPlan(for: environment, in: processEnvironment),
+                          clock: clock(for: environment, in: processEnvironment),
+                          announcesDays: clockAnnouncesDays(for: environment, in: processEnvironment),
                           planStore: appStore(for: environment, in: processEnvironment),
                           features: FeatureFlags.resolve(for: environment, defaults: accounts.defaults,
                                                          processEnvironment: processEnvironment),
@@ -325,19 +420,28 @@ public final class Workspace {
         return .seconds(seconds)
     }
 
+    #if DEBUG
     /// The environment variable a UI test sets so the app's timed sync, every
-    /// 2 minutes, comes less often, in whole seconds. A test that needs the
-    /// phone not to hear of a change for a moment, such as one made elsewhere
-    /// just before a Save, can then count on it. A live build never reads it.
+    /// 2 minutes, comes less or more often, in whole seconds. A test that
+    /// needs the phone not to hear of a change for a moment, such as one made
+    /// elsewhere just before a Save, can then count on it, and a test can make
+    /// syncs come often (#199). Test builds only: a release build is compiled
+    /// without it, and the release check fails the build if this name is in
+    /// the app.
     nonisolated public static let autoSyncIntervalVariable = "WELLSPENT_AUTOSYNC_SECONDS"
+    #endif
 
     /// How often the app syncs while open: what the variable says, for a
-    /// staging build, and every 2 minutes otherwise (`AutoSync`).
+    /// staging test build, and every 2 minutes otherwise (`AutoSync`).
     public static func autoSyncInterval(for environment: AppEnvironment,
                                         in processEnvironment: [String: String]) -> Duration {
+        #if DEBUG
         guard environment == .staging, let text = processEnvironment[autoSyncIntervalVariable],
               let seconds = Int(text), seconds > 0 else { return AutoSync.defaultInterval }
         return .seconds(seconds)
+        #else
+        return AutoSync.defaultInterval
+        #endif
     }
 
     /// With no `defaults`, the environment's own. Public for the Linux app,
@@ -353,6 +457,8 @@ public final class Workspace {
                        autoSyncInterval: Duration = AutoSync.defaultInterval,
                        pinnedDay: Int? = nil,
                        pinnedPlan: PinnedPlanService? = nil,
+                       clock: AppClock = .system,
+                       announcesDays: Bool = true,
                        planStore: (any PlanStore)? = nil,
                        features: FeatureFlags? = nil,
                        opensFirstBudget: Bool = true) throws -> Workspace {
@@ -365,6 +471,8 @@ public final class Workspace {
             sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
         let model = AppModel(store: sync.store, undoWindow: undoWindow, opensFirstBudget: opensFirstBudget)
+        // The samples are dated from today, so from the clock a test moved.
+        model.today = { [clock] in Workspace.today(pinnedTo: pinnedDay, now: clock.now()) }
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {
             try accounts.noteSamples(try model.seedFirstRun(), in: model.store)
         }
@@ -374,7 +482,7 @@ public final class Workspace {
         let resolvedFeatures = features ?? FeatureFlags.resolve(for: environment, defaults: defaults)
         return Workspace(model: model, sync: sync, autoSync: AutoSync(sync: sync, interval: autoSyncInterval),
                          pinnedDay: pinnedDay, features: resolvedFeatures, planStore: planStore,
-                         pinnedPlan: pinnedPlan)
+                         pinnedPlan: pinnedPlan, clock: clock, announcesDays: announcesDays)
     }
 
     /// Apple's App Store on the Mac and iPhone. Linux has none: it pays on

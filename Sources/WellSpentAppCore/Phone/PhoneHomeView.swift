@@ -119,6 +119,16 @@ struct PhoneHomeView: View {
             if screen.workspace.planLocks.isLocked(group: section.group.id.uuid) {
                 PhoneLockedMark(id: section.group.id.uuid)
             }
+            // PLAN-18: a group the free plan kept on this iPhone says so.
+            if let held = screen.workspace.heldScreen(group: section.group.id, device: .iPhone) {
+                Label(held.marker, systemImage: "iphone")
+                    .font(.caption)
+                    .foregroundStyle(Palette.muted)
+                    // Heard as its words, not the icon's name.
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(held.marker)
+                    .accessibilityIdentifier(AccessibilityID.groupHeldMarker(section.group.name))
+            }
 
             Spacer()
         }
@@ -169,7 +179,7 @@ struct PhoneHomeView: View {
         HStack(spacing: 12) {
             Button(screen.accountTitle) { showingAccount = true }
                 .buttonStyle(.bordered)
-                .disabled(screen.isBusy)
+                .disabled(!screen.accountCanBePressed)
                 .accessibilityIdentifier(screen.showsSync ? AccessibilityID.toolbarAccount
                                                           : AccessibilityID.sidebarSignIn)
             Text(syncLine)

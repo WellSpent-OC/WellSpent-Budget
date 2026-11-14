@@ -67,7 +67,7 @@ final class AccountGapTests: XCTestCase {
         // confirms it with the code staging emails there.
         let email = StagingMailbox.freshAddress("mac", for: "robin")
         let password = "Robin-\(UUID().uuidString)"
-        let desktop = try await Self.desktop(at: mailbox.server)
+        let desktop = try await StagingDesktop.connect(at: mailbox.server)
         _ = try await desktop.signUp(email: email, password: password, deviceLabel: Self.desktopName)
         try await desktop.verifyEmail(code: try await mailbox.code(for: email, timeout: 30))
         // A paid plan, so the server takes both groups this test makes. On
@@ -238,7 +238,7 @@ final class AccountGapTests: XCTestCase {
         Self.dataRootPath = run.dataRoot.path
         let email = StagingMailbox.freshAddress("mac", for: "robin")
         let password = "Robin-\(UUID().uuidString)"
-        let desktop = try await Self.desktop(at: mailbox.server)
+        let desktop = try await StagingDesktop.connect(at: mailbox.server)
         _ = try await desktop.signUp(email: email, password: password, deviceLabel: Self.desktopName)
         try await desktop.verifyEmail(code: try await mailbox.code(for: email, timeout: 30))
         run.launch()
@@ -296,20 +296,6 @@ final class AccountGapTests: XCTestCase {
 }
 
 // MARK: - Helpers
-
-extension AccountGapTests {
-    /// Robin's desktop: a connection to the server, checked to be staging
-    /// before any password goes to it, as the app checks.
-    static func desktop(at address: String) async throws -> ReadableHTTPTransport {
-        guard let url = URL(string: address) else { throw UITestError("\(address) is not a server address") }
-        if let why = AppEnvironment.staging.refusal(ofServerAt: url) { throw UITestError(why) }
-        let desktop = ReadableHTTPTransport(baseURL: url)
-        if let why = AppEnvironment.staging.refusal(ofServerSaying: try await desktop.health().environment) {
-            throw UITestError(why)
-        }
-        return desktop
-    }
-}
 
 private extension AccountGapTests {
     /// What the desktop calls itself in the account's list of devices.

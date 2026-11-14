@@ -485,7 +485,7 @@ public final class SealedSyncCoordinator {
             return combined
         }
         let before = state
-        state = .busy("Syncing")
+        state = .busy(SyncWording.syncing)
         do {
             // A deleted group is out of sight, so its failure must not stop the
             // live groups named after it from syncing. The first one is still

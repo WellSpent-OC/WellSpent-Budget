@@ -240,7 +240,14 @@ final class EntryGapTests: XCTestCase {
         run.click(AccessibilityID.budgetAdd)
         run.type("Guest deposit", into: AccessibilityID.entryMerchant)
         run.type("750", into: AccessibilityID.entryAmount)
+
+        // Scenario INC-04
+        // Money in off says nothing under it. On, it names Bookings.
+        let line = run.element(AccessibilityID.entryMoneyInLine)
+        XCTAssertFalse(line.exists, "a money in line with Money in off. On screen: \(run.visibleTexts())")
         run.click(AccessibilityID.entryMoneyIn)
+        XCTAssertTrue(run.wait(for: line, holds: EntryEditor.Words.moneyInHelp(budget: bookings), timeout: 5),
+                      "no line saying the money in adds to \(bookings). On screen: \(run.visibleTexts())")
         run.frame("inc-b-1-money-in-switch")
         run.click(AccessibilityID.entryAdd)
         run.expectNoSheet()

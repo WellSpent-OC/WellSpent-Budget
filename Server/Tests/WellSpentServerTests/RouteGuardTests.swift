@@ -37,6 +37,7 @@ struct RouteGuardTests {
         "POST /api/v2/invites/preview",
         "POST /api/v2/invites/accept",
         "POST /api/v2/plan/pick",
+        "POST /api/v2/plan/apple",
         "POST /api/v2/account/delete",
     ]
 

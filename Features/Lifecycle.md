@@ -13,12 +13,15 @@ local calendar, even while signed out, so a new month shows that month's money.
 
 ## LIFE-02 A new local day refreshes the displayed money
 
+Proven by: Tests/WellSpentAppCoreTests/WheelDayTests.swift aClockCheckOnTheSameDayLeavesTheBudgetsAlone
+
+Ruling, 2026-11-13: a date check on the same day does not reload the budgets or contact the server. Nothing about that shows on a screen, so it is a note, not a step. The shared package test `aClockCheckOnTheSameDayLeavesTheBudgetsAlone` proves it. The steps below are checked on screen.
+
 - Given Robin has left WellSpent open, signed out
 - When a new local day begins
 - Then the money wheels use that day's pace and expected amount
 - And when a new month begins, the displayed spending and transactions use the new period
 - And returning to the app after sleep checks the date immediately
-- And a date check on the same day does not reload the budgets or contact the server
 
 ## Verification
 

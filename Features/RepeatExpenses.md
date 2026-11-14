@@ -138,13 +138,21 @@ Platforms: Mac, Linux, iPhone
 
 Platforms: Mac, Linux, iPhone
 
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift whatCountsAsClose
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift aSmallBillHasFiveDollars
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift twoLinesDoNotClaimOneBill
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift aMerchantRuleForAnotherBudgetDoesNotMatch
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift ifTwoFitTheClosestDateWins
+Proven by: Tests/WellSpentAppCoreTests/StatementMatchTests.swift aBillInAnotherGroupDoesNotMatch
+
+Ruling, 2026-11-13: what counts as a match is a rule, not a screen step, so it is a note proven by the package tests above. A match is a made bill not already matched, in this group and the line's budget, within 4 days and within 10 percent or $5, whichever is larger. If two fit, the closest date wins. The house mark and NOI need Properties on, so they moved to PROP-60. The steps below are checked on screen.
+
 - Given December's $85.00 phone bill was made, and a statement has an $85.40 line on Dec 15
 - When Robin imports it to Utilities
 - Then the review row says "Replaces December's Phone bill, $85.00", under the Matched tile
 - And if he goes ahead, the statement line takes its place and the bill counts once
-- And the bank's line takes the bill's budget and its house mark, so NOI and the wheel don't move because of the swap
-- A match is a made bill not already matched, in this group and the line's budget, within 4 days and within 10 percent or $5, whichever is larger. If two fit, the closest date wins
-- An exact amount on a made bill works the same way: the bank's line wins
+- And the bank's line is in Utilities, and the wheel doesn't move because of the swap
+- And an exact amount on a made bill works the same way: the bank's line wins
 
 ## REPEAT-15 Saying no to a match
 
@@ -155,7 +163,7 @@ Platforms: Mac, Linux, iPhone
 
 ## REPEAT-16 A house's repeat
 
-Platforms: Mac, iPhone
+Ruling, 2026-11-13: Linux added. The Platforms line was out of date: Linux has Houses now, and the apps match feature for feature.
 
 - Given Properties is on and Robin sets a repeat with House set to Pool House
 - Then each month's bill is marked with Pool House

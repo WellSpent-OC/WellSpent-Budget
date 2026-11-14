@@ -149,6 +149,13 @@ struct PhoneRootView: View {
         .onChange(of: sync.signInPrompt) { _, prompt in
             if prompt != nil { showingAccount = true }
         }
+        // A change refused past the plan asks once for Choose a plan, as on the Mac.
+        .onChange(of: sync.planSheet) { _, refusal in
+            guard refusal != nil else { return }
+            sync.planSheetShown()
+            payingFor = nil
+            choosingPlan = true
+        }
     }
 
     @ViewBuilder
@@ -312,7 +319,8 @@ struct PhoneRootView: View {
             if let group = screen.openGroup, let locked = workspace.lockedScreen(group: group.id) {
                 lockedPage(locked, title: group.name, group: group.id)
             } else if let group = screen.openGroup {
-                PhoneGroupView(sync: sync, group: group, main: screen, perform: perform)
+                PhoneGroupView(sync: sync, group: group, main: screen, perform: perform,
+                               seePlans: { payingFor = nil; choosingPlan = true })
                     // A page of its own for each group, and again after a
                     // rename, so its words name the group as it is now.
                     .id([group.id.uuid.uuidString, group.name])

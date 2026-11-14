@@ -1,5 +1,5 @@
 {
-  "originHash" : "0fe0c453d6b4f886602f4a974cceab72cc02db66dfa8daada7b7021fafbbade2",
+  "originHash" : "5bc24ddbb75c0c489e2961de5c6900be2d3b8ec282c735e2637ead729719161e",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -71,6 +71,15 @@
       "state" : {
         "revision" : "b83108d10f42680d78f23fe4d4d80fc88dab3212",
         "version" : "7.11.1"
+      }
+    },
+    {
+      "identity" : "jwt-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/vapor/jwt-kit.git",
+      "state" : {
+        "revision" : "8bda2e7fe7d0e48f98b9d33d5e0b360fe9a5368d",
+        "version" : "5.8.0"
       }
     },
     {
@@ -215,6 +224,15 @@
       "state" : {
         "revision" : "cc504a45f6ce73ce6067837d7ac19fa67b229a56",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "swift-extras-base64",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-extras/swift-extras-base64",
+      "state" : {
+        "revision" : "c803790ffc55c4b4f297f52ee6fbd5b0b3d046ef",
+        "version" : "1.2.0"
       }
     },
     {

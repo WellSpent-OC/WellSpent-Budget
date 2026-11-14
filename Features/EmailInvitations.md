@@ -74,16 +74,28 @@ Invite someone by email from a group's Share menu. An invitation waits separatel
 - And an invitation cannot be accepted after its sender loses permission to grant that role
 - And forwarding an addressed invitation never lets a different account accept it
 
-## EMAIL-07 Pending invitations survive reopening and failed requests
+## EMAIL-07 Pending invitations survive reopening
+
+Ruling, 2026-11-13: a failed Accept or Reject moved to EMAIL-10, so this scenario says only what its tests check. It is still on every app.
 
 - Given Leslie has not answered an invitation
 - When she quits, opens WellSpent and signs in to the same account
 - Then syncing restores the invitation beside her groups
-- When accepting or rejecting fails
-- Then the app shows the failure and allows a retry without pretending the request succeeded
 - And signing out clears that account's invitations from the screen
 
-## EMAIL-08 Email delivery and existing invitation links
+## EMAIL-08 A link from an earlier WellSpent version still works
+
+Ruling, 2026-11-13: the email, the invitation page and the retries moved to EMAIL-09 on the server, since no app test can see them. This is the line an app shows. An earlier version's link is the old Share link, made by the sync share call with no email sent. The UI test fixtures that make one are `legacyInvite` and `shareNewGroup`. A used link is refused by SHARE-10.
+
+- Given an invitation link made with an earlier WellSpent version, not yet used, cancelled or expired
+- When the person it was sent to pastes or clicks it, types a name and joins
+- Then they are in the group, and it is in their list of groups: the sidebar on the Mac and Linux, Home on the iPhone
+
+## EMAIL-09 The invitation email and its page
+
+Platforms: Server
+
+Ruling, 2026-11-13: split from EMAIL-08. These happen in the email and on the server, so a server test proves them.
 
 - Given an invitation is pending
 - Then its email provides one invitation link, the expiry and a way to stop invitation emails
@@ -91,4 +103,11 @@ Invite someone by email from a group's Share menu. An invitation waits separatel
 - And opening that page alone never accepts or rejects an invitation
 - And a temporary email service failure is retried without creating another invitation
 - And expired, rejected or cancelled invitations cannot be accepted
-- And links received from an earlier WellSpent version still work until used, cancelled or expired
+
+## EMAIL-10 A failed Accept or Reject says so
+
+Ruling, 2026-11-13: split from EMAIL-07 and kept on every app. A failed Accept that looks like it worked would leave Leslie outside her group.
+
+- Given Leslie has not answered an invitation
+- When accepting or rejecting fails
+- Then the app shows the failure and allows a retry without pretending the request succeeded
