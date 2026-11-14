@@ -28,23 +28,24 @@ final class PhoneRepeatTests: XCTestCase {
         super.tearDown()
     }
 
-    /// A budget, with a bill that repeats every month on it.
+    /// Utilities in Home on the test clock at `start`, with the $85.00 phone
+    /// bill set to repeat that day.
     @MainActor
-    private func launchedWithARepeat() -> PhoneTestApp {
+    private func launchedWithARepeat(on start: String = "2026-12-14T09:00:00") throws -> PhoneTestApp {
         let run = PhoneTestApp()
         Self.dataRootPath = run.dataRoot.path
         // Longer than the Undo bar's 10 seconds, so a slow simulator reaches it.
         run.app.launchEnvironment[Workspace.undoWindowVariable] = "120"
-        run.launch(pinnedDay: 18)
+        try run.setClock(start)
+        run.launch()
         run.addGroup(named: "Home")
         run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
         run.tap(AccessibilityID.budgetAdd)
         run.type(Self.bill, into: AccessibilityID.entryMerchant)
         run.type("85.00", into: AccessibilityID.entryAmount)
         run.turnOnRepeats()
-        // The app's today is the pinned day, so a new entry is dated the 18th
-        // and the line names it.
-        let day = RepeatsList.Words.ordinal(18)
+        // A new entry is dated the clock's day, and the line names it.
+        let day = RepeatsList.Words.ordinal(AppLocale.calendar.component(.day, from: try PhoneTestApp.clockDate(start)))
         XCTAssertTrue(run.showsLine(containing: "\(day) of each month"),
                       "no line says it shows up on the \(day): \(run.visibleTexts())")
         run.tap(AccessibilityID.entryAdd)
@@ -52,6 +53,35 @@ final class PhoneRepeatTests: XCTestCase {
         XCTAssertEqual(run.app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(Self.bill)).count, 1,
                        "the bill is not in the list once. On screen: \(run.visibleTexts())")
         return run
+    }
+
+    /// Quits, moves the clock to `day`, and opens the app again on Utilities.
+    @MainActor
+    private func reopen(_ run: PhoneTestApp, on day: String) throws {
+        run.app.terminate()
+        try run.setClock(day)
+        run.launch()
+        run.openBudget(named: "Utilities")
+    }
+
+    /// The open budget holds the phone bill once, dated `day`, at `amount`.
+    @MainActor
+    private func expectOneBill(on day: String, at amount: String, in run: PhoneTestApp, _ when: String,
+                               file: StaticString = #filePath, line: UInt = #line) throws {
+        let date = try PhoneTestApp.clockDate(day).formatted(.dateTime.month(.abbreviated).day())
+        XCTAssertTrue(run.row(Self.bill, says: date, timeout: 15),
+                      "\(when): no bill dated \(date): \(run.rowLabel(Self.bill))", file: file, line: line)
+        XCTAssertTrue(run.row(Self.bill, says: amount), "\(when): not \(amount): \(run.rowLabel(Self.bill))",
+                      file: file, line: line)
+        XCTAssertEqual(run.app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(Self.bill)).count, 1,
+                       "\(when): not one bill. On screen: \(run.visibleTexts())", file: file, line: line)
+    }
+
+    /// The open budget holds no phone bill.
+    @MainActor
+    private func expectNoBill(in run: PhoneTestApp, _ when: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(run.lacksRow(Self.bill), "\(when): a bill was made. On screen: \(run.visibleTexts())",
+                      file: file, line: line)
     }
 
     @MainActor
@@ -176,7 +206,7 @@ final class PhoneRepeatTests: XCTestCase {
         // Scenario REPEAT-01
         // The bill is in Utilities once, and the line under the switch says
         // the day of each month it shows up on.
-        let run = launchedWithARepeat()
+        let run = try launchedWithARepeat()
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
 
@@ -205,50 +235,75 @@ final class PhoneRepeatTests: XCTestCase {
     }
 
     @MainActor
-    func testAChangeSaysWhichMonthsItReaches() throws {
-        let run = launchedWithARepeat()
+    func testThisMonthOnlyChangesDecemberAndNotJanuary() throws {
+        let run = try launchedWithARepeat(on: "2026-12-14T09:00:00")
         let only = run.element(AccessibilityID.entryWhichMonth(Words.thisMonthOnly))
         let later = run.element(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
 
-        // 1. Which months? is on the bill's sheet, starting on This month only,
-        // each choice saying what it would do. Saved that way, this month's
-        // bill changes and the repeat stays at its old amount.
+        // Scenario REPEAT-06
+        // 1. December's $85.00 bill changed to $92.00: Which months? is on the
+        // sheet with its other fields, starting on This month only. Saved that
+        // way, December is $92.00 and the repeat stays at $85.00.
         run.openEntry(Self.bill)
         run.type("92.00", into: AccessibilityID.entryAmount)
         run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
+        XCTAssertTrue(run.has(AccessibilityID.entryMerchant), "Which months? is not with the bill's other fields")
         XCTAssertTrue(only.isSelected, "it does not start on This month only")
         XCTAssertTrue((only.value as? String)?.contains("goes back to") == true, "only says: \(String(describing: only.value))")
         XCTAssertTrue((later.value as? String)?.contains("every month after") == true,
                       "later says: \(String(describing: later.value))")
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
-        XCTAssertTrue(run.row(Self.bill, says: "$92.00"), "the bill did not change: \(run.rowLabel(Self.bill))")
+        XCTAssertTrue(run.row(Self.bill, says: "$92.00"), "December did not change: \(run.rowLabel(Self.bill))")
         run.expectRepeat(Self.bill, says: "$85.00", "a change to this month only reached the repeat")
 
-        // 2. Saved as This month and later, the bill and the repeat change.
+        // Scenario REPEAT-06
+        // 2. January is $85.00, and December is still $92.00.
+        try reopen(run, on: "2027-01-14T09:00:00")
+        try expectOneBill(on: "2027-01-14T09:00:00", at: "$85.00", in: run, "in January")
+        try reopen(run, on: "2026-12-20T09:00:00")
+        try expectOneBill(on: "2026-12-14T09:00:00", at: "$92.00", in: run, "back in December")
+    }
+
+    @MainActor
+    func testThisMonthAndLaterChangesDecemberOnward() throws {
+        let run = try launchedWithARepeat(on: "2026-11-14T09:00:00")
+        try reopen(run, on: "2026-12-14T09:00:00")
+        try expectOneBill(on: "2026-12-14T09:00:00", at: "$85.00", in: run, "in December")
+        let later = run.element(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
+
+        // Scenario REPEAT-07
+        // 1. December's bill changed to $92.00 for this month and later:
+        // December and the repeat are $92.00.
         run.openEntry(Self.bill)
-        run.type("95.00", into: AccessibilityID.entryAmount)
+        run.type("92.00", into: AccessibilityID.entryAmount)
         run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
         later.tap()
         XCTAssertTrue(later.isSelected, "This month and later did not take")
         run.tap(AccessibilityID.entrySave)
         run.expectNoSheet()
-        XCTAssertTrue(run.row(Self.bill, says: "$95.00"), "the bill did not change: \(run.rowLabel(Self.bill))")
-        run.expectRepeat(Self.bill, says: "$95.00", "the repeat did not change")
+        XCTAssertTrue(run.row(Self.bill, says: "$92.00"), "December did not change: \(run.rowLabel(Self.bill))")
+        run.expectRepeat(Self.bill, says: "$92.00", "the repeat did not change")
+
+        // Scenario REPEAT-07
+        // 2. A later month is $92.00, and November, before December, stays
+        // at $85.00.
+        try reopen(run, on: "2027-01-14T09:00:00")
+        try expectOneBill(on: "2027-01-14T09:00:00", at: "$92.00", in: run, "in January")
+        try reopen(run, on: "2026-11-20T09:00:00")
+        try expectOneBill(on: "2026-11-14T09:00:00", at: "$85.00", in: run, "back in November")
     }
 
     @MainActor
     func testStopRepeatingEndsTheRepeatAndKeepsTheBill() throws {
-        let run = launchedWithARepeat()
+        let run = try launchedWithARepeat(on: "2026-11-14T09:00:00")
+        try reopen(run, on: "2026-12-14T09:00:00")
+        try expectOneBill(on: "2026-12-14T09:00:00", at: "$85.00", in: run, "in December")
 
-        // 1. Stop repeating asks, then keeps this month's bill and leaves the
-        // count of repeats at once.
-        run.openEntry(Self.bill)
-        run.bringUpInSheet(AccessibilityID.entryStopRepeating)
-        run.tap(AccessibilityID.entryStopRepeating)
-        XCTAssertNotNil(run.questionButton(RepeatEditor.Words.stopConfirm), "Stop repeating does not ask")
-        run.questionButton(RepeatEditor.Words.stopConfirm)?.tap()
-        run.expectNoSheet()
+        // Scenario REPEAT-08
+        // 1. Stop repeating asks, then keeps December's bill and leaves the
+        // count of repeats, and the short list behind it, at once.
+        stop(run)
         XCTAssertTrue(run.hasRow(Self.bill), "the bill went with the repeat")
         XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "the stopped repeat is still counted")
 
@@ -264,21 +319,29 @@ final class PhoneRepeatTests: XCTestCase {
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
                        "Undo did not bring the repeat back. On screen: \(run.visibleTexts())")
+
+        // Scenario REPEAT-08
+        // 3. Stopped again: no later month is made, and the months already
+        // made stay.
+        stop(run)
+        try reopen(run, on: "2027-01-14T09:00:00")
+        expectNoBill(in: run, "in January, after stopping")
+        try reopen(run, on: "2026-12-20T09:00:00")
+        try expectOneBill(on: "2026-12-14T09:00:00", at: "$85.00", in: run, "back in December")
+        try reopen(run, on: "2026-11-20T09:00:00")
+        try expectOneBill(on: "2026-11-14T09:00:00", at: "$85.00", in: run, "back in November")
     }
 
     @MainActor
     func testDeletingAMadeBillAsksBothChoices() throws {
-        let run = launchedWithARepeat()
-        run.openEntry(Self.bill)
-        run.bringUpInSheet(AccessibilityID.entryDelete)
-        run.tap(AccessibilityID.entryDelete)
+        let run = try launchedWithARepeat(on: "2026-11-14T09:00:00")
+        try reopen(run, on: "2026-12-14T09:00:00")
+        try expectOneBill(on: "2026-12-14T09:00:00", at: "$85.00", in: run, "in December")
 
-        // 1. Deleting a made bill asks which: this month only, or this month
-        // and the repeat. The second takes both.
-        XCTAssertNotNil(run.questionButton(PendingDelete.deleteThisMonthOnly), "no Delete This Month Only")
-        XCTAssertNotNil(run.questionButton(PendingDelete.deleteAndStop), "no Delete and Stop Repeating")
-        run.questionButton(PendingDelete.deleteAndStop)?.tap()
-        run.expectNoSheet()
+        // Scenario REPEAT-09
+        // 1. Deleting December's bill asks which: Delete This Month Only, or
+        // Delete and Stop Repeating. The second takes both.
+        deleteBill(run, choosing: PendingDelete.deleteAndStop, offersBoth: true)
         XCTAssertTrue(run.lacksRow(Self.bill), "the bill is still here")
         XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "the repeat is still counted")
 
@@ -290,21 +353,54 @@ final class PhoneRepeatTests: XCTestCase {
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
                        "Undo did not bring the repeat back. On screen: \(run.visibleTexts())")
 
-        // 3. Delete This Month Only takes the bill and leaves the repeat. A
-        // month deleted this way doesn't come back when the app opens again.
-        run.openEntry(Self.bill)
-        run.bringUpInSheet(AccessibilityID.entryDelete)
-        run.tap(AccessibilityID.entryDelete)
-        try XCTUnwrap(run.questionButton(PendingDelete.deleteThisMonthOnly), "no Delete This Month Only").tap()
-        run.expectNoSheet()
+        // Scenario REPEAT-09
+        // 3. Delete This Month Only takes December's bill and leaves the
+        // repeat. A month deleted this way doesn't come back.
+        deleteBill(run, choosing: PendingDelete.deleteThisMonthOnly)
         XCTAssertTrue(run.lacksRow(Self.bill), "the bill is still here")
-        run.app.terminate()
-        run.launch(pinnedDay: 18)
-        run.openBudget(named: "Utilities")
+        try reopen(run, on: "2026-12-20T09:00:00")
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
         XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1),
                        "Delete This Month Only stopped the repeat. On screen: \(run.visibleTexts())")
-        XCTAssertTrue(run.lacksRow(Self.bill), "the deleted month came back. On screen: \(run.visibleTexts())")
+        expectNoBill(in: run, "December, deleted this month only")
+
+        // Scenario REPEAT-09
+        // 4. January's bill deleted with Delete and Stop Repeating: no later
+        // month is made, and the months before stay.
+        try reopen(run, on: "2027-01-14T09:00:00")
+        try expectOneBill(on: "2027-01-14T09:00:00", at: "$85.00", in: run, "in January")
+        deleteBill(run, choosing: PendingDelete.deleteAndStop)
+        XCTAssertTrue(run.lacksRow(Self.bill), "January's bill is still here")
+        try reopen(run, on: "2027-02-14T09:00:00")
+        expectNoBill(in: run, "in February, after Delete and Stop Repeating")
+        try reopen(run, on: "2026-11-20T09:00:00")
+        try expectOneBill(on: "2026-11-14T09:00:00", at: "$85.00", in: run, "back in November")
+    }
+
+    /// Stop repeating from the open bill's sheet, confirmed.
+    @MainActor
+    private func stop(_ run: PhoneTestApp) {
+        run.openEntry(Self.bill)
+        run.bringUpInSheet(AccessibilityID.entryStopRepeating)
+        run.tap(AccessibilityID.entryStopRepeating)
+        XCTAssertNotNil(run.questionButton(RepeatEditor.Words.stopConfirm), "Stop repeating does not ask")
+        run.questionButton(RepeatEditor.Words.stopConfirm)?.tap()
+        run.expectNoSheet()
+    }
+
+    /// Deletes the open bill from its sheet with one of the two choices.
+    @MainActor
+    private func deleteBill(_ run: PhoneTestApp, choosing choice: String, offersBoth: Bool = false) {
+        run.openEntry(Self.bill)
+        run.bringUpInSheet(AccessibilityID.entryDelete)
+        run.tap(AccessibilityID.entryDelete)
+        if offersBoth {
+            XCTAssertNotNil(run.questionButton(PendingDelete.deleteThisMonthOnly), "no Delete This Month Only")
+            XCTAssertNotNil(run.questionButton(PendingDelete.deleteAndStop), "no Delete and Stop Repeating")
+        }
+        guard let button = run.questionButton(choice) else { return XCTFail("no \(choice)") }
+        button.tap()
+        run.expectNoSheet()
     }
 }
 

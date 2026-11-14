@@ -677,6 +677,32 @@ final class PhoneTestApp {
     /// What the app calls this device in its words.
     static let device = "iPhone"
 
+    // MARK: - The test clock
+
+    /// The test clock's file, in the run's own folder, so it goes with it.
+    var clockFile: URL { dataRoot.appendingPathComponent("clock.txt") }
+
+    /// Sets the app's today to `text`, a local date and time such as
+    /// "2026-12-14T09:00:00" (`Workspace.clockFileVariable`). Before launch,
+    /// the app starts on it. After launch, rewriting it moves the date with no
+    /// relaunch. For a test that needs the app's own day notice off, set
+    /// `Workspace.clockAnnouncesVariable` to "0" before launch.
+    func setClock(_ text: String) throws {
+        try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
+        try text.write(to: clockFile, atomically: true, encoding: .utf8)
+        app.launchEnvironment[Workspace.clockFileVariable] = clockFile.path
+    }
+
+    /// A test clock's text as the moment the app reads from it.
+    static func clockDate(_ text: String) throws -> Date {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = AppLocale.calendar
+        formatter.timeZone = AppLocale.calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return try XCTUnwrap(formatter.date(from: text), "not a clock time: \(text)")
+    }
+
     /// Closes the app and removes the run's folder.
     func cleanUp() {
         if app.state != .notRunning { app.terminate() }
