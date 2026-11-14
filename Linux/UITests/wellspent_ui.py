@@ -385,6 +385,11 @@ class App:
                     return result
             except Exception as error:  # the tree changes under a step
                 last_error = error
+            # An app that has quit won't come back, so fail now. Waits nest,
+            # and each would otherwise wait out its whole length.
+            if self.process is not None and self.process.poll() is not None:
+                raise self.failure(f"the app quit while waiting for {what}, "
+                                   f"exit status {self.process.returncode}")
             if time.monotonic() > deadline:
                 cause = f" ({last_error})" if last_error else ""
                 raise self.failure(f"waited {wait:g}s for {what}{cause}")
