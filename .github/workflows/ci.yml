@@ -321,8 +321,8 @@ jobs:
 
   # The same client, with the private Properties package linked. The package
   # comes from WellSpent-OC/WellSpent-Properties through a read-only deploy
-  # key, so nothing from it lands in this repository. Builds without the key
-  # (a fork, a pull request from one) say so and pass.
+  # key, so nothing from it lands in this repository. Without the key the job
+  # fails here, and a fork, or a pull request from one, says so and passes.
   linux-client-with-properties:
     name: Linux client with Properties
     needs: unit-tests
@@ -334,9 +334,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fails in this repository; only a fork passes with a note
+      # (scripts/no-deploy-key.sh).
       - name: No deploy key here, so nothing to build with
         if: env.HAS_PROPERTIES_KEY != 'true'
-        run: echo "PROPERTIES_DEPLOY_KEY is not set; the public build without the package is the other job."
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: scripts/no-deploy-key.sh
 
       - name: Install the SQLite headers GRDB needs, and ssh
         if: env.HAS_PROPERTIES_KEY == 'true'
@@ -915,8 +919,8 @@ jobs:
   # repo and join the UI test projects only when its checkout is linked
   # (WELLSPENT_PROPERTIES_PATH), so the nightly UI test jobs never see them.
   # No account is needed: the tests use the mock PriceLabs and a fresh data
-  # folder. Runs on every pull request; a fork has no deploy key and passes
-  # with a note, as the Linux job does.
+  # folder. Without the deploy key it fails here, and a fork, which has
+  # none, passes with a note (scripts/no-deploy-key.sh).
   houses-ui-test:
     name: Houses UI test, ${{ matrix.platform }}
     needs: unit-tests
@@ -947,9 +951,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fails in this repository; only a fork passes with a note
+      # (scripts/no-deploy-key.sh).
       - name: No deploy key here, so nothing to test with
         if: env.HAS_PROPERTIES_KEY != 'true'
-        run: echo "PROPERTIES_DEPLOY_KEY is not set; the Houses UI tests need the private checkout."
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: scripts/no-deploy-key.sh
 
       - name: Select the newest Xcode on the image
         if: env.HAS_PROPERTIES_KEY == 'true'
@@ -1056,19 +1064,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # A fork's own Actions have no key and pass with a note. In this
-      # repository a missing key fails: a lost secret would otherwise make
-      # every nightly a green job that tested nothing.
+      # Fails in this repository; only a fork passes with a note
+      # (scripts/no-deploy-key.sh).
       - name: No deploy key here, so nothing to test with
         if: env.HAS_PROPERTIES_KEY != 'true'
         env:
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          if [ "$REPOSITORY" = "WellSpent-OC/WellSpent-Budget" ]; then
-            echo "::error::PROPERTIES_DEPLOY_KEY is not set in this repository, so Houses' Linux UI tests can't run."
-            exit 1
-          fi
-          echo "PROPERTIES_DEPLOY_KEY is not set; a fork has no private checkout, so Houses' Linux UI tests don't run here."
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: scripts/no-deploy-key.sh
 
       - name: Install the GTK 4 headers, a virtual display, a keyring, the accessibility bus and ssh
         if: env.HAS_PROPERTIES_KEY == 'true'
