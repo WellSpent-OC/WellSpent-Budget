@@ -303,6 +303,21 @@ class App:
 
     # Starting and stopping
 
+    @property
+    def clock_file(self):
+        """The test clock's file, in this copy's home."""
+        return os.path.join(self.home, "test-clock.txt")
+
+    def set_clock(self, when):
+        """Puts the app's clock at `when`, a local time such as
+        "2026-10-31T09:00:00". Written whole, never half: the app reads it
+        each time it asks the time."""
+        datetime.datetime.strptime(when, "%Y-%m-%dT%H:%M:%S")
+        temporary = f"{self.clock_file}.{secrets.token_hex(4)}"
+        with open(temporary, "w") as file:
+            file.write(when)
+        os.replace(temporary, self.clock_file)
+
     def debug_counts(self):
         """What a build launched with `counts` last wrote: how many times its
         window's root has drawn ("draws"), and how many screens wait on a
@@ -312,7 +327,7 @@ class App:
 
     def launch(self, *arguments, day=None, undo_seconds=None, autosync_seconds=None,
                extensions=None, wartable=None, properties=None, purchases=None, plan_file=None,
-               counts=False, region="en_US.UTF-8"):
+               counts=False, clock=None, clock_announces=None, region="en_US.UTF-8"):
         """Starts the app, given `arguments` as a desktop would, such as an
         invite link. A staging build takes test settings, as on the Mac:
         `day` pins the money wheel to that day of this month, and
@@ -321,6 +336,10 @@ class App:
         `plan_file` names a file whose plan answer the app shows in place of
         the server's, read again each time the app asks (`write_plan`).
         `counts` has a test build write what `debug_counts` reads.
+        `clock` puts a staging test build on the test clock at that local
+        time, such as "2026-10-30T12:00:00", which `set_clock` moves while it
+        runs. `clock_announces=False` has the app not notice a new day by
+        itself, so only coming to the front can.
         `region` is the computer's, as a desktop names it."""
         if self.process is not None:
             raise RuntimeError("already running")
@@ -338,6 +357,13 @@ class App:
         env.pop("WELLSPENT_PLAN_BUYING", None)
         env.pop("WELLSPENT_PLAN_ANSWER_FILE", None)
         env.pop("WELLSPENT_DEBUG_COUNTS_FILE", None)
+        env.pop("WELLSPENT_CLOCK_FILE", None)
+        env.pop("WELLSPENT_CLOCK_ANNOUNCES", None)
+        if clock is not None:
+            self.set_clock(clock)
+            env["WELLSPENT_CLOCK_FILE"] = self.clock_file
+        if clock_announces is not None:
+            env["WELLSPENT_CLOCK_ANNOUNCES"] = "1" if clock_announces else "0"
         if counts:
             env["WELLSPENT_DEBUG_COUNTS_FILE"] = os.path.join(self.home, "debug-counts")
         if plan_file is not None:
@@ -358,7 +384,8 @@ class App:
             env["WELLSPENT_PLAN_BUYING"] = "1" if purchases else "0"
         self.launched_with = dict(day=day, undo_seconds=undo_seconds, autosync_seconds=autosync_seconds,
                                   extensions=extensions, wartable=wartable, properties=properties,
-                                  purchases=purchases, plan_file=plan_file, counts=counts, region=region)
+                                  purchases=purchases, plan_file=plan_file, counts=counts,
+                                  clock=clock, clock_announces=clock_announces, region=region)
         self.env = env
         _record_browser(self.home)
         self.log = open(os.path.join(self.home, "app.log"), "ab")
@@ -428,9 +455,14 @@ class App:
         self.pid = None
 
     def restart(self):
-        """Quits and opens again, with the same data and test settings."""
+        """Quits and opens again, with the same data and test settings. A test
+        clock stays where the test last set it."""
         self.quit()
-        self.launch(**self.launched_with)
+        settings = dict(self.launched_with)
+        if settings.get("clock") is not None:
+            with open(self.clock_file) as file:
+                settings["clock"] = file.read()
+        self.launch(**settings)
 
     def close(self):
         try:
@@ -1604,8 +1636,11 @@ def days_in_month(day):
 
 
 def today(day=None):
-    """The app's today: `day` of this month when the test pinned one, the
-    month's last day for a day past its end, else the real today."""
+    """The app's today: a date the test clock is on, or `day` of this month
+    when the test pinned one, the month's last day for a day past its end,
+    else the real today."""
+    if isinstance(day, datetime.date):
+        return day
     now = datetime.date.today()
     if day is None:
         return now
