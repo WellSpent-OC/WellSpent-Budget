@@ -156,6 +156,8 @@ extension SecondAccount {
         let transport = ReadableHTTPTransport(baseURL: url)
         _ = try await transport.signIn(email: email, password: password, deviceLabel: "UI test reader")
         let labels = try await transport.sessions().compactMap(\.deviceLabel)
+        // Quiet on purpose: the reading is done, and a reader session left
+        // on a fresh account harms nothing.
         try? await transport.signOut()
         return labels
     }

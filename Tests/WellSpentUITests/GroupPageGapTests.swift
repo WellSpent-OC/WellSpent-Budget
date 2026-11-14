@@ -425,7 +425,7 @@ final class GroupPageGapTests: XCTestCase {
         run.deleteGroup(named: later)
         run.openBudget(named: bills)
         run.syncAndWait("after Later was deleted")
-        run.signOut()
+        run.signOutIfSignedIn()
         await leslie.deleteForEveryone(household)
         await leslie.cleanUp()
 
