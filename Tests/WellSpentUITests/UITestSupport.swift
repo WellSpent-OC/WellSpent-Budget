@@ -909,3 +909,19 @@ final class TestApp {
             .removePersistentDomain(forName: AccountDirectory.testDefaultsSuiteName)
     }
 }
+
+@MainActor
+extension TestApp {
+    /// The failures file, in the run's data folder, which the app can read.
+    var faultFile: URL { dataRoot.appendingPathComponent("test-faults.txt") }
+
+    /// Makes `operations` fail as a lost connection would
+    /// (`Workspace.faultFileVariable`). Call it before launch so the app
+    /// knows the file. After launch, calling it again changes the failures
+    /// with no relaunch; `[]` turns them all off.
+    func setFaults(_ operations: [AppFaults.Operation]) throws {
+        try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
+        try AppFaults.text(for: operations).write(to: faultFile, atomically: true, encoding: .utf8)
+        app.launchEnvironment[Workspace.faultFileVariable] = faultFile.path
+    }
+}

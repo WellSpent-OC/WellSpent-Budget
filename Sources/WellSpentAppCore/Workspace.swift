@@ -221,7 +221,25 @@ public final class Workspace {
     /// what coming to the front does by itself. Test builds only, like the
     /// clock file.
     nonisolated public static let clockAnnouncesVariable = "WELLSPENT_CLOCK_ANNOUNCES"
+
+    /// The environment variable a UI test sets to a file naming requests that
+    /// should fail as if the connection were lost, one per line
+    /// (`AppFaults.file`). Test builds only, like the clock file.
+    nonisolated public static let faultFileVariable = "WELLSPENT_FAULT_FILE"
     #endif
+
+    /// The failures a staging test build was launched with, and none otherwise.
+    nonisolated public static func faults(for environment: AppEnvironment,
+                                          in processEnvironment: [String: String]) -> AppFaults {
+        #if DEBUG
+        guard environment == .staging, let path = processEnvironment[faultFileVariable], !path.isEmpty else {
+            return .none
+        }
+        return .file(path)
+        #else
+        return .none
+        #endif
+    }
 
     /// The clock today comes from: the file the variable names, in a staging
     /// test build, and otherwise the system's.
@@ -474,6 +492,9 @@ public final class Workspace {
         } else {
             sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
+        // Read here, not by each app, so the Mac, iPhone and Linux apps all
+        // honour a test's failures without passing anything in.
+        sync.faults = faults(for: environment, in: ProcessInfo.processInfo.environment)
         // Today from the clock from the first read on, which makes the
         // repeats that have come due and dates the samples.
         let model = AppModel(store: sync.store, undoWindow: undoWindow, opensFirstBudget: opensFirstBudget,
