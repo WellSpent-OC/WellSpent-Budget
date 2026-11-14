@@ -472,7 +472,7 @@ public final class EntryEditor {
     /// nobody wonders where the entry went once it is saved.
     public var periodLine: String? {
         guard editing != nil, let budgetID, let budget = model.budget(for: budgetID) else { return nil }
-        return budget.reset.period(containing: Date()).contains(date) ? nil : Words.outOfPeriod
+        return budget.reset.period(containing: model.today()).contains(date) ? nil : Words.outOfPeriod
     }
 
     /// The fields changed from the entry as opened, or nil when none is.
