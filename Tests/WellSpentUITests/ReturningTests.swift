@@ -75,7 +75,9 @@ final class ReturningTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.entryMerchant).waitForExistence(timeout: 10), "no New transaction sheet")
         run.click(AccessibilityID.entryCancel)
         run.expectNoSheet()
-        try await Task.sleep(for: .seconds(5))
+        // As long as coming back is given to bring a change in, above, so a
+        // sync on closing the sheet would have shown by now.
+        try await Task.sleep(for: .seconds(20))
         XCTAssertFalse(run.listText("Corner bakery").exists, "a sheet opening and closing synced like coming back")
         run.syncNow()
         XCTAssertTrue(run.listText("Corner bakery").waitForExistence(timeout: 20),
