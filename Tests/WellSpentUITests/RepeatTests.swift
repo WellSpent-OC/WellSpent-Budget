@@ -473,6 +473,8 @@ final class RepeatTests: XCTestCase {
         let leslieLink = try await run.legacyInvite(group: household, myName: "Robin", role: .add)
         let kimLink = try await run.legacyInvite(group: household, myName: "Robin", role: .manage)
         run.signOut()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarSignIn).waitForExistence(timeout: 20),
+                      "Robin is still signed in. On screen: \(run.visibleTexts())")
 
         // Scenario REPEAT-11
         // 2. Leslie, at Add, opens this month's phone bill: it opens read-only,
@@ -500,12 +502,18 @@ final class RepeatTests: XCTestCase {
                       "no line saying \(onlyRobin) On screen: \(run.visibleTexts())")
         XCTAssertFalse(run.element(AccessibilityID.repeatSave).exists, "Save on the repeat for Leslie")
         XCTAssertFalse(run.element(AccessibilityID.repeatStop).exists, "Stop repeating on the repeat for Leslie")
-        // Done closes the repeat's sheet, then the list.
-        for _ in 0..<3 where run.app.buttons[RepeatsList.Words.done].firstMatch.exists {
-            run.app.buttons[RepeatsList.Words.done].firstMatch.click()
-        }
-        run.expectNoSheet()
+        // Close shuts the repeat's read-only sheet, then Done the list under it.
+        let close = run.app.buttons[RepeatEditor.Words.close].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "the repeat's sheet has no Close. On screen: \(run.visibleTexts())")
+        close.click()
+        let done = run.app.buttons[RepeatsList.Words.done].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "the list of repeats has no Done. On screen: \(run.visibleTexts())")
+        done.click()
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.repeatRow(Self.bill)), until: "exists == false", timeout: 10),
+                      "the list of repeats stayed open. On screen: \(run.visibleTexts())")
         run.signOut()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarSignIn).waitForExistence(timeout: 20),
+                      "Leslie is still signed in. On screen: \(run.visibleTexts())")
 
         // Scenario REPEAT-11
         // 4. Kim, a manager, opens the same bill and changes its amount: she's
