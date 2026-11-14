@@ -1423,8 +1423,40 @@ def emailed_code(address, after):
 
 def account(name):
     """A test person's sign-in, (email, password), for a test that types or
-    pastes them itself. Never printed."""
+    pastes them itself. Never printed. Made the first time it's asked for
+    when no earlier test in the run made it, so a test run on its own, by
+    name, has it too: a run's order is not a test's setup."""
+    if name.lower() not in _ACCOUNTS:
+        _ACCOUNTS[name.lower()] = _confirmed_account(name)
     return _ACCOUNTS[name.lower()]
+
+
+def _confirmed_account(name):
+    """A fresh account for `name`, made through the server's API rather than
+    a window, and confirmed with the code its mailbox gets: the same account
+    `App.sign_up` makes, as (email, password)."""
+    slug = "".join(ch for ch in name.lower() if ch.isalnum())
+    email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
+    password = secrets.token_urlsafe(18)
+    asked = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+    session = _api("POST", "signup", {"email": email, "password": password, "deviceLabel": "Linux UI tests"})
+    _api("POST", "email/verify", {"code": emailed_code(email, asked)}, token=session["token"])
+    return email, password
+
+
+def _api(method, path, body=None, token=None):
+    """One call to the server's API, as the app makes it, or raises."""
+    headers = {"User-Agent": "WellSpent-Linux-UI-tests", "Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode()
+    call = urllib.request.Request(f"{STAGING}/api/v2/{path}", data=data, headers=headers, method=method)
+    with urllib.request.urlopen(call, timeout=30) as reply:
+        raw = reply.read()
+        return json.loads(raw) if raw else None
 
 
 def write_plan(path, answer):
