@@ -233,6 +233,28 @@ final class PhoneSharingTests: XCTestCase {
         XCTAssertFalse(run.element(AccessibilityID.sidebarGroup(groupName)).exists)
         for budget in budgets { XCTAssertFalse(run.element(AccessibilityID.sidebarBudget(budget)).exists) }
 
+        // Scenario EMAIL-07
+        // Quit, opened again and signed in to the same account, syncing
+        // brings the unanswered invitation back beside the groups.
+        run.app.terminate()
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.syncAndWait()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(first.id)).waitForExistence(timeout: 20),
+                      "the invitation did not come back after reopening. On screen: \(run.visibleTexts())")
+        for budget in budgets { XCTAssertFalse(run.element(AccessibilityID.sidebarBudget(budget)).exists) }
+
+        // Scenario EMAIL-07
+        // Signing out clears the account's invitations from the screen.
+        // Signed in again, syncing brings it back.
+        run.signOut()
+        XCTAssertTrue(run.lacks(AccessibilityID.incomingInvitation(first.id), timeout: 10),
+                      "the invitation stayed after signing out. On screen: \(run.visibleTexts())")
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.syncAndWait()
+        XCTAssertTrue(run.element(AccessibilityID.acceptInvitation(first.id)).waitForExistence(timeout: 20),
+                      "the invitation did not come back after signing in again. On screen: \(run.visibleTexts())")
+
         // Scenario EMAIL-04
         run.tap(AccessibilityID.rejectInvitation(first.id))
         run.cancelQuestion()

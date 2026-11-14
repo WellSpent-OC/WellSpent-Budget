@@ -77,6 +77,9 @@ final class PhoneMoneyInTests: XCTestCase {
 
         // When: an entry of $1,310.00 is added and marked as money in. With
         // the switch on, the help line names the budget.
+        // Scenario INC-04
+        // With the switch off, the line isn't there. On, it says "Adds to
+        // Bookings instead of spending from it." (addMoneyIn checks both).
         run.addMoneyIn(merchant: "Airbnb", amount: "1310.00", intoBudget: "Bookings")
 
         // Then: the entry shows in the list with a plus sign, the spending
@@ -98,6 +101,33 @@ final class PhoneMoneyInTests: XCTestCase {
                       "the top line does not say \(Words.income): \(run.element(AccessibilityID.entryTopLine).label)")
         run.tap(AccessibilityID.entryCancel)
         run.expectNoSheet()
+    }
+
+    // MARK: - INC-03
+
+    @MainActor
+    func testAGroupsCashFlowCountsTheMortgageAsMoneyOut() throws {
+        let group = "Pool House", budget = "Bookings"
+        let run = launched(pinnedDay: Self.midMonth)
+        run.addGroup(named: group)
+        run.addBudget(named: budget, amount: "6000", inGroup: group)
+
+        // Scenario INC-03
+        // A group called Pool House, Properties off, with $9,640.00 in and
+        // $5,260.00 out, a mortgage payment among it: the middle of its
+        // wheel on its page says "+$4,380" and is read as "$4,380 ahead",
+        // and nothing on the page says "profit".
+        run.addMoneyIn(merchant: "Airbnb", amount: "9640.00", intoBudget: budget)
+        run.addEntry(merchant: "Mortgage", amount: "3100.00")
+        run.addEntry(merchant: "Cleaner", amount: "2160.00")
+        run.goBack()
+        run.openGroupPage(named: group)
+        XCTAssertTrue(run.shows("+$4,380"), "the wheel's middle doesn't say +$4,380. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.groupWheel, toContain: "$4,380 ahead"),
+                      "the wheel doesn't say $4,380 ahead: " + run.element(AccessibilityID.groupWheel).label)
+        let profit = run.app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS[c] 'profit' OR value CONTAINS[c] 'profit'")).firstMatch
+        XCTAssertFalse(profit.exists, "the page says profit: \(profit.label)")
     }
 
     // MARK: - INC-02

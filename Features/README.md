@@ -131,8 +131,8 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-14 | A selected row stays readable | Mac | Mac |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac |
-| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux |
+| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, iPhone |
+| INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [EditEntry.md](EditEntry.md)
 
@@ -179,7 +179,7 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| REPEAT-01 | Setting a repeat | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-01 | Setting a repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac |
 | REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac |
 | REPEAT-04 | A short month | Mac, Linux, iPhone | Mac |
@@ -188,11 +188,11 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-16 | A house's repeat | Mac, Linux, iPhone | None yet |
 | REPEAT-17 | Turning it on for a bill already there | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -380,7 +380,7 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-04 | Reject ends the invitation and requires a fresh one | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-05 | The sender can cancel a pending invitation | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-06 | Invitations enforce account and group permissions | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux |
+| EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | None yet |
 | EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | None yet |
