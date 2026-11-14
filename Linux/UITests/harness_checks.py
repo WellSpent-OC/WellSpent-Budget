@@ -181,16 +181,17 @@ class SignIn(unittest.TestCase):
 
 
 class SyncButton:
-    """Sync, greyed while a sync runs: pressing it then does nothing."""
+    """Sync as one find of it sees it: greyed when a sync runs, and then
+    pressing it does nothing."""
 
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, app, enabled):
+        self.app, self.enabled = app, enabled
 
-    @property
-    def enabled(self):
-        return self.app.running <= 0
-
-    def press(self):
+    def press(self, does_nothing=False):
+        if does_nothing is None:
+            if self.enabled:
+                self.app.done.append(("press", "Sync"))
+            return self.enabled
         if not self.enabled:
             raise wellspent_ui.ScreenError("pressing <push button 'Sync'> did nothing")
         self.app.done.append(("press", "Sync"))
@@ -198,23 +199,27 @@ class SyncButton:
 
 class Sync(unittest.TestCase):
 
-    def test_a_sync_already_running_is_waited_out_before_pressing(self):
+    def check_sync(self, states):
+        """Runs sync() where each find of Sync sees the next of `states`."""
         app = signing_in_app()
         app.until = wellspent_ui.App.until.__get__(app)
         app.sync = wellspent_ui.App.sync.__get__(app)
         app.settle = lambda: None
-        # The sync a sign-in starts by itself is still running for a moment.
-        app.running = 3
-        sync = SyncButton(app)
-
-        def button(name, within=None):
-            app.running -= 1
-            return sync
-        app.button = button
+        states = list(states)
+        app.button = lambda name, within=None: SyncButton(app, states.pop(0) if states else True)
         app.main = type("Main", (), {"all": lambda self, role: [type("B", (), {"showing": True, "words": "Sync", "enabled": True})()]})()
         with unittest.mock.patch.object(wellspent_ui.time, "sleep", lambda seconds: None):
             app.sync()
         self.assertEqual([("press", "Sync")], app.done)
+
+    def test_a_sync_already_running_is_waited_out_before_pressing(self):
+        # The sync a sign-in starts by itself is still running for a moment.
+        self.check_sync([False, False, False])
+
+    def test_a_sync_that_starts_just_before_the_press_is_waited_out_too(self):
+        # Sync is ready, then a change starts a sync of its own before the
+        # press lands, so that press does nothing.
+        self.check_sync([True, False])
 
 
 if __name__ == "__main__":
