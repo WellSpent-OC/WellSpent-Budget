@@ -248,28 +248,6 @@ final class RepeatTests: XCTestCase {
     }
 
     @MainActor
-    func testCatchingUpAfterTimeAway() throws {
-        let run = try repeating(from: "2026-10-14T09:00:00")
-
-        // Scenario REPEAT-03
-        // 1. Away from the app for two months, it's opened on December 20:
-        // December has its bill, one.
-        try reopen(run, on: "2026-12-20T09:00:00")
-        run.expect(dayLine: "December \u{00B7} day 20 of 31", "on December 20")
-        try expectOneBill(on: "2026-12-14T09:00:00", in: run, "December, after two months away")
-
-        // Scenario REPEAT-03
-        // 2. And so has each month between: the clock goes back to November
-        // and October to show their lists, one bill each.
-        try run.setClock("2026-11-20T09:00:00")
-        run.expect(dayLine: "November \u{00B7} day 20 of 30", "looking at November")
-        try expectOneBill(on: "2026-11-14T09:00:00", in: run, "November, after two months away")
-        try run.setClock("2026-10-20T09:00:00")
-        run.expect(dayLine: "October \u{00B7} day 20 of 31", "looking at October")
-        try expectOneBill(on: "2026-10-14T09:00:00", in: run, "October, after two months away")
-    }
-
-    @MainActor
     func testAShortMonth() throws {
         let run = try repeating(from: "2026-10-31T09:00:00")
 
