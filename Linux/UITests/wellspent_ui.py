@@ -105,7 +105,18 @@ def _words(node):
     except Exception as error:
         if not _absent(error):
             raise
-    return _text(node) if node.get_role_name() == "label" else ""
+    return _text(node) if _role(node) == "label" else ""
+
+
+def _role(node):
+    """A node's role, or None for a node a redraw replaced. Any other error
+    from the tree means the app didn't answer, and is raised."""
+    try:
+        return node.get_role_name()
+    except Exception as error:
+        if _absent(error):
+            return None
+        raise
 
 
 def _walk(node):
@@ -204,7 +215,7 @@ class Element:
         return [
             Element(self.app, n)
             for n in _walk(self.node)[1:]
-            if (role is None or n.get_role_name() == role)
+            if (role is None or _role(n) == role)
             and (words is None or _words(n) == words)
             and (starts is None or _words(n).startswith(starts))
         ]
@@ -218,8 +229,10 @@ class Element:
                 return element
         return None
 
-    def press(self):
-        """A click, or Space on it: its first action."""
+    def press(self, does_nothing=False):
+        """A click, or Space on it: its first action. A press the app ignores
+        fails, unless `does_nothing` says that's what the step expects, as for
+        a greyed button."""
         target = self._pressable()
         if target is None and self.role != "check box":
             # While the app redraws, after a sync, the tree can say for a
@@ -232,8 +245,8 @@ class Element:
             # A menu button carries the name and holds the button that does
             # the pressing, so press that, as a screen reader's user does.
             if target is not None:
-                if not target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press"):
-                    raise self.app.failure(f"pressing {self!r} did nothing")
+                if target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press") == does_nothing:
+                    raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
                 self.app.settle()
                 return
             if self.role == "check box":
@@ -244,8 +257,8 @@ class Element:
                                "Space to change the checkbox")
                 return
             raise ScreenError(f"{self!r} can't be pressed")
-        if not self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press"):
-            raise self.app.failure(f"pressing {self!r} did nothing")
+        if self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press") == does_nothing:
+            raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
         self.app.settle()
 
     def type(self, words):
@@ -1168,6 +1181,10 @@ class App:
         """The Sync button, then waits until it's done. While it runs, the
         button still says "Sync" and is greyed, and a slow network can keep
         it there past the usual wait."""
+        # A sync already running, such as the one a sign-in starts, greys
+        # Sync, and a press then does nothing. Wait it out, so this press
+        # starts a sync that carries every change made so far.
+        self.until(lambda: self.button("Sync", within=self.main).enabled, "Sync to be ready", wait=60)
         self.button("Sync", within=self.main).press()
         time.sleep(1)
 
