@@ -161,7 +161,7 @@ public final class AppModel {
         }
         do {
             let budget = try store.budget(selectedBudget)
-            let period = budget?.reset.period(containing: Date())
+            let period = budget?.reset.period(containing: today())
             transactions = try store.transactions(in: selectedBudget, period: period)
             if let device = thisDevice() {
                 notices = try store.unnoticedCopies(among: transactions.map(\.id), from: device)
@@ -859,7 +859,7 @@ public final class AppModel {
             (utilities, "Regional Power", -9603, 12),
         ]
         for (budget, merchant, cents, daysAgo) in samples {
-            let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: today()) ?? today()
             try store.save(Transaction(budgetID: budget.id, groupID: budget.groupID, date: date,
                                        merchant: merchant, amount: Money(minorUnits: cents)))
         }
