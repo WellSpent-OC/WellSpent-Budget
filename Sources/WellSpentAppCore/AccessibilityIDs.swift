@@ -209,6 +209,8 @@ public enum AccessibilityID {
     /// PLAN-18: a group the free plan kept on this device only.
     public static let groupHeldNotice = "group.held.notice"
     public static let groupHeldSeePlans = "group.held.seePlans"
+    /// The marker beside a held group's name on a phone.
+    public static func groupHeldMarker(_ name: String) -> String { "group.held.marker.\(name)" }
     /// A person's row on a phone, which opens their page, by the name the row
     /// shows.
     public static func groupPerson(_ name: String) -> String { "group.person.\(name)" }

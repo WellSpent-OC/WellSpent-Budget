@@ -883,9 +883,10 @@ jobs:
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
       HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
-      # The Properties classes that sign in to staging, and how many tests
-      # each list holds. A new one adds its class here and its count below,
-      # in the app pull request that moves .github/properties-ref past it.
+      # The classes that sign in to staging, the app's own and Properties',
+      # and how many tests each list holds. A new one adds its class here and
+      # its count below; a Properties one in the app pull request that moves
+      # .github/properties-ref past it.
       MAC_SIGNED_IN: WellSpentUITests/PlanLimitTests WellSpentUITests/SharedHousesTests WellSpentUITests/MemberHousesTests WellSpentUITests/HouseLockTests
       MAC_SIGNED_IN_COUNT: 6
       IPHONE_SIGNED_IN: WellSpentPhoneUITests/PhoneLockedHouseTests WellSpentPhoneUITests/PhonePlanLimitTests WellSpentPhoneUITests/PhoneSharedHousesTests WellSpentPhoneUITests/PhoneMemberHousesTests WellSpentPhoneUITests/PhonePlansOffTests

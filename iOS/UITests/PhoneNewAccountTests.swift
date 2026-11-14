@@ -4,6 +4,7 @@ import XCTest
 import WellSpentAppCore
 import WellSpentCrypto
 import WellSpentModel
+import WellSpentPlans
 import WellSpentSync
 
 /// What a new account brings with it, on a phone: the sample groups stay out
@@ -185,6 +186,144 @@ final class PhoneNewAccountTests: XCTestCase {
         XCTAssertTrue(run.text(MainScreen.Words.noBudgetsTitle).waitForExistence(timeout: 20),
                       "Leslie's new account does not start empty. On screen: \(run.visibleTexts())")
         run.signOut()
+    }
+
+    /// Robin's account was made on another computer, on the free plan, which
+    /// syncs one group. On this fresh install he renames a sample and adds a
+    /// budget of his own to it, then signs in. A second group of his own is
+    /// PLAN-18's test.
+    @MainActor
+    func testAGroupChangedBeforeSigningInComesAlongAndTheSamplesDoNot() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let address = StagingMailbox.freshAddress("iphone", for: "robin")
+        try await Self.accountElsewhere(address, mailbox)
+        let run = freshInstall()
+        run.longPress(AccessibilityID.sidebarGroup("Household"))
+        run.tapMenuItem(MainScreen.Words.rename)
+        run.type("Home", into: AccessibilityID.groupEditorName)
+        run.tap(AccessibilityID.groupEditorSave)
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Home")).waitForExistence(timeout: 10), "no Home")
+        run.addBudget(named: "Fuel", amount: "100", inGroup: "Home")
+        run.addEntry(merchant: "Gas station", amount: "40.00")
+        run.goBack()
+
+        // Scenario SAMP-08
+        // 1. Signed in, the list holds Home with its budgets and his entry,
+        // and Home reaches his other devices. Side Business, which he did not
+        // change, stays out.
+        try run.signIn(email: address, password: Self.password, server: mailbox.server)
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Home")).waitForExistence(timeout: 20), "Home did not come along")
+        for budget in ["Groceries", "Eating out", "Utilities", "Fuel"] {
+            XCTAssertTrue(run.scrollTo(AccessibilityID.sidebarBudget(budget)).exists, "\(budget) did not come along")
+        }
+        XCTAssertFalse(run.element(AccessibilityID.sidebarGroup("Side Business")).exists, "Side Business came along")
+        run.openBudget(named: "Fuel")
+        XCTAssertTrue(run.hasRow("Gas station", timeout: 10), "his entry did not come along")
+        run.goBack()
+        run.syncAndWait()
+        let otherDevice = try SecondAccount(server: mailbox.server, settingsSuite: "app.wellspent.uitest.robin")
+        try await otherDevice.signIn(email: address, password: Self.password)
+        let arrived = try await otherDevice.waitFor(group: "Home", budget: "Fuel", merchant: "Gas station")
+        XCTAssertTrue(arrived, "Home did not reach his other device")
+        XCTAssertEqual(AppModel(store: otherDevice.sync.store).groups.map(\.name), ["Home"])
+        await otherDevice.cleanUp()
+
+        // Scenario SAMP-08
+        // 2. Signed out, the list holds only Side Business.
+        run.signOut()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Side Business")).waitForExistence(timeout: 10),
+                      "no Side Business after signing out. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.element(AccessibilityID.sidebarGroup("Home")).exists, "Home stayed after signing out")
+    }
+
+    /// Robin makes Home and Beach on this iPhone, then signs in to an account
+    /// on the free plan. The server takes one group and refuses the other,
+    /// which stays on this iPhone and says so. Which one it takes isn't
+    /// fixed, so the test reads which one Home marks.
+    @MainActor
+    func testAGroupPastTheFreePlanSaysItIsOnlyOnThisIPhone() async throws {
+        let mailbox = try StagingMailbox.fromEnvironment()
+        let address = StagingMailbox.freshAddress("iphone", for: "robin")
+        try await Self.accountElsewhere(address, mailbox)
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        // Before the app sells plans.
+        run.app.launchEnvironment[PlanBuying.variable] = "off"
+        run.launch()
+        XCTAssertTrue(run.element(AccessibilityID.sidebarGroup("Household")).waitForExistence(timeout: 10), "no samples")
+        run.addGroup(named: "Home")
+        run.addGroup(named: "Beach")
+
+        // Scenario PLAN-18
+        // 1. Signed in on the free plan, the server takes one group and
+        // refuses the other. That one says it's only on this iPhone, beside
+        // its name and on its page, which ends "Paid plans are coming soon.",
+        // and Choose a plan doesn't open by itself.
+        try run.signIn(email: address, password: Self.password, server: mailbox.server)
+        run.syncAndWait()
+        let groups = ["Home", "Beach"]
+        let marked = groups.filter { run.scrollTo(AccessibilityID.groupHeldMarker($0), timeout: 15).exists }
+        XCTAssertEqual(marked.count, 1, "one group, not \(marked), says it's only on this iPhone. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.app.navigationBars[PlanWording.choosePlan].exists,
+                       "Choose a plan opened by itself. On screen: \(run.visibleTexts())")
+        let held = try XCTUnwrap(marked.first)
+        let synced = groups.first { $0 != held }
+        let closed = HeldGroupScreen(group: held, synced: synced, device: .iPhone, buyingIsOpen: false)
+        XCTAssertEqual(run.element(AccessibilityID.groupHeldMarker(held)).label, closed.marker)
+        run.openGroupPage(named: held)
+        let notice = run.element(AccessibilityID.groupHeldNotice)
+        XCTAssertTrue(notice.waitForExistence(timeout: 10), "\(held)'s page has no notice. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(notice.label, closed.notice)
+        XCTAssertTrue(notice.label.hasSuffix("Paid plans are coming soon."), "the notice ends: \(notice.label)")
+        // Kept on a pass too, for the pull request's picture.
+        let picture = XCTAttachment(screenshot: run.app.screenshot())
+        picture.name = "held-group-iphone"
+        picture.lifetime = .keepAlways
+        add(picture)
+
+        // Scenario PLAN-18
+        // 2. See Plans opens Choose a plan.
+        run.tap(AccessibilityID.groupHeldSeePlans)
+        XCTAssertTrue(run.app.navigationBars[PlanWording.choosePlan].waitForExistence(timeout: 10),
+                      "See Plans did not open Choose a plan. On screen: \(run.visibleTexts())")
+
+        // Scenario PLAN-18
+        // 3. Once the app sells plans, the notice ends "Choose a plan to sync
+        // it too." A test build keeps its session in memory, so opening the
+        // app again asks to sign in.
+        run.app.terminate()
+        run.app.launchEnvironment[PlanBuying.variable] = "on"
+        run.launch()
+        try run.signIn(email: address, password: Self.password, server: mailbox.server)
+        run.syncAndWait()
+        let open = HeldGroupScreen(group: held, synced: synced, device: .iPhone, buyingIsOpen: true)
+        run.openGroupPage(named: held)
+        XCTAssertTrue(notice.waitForExistence(timeout: 10), "\(held)'s page has no notice. On screen: \(run.visibleTexts())")
+        XCTAssertEqual(notice.label, open.notice)
+        XCTAssertTrue(notice.label.hasSuffix("Choose a plan to sync it too."), "the notice ends: \(notice.label)")
+        run.goBack()
+
+        // Scenario PLAN-18
+        // 4. Once a plan lets the server take it, neither the marker nor the
+        // notice shows.
+        try await mailbox.setPlan("starter", for: address)
+        let deadline = Date().addingTimeInterval(60)
+        while run.scrollTo(AccessibilityID.groupHeldMarker(held), timeout: 2).exists, Date() < deadline {
+            run.syncAndWait()
+        }
+        XCTAssertFalse(run.element(AccessibilityID.groupHeldMarker(held)).exists,
+                       "\(held) still says it's only on this iPhone. On screen: \(run.visibleTexts())")
+        run.openGroupPage(named: held)
+        XCTAssertFalse(notice.waitForExistence(timeout: 3), "\(held)'s page still has the notice: \(notice.label)")
+    }
+
+    /// Robin's account, made on another computer: signed up there, and its
+    /// address confirmed from staging's mailbox. This phone signs in to it.
+    @MainActor
+    private static func accountElsewhere(_ address: String, _ mailbox: StagingMailbox) async throws {
+        let elsewhere = try await StagingDesktop.connect(at: mailbox.server)
+        _ = try await elsewhere.signUp(email: address, password: password, deviceLabel: "Robin's other computer")
+        try await elsewhere.verifyEmail(code: try await mailbox.code(for: address, timeout: 30))
     }
 
     // MARK: - Joining with a new account

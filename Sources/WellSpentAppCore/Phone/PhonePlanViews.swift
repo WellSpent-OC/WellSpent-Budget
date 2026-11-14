@@ -81,8 +81,8 @@ struct PhonePlanCardSection: View {
     }
 }
 
-/// Restore Purchases, as a row on Account, and what it found.
-/// Restore Purchases. Its result is held by the screen around it, which
+/// Restore Purchases, as a row on Account and in Choose a plan. Its result is
+/// held by the screen around it, which
 /// presents it: inside a Form this row can be rebuilt while Restore runs (its
 /// status line comes and goes), and a result kept in the row's own state was
 /// lost with it, so nothing showed (#202).
