@@ -77,6 +77,13 @@ class TreeErrors(unittest.TestCase):
         self.assertEqual("", wellspent_ui._words(Replaced()))
         self.assertEqual([], wellspent_ui._walk(Replaced())[1:])
 
+    def test_a_node_a_redraw_replaced_has_no_role(self):
+        # Finding by role reads each node's role, and a redraw can replace a
+        # node between finding it and reading it.
+        self.assertIsNone(wellspent_ui._role(Replaced()))
+        with self.assertRaises(wellspent_ui.GLib.Error):
+            wellspent_ui._role(TimedOut())
+
 
 class Quit(unittest.TestCase):
 
@@ -171,6 +178,43 @@ class SignIn(unittest.TestCase):
         app = signing_in_app()
         self.assertEqual("robin@example.com", app.sign_in_on_sheet("Robin"))
         self.assertIn(("type", "Email", "robin@example.com"), app.done)
+
+
+class SyncButton:
+    """Sync, greyed while a sync runs: pressing it then does nothing."""
+
+    def __init__(self, app):
+        self.app = app
+
+    @property
+    def enabled(self):
+        return self.app.running <= 0
+
+    def press(self):
+        if not self.enabled:
+            raise wellspent_ui.ScreenError("pressing <push button 'Sync'> did nothing")
+        self.app.done.append(("press", "Sync"))
+
+
+class Sync(unittest.TestCase):
+
+    def test_a_sync_already_running_is_waited_out_before_pressing(self):
+        app = signing_in_app()
+        app.until = wellspent_ui.App.until.__get__(app)
+        app.sync = wellspent_ui.App.sync.__get__(app)
+        app.settle = lambda: None
+        # The sync a sign-in starts by itself is still running for a moment.
+        app.running = 3
+        sync = SyncButton(app)
+
+        def button(name, within=None):
+            app.running -= 1
+            return sync
+        app.button = button
+        app.main = type("Main", (), {"all": lambda self, role: [type("B", (), {"showing": True, "words": "Sync", "enabled": True})()]})()
+        with unittest.mock.patch.object(wellspent_ui.time, "sleep", lambda seconds: None):
+            app.sync()
+        self.assertEqual([("press", "Sync")], app.done)
 
 
 if __name__ == "__main__":
