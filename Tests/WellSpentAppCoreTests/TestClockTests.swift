@@ -153,6 +153,31 @@ struct TestClockTests {
         #expect(bills.map(\.repeatMonth) == ["2020-01"], "bills were made for months the clock hasn't reached")
     }
 
+    /// Signing in reads that account's budgets on the clock's day too, from
+    /// the first read. The repeat is set on 14 January 2020, signed in, and
+    /// read again on signing back in on the 20th: January's bill only.
+    @Test func signingInReadsTheAccountOnTheClocksDay() async throws {
+        let defaults = isolatedDefaults()
+        let accounts = AccountDirectory(root: nil, defaults: defaults) { _ in InMemoryKeyStore() }
+        let transport = StubReadableTransport()
+        let january = { (day: Int) in AppLocale.calendar.date(from: DateComponents(year: 2020, month: 1, day: day, hour: 9))! }
+        let hand = HandClock(january(14))
+        let app = try Workspace.launch(accounts: accounts, defaults: defaults, makeTransport: { _ in transport },
+                                       clock: hand.clock, announcesDays: false)
+        try await app.sync.signUp(email: "robin@example.com", password: "a-long-password")
+        let group = try #require(app.model.addGroup(named: "Home"))
+        let utilities = try #require(app.model.addBudget(named: "Utilities", limit: .dollars(600), in: group))
+        app.model.addRepeatingTransaction(merchant: "Phone bill", amount: Money(minorUnits: 8_500),
+                                          date: january(14), note: "", budget: utilities)
+        await app.sync.signOut()
+
+        hand.date = january(20)
+        try await app.sync.signIn(email: "robin@example.com", password: "a-long-password")
+        let bills = try app.model.store.transactions(in: utilities, period: nil)
+            .filter { $0.merchant == "Phone bill" && !$0.isDeleted }
+        #expect(bills.map(\.repeatMonth) == ["2020-01"], "signing in made bills for months the clock hasn't reached")
+    }
+
     #if !os(Linux)
     /// On the Mac and iPhone the system says when a day begins. With the test
     /// clock, the workspace says it in the same words, to the same watcher,
