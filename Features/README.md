@@ -190,7 +190,7 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac |
-| REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Mac, Linux, iPhone |

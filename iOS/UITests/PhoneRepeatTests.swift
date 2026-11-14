@@ -12,6 +12,7 @@ final class PhoneRepeatTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
     /// The Keep both test's statements, for tearDown.
     nonisolated(unsafe) private static var statementsPath: String?
+    nonisolated(unsafe) private static var cleanups: [() async -> Void] = []
     private static let bill = "Phone bill"
 
     override func setUpWithError() throws {
@@ -26,6 +27,12 @@ final class PhoneRepeatTests: XCTestCase {
         if let path = Self.statementsPath { try? FileManager.default.removeItem(atPath: path) }
         Self.statementsPath = nil
         super.tearDown()
+    }
+
+    override func tearDown() async throws {
+        for cleanup in Self.cleanups { await cleanup() }
+        Self.cleanups = []
+        try await super.tearDown()
     }
 
     /// Utilities in Home on the test clock at `start`, with the $85.00 phone
@@ -184,6 +191,76 @@ final class PhoneRepeatTests: XCTestCase {
         XCTAssertFalse(run.hasRow("Internet", timeout: 2), "the internet bill is still there. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: once),
                       "after the exact swap the wheel says: \(run.element(AccessibilityID.budgetWheel).label)")
+    }
+
+    @MainActor
+    func testFindingThemAll() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let home = SecondAccount.phoneRunPrefix + PhoneTestApp.stamp() + " Repeats"
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.addGroup(named: home)
+        run.addBudget(named: "Utilities", amount: "600", inGroup: home)
+        Self.cleanups.append {
+            let robin = try? SecondAccount(server: accounts.server, settingsSuite: "\(SecondAccount.settingsSuite).robin")
+            try? await robin?.signIn(email: accounts.email, password: accounts.password)
+            await robin?.deleteGroup(named: home)
+            await robin?.cleanUp()
+        }
+
+        // Scenario REPEAT-12
+        // 1. A budget with no repeats doesn't mention them.
+        XCTAssertTrue(run.lacks(AccessibilityID.budgetRepeats), "a budget with none says it has repeats")
+
+        // Scenario REPEAT-12
+        // 2. With two, the count line says "2 repeats" and opens a short list.
+        // A row opens that repeat's own sheet, which changes this month and
+        // later, or stops it.
+        addRepeat(Self.bill, "85.00", in: run)
+        addRepeat("Internet", "60.00", in: run)
+        openRepeat(Self.bill, in: run)
+        XCTAssertTrue(run.shows(RepeatEditor.Words.note), "the sheet doesn't say what a change reaches")
+        XCTAssertTrue(run.has(AccessibilityID.repeatSave), "the owner has no Save on the repeat's sheet")
+        XCTAssertTrue(run.has(AccessibilityID.repeatStop), "the owner has no Stop repeating on the repeat's sheet")
+        run.app.buttons[RepeatEditor.Words.cancel].firstMatch.tap()
+        run.app.buttons[RepeatsList.Words.done].firstMatch.tap()
+        run.goBack()
+
+        // Leslie joins at Add level.
+        let link = try await run.legacyInvite(home, as: "Robin", role: .add)
+        let leslie = try SecondAccount(server: accounts.server)
+        Self.cleanups.insert({ await leslie.cleanUp() }, at: 0)
+        try await leslie.signIn(email: accounts.secondEmail, password: accounts.secondPassword)
+        _ = try await leslie.join(link, as: "Leslie")
+        run.signOut()
+        try run.signIn(email: accounts.secondEmail, password: accounts.secondPassword, server: accounts.server)
+        run.syncAndWait()
+        run.openBudget(named: "Utilities")
+
+        // Scenario REPEAT-12
+        // 3. Leslie, neither the owner nor a manager, finds them the same way,
+        // and the repeat's sheet has nothing to change.
+        openRepeat(Self.bill, in: run)
+        XCTAssertTrue(run.shows(RepeatEditor.Words.onlyOwner("Robin")),
+                      "the sheet doesn't say who can change it. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.lacks(AccessibilityID.repeatSave), "Leslie has Save on the repeat's sheet")
+        XCTAssertTrue(run.lacks(AccessibilityID.repeatStop), "Leslie has Stop repeating on the repeat's sheet")
+        let name = run.app.textFields[RepeatEditor.Words.merchant].firstMatch
+        XCTAssertTrue(name.exists && !name.isEnabled, "Leslie can type in the repeat's name")
+    }
+
+    /// From the open budget: the count line says "2 repeats", opens the short
+    /// list, and the row opens that repeat's own sheet.
+    @MainActor
+    private func openRepeat(_ name: String, in run: PhoneTestApp) {
+        run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(2))
+        run.tap(AccessibilityID.budgetRepeats)
+        run.tap(AccessibilityID.repeatRow(name))
+        XCTAssertTrue(run.app.navigationBars[name].waitForExistence(timeout: 10),
+                      "no sheet for \(name). On screen: \(run.visibleTexts())")
     }
 
     /// Adds a bill that repeats every month to the open budget.
