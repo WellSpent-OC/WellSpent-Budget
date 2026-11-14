@@ -122,28 +122,79 @@ final class PhoneRepeatTests: XCTestCase {
 
     @MainActor
     func testAStatementLineTakesTheBillsPlaceAndCountsOnce() throws {
-        let bank = "VERIZON WIRELESS"
-        let run = try launchedWithABillAndAStatementLine(bank)
-        let counted = run.transactionCount()
+        let bank = "VERIZON WIRELESS", internet = "COMCAST"
+        let folder = try StatementFolder()
+        Self.statementsPath = folder.url.path
+        let statement = try folder.write([(bank, "-85.40", 0)])
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.launch(importing: statement)
+        run.goBack()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
+        addRepeat(Self.bill, "85.00", in: run)
+        // A second bill, for the exact amount in step 3.
+        addRepeat("Internet", "60.00", in: run)
+        let month = EntryEditor.Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
+        let once = TodaysBudget(limit: 60_000, spent: 14_540).wheel.spokenSummary
 
+        // Scenario REPEAT-14
         // 1. The review says which bill the line replaces, under Matched.
         run.importStatement()
         let status = AccessibilityID.importLineStatus(bank)
-        let month = EntryEditor.Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
         let replaces = ImportReviewScreen.Words.replaces(month: month, name: Self.bill, amount: "$85.00")
         XCTAssertTrue(run.waitForLabel(status, toBe: replaces), "the row says: \(run.element(status).label)")
         XCTAssertEqual(run.count(ImportReviewScreen.Words.matched), "1")
 
+        // Scenario REPEAT-14
         // 2. Going ahead, the bank's line stands in the bill's place, at the
-        // bank's amount, and the count doesn't move. The repeat carries on.
+        // bank's amount, in Utilities, and the money counts once: the wheel
+        // shows $85.40 and the internet bill, not both phone amounts. The
+        // repeat carries on.
         run.tap(AccessibilityID.importConfirm)
         run.waitForTheReviewToClose()
+        XCTAssertTrue(run.app.navigationBars["Utilities"].exists, "not on Utilities. On screen: \(run.visibleTexts())")
         XCTAssertTrue(run.row("Verizon Wireless", says: "$85.40", timeout: 10),
                       "the line is not there at the bank's amount. On screen: \(run.visibleTexts())")
-        XCTAssertFalse(run.hasRow(Self.bill), "the bill is still there. On screen: \(run.visibleTexts())")
-        XCTAssertEqual(run.transactionCount(), counted, "not counted once. The page says: " + run.countLine())
+        XCTAssertFalse(run.hasRow(Self.bill, timeout: 2), "the bill is still there. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: once),
+                      "after the swap the wheel says: \(run.element(AccessibilityID.budgetWheel).label)")
         run.bringToMiddle(run.scrollTo(AccessibilityID.budgetRepeats))
-        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(1))
+        XCTAssertEqual(run.element(AccessibilityID.budgetRepeats).label, RepeatsList.Words.count(2))
+
+        // Scenario REPEAT-14
+        // 3. A line for exactly the internet bill's $60.00 works the same way:
+        // the bank's line takes its place, and the wheel doesn't move.
+        // The folder writes one file, so the second statement replaces the
+        // first only now.
+        let exact = try folder.write([(internet, "-60.00", 0)])
+        run.app.terminate()
+        run.app.launchEnvironment[UITestStatement.variable] = exact.path
+        run.launch()
+        // The app opens again where it was, on Utilities.
+        if !run.app.navigationBars["Utilities"].waitForExistence(timeout: 5) { run.openBudget(named: "Utilities") }
+        run.importStatement()
+        let replacesInternet = ImportReviewScreen.Words.replaces(month: month, name: "Internet", amount: "$60.00")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.importLineStatus(internet), toBe: replacesInternet),
+                      "the row says: \(run.element(AccessibilityID.importLineStatus(internet)).label)")
+        run.tap(AccessibilityID.importConfirm)
+        run.waitForTheReviewToClose()
+        XCTAssertTrue(run.row("Comcast", says: "$60.00", timeout: 10),
+                      "the line is not there. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.hasRow("Internet", timeout: 2), "the internet bill is still there. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: once),
+                      "after the exact swap the wheel says: \(run.element(AccessibilityID.budgetWheel).label)")
+    }
+
+    /// Adds a bill that repeats every month to the open budget.
+    @MainActor
+    private func addRepeat(_ merchant: String, _ amount: String, in run: PhoneTestApp) {
+        run.tap(AccessibilityID.budgetAdd)
+        run.type(merchant, into: AccessibilityID.entryMerchant)
+        run.type(amount, into: AccessibilityID.entryAmount)
+        run.turnOnRepeats()
+        run.tap(AccessibilityID.entryAdd)
+        XCTAssertTrue(run.hasRow(merchant), "\(merchant) is not in the list. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
