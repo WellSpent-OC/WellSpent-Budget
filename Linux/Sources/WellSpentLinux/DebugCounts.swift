@@ -5,8 +5,7 @@ import WellSpentAppCore
 /// What a UI test counts that a person can't see: how many times the window's
 /// root has drawn, and how many screens wait on a reload. Written, whole, to
 /// the file `variable` names, after each draw. A staging test build only: a
-/// release build is compiled without it, and the release check fails the
-/// build if this name is in the app.
+/// release build is compiled without it.
 @MainActor
 enum DebugCounts {
     nonisolated static let variable = "WELLSPENT_DEBUG_COUNTS_FILE"

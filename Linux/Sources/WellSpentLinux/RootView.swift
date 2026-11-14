@@ -389,8 +389,6 @@ struct RootView: View {
     }
 }
 
-/// Across the top of every staging window, so a test build is never mistaken
-/// for the real app. A live build has none.
 /// Whether the Add sheet shows, and which entry is open to change. Observable,
 /// so closing a sheet reaches the window as one change: with the save, two
 /// draws. A plain @State drew the window again for the close, four in all.
@@ -400,6 +398,8 @@ final class EntrySheets {
     var opened: EntryEditor?
 }
 
+/// Across the top of every staging window, so a test build is never mistaken
+/// for the real app. A live build has none.
 struct StagingBanner: View {
     var body: some View {
         HStack {
