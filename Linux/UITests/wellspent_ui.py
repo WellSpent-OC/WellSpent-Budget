@@ -232,7 +232,8 @@ class Element:
     def press(self, does_nothing=False):
         """A click, or Space on it: its first action. A press the app ignores
         fails, unless `does_nothing` says that's what the step expects, as for
-        a greyed button."""
+        a greyed button. With `does_nothing=None` either is fine, and the
+        press gives back whether it did something."""
         target = self._pressable()
         if target is None and self.role != "check box":
             # While the app redraws, after a sync, the tree can say for a
@@ -245,10 +246,11 @@ class Element:
             # A menu button carries the name and holds the button that does
             # the pressing, so press that, as a screen reader's user does.
             if target is not None:
-                if target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press") == does_nothing:
+                acted = target._ask(lambda: Atspi.Action.do_action(target.node, 0), "press")
+                if acted == does_nothing:
                     raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
                 self.app.settle()
-                return
+                return acted
             if self.role == "check box":
                 checked = self._has(Atspi.StateType.CHECKED)
                 self.app.focus(self)
@@ -257,9 +259,11 @@ class Element:
                                "Space to change the checkbox")
                 return
             raise ScreenError(f"{self!r} can't be pressed")
-        if self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press") == does_nothing:
+        acted = self._ask(lambda: Atspi.Action.do_action(self.node, 0), "press")
+        if acted == does_nothing:
             raise self.app.failure(f"pressing {self!r} did {'something' if does_nothing else 'nothing'}")
         self.app.settle()
+        return acted
 
     def type(self, words):
         """Replaces what a text box holds with `words`, as selecting all and
@@ -1181,11 +1185,12 @@ class App:
         """The Sync button, then waits until it's done. While it runs, the
         button still says "Sync" and is greyed, and a slow network can keep
         it there past the usual wait."""
-        # A sync already running, such as the one a sign-in starts, greys
-        # Sync, and a press then does nothing. Wait it out, so this press
-        # starts a sync that carries every change made so far.
-        self.until(lambda: self.button("Sync", within=self.main).enabled, "Sync to be ready", wait=60)
-        self.button("Sync", within=self.main).press()
+        # A sync already running, such as the one a sign-in or a change
+        # starts by itself, greys Sync, and a press then does nothing, even
+        # one made the moment Sync looked ready. Press until one starts a
+        # sync, so it carries every change made so far.
+        self.until(lambda: self.button("Sync", within=self.main).press(does_nothing=None),
+                   "a press of Sync to start a sync", wait=60)
         time.sleep(1)
 
         def done():
