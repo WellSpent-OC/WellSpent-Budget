@@ -87,8 +87,12 @@ public final class Workspace {
         // way this device's always do.
         sync.didSwitchStore = { [weak self] store in
             guard let self else { return }
+            // Today from the clock from its first read, as at launch.
             self.model = AppModel(store: store, undoWindow: self.model.undoWindow,
-                                  opensFirstBudget: self.model.opensFirstBudget)
+                                  opensFirstBudget: self.model.opensFirstBudget,
+                                  today: { [pinnedDay = self.pinnedDay, clock = self.clock] in
+                                      Workspace.today(pinnedTo: pinnedDay, now: clock.now())
+                                  })
             self.afterReload.forEach { $0() }
             // Signing in asks for the new account's plan; signing out forgets the old one's.
             if self.sync.account == nil {
@@ -470,9 +474,10 @@ public final class Workspace {
         } else {
             sync = try SyncCoordinator(accounts: accounts, defaults: defaults, environment: environment)
         }
-        let model = AppModel(store: sync.store, undoWindow: undoWindow, opensFirstBudget: opensFirstBudget)
-        // The samples are dated from today, so from the clock a test moved.
-        model.today = { [clock] in Workspace.today(pinnedTo: pinnedDay, now: clock.now()) }
+        // Today from the clock from the first read on, which makes the
+        // repeats that have come due and dates the samples.
+        let model = AppModel(store: sync.store, undoWindow: undoWindow, opensFirstBudget: opensFirstBudget,
+                             today: { [clock] in Workspace.today(pinnedTo: pinnedDay, now: clock.now()) })
         if sync.account == nil, model.groups.isEmpty, !accounts.samplesSeeded {
             try accounts.noteSamples(try model.seedFirstRun(), in: model.store)
         }

@@ -42,8 +42,11 @@ final class PhoneRepeatTests: XCTestCase {
         run.type(Self.bill, into: AccessibilityID.entryMerchant)
         run.type("85.00", into: AccessibilityID.entryAmount)
         run.turnOnRepeats()
-        // A new entry's date is the real day, whatever day the wheel is pinned to.
-        XCTAssertTrue(run.showsLine(containing: "of each month"), "no line says when it shows up: \(run.visibleTexts())")
+        // A new entry's date is the real day, whatever day the wheel is pinned
+        // to, so the line names today's day.
+        let day = RepeatsList.Words.ordinal(AppLocale.calendar.component(.day, from: Date()))
+        XCTAssertTrue(run.showsLine(containing: "\(day) of each month"),
+                      "no line says it shows up on the \(day): \(run.visibleTexts())")
         run.tap(AccessibilityID.entryAdd)
         XCTAssertTrue(run.hasRow(Self.bill), "\(Self.bill) is not in the list. On screen: \(run.visibleTexts())")
         XCTAssertEqual(run.app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(Self.bill)).count, 1,
