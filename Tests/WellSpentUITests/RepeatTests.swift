@@ -193,6 +193,113 @@ final class RepeatTests: XCTestCase {
         XCTAssertTrue(run.listText(Self.bill).waitForExistence(timeout: 10), "Undo did not bring the bill back")
         XCTAssertTrue(run.element(AccessibilityID.budgetRepeats).waitForExistence(timeout: 10), "Undo did not bring the repeat back")
     }
+
+    // MARK: - A statement line and a made bill
+
+    /// Utilities with the $85.00 phone bill made this month, and a statement
+    /// with an $85.40 line from the phone company today.
+    @MainActor
+    private func startedWithABillAndAStatementLine(_ bank: String) throws -> (TestApp, URL) {
+        let run = try startedWithARepeat()
+        let statement = try run.writeStatement([(bank, "-85.40")])
+        return (run, statement)
+    }
+
+    /// What the review says the line does to this month's bill.
+    private func replacesThisMonthsBill() -> String {
+        let month = Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
+        return ImportReviewScreen.Words.replaces(month: month, name: Self.bill, amount: "$85.00")
+    }
+
+    @MainActor
+    func testAStatementLineTakesTheBillsPlaceAndCountsOnce() throws {
+        let bank = "VERIZON WIRELESS"
+        let (run, statement) = try startedWithABillAndAStatementLine(bank)
+        // A second bill, for the exact amount in step 3.
+        run.addRepeat(merchant: "Internet", amount: "60.00")
+
+        // Scenario REPEAT-14
+        // 1. The review says which bill the line replaces, and Matched counts it.
+        run.importStatement(at: statement)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importLineStatus(bank)), holds: replacesThisMonthsBill(),
+                               timeout: 10), "the row says: \(run.status(of: bank))")
+        XCTAssertEqual(run.count(ImportReviewScreen.Words.matched), "1")
+
+        // Scenario REPEAT-14
+        // 2. Going ahead, the bank's line stands in the bill's place, at the
+        // bank's amount, in Utilities, and the money counts once: the wheel
+        // shows $85.40 and the internet bill, not both phone amounts. The
+        // repeat carries on.
+        run.click(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("Verizon Wireless").waitForExistence(timeout: 10),
+                      "the bank's line is not in Utilities. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("$85.40").exists, "not at the bank's amount. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.rowIsGone(Self.bill), "the bill is still there. On screen: \(run.visibleTexts())")
+        let once = TodaysBudget(limit: 60_000, spent: 14_540)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: once.wheel.spokenSummary, "after the swap")
+        XCTAssertEqual(run.text(of: run.element(AccessibilityID.budgetRepeats)), RepeatsList.Words.count(2))
+
+        // Scenario REPEAT-14
+        // 3. A line for exactly the internet bill's $60.00 works the same way:
+        // the bank's line takes its place, and the wheel doesn't move.
+        let internet = "COMCAST"
+        let exact = try run.writeStatement([(internet, "-60.00")])
+        run.importStatement(at: exact)
+        let month = Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
+        let replacesInternet = ImportReviewScreen.Words.replaces(month: month, name: "Internet", amount: "$60.00")
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importLineStatus(internet)), holds: replacesInternet,
+                               timeout: 10), "the row says: \(run.status(of: internet))")
+        run.click(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("Comcast").waitForExistence(timeout: 10),
+                      "the bank's line is not in Utilities. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.rowIsGone("Internet"), "the internet bill is still there. On screen: \(run.visibleTexts())")
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: once.wheel.spokenSummary, "after the exact swap")
+    }
+
+    @MainActor
+    func testKeepBothLeavesTheBillAndAddsTheLine() throws {
+        let bank = "VERIZON WIRELESS"
+        let (run, statement) = try startedWithABillAndAStatementLine(bank)
+        let status = run.element(AccessibilityID.importLineStatus(bank))
+        let keepBoth = run.element(AccessibilityID.importLineKeepBoth(bank))
+        func isOn() -> Bool { (keepBoth.value as? Int) == 1 || (keepBoth.value as? String) == "1" }
+
+        // Scenario REPEAT-15
+        // 1. The line that replaces the bill offers Keep both, which starts off.
+        run.importStatement(at: statement)
+        XCTAssertTrue(run.wait(for: status, holds: replacesThisMonthsBill(), timeout: 10),
+                      "the row says: \(run.status(of: bank))")
+        XCTAssertTrue(keepBoth.waitForExistence(timeout: 10), "no Keep both. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(isOn(), "Keep both did not start off")
+
+        // Scenario REPEAT-15
+        // 2. On, the line will be added. Off again, it goes back to replacing.
+        keepBoth.click()
+        XCTAssertTrue(run.wait(for: status, holds: ImportReviewScreen.Words.willBeAdded, timeout: 5),
+                      "the row says: \(run.status(of: bank))")
+        keepBoth.click()
+        XCTAssertTrue(run.wait(for: status, holds: replacesThisMonthsBill(), timeout: 5),
+                      "the row says: \(run.status(of: bank))")
+
+        // Scenario REPEAT-15
+        // 3. On and imported, both stay, and neither is changed: the bill at
+        // $85.00, the bank's line at $85.40.
+        keepBoth.click()
+        run.click(AccessibilityID.importConfirm)
+        XCTAssertTrue(run.wait(for: run.element(AccessibilityID.importConfirm), until: "exists == false", timeout: 10),
+                      "the review did not close. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("Verizon Wireless").waitForExistence(timeout: 10),
+                      "the bank's line was not added. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText(Self.bill).exists, "the bill went. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.listText("$85.00").exists && run.listText("$85.40").exists,
+                      "an amount changed. On screen: \(run.visibleTexts())")
+        let both = TodaysBudget(limit: 60_000, spent: 17_040)
+        run.expect(wheel: AccessibilityID.budgetWheel, reads: both.wheel.spokenSummary, "with both kept")
+    }
 }
 
 private extension TestApp {

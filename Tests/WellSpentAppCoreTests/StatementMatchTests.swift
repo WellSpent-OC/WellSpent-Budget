@@ -208,6 +208,45 @@ struct StatementMatchTests {
         #expect(AppLocale.calendar.component(.month, from: line.date) == 1, "the bank's date")
     }
 
+    /// Two made bills fit one line: the one closest to the line's date takes
+    /// it. The phone bill is made on the 14th and the cable bill on the 12th.
+    @Test(arguments: [("12/15/2026", "Phone bill"), ("12/12/2026", "Cable")])
+    func ifTwoFitTheClosestDateWins(date: String, winner: String) throws {
+        _ = try aPhoneBill()
+        model.addRepeatingTransaction(merchant: "Cable", amount: Money(minorUnits: 8_600), date: Self.day(11, 12),
+                                      note: "", budget: budget, link: nil)
+        model.reload()
+        let made = try model.store.transactions(in: budget, period: nil).filter { $0.repeatMonth == "2026-12" }
+        #expect(Set(made.map(\.merchant)) == ["Phone bill", "Cable"], "both December bills are made")
+
+        try statement("\(date),\"ACME\",-85.50")
+        let decision = try #require(model.pendingImport?.proposals.first?.decision)
+        guard case .replacesMade(let id) = decision else {
+            Issue.record("the line replaces no bill: \(decision)")
+            return
+        }
+        #expect(try model.store.transaction(id)?.merchant == winner)
+    }
+
+    /// A made bill in another group is never this line's bill, though its
+    /// amount and date fit.
+    @Test func aBillInAnotherGroupDoesNotMatch() throws {
+        let cabin = try #require(model.addGroup(named: "Cabin"))
+        let cabinPhone = try #require(model.addBudget(named: "Cabin utilities", limit: Money(minorUnits: 60_000),
+                                                      in: cabin, select: false))
+        model.addRepeatingTransaction(merchant: "Phone bill", amount: Money(minorUnits: 8_500), date: Self.day(11, 14),
+                                      note: "", budget: cabinPhone, link: nil)
+        model.selectedBudget = budget
+        model.reload()
+        #expect(try model.store.transactions(in: cabinPhone, period: nil).contains { $0.repeatMonth == "2026-12" },
+                "the cabin's December bill is made")
+
+        try statement("12/15/2026,\"ACME\",-85.00")
+        let decisions = try #require(model.pendingImport?.proposals.map(\.decision))
+        #expect(!decisions.contains { if case .replacesMade = $0 { true } else { false } },
+                "a line in Home replaced the cabin's bill: \(decisions)")
+    }
+
     @Test func twoLinesDoNotClaimOneBill() throws {
         _ = try aPhoneBill()
         try statement("12/15/2026,\"ACME\",-85.00\n12/16/2026,\"ACME TWO\",-85.00")
