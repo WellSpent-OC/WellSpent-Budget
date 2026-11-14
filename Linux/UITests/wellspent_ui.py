@@ -913,6 +913,19 @@ class App:
         are read from the tree first, and the choice is checked in it after.
         (Where the keyboard starts in an opened list isn't what the tree
         reports, so no step leans on it.)"""
+        toggle, names = self._open_list(list_box)
+        if words not in names:
+            subprocess.run(["xdotool", "key", "Escape"], check=True)
+            raise ScreenError(f"{words!r} isn't offered. The list says {names}")
+        for key in ["Home"] + ["Down"] * names.index(words) + ["Return"]:
+            subprocess.run(["xdotool", "key", key], check=True)
+            time.sleep(0.3)
+        self.settle()
+        self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
+
+    def _open_list(self, list_box):
+        """Opens a drop-down list. Gives back its toggle and the words of its
+        choices, in order, read from the tree."""
         toggle = list_box.all("toggle button")[0] if list_box.role == "combo box" else list_box
         # The keyboard goes to this copy's window first. Once the list is open
         # its keys go on there, never to the list's own popup window.
@@ -928,14 +941,15 @@ class App:
 
         items = self.until(open_items, "the list to open")
         names = [" ".join(label.words for label in item.all("label")) for item in items]
-        if words not in names:
-            subprocess.run(["xdotool", "key", "Escape"], check=True)
-            raise ScreenError(f"{words!r} isn't offered. The list says {names}")
-        for key in ["Home"] + ["Down"] * names.index(words) + ["Return"]:
-            subprocess.run(["xdotool", "key", key], check=True)
-            time.sleep(0.3)
+        return toggle, names
+
+    def offered(self, list_box):
+        """A drop-down list's choices, in order, read with it open. Escape then
+        closes it, choosing nothing."""
+        _, names = self._open_list(list_box)
+        subprocess.run(["xdotool", "key", "Escape"], check=True)
         self.settle()
-        self.until(lambda: toggle.words == words or list_box.words == words, f"the list to say {words!r}")
+        return names
 
     def calendar(self, within):
         """A date's calendar, the part that takes the keyboard for its days.

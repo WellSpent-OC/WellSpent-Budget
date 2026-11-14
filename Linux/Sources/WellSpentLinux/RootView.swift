@@ -118,8 +118,7 @@ struct RootView: View {
                             HousesView(
                                 openCatalog: { activeExtension = .catalog },
                                 turnOff: {
-                                    isPropertiesInstalled = false
-                                    workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
+                                    setProperties(on: false)
                                     activeExtension = .budgets
                                 }
                             )
@@ -148,16 +147,14 @@ struct RootView: View {
                                 activeExtension = .warTable
                             },
                             turnOnProperties: {
-                                isPropertiesInstalled = true
-                                workspace.extensionSwitches.set(PropertiesRegistration.id, on: true)
+                                setProperties(on: true)
                                 activeExtension = .properties
                             },
                             openProperties: {
                                 activeExtension = .properties
                             },
                             turnOffProperties: {
-                                isPropertiesInstalled = false
-                                workspace.extensionSwitches.set(PropertiesRegistration.id, on: false)
+                                setProperties(on: false)
                             }
                         )
                     }
@@ -337,6 +334,15 @@ struct RootView: View {
             try? await Task.sleep(for: .milliseconds(250))
             open()
         }
+    }
+
+    /// Turns Properties on or off for this person on this device, and gives
+    /// the app's own screens what it adds, such as a bill's House row, at
+    /// once rather than at the next launch.
+    private func setProperties(on: Bool) {
+        isPropertiesInstalled = on
+        workspace.extensionSwitches.set(PropertiesRegistration.id, on: on)
+        workspace.installExtensionSlots()
     }
 
     /// A click on a row opens it. The editor is made here, once, because

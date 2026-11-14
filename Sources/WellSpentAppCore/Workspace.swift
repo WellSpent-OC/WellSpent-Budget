@@ -180,7 +180,7 @@ public final class Workspace {
 
     /// What extensions add to the app's own screens, following Properties'
     /// switch. Called on turning it on or off, and for each account's model.
-    func installExtensionSlots() {
+    public func installExtensionSlots() {
         if TestExtensionSlots.isOn() {
             let model = self.model
             model.install(TestExtensionSlots { [weak model] group in
