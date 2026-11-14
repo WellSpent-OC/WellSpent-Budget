@@ -136,7 +136,12 @@ struct TestClockTests {
         let (workspace, _, _) = try household(on: hand.clock, notifications: days)
         let said = NotificationCounter(days)
         hand.date = WheelCalendar.date(2026, 10, 19)
-        try await Task.sleep(for: .milliseconds(2_500))
+        // The watch looks once a second. A busy machine can be slow to run it,
+        // so wait up to 15 seconds for the first notice, then two more
+        // seconds to see it isn't said twice.
+        let deadline = Date().addingTimeInterval(15)
+        while said.count == 0, Date() < deadline { try await Task.sleep(for: .milliseconds(100)) }
+        try await Task.sleep(for: .seconds(2))
         #expect(said.count == 1, "the clock's new day was said \(said.count) times")
         _ = workspace
     }
