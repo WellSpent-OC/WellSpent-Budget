@@ -49,8 +49,8 @@ public final class Workspace {
     /// Where today's date comes from: the system's clock, or in a staging
     /// test build, a file a UI test moves (`clockFileVariable`).
     public let clock: AppClock
-    /// Whether a test moved the clock. Linux then checks for a new day every
-    /// second rather than every 30, so a test need not wait.
+    /// Whether a test moved the clock. Linux can then check for a new day
+    /// every second rather than every 30, so a test need not wait.
     public var clockIsPinned: Bool { clock.isPinned }
     @ObservationIgnored private var lastCheckedDay: DateComponents
     /// The last day the test clock's watch said began (`watchTheTestClock`).
