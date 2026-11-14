@@ -168,7 +168,7 @@ final class EntryEditingTests: XCTestCase {
 
         // 11. Tidy: the group goes for everyone, and the session ends.
         run.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
     }
 
     // MARK: - A row you can't change
@@ -225,7 +225,7 @@ final class EntryEditingTests: XCTestCase {
 
         // 5. Tidy: the second account deletes its group, and both sessions end.
         await second.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.cleanUp()
     }
 
@@ -302,7 +302,7 @@ final class EntryEditingTests: XCTestCase {
 
         // 5. Tidy: the group goes for everyone, and the session ends.
         run.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
     }
 
     /// Part of each name, so runs never share one.

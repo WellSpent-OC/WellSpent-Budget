@@ -478,7 +478,7 @@ final class NewAccountTests: XCTestCase {
         if let run = window, run.app.state == .runningForeground {
             // A sheet left up by a halted step is closed first.
             if run.app.sheets.count > 0 { run.app.typeKey(.escape, modifierFlags: []) }
-            run.signOut()
+            run.signOutIfSignedIn()
         }
         window = nil
         let group = sharedGroup, devices = windowless, made = newAccountGroups

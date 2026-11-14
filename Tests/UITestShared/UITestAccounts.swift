@@ -167,7 +167,10 @@ final class SecondAccount {
         return link
     }
 
-    /// Deletes a group of the second person's own, for everyone. Best effort.
+    /// Deletes a group of the second person's own, for everyone. Best effort,
+    /// and quiet when the group isn't there: it is only the tidy-up at a
+    /// test's end. As with the window's `deleteGroup`, that is safe only
+    /// with fresh accounts.
     func deleteGroup(named name: String) async {
         let model = AppModel(store: sync.store)
         guard let group = model.groups.first(where: { $0.name == name }) else { return }
@@ -175,7 +178,8 @@ final class SecondAccount {
         await sync.syncAll()
     }
 
-    /// Ends the session on the server. Best effort.
+    /// Ends the session on the server. Best effort, and quiet: it is
+    /// tear-down, and a session left on a fresh account harms nothing.
     func cleanUp() async {
         if sync.account != nil { await sync.signOut() }
         UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)

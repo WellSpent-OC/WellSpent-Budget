@@ -166,7 +166,7 @@ final class ClickToJoinGapTests: XCTestCase {
         run.deleteGroup(named: robinsGroup)
         let robinsGone = await second.waitUntilGone(robinsGroup)
         await second.deleteGroup(named: lesliesGroup)
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.cleanUp()
         XCTAssertTrue(robinsGone, "Robin's group is still on staging")
     }

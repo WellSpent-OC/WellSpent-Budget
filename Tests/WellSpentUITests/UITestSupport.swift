@@ -138,10 +138,19 @@ final class TestApp {
     /// list's last lines, so a line under them exists and reads as hittable,
     /// yet a click on it lands on the bar. A long list of test groups puts a
     /// new one there.
-    func revealInSidebar(_ target: XCUIElement) {
+    /// It fails, naming the line, when the sidebar's parts aren't there or
+    /// twenty scrolls don't bring the line clear: a click that lands on the
+    /// bar instead would fail later, somewhere that hides why.
+    func revealInSidebar(_ target: XCUIElement, file: StaticString = #filePath, line callLine: UInt = #line) {
         let foot = element(AccessibilityID.sidebarAdd)
         let list = app.outlines.containing(NSPredicate(format: "identifier BEGINSWITH 'sidebar.'")).firstMatch
-        guard target.exists, foot.exists, list.exists else { return }
+        let missing = [("the line", target.exists), ("the bar at the sidebar's foot", foot.exists),
+                       ("the sidebar's list", list.exists)].filter { !$0.1 }.map(\.0)
+        guard missing.isEmpty else {
+            XCTFail("can't bring \(target.identifier) clear in the sidebar: no \(missing.joined(separator: ", ")). "
+                    + "On screen: \(visibleTexts())", file: file, line: callLine)
+            return
+        }
         var delta: CGFloat = -60
         for _ in 0..<20 {
             waitUntilStill(target)
@@ -158,6 +167,8 @@ final class TestApp {
                 delta = -delta
             }
         }
+        XCTFail("\(target.identifier) is still under the bar at the sidebar's foot, or above the list, after 20 "
+                + "scrolls. On screen: \(visibleTexts())", file: file, line: callLine)
     }
 
     /// Waits, up to two seconds, for a line to stop moving. A scroll glides
@@ -269,6 +280,8 @@ final class TestApp {
     /// snapshot: asking each element in turn failed on the first real run,
     /// when the sheet changed between the query and the read.
     func visibleTexts() -> [String] {
+        // Only for wording a failure message, so a screen that can't be read
+        // gives none rather than failing a second time.
         guard let root = try? app.snapshot() else { return [] }
         var texts: [String] = []
         func walk(_ node: XCUIElementSnapshot) {
@@ -848,7 +861,11 @@ final class TestApp {
 
     /// Delete… from the group's menu, confirmed. The founder's delete removes
     /// the group for everyone on the server, once the sync that follows an
-    /// edit has run. Best effort: nothing here fails the test.
+    /// edit has run. Best effort: nothing here fails the test, since it is
+    /// only the tidy-up at a test's end, with nothing checked after it. That
+    /// is safe only with fresh accounts, as every run on GitHub makes: on a
+    /// fixed account used again and again, groups a failed delete leaves
+    /// pile up, and can pass the free plan's limit and fail a later test.
     func deleteGroup(named name: String) {
         guard app.state == .runningForeground else { return }
         let header = element(AccessibilityID.sidebarGroup(name))
@@ -878,9 +895,29 @@ final class TestApp {
         return nil
     }
 
-    /// Sign out, through the account button. That button lives in a budget's
-    /// toolbar, so a budget is opened first if any is left. Best effort.
-    func signOut() {
+    /// Signs out, through the account button, and fails, with what's on
+    /// screen, when it can't: a test that goes on believing it signed out
+    /// would fail later, somewhere that hides why. For a step of a test.
+    /// End-of-test clean-up uses `signOutIfSignedIn()`.
+    func signOut(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(app.state, .runningForeground, "can't sign out: WellSpent isn't in front", file: file, line: line)
+        let account = element(AccessibilityID.toolbarAccount)
+        XCTAssertTrue(account.waitForExistence(timeout: 5) && wait(for: account, until: "isEnabled == true", timeout: 30),
+                      "can't sign out: no Account button to press. On screen: \(visibleTexts())", file: file, line: line)
+        account.click()
+        let signOut = element(AccessibilityID.accountSignOut)
+        XCTAssertTrue(signOut.waitForExistence(timeout: 5),
+                      "can't sign out: Account opened no Sign out. On screen: \(visibleTexts())", file: file, line: line)
+        signOut.click()
+        XCTAssertTrue(wait(for: app.staticTexts[SyncWording.footer(signedIn: false)], until: "exists == true", timeout: 15),
+                      "signing out didn't finish. On screen: \(visibleTexts())", file: file, line: line)
+    }
+
+    /// Signs out if it can, and otherwise does nothing: for clean-up at a
+    /// test's end or in tear-down, where the app may be gone, a step may have
+    /// halted with a sheet up, or the run may never have signed in. Never
+    /// for a step a test goes on from: use `signOut()` there.
+    func signOutIfSignedIn() {
         guard app.state == .runningForeground else { return }
         let account = element(AccessibilityID.toolbarAccount)
         guard account.waitForExistence(timeout: 5), wait(for: account, until: "isEnabled == true", timeout: 30) else {

@@ -165,7 +165,7 @@ final class SignInBudgetShareSyncTests: XCTestCase {
 
         // 14. Tidy: the group goes for everyone, both sessions end.
         run.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.cleanUp()
     }
 

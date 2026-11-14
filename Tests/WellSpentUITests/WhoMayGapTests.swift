@@ -262,7 +262,7 @@ final class WhoMayGapTests: XCTestCase {
 
         // 14. Tidy: Robin's session ends. Then Leslie deletes her group for
         // everyone, and her session ends.
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.deleteGroup(named: managed)
         await second.cleanUp()
     }
@@ -294,7 +294,7 @@ final class WhoMayGapTests: XCTestCase {
         let texts = try run.selectedRowTexts(after: hilltop)
         XCTAssertTrue(texts.contains { $0.label == "Leslie" || ($0.value as? String) == "Leslie" }, "no Added by on the row")
         try run.expectReadable(texts)
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.deleteGroup(named: shared)
         await second.cleanUp()
     }
@@ -403,7 +403,7 @@ final class WhoMayGapTests: XCTestCase {
 
         // 10. Tidy: Robin's session ends. Then Leslie deletes her groups for
         // everyone, and her session ends.
-        run.signOut()
+        run.signOutIfSignedIn()
         for name in [viewed, fromNow] { await second.deleteGroup(named: name) }
         await second.cleanUp()
     }
@@ -589,7 +589,7 @@ final class WhoMayGapTests: XCTestCase {
         // 11. Tidy: Robin's session ends, from the toolbar of the budget he
         // kept. Then Leslie deletes her groups for everyone, and her session
         // ends.
-        run.signOut()
+        run.signOutIfSignedIn()
         for name in [added, kept] { await second.deleteGroup(named: name) }
         await second.cleanUp()
     }
@@ -649,7 +649,7 @@ final class WhoMayGapTests: XCTestCase {
 
         // 7. Tidy: Robin's session ends. Then Leslie deletes her group for
         // everyone, and her session ends.
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.deleteGroup(named: moved)
         await second.cleanUp()
     }
