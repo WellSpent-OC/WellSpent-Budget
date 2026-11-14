@@ -892,9 +892,9 @@ jobs:
       # its count below; a Properties one in the app pull request that moves
       # .github/properties-ref past it.
       MAC_SIGNED_IN: WellSpentUITests/PlanLimitTests WellSpentUITests/SharedHousesTests WellSpentUITests/MemberHousesTests WellSpentUITests/HouseLockTests
-      MAC_SIGNED_IN_COUNT: 6
+      MAC_SIGNED_IN_COUNT: 7
       IPHONE_SIGNED_IN: WellSpentPhoneUITests/PhoneLockedHouseTests WellSpentPhoneUITests/PhonePlanLimitTests WellSpentPhoneUITests/PhoneSharedHousesTests WellSpentPhoneUITests/PhoneMemberHousesTests WellSpentPhoneUITests/PhonePlansOffTests
-      IPHONE_SIGNED_IN_COUNT: 7
+      IPHONE_SIGNED_IN_COUNT: 8
     steps:
       - uses: actions/checkout@v4
 
