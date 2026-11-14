@@ -214,6 +214,21 @@ jobs:
         run: |
           scripts/apt-install.sh libsqlite3-dev python3
 
+      # Server/Package.resolved is what Server resolves to, as committed. A
+      # stale one makes SwiftPM rewrite it on every build, which fails a
+      # read-only checkout before any test runs, as Linux/UITests/run-in-docker.sh
+      # mounts one (ops#364). A hand edit to a pin can't drift past this.
+      - name: Server's Package.resolved is up to date
+        run: |
+          cp Server/Package.resolved "$RUNNER_TEMP/Package.resolved.committed"
+          swift package resolve --package-path Server
+          if ! cmp -s "$RUNNER_TEMP/Package.resolved.committed" Server/Package.resolved; then
+            echo "::error::Server/Package.resolved is out of date. Run swift package resolve --package-path Server and commit the result; don't edit pins by hand."
+            diff "$RUNNER_TEMP/Package.resolved.committed" Server/Package.resolved || true
+            exit 1
+          fi
+          echo "Server/Package.resolved is what Server resolves to."
+
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
