@@ -184,10 +184,10 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac |
 | REPEAT-04 | A short month | Mac, Linux, iPhone | Mac |
 | REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac |
-| REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux |
+| REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux |

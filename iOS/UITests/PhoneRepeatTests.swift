@@ -247,7 +247,8 @@ final class PhoneRepeatTests: XCTestCase {
         run.openEntry(Self.bill)
         run.type("92.00", into: AccessibilityID.entryAmount)
         run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
-        XCTAssertTrue(run.has(AccessibilityID.entryMerchant), "Which months? is not with the bill's other fields")
+        XCTAssertTrue(run.app.navigationBars[EntryEditor.Words.editTitle].exists,
+                      "Which months? is not on the bill's own sheet. On screen: \(run.visibleTexts())")
         XCTAssertTrue(only.isSelected, "it does not start on This month only")
         XCTAssertTrue((only.value as? String)?.contains("goes back to") == true, "only says: \(String(describing: only.value))")
         XCTAssertTrue((later.value as? String)?.contains("every month after") == true,
