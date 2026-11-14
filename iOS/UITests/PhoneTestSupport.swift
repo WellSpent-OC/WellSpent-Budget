@@ -677,6 +677,32 @@ final class PhoneTestApp {
     /// What the app calls this device in its words.
     static let device = "iPhone"
 
+    // MARK: - The test clock
+
+    /// The test clock's file, in the run's own folder, so it goes with it.
+    var clockFile: URL { dataRoot.appendingPathComponent("clock.txt") }
+
+    /// Sets the app's today to `text`, a local date and time such as
+    /// "2026-12-14T09:00:00" (`Workspace.clockFileVariable`). Before launch,
+    /// the app starts on it. After launch, rewriting it moves the date with no
+    /// relaunch. For a test that needs the app's own day notice off, set
+    /// `Workspace.clockAnnouncesVariable` to "0" before launch.
+    func setClock(_ text: String) throws {
+        try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
+        try text.write(to: clockFile, atomically: true, encoding: .utf8)
+        app.launchEnvironment[Workspace.clockFileVariable] = clockFile.path
+    }
+
+    /// A test clock's text as the moment the app reads from it.
+    static func clockDate(_ text: String) throws -> Date {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = AppLocale.calendar
+        formatter.timeZone = AppLocale.calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return try XCTUnwrap(formatter.date(from: text), "not a clock time: \(text)")
+    }
+
     /// Closes the app and removes the run's folder.
     func cleanUp() {
         if app.state != .notRunning { app.terminate() }
@@ -740,5 +766,106 @@ extension SecondAccount {
             try await Task.sleep(for: .seconds(3))
         } while Date() < deadline
         return false
+    }
+}
+
+/// Repeats, on any budget: shared by the repeat tests that set one up
+/// by hand and by those on the test clock.
+@MainActor
+extension PhoneTestApp {
+    /// Quits, moves the test clock to `day`, and opens the app again on
+    /// `budget`. The app may open again where it was, on that budget.
+    func reopen(on day: String, budget: String) throws {
+        app.terminate()
+        try setClock(day)
+        launch()
+        if !app.navigationBars[budget].waitForExistence(timeout: 5) { openBudget(named: budget) }
+    }
+
+    /// The open budget holds `merchant` once, dated `day`, at `amount`.
+    func expectOneBill(_ merchant: String, on day: String, at amount: String, _ when: String,
+                       file: StaticString = #filePath, line: UInt = #line) throws {
+        let date = try Self.clockDate(day).formatted(.dateTime.month(.abbreviated).day())
+        XCTAssertTrue(row(merchant, says: date, timeout: 15),
+                      "\(when): no \(merchant) dated \(date): \(rowLabel(merchant))", file: file, line: line)
+        XCTAssertTrue(row(merchant, says: amount), "\(when): not \(amount): \(rowLabel(merchant))", file: file, line: line)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(merchant)).count, 1,
+                       "\(when): not one \(merchant). On screen: \(visibleTexts())", file: file, line: line)
+    }
+
+    /// The open budget holds no `merchant`.
+    func expectNoBill(_ merchant: String, _ when: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(lacksRow(merchant), "\(when): a \(merchant) was made. On screen: \(visibleTexts())",
+                      file: file, line: line)
+    }
+
+    /// Adds a bill that repeats every month to the open budget, and checks
+    /// it's in the list.
+    func addRepeat(merchant: String, amount: String) {
+        tap(AccessibilityID.budgetAdd)
+        type(merchant, into: AccessibilityID.entryMerchant)
+        type(amount, into: AccessibilityID.entryAmount)
+        turnOnRepeats()
+        tap(AccessibilityID.entryAdd)
+        XCTAssertTrue(hasRow(merchant), "\(merchant) is not in the list. On screen: \(visibleTexts())")
+    }
+
+    /// Opens the short list of repeats, checks what a row says, and closes it.
+    func expectRepeat(_ name: String, says amount: String, _ problem: String,
+                      file: StaticString = #filePath, line: UInt = #line) {
+        bringToMiddle(scrollTo(AccessibilityID.budgetRepeats))
+        tap(AccessibilityID.budgetRepeats)
+        let row = element(AccessibilityID.repeatRow(name))
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no row for \(name)", file: file, line: line)
+        let inRow = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", amount, amount)
+        XCTAssertTrue(row.label.contains(amount) || row.descendants(matching: .any).matching(inRow).firstMatch.exists,
+                      "\(problem). The row says: \(row.label)", file: file, line: line)
+        app.buttons[RepeatsList.Words.done].firstMatch.tap()
+        XCTAssertTrue(wait(for: row, until: "exists == false", timeout: 5), "the short list stayed open", file: file, line: line)
+    }
+
+    func showsLine(containing words: String) -> Bool {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch.waitForExistence(timeout: 10)
+    }
+
+    /// The Repeats switch, under the number pad after the amount.
+    func turnOnRepeats() {
+        bringUpInSheet(AccessibilityID.entryRepeats)
+        let row = element(AccessibilityID.entryRepeats)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+        XCTAssertTrue(wait(for: row, until: "value == '1'", timeout: 5), "Repeats did not turn on")
+    }
+
+    func switchValue() -> String? {
+        switchValue(of: AccessibilityID.entryRepeats)
+    }
+
+    func flipRepeats() {
+        bringUpInSheet(AccessibilityID.entryRepeats)
+        flip(AccessibilityID.entryRepeats)
+    }
+
+    func switchValue(of identifier: String) -> String? {
+        let row = element(identifier)
+        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
+    }
+
+    func flip(_ identifier: String) {
+        let row = element(identifier)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+    }
+
+    /// The number pad can cover a sheet's lower rows. A drag from the screen
+    /// moves the sheet's form, where `scrollTo` would move the list behind it.
+    func bringUpInSheet(_ identifier: String) {
+        let row = element(identifier)
+        let low = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let high = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        var drags = 0
+        while !(row.exists && row.isHittable), drags < 5 {
+            low.press(forDuration: 0.05, thenDragTo: high)
+            drags += 1
+        }
+        XCTAssertTrue(row.exists && row.isHittable, "\(identifier) is not on the sheet's screen. On screen: \(visibleTexts())")
     }
 }

@@ -228,18 +228,6 @@ private extension PhoneTestApp {
         return "\(row.label) \((row.value as? String) ?? "")"
     }
 
-    /// Drags the open sheet up until this row clears the keyboard, as a
-    /// person does. The sheet's list isn't the first on the screen, so the
-    /// drag starts from the screen, not from a list.
-    func bringUpInSheet(_ identifier: String) {
-        let row = element(identifier)
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "no \(identifier). On screen: \(visibleTexts())")
-        for _ in 0..<4 where !row.isHittable {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -180)))
-        }
-    }
-
     func chooseLink(_ name: String) {
         bringUpInSheet(AccessibilityID.entryLink)
         tap(AccessibilityID.entryLink)
