@@ -308,7 +308,14 @@ public final class Workspace {
     /// out, nothing syncs, so the budgets are read again here: a day or a
     /// month may have begun while the app was away, and this does not wait
     /// for the system to say the day changed.
+    ///
+    /// First it checks the date, on every platform. A read of the budgets
+    /// that changes no money redraws a budget's page but not a group's, so
+    /// without this a group's wheel kept yesterday's day after a night in the
+    /// background until the system said a day began (#209). Linux also checks
+    /// on every focus change, so there the second check finds nothing new.
     public func cameToFront() async {
+        checkForNewDay()
         if sync.account == nil { model.reload() }
         await autoSync.syncIfIdle()
         // The plan may have changed elsewhere: bought on the website, renewed,
