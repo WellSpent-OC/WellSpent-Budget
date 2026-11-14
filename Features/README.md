@@ -342,8 +342,8 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux |
-| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac, Linux |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.

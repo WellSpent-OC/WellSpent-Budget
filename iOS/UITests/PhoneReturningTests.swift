@@ -101,4 +101,89 @@ final class PhoneReturningTests: XCTestCase {
         await leslie.deleteGroup(named: groupName)
         await leslie.cleanUp()
     }
+
+    // MARK: - A new day, signed out (LIFE-02)
+
+    /// The phone on the test clock at `start`, with Groceries, $310.00 a
+    /// month, in a group of its own, and $100.00 spent today.
+    @MainActor
+    private func started(at start: String, dayLine: String, announcing: Bool = true) throws -> PhoneTestApp {
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        try run.setClock(start)
+        if !announcing { run.app.launchEnvironment[Workspace.clockAnnouncesVariable] = "0" }
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Groceries", amount: "310", inGroup: "Home")
+        run.addEntry(merchant: "Hilltop Grocery", amount: "100")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetDayLine, toBe: dayLine, timeout: 15),
+                      "the day line is not \(dayLine). On screen: \(run.visibleTexts())")
+        return run
+    }
+
+    /// Open and signed out, a new day moves the budget to it, and a new month
+    /// starts a new period with nothing spent yet. Nothing is pressed.
+    @MainActor
+    func testANewDayAndANewMonthWhileOpen() throws {
+        let run = try started(at: "2026-10-30T12:00:00", dayLine: "October \u{00B7} day 30 of 31")
+
+        // Scenario LIFE-02
+        // 1. The clock moves to the next day: the line says day 31, the wheel
+        // reads the 31st's words, and October's transaction is still listed.
+        try run.setClock("2026-10-31T09:00:00")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetDayLine, toBe: "October \u{00B7} day 31 of 31", timeout: 15),
+                      "the day line did not move to the 31st. On screen: \(run.visibleTexts())")
+        let lastDay = TodaysBudget(limit: 31_000, spent: 10_000, on: try PhoneTestApp.clockDate("2026-10-31T09:00:00"))
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: lastDay.wheel.spokenSummary),
+                      "the wheel is not the 31st's: \(run.element(AccessibilityID.budgetWheel).label)")
+        XCTAssertTrue(run.hasRow("Hilltop Grocery"), "October's transaction left on October 31")
+
+        // Scenario LIFE-02
+        // 2. The clock moves into November: a new period, so October's
+        // transaction is no longer in the list, and nothing is spent.
+        try run.setClock("2026-11-01T09:00:00")
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetDayLine, toBe: "November \u{00B7} day 1 of 30", timeout: 15),
+                      "the day line did not move to November. On screen: \(run.visibleTexts())")
+        let firstDay = TodaysBudget(limit: 31_000, spent: 0, on: try PhoneTestApp.clockDate("2026-11-01T09:00:00"))
+        XCTAssertTrue(run.waitForLabel(AccessibilityID.budgetWheel, toBe: firstDay.wheel.spokenSummary),
+                      "the wheel is not November 1's: \(run.element(AccessibilityID.budgetWheel).label)")
+        XCTAssertTrue(run.lacksRow("Hilltop Grocery", timeout: 10),
+                      "October's transaction is still listed in November. On screen: \(run.visibleTexts())")
+    }
+
+    /// Back from a night away, the app checks the date itself as it comes to
+    /// the front, and the group's page shows the new day's expected amount
+    /// (#209). The test clock's own notice of a new day is off, so only
+    /// coming to the front can move it.
+    @MainActor
+    func testComingBackAfterTheNightChecksTheDate() throws {
+        let run = try started(at: "2026-10-17T22:00:00", dayLine: "October \u{00B7} day 17 of 31", announcing: false)
+        let evening = try XCTUnwrap(TodaysBudget.group("Home", [
+            TodaysBudget(limit: 31_000, spent: 10_000, on: try PhoneTestApp.clockDate("2026-10-17T22:00:00")),
+        ]))
+        let morning = try XCTUnwrap(TodaysBudget.group("Home", [
+            TodaysBudget(limit: 31_000, spent: 10_000, on: try PhoneTestApp.clockDate("2026-10-18T07:00:00")),
+        ]))
+        let expected = { (money: GroupMoney) in money.wheel.figures.first { $0.label == MoneyWheel.Words.expectedLeft }?.amount }
+        let before = try XCTUnwrap(expected(evening), "no expected figure on the 17th")
+        let after = try XCTUnwrap(expected(morning), "no expected figure on the 18th")
+        XCTAssertNotEqual(before, after, "the test's two days expect the same amount")
+        run.goBack()
+        run.openGroupPage(named: "Home")
+        XCTAssertTrue(run.shows(before), "the group's page doesn't expect \(before) on the 17th. On screen: \(run.visibleTexts())")
+
+        // Scenario LIFE-02
+        // 1. The Home Screen, the night passes, and WellSpent comes back: the
+        // group's page expects the 18th's amount.
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(run.app.wait(for: .runningBackgroundSuspended, timeout: 15)
+                      || run.app.state == .runningBackground, "WellSpent never went to the back")
+        try run.setClock("2026-10-18T07:00:00")
+        // Longer than the test clock's watch takes, so a notice it wrongly
+        // said would have landed by now.
+        Thread.sleep(forTimeInterval: 3)
+        run.app.activate()
+        XCTAssertTrue(run.shows(after, timeout: 15),
+                      "the group's page didn't move to the 18th after coming back. On screen: \(run.visibleTexts())")
+    }
 }
