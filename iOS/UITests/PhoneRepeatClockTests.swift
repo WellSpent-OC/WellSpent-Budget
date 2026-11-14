@@ -78,6 +78,71 @@ final class PhoneRepeatClockTests: XCTestCase {
         try run.expectOneBill(Self.bill, on: "2026-11-30T09:00:00", at: "$85.00", "in November")
     }
 
+    // MARK: - Two devices
+
+    /// Robin's iPhone, the app, and another device of his on the same account
+    /// with no window, both hold the repeat set on December 10. Both are
+    /// opened on January 12, and each makes January's bill. Once both have
+    /// synced there is one January bill, on each. The phone is on the test
+    /// clock; the other device reads its budgets with January 12 as today.
+    @MainActor
+    func testTwoDevicesMakeOneBill() async throws {
+        let accounts = try TestAccounts.fromEnvironment()
+        let run = PhoneTestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = PhoneTestApp.stamp()
+        let home = "UI Phone \(stamp) Repeats", utilities = "Utilities \(stamp)"
+        let january = try PhoneTestApp.clockDate("2027-01-12T09:00:00")
+
+        // 1. On the phone, signed in, on December 10: the phone bill repeats.
+        try run.setClock("2026-12-10T09:00:00")
+        run.launch()
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        run.addGroup(named: home)
+        run.addBudget(named: utilities, amount: "600", inGroup: home)
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        run.goBack()
+        run.syncAndWait()
+
+        // 2. The other device takes the repeat in, and is opened on January 12:
+        // it makes January's bill.
+        let other = try SecondAccount(server: accounts.server)
+        try await other.signIn(email: accounts.email, password: accounts.password)
+        try await other.syncAll()
+        let onTheOther = AppModel(store: other.sync.store, today: { january })
+        onTheOther.me = { [sync = other.sync] in sync.userID }
+        onTheOther.reload()
+        func januaryBills() throws -> [Transaction] {
+            let group = try XCTUnwrap(onTheOther.groups.first { $0.name == home }, "the other device has no \(home)")
+            let budget = try XCTUnwrap(onTheOther.summaries[group.id]?.first { $0.budget.name == utilities }?.budget.id,
+                                       "the other device has no \(utilities)")
+            return try onTheOther.store.transactions(in: budget)
+                .filter { $0.merchant == Self.bill && $0.repeatMonth == "2027-01" && !$0.isDeleted }
+        }
+        XCTAssertEqual(try januaryBills().count, 1, "the other device did not make January's bill")
+
+        // Scenario REPEAT-05
+        // 3. The phone is opened on January 12 too, and makes its own. After
+        // both sync, the phone shows one January bill, and so does the other.
+        try run.setClock("2027-01-12T09:00:00")
+        run.openBudget(named: utilities)
+        XCTAssertTrue(run.hasRow(Self.bill, timeout: 20), "the phone did not make January's bill. On screen: \(run.visibleTexts())")
+        try await other.syncAll()
+        run.goBack()
+        run.syncAndWait()
+        try await other.syncAll()
+        run.openBudget(named: utilities)
+        // Dated the 10th, the repeat's day, though opened on the 12th.
+        try run.expectOneBill(Self.bill, on: "2027-01-10T09:00:00", at: "$85.00", "on the phone in January")
+        XCTAssertEqual(try januaryBills().count, 1, "not one January bill on the other device")
+
+        // 4. Tidy: the group goes, for everyone, and both sign out.
+        run.goBack()
+        run.signOut()
+        await other.deleteGroup(named: home)
+        await other.cleanUp()
+    }
+
     // MARK: - Who may change a repeat
 
     /// The phone joins a group with a link, typing the name to be known by.
