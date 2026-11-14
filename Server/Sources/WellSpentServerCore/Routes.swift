@@ -81,6 +81,7 @@ public func registerRoutes(_ app: Application) throws {
     try registerGroupRoutesV2(v2)
     try registerSyncRoutesV2(v2)
     registerPlanRoutes(v2)
+    registerApplePlanRoutes(v2)
     registerPlanLockRoutes(v2)
     registerAccountDeletionRoutes(v2)
 }

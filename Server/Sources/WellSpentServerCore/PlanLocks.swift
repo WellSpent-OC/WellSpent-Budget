@@ -162,7 +162,7 @@ struct PayerLocks {
 
     static func of(_ payerID: UUID, on db: any Database) async throws -> PayerLocks {
         let plan = try await PlanRow.forUser(payerID, on: db)
-        let tier = Tier(rawValue: plan.tier) ?? .free
+        let tier = plan.limitTier
         let maxProperties = plan.maxPropertiesOverride ?? tier.maxProperties
 
         let groups = try await PlanLocks.groupsPaid(by: payerID, on: db)

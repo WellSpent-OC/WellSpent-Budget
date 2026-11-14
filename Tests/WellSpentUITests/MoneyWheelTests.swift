@@ -257,6 +257,56 @@ final class MoneyWheelTests: XCTestCase {
         run.deleteGroup(named: groupName)
     }
 
+    /// A group's cash flow on its page, with Properties off: money in less
+    /// money out, a mortgage payment counted as money out like any other
+    /// bill, and never called profit. Pool House, a plain group, $9,640.00 in
+    /// and $5,260.00 out this month, on the 18th.
+    @MainActor
+    func testAGroupsCashFlowCountsTheMortgageAsMoneyOut() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        let stamp = Self.stamp()
+        let groupName = "Pool House \(stamp)", bookings = "Bookings \(stamp)"
+        let day = Self.midMonth
+
+        run.app.launchEnvironment[Workspace.pinnedDayVariable] = String(day)
+        run.launch()
+        run.addGroup(named: groupName)
+        run.addBudget(named: bookings, amount: "6000", inGroup: groupName)
+
+        // 1. $5,260.00 out, the mortgage included, and $9,640.00 in.
+        run.addEntry(merchant: "Mortgage", amount: "4100")
+        run.addEntry(merchant: "Cleaner", amount: "1160")
+        run.click(AccessibilityID.budgetAdd)
+        run.type("Guest stays", into: AccessibilityID.entryMerchant)
+        run.type("9640", into: AccessibilityID.entryAmount)
+        run.click(AccessibilityID.entryMoneyIn)
+        run.click(AccessibilityID.entryAdd)
+        run.expectNoSheet()
+
+        // Scenario INC-03
+        // 2. On Pool House's page, the wheel's spoken label says "$4,380
+        // ahead" this month, with the mortgage counted as money out, and
+        // nothing on the page or in the label says profit. The drawn
+        // "+$4,380" sits inside the wheel, which reads as one element, so
+        // the test reads its spoken label, as the scenario allows.
+        let money = try XCTUnwrap(TodaysBudget.group(groupName, [
+            TodaysBudget(bookings, limit: 600_000, spent: 526_000, moneyIn: 964_000, pinnedDay: day),
+        ]))
+        XCTAssertEqual(money.cashFlow, Money(minorUnits: 438_000), "the test's own numbers")
+        run.openGroupPage(named: groupName)
+        run.expect(wheel: AccessibilityID.groupWheel, reads: money.wheel.spokenSummary, "Pool House")
+        let wheelWords = run.element(AccessibilityID.groupWheel).label
+        XCTAssertTrue(wheelWords.contains("$4,380 ahead"), "the wheel does not say $4,380 ahead: \(wheelWords)")
+        XCTAssertTrue(wheelWords.contains("out $5,260"), "the mortgage is not in money out: \(wheelWords)")
+        let texts = run.visibleTexts() + [wheelWords]
+        XCTAssertFalse(texts.contains { $0.localizedCaseInsensitiveContains("profit") },
+                       "the page says profit: \(texts)")
+
+        // 3. Tidy: the group goes, with its budget.
+        run.deleteGroup(named: groupName)
+    }
+
     /// The month's last week, in a launch of its own on the 26th.
     @MainActor
     func testTheLastWeekOffersToLowerABudget() throws {

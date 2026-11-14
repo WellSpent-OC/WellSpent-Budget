@@ -45,12 +45,15 @@ Platforms: Linux
 
 ## PLAN-06 Account shows a paid plan with its price and when it renews
 
+Ruling, 2026-11-13: kept on Linux. A Linux person with an Apple plan still needs to see its state. Linux offers no button for it, so its last line differs.
+
 - Given Robin pays for Growth monthly through Apple, with 3 properties
 - When he opens his account
 - Then the card says "Growth · $49 a month"
 - And it says "Up to 5 properties. You have 3."
 - And it says when it renews, and that it was bought through Apple
-- And it offers "Change Plan"
+- And on the Mac and iPhone it offers "Change Plan"
+- And on Linux it says the plan is managed on the Mac or iPhone, with no button
 
 ## PLAN-07 A yearly plan shows its yearly price
 
@@ -60,11 +63,14 @@ Platforms: Linux
 
 ## PLAN-08 A failed renewal says everything keeps working for 16 days
 
+Ruling, 2026-11-13: kept on Linux. A Linux person with an Apple plan still needs to see its state. Linux offers no button for it, so its last line differs.
+
 - Given Apple couldn't renew Robin's Growth plan
 - When he opens his account
 - Then the card says "Apple couldn't renew your plan", with a "Growth" badge
 - And it says everything keeps working for 16 days, and until when
-- And it offers "Open Apple Settings"
+- And on the Mac and iPhone it offers "Open Apple Settings"
+- And on Linux it says the plan is managed on the Mac or iPhone, with no button
 
 ## PLAN-09 After the 16 days, the plan is paused and extras are locked
 
@@ -75,11 +81,14 @@ Platforms: Linux
 
 ## PLAN-10 A canceled plan says when it ends and offers to keep it
 
+Ruling, 2026-11-13: kept on Linux. A Linux person with an Apple plan still needs to see its state. Linux offers no button for it, so its last line differs.
+
 - Given Robin canceled his Growth plan, paid until Dec 9
 - When he opens his account
 - Then the card says "Growth · ends Dec 9"
 - And it says everything works until then, and nothing is deleted
-- And it offers "Keep My Plan"
+- And on the Mac and iPhone it offers "Keep My Plan"
+- And on Linux it says the plan is managed on the Mac or iPhone, with no button
 
 ## PLAN-11 An ended plan says what's locked and what's open
 

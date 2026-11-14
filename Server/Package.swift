@@ -17,6 +17,12 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.13.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.13.0"),
         .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.9.0"),
+        // Checks Apple's signed purchases: the signature, and the certificate
+        // chain up to Apple's root. Apple's own server library pins swift-crypto
+        // below 4, which the app's packages can't share.
+        .package(url: "https://github.com/vapor/jwt-kit.git", from: "5.8.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.15.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", "4.5.0" ..< "6.0.0"),
     ],
     targets: [
         .target(
@@ -30,6 +36,8 @@ let package = Package(
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
+                .product(name: "JWTKit", package: "jwt-kit"),
+                .product(name: "X509", package: "swift-certificates"),
             ]
         ),
         .executableTarget(
@@ -57,6 +65,9 @@ let package = Package(
                 "WellSpentServerCore",
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
                 .product(name: "VaporTesting", package: "vapor"),
+                // To sign test purchases with a test chain of certificates.
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "Crypto", package: "swift-crypto"),
             ]
         ),
     ]
