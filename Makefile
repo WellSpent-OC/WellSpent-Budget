@@ -86,9 +86,10 @@ wartable-test:
 		echo "wartable-test: no bwrap here (Linux only), skipped; CI runs it"; \
 	fi
 
-# The tests of the CI scripts. They need only git and a shell, no network.
+# The tests of the CI scripts. They need only git, a shell and Python, no network.
 script-test:
 	scripts/checkout-properties-test.sh
+	scripts/scenario-check-test.sh
 
 # The app's Package.resolved pins nothing from SwiftCrossUI, which is Linux
 # only. With it pinned, Xcode 26.6 crashes reading the file with Properties linked.
