@@ -85,17 +85,28 @@ struct PhonePlanCardSection: View {
 struct PhoneRestoreRow: View {
     let plans: PurchaseCoordinator
     @State private var result: RestoreResultScreen?
+    // Proof run for #202 only, never merged.
+    @State private var taps = 0
+    @State private var ends = 0
+    @State private var sets = 0
 
     var body: some View {
         Group {
             Button(PlanWording.restore) {
+                taps += 1
                 Task {
                     await plans.restore()
-                    if plans.status == .idle { result = RestoreResultScreen(answer: plans.answer, device: "iPhone") }
+                    ends += 1
+                    if plans.status == .idle {
+                        result = RestoreResultScreen(answer: plans.answer, device: "iPhone")
+                        sets += 1
+                    }
                 }
             }
             .disabled(plans.status == .working)
             .accessibilityIdentifier(AccessibilityID.planRestore)
+            Text("proof202 taps \(taps) ends \(ends) sets \(sets) status \(String(describing: plans.status)) shown \(result != nil)")
+                .font(.footnote)
             if let line = PlanStatusWording.line(plans.status) {
                 Text(line)
                     .font(.footnote)

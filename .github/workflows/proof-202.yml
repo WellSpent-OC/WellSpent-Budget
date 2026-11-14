@@ -29,12 +29,12 @@ jobs:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: python3 -I scripts/fresh-test-accounts.py "iphone-proof-202" "$RUNNER_TEMP/ui-test-accounts.env"
 
-      - name: Run PhonePlanTests in light
+      - name: Run the Restore test in light
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
           set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
-          make iphone-ui-test IPHONE_UI_TEST_LOOKS=light IPHONE_UI_TEST_ONLY=WellSpentPhoneUITests/PhonePlanTests
+          make iphone-ui-test IPHONE_UI_TEST_LOOKS=light IPHONE_UI_TEST_ONLY=WellSpentPhoneUITests/PhonePlanTests/testRestoreWithNothingToRestoreSaysSo
 
       # The result bundle never leaves the runner: its activity log records
       # what is typed into the sign-in fields. Only pictures are kept.
