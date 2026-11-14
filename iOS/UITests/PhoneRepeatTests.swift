@@ -93,7 +93,6 @@ final class PhoneRepeatTests: XCTestCase {
         let run = try launchedWithABillAndAStatementLine(bank)
         let counted = run.transactionCount()
 
-        // Scenario REPEAT-14
         // 1. The review says which bill the line replaces, under Matched.
         run.importStatement()
         let status = AccessibilityID.importLineStatus(bank)
