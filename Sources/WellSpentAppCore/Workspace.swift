@@ -34,6 +34,11 @@ public final class Workspace {
     /// budgets are: a screen holding something they can take away, such as
     /// a group's page (`MainScreen`).
     @ObservationIgnored var afterReload: [@MainActor () -> Void] = []
+    #if DEBUG
+    /// How many screens wait on a reload. A UI test reads it to check that
+    /// laying out the window doesn't make its screens again. Test builds only.
+    public var reloadWatchers: Int { afterReload.count }
+    #endif
     /// Told when a person adds a budget, whichever account's model is showing.
     @ObservationIgnored var afterBudgetAdded: [@MainActor (GroupID) -> Void] = []
     /// The day of the month a staging UI test put the money wheel on

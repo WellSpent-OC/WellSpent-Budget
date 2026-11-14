@@ -25,9 +25,8 @@ struct RootView: View {
     @State var payingFor: GroupID?
     /// The sheet a menu or a button asked for.
     @State var sheet: MainScreen.Action?
-    @State var showingEntry = false
-    /// An entry opened from the budget's list, to change, move or delete.
-    @State var openedEntry: EntryEditor?
+    /// The Add sheet, and an entry opened to change, move or delete.
+    @State var entrySheets = EntrySheets()
     /// A budget's repeats, or one of them, while that sheet shows.
     @State var repeats: RepeatsSheet?
     /// The people on the group's page, while one shows.
@@ -48,10 +47,10 @@ struct RootView: View {
             (isPropertiesInstalled || workspace.extensionSwitches.isOn(PropertiesRegistration.id))
     }
 
-    init(workspace: Workspace) {
+    init(workspace: Workspace, screen: MainScreen, warTable: WarTableScreen) {
         self.workspace = workspace
-        _screen = State(wrappedValue: MainScreen(workspace: workspace))
-        _warTable = State(wrappedValue: WarTableScreen(workspace: workspace))
+        _screen = State(wrappedValue: screen)
+        _warTable = State(wrappedValue: warTable)
     }
 
     private var model: AppModel { workspace.model }
@@ -69,6 +68,11 @@ struct RootView: View {
         let openGroup = screen.openGroup
         let people = openPage.screen(for: openGroup, sync: sync)
         let pick = picking
+        let adding = entrySheets.isAdding
+        let openedEntry = entrySheets.opened
+        #if DEBUG
+        let _ = DebugCounts.drew(workspace)
+        #endif
         VStack(spacing: 0) {
             if workspace.environment == .staging {
                 StagingBanner()
@@ -202,13 +206,13 @@ struct RootView: View {
                     .tabMovesFocus()
             }
         }
-        .sheet(isPresented: $showingEntry) {
-            EntryEditorView(model: model, close: { showingEntry = false })
+        .sheet(isPresented: Binding(get: { adding }, set: { entrySheets.isAdding = $0 })) {
+            EntryEditorView(model: model, close: { entrySheets.isAdding = false })
                 .tabMovesFocus()
         }
-        .sheet(isPresented: Binding(get: { openedEntry != nil }, set: { if !$0 { openedEntry = nil } })) {
+        .sheet(isPresented: Binding(get: { openedEntry != nil }, set: { if !$0 { entrySheets.opened = nil } })) {
             if let openedEntry {
-                EntryEditorView(editor: openedEntry, close: { self.openedEntry = nil })
+                EntryEditorView(editor: openedEntry, close: { entrySheets.opened = nil })
                     .tabMovesFocus()
             }
         }
@@ -286,7 +290,7 @@ struct RootView: View {
         case .budget(let summary):
             BudgetDetailView(screen: BudgetScreen(summary: summary, model: model, me: sync.userID),
                              model: model, menu: screen.budgetMenu(summary.budget), perform: perform,
-                             addEntry: { showingEntry = true }, openEntry: open(entry:),
+                             addEntry: { entrySheets.isAdding = true }, openEntry: open(entry:),
                              openRepeats: { repeats = .list(summary.budget) })
         case .noBudgets:
             ContentUnavailableView {
@@ -338,7 +342,7 @@ struct RootView: View {
     /// A click on a row opens it. The editor is made here, once, because
     /// opening it is what marks its note seen.
     private func open(entry id: RecordID) {
-        openedEntry = EntryEditor(model: model, entry: id)
+        entrySheets.opened = EntryEditor(model: model, entry: id)
     }
 
     /// A delete or a leave asks first. People… opens the group's page, and
@@ -383,6 +387,15 @@ struct RootView: View {
             EmptyView()
         }
     }
+}
+
+/// Whether the Add sheet shows, and which entry is open to change. Observable,
+/// so closing a sheet reaches the window as one change: with the save, two
+/// draws. A plain @State drew the window again for the close, four in all.
+@MainActor @Observable
+final class EntrySheets {
+    var isAdding = false
+    var opened: EntryEditor?
 }
 
 /// Across the top of every staging window, so a test build is never mistaken

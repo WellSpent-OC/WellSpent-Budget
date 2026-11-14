@@ -129,6 +129,7 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-12 | Where a comma marks decimals, 12,50 is twelve fifty | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-13 | An amount that can't be read clearly is refused, never guessed | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | ENTRY-14 | A selected row stays readable | Mac | Mac |
+| ENTRY-15 | The app keeps answering a screen reader while it shows a new transaction | Linux | Linux |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, iPhone |
