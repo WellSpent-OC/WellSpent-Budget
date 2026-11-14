@@ -1,0 +1,57 @@
+# Throwaway proof run for #202, on hamilton/proof-202 only. Runs one class,
+# PhonePlanTests, in light, with this job's own fresh staging accounts, and
+# keeps the masked step notes and guarded pictures. Never merged.
+name: Proof item 23
+
+on:
+  push:
+    branches: [hamilton/proof-item23]
+
+jobs:
+  phone-plan-tests:
+    name: SAMP-08 and PLAN-18, light
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the image
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build the iPhone app and its UI tests
+        run: make iphone-ui-test-build
+
+      - name: Make this job's own two staging accounts
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: python3 -I scripts/fresh-test-accounts.py "iphone-proof-item23" "$RUNNER_TEMP/ui-test-accounts.env"
+
+      - name: Run SAMP-08 and PLAN-18 in light
+        env:
+          WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
+        run: |
+          set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
+          make iphone-ui-test IPHONE_UI_TEST_LOOKS=light IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneNewAccountTests/testAGroupChangedBeforeSigningInComesAlongAndTheSamplesDoNot WellSpentPhoneUITests/PhoneNewAccountTests/testAGroupPastTheFreePlanSaysItIsOnlyOnThisIPhone"
+
+      # The result bundle never leaves the runner: its activity log records
+      # what is typed into the sign-in fields. Only pictures are kept.
+      - name: Pull the pictures out of the run
+        if: ${{ !cancelled() }}
+        run: |
+          bundle=.build/xcode-iphone/ui-test-light.xcresult
+          if [ -d "$bundle" ]; then
+            xcrun xcresulttool export attachments --path "$bundle" --output-path .build/xcode-iphone/proof-item23
+            scripts/keep-images.sh .build/xcode-iphone/proof-item23
+          fi
+
+      - name: Keep the pictures
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-item23-pictures
+          retention-days: 3
+          path: .build/xcode-iphone/proof-item23
+          if-no-files-found: ignore
