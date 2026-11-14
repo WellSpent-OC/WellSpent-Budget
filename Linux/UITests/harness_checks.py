@@ -116,5 +116,62 @@ class Press(unittest.TestCase):
                 button.press()
 
 
+class Recording:
+    """A button or a field that writes down what was done to it."""
+
+    def __init__(self, app, name):
+        self.app, self.name = app, name
+
+    def press(self):
+        self.app.done.append(("press", self.name))
+
+    def type(self, text):
+        self.app.done.append(("type", self.name, text))
+
+
+def signing_in_app():
+    """An App whose buttons and fields only record, for checking which
+    account a sign-in step reaches. Signing up through the window fails."""
+    class Signing(wellspent_ui.App):
+        main = "main"
+
+    app = Signing.__new__(Signing)
+    app.process = None
+    app.failure = lambda what: wellspent_ui.ScreenError(what)
+    app.done = []
+    app.button = lambda name, within=None: Recording(app, name)
+    app.field = lambda name, within=None: Recording(app, name)
+    app.wait_for_window = lambda count, what: "sheet"
+    app.sync = lambda: None
+
+    def sign_up(*arguments):
+        raise AssertionError("it made a new, empty account through the window")
+    app.sign_up = app.sign_up_on_sheet = sign_up
+    return app
+
+
+class SignIn(unittest.TestCase):
+    """A sign-in reaches the person's account for this run whichever test
+    asks first, never a new, empty account made on the spot."""
+
+    def setUp(self):
+        patcher = unittest.mock.patch.object(wellspent_ui, "account", lambda name: ("robin@example.com", "a password"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = unittest.mock.patch.dict(wellspent_ui._ACCOUNTS, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_signing_in_first_reaches_the_persons_account(self):
+        app = signing_in_app()
+        self.assertEqual("robin@example.com", app.sign_in_as("Robin"))
+        self.assertIn(("type", "Email", "robin@example.com"), app.done)
+
+    def test_signing_in_on_a_sheet_first_reaches_the_persons_account(self):
+        app = signing_in_app()
+        self.assertEqual("robin@example.com", app.sign_in_on_sheet("Robin"))
+        self.assertIn(("type", "Email", "robin@example.com"), app.done)
+
+
 if __name__ == "__main__":
     unittest.main()
