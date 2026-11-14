@@ -206,11 +206,29 @@ final class PhonePlanTests: XCTestCase {
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         openAccount(run)
         Self.note("before Restore", run)
-        run.tap(AccessibilityID.planRestore)
-        Thread.sleep(forTimeInterval: 1)
-        Self.note("1 s after Restore", run)
-        Thread.sleep(forTimeInterval: 4)
-        Self.note("5 s after Restore", run)
+        let id = AccessibilityID.planRestore
+        let matches = run.app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex
+        for (index, match) in matches.enumerated() {
+            print("#202 match \(index): type \(match.elementType.rawValue) frame \(match.frame) hittable \(match.isHittable)")
+        }
+        let first = run.element(id)
+        let button = run.app.buttons.matching(identifier: id).firstMatch
+        print("#202 first: type \(first.elementType.rawValue) frame \(first.frame), lands near \(CGPoint(x: first.frame.midX, y: first.frame.midY))")
+        print("#202 button: exists \(button.exists) frame \(button.frame) hittable \(button.exists && button.isHittable)")
+        func counter() -> String {
+            run.app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'proof202'")).firstMatch.label
+        }
+        print("#202 counter before: \(counter())")
+        run.tap(id)
+        Thread.sleep(forTimeInterval: 3)
+        print("#202 counter after the helper's tap: \(counter())")
+        Self.note("3 s after the helper's tap", run)
+        if counter().hasPrefix("proof202 taps 0"), button.exists {
+            button.tap()
+            Thread.sleep(forTimeInterval: 3)
+            print("#202 counter after tapping the button itself: \(counter())")
+            Self.note("3 s after tapping the button itself", run)
+        }
 
         // The local test store holds no purchase, so nothing comes back.
         let nothing = RestoreResultScreen(answer: free, device: "iPhone")
