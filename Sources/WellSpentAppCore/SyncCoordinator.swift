@@ -540,7 +540,7 @@ public final class SyncCoordinator {
         let before = state
         let generation = sessionGeneration
         let startingInvitationRevision = invitationRevision
-        state = .busy("Syncing")
+        state = .busy(SyncWording.syncing)
         do {
             let listed = try await transport.groups()
             // Signed out, or in as someone else, while the list was on its way.
@@ -564,7 +564,11 @@ public final class SyncCoordinator {
             var offered: PlanLimitRefusal?
             for action in actions {
                 do {
-                    combined.add(try await perform(action))
+                    let report = try await perform(action)
+                    combined.add(report)
+                    // A refusal at push, such as a house past the plan, comes
+                    // back in the report, not thrown, and still offers its sheet.
+                    offered = offered ?? report.planRefusal
                 } catch let refusal as PlanLimitRefusal {
                     // Past the plan is not a failed sync: a locked group waits
                     // behind its card, a group made here past the plan stays

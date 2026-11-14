@@ -179,7 +179,7 @@ struct PhoneHomeView: View {
         HStack(spacing: 12) {
             Button(screen.accountTitle) { showingAccount = true }
                 .buttonStyle(.bordered)
-                .disabled(screen.isBusy)
+                .disabled(!screen.accountCanBePressed)
                 .accessibilityIdentifier(screen.showsSync ? AccessibilityID.toolbarAccount
                                                           : AccessibilityID.sidebarSignIn)
             Text(syncLine)
