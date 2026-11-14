@@ -194,6 +194,88 @@ final class RepeatTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.budgetRepeats).waitForExistence(timeout: 10), "Undo did not bring the repeat back")
     }
 
+    // MARK: - Later months, on the test clock
+
+    /// Utilities in Home on the test clock at `start`, with the $85.00 phone
+    /// bill set to repeat that day.
+    @MainActor
+    private func repeating(from start: String) throws -> TestApp {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        try run.setClock(start)
+        run.launch()
+        run.addGroup(named: "Home")
+        run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        return run
+    }
+
+    /// Quits, moves the clock to `day`, and opens the app again on Utilities.
+    @MainActor
+    private func reopen(_ run: TestApp, on day: String) throws {
+        run.app.terminate()
+        try run.setClock(day)
+        run.launch()
+        run.openBudget(named: "Utilities")
+    }
+
+    /// The open budget's list holds the phone bill once, dated `day`, made by
+    /// its repeat, at $85.00.
+    @MainActor
+    private func expectOneBill(on day: String, in run: TestApp, _ when: String,
+                               file: StaticString = #filePath, line: UInt = #line) throws {
+        let date = BudgetScreen.shortDate(try TestApp.clockDate(day))
+        XCTAssertTrue(run.listText(date).waitForExistence(timeout: 15),
+                      "\(when): no bill dated \(date). On screen: \(run.visibleTexts())", file: file, line: line)
+        let bills = run.app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", Self.bill, Self.bill))
+        XCTAssertEqual(bills.count, 1, "\(when): not one bill. On screen: \(run.visibleTexts())", file: file, line: line)
+        XCTAssertTrue(run.listText(BudgetScreen.Words.repeatSource).exists,
+                      "\(when): Source does not say Repeat. On screen: \(run.visibleTexts())", file: file, line: line)
+        XCTAssertTrue(run.listText("$85.00").exists, "\(when): not $85.00. On screen: \(run.visibleTexts())",
+                      file: file, line: line)
+    }
+
+    @MainActor
+    func testItShowsUpEachMonth() throws {
+        let run = try repeating(from: "2026-11-14T09:00:00")
+
+        // Scenario REPEAT-02
+        // 1. December 14 comes and the app is opened: a new $85.00 bill is in
+        // Utilities, with Source reading Repeat.
+        try reopen(run, on: "2026-12-14T09:00:00")
+        run.expect(dayLine: "December \u{00B7} day 14 of 31", "on December 14")
+        try expectOneBill(on: "2026-12-14T09:00:00", in: run, "on December 14")
+    }
+
+    /// The phone bill set to repeat on October 15, and the app not opened
+    /// for two months. That every month between gets its bill, once, is
+    /// proven by RepeatsTests: no screen shows an earlier month's bills
+    /// without moving the date, and moving it makes the missing bill itself.
+    @MainActor
+    func testCatchingUpAfterTimeAway() throws {
+        let run = try repeating(from: "2026-10-15T09:00:00")
+
+        // Scenario REPEAT-03
+        // 1. Opened again on December 20, after this month's 15th, Utilities
+        // shows December's phone bill once, dated the 15th, at $85.00. The
+        // clock only moves forward, so this read is the one that caught up.
+        try reopen(run, on: "2026-12-20T09:00:00")
+        run.expect(dayLine: "December \u{00B7} day 20 of 31", "on December 20")
+        try expectOneBill(on: "2026-12-15T09:00:00", in: run, "December, after two months away")
+    }
+
+    @MainActor
+    func testAShortMonth() throws {
+        let run = try repeating(from: "2026-10-31T09:00:00")
+
+        // Scenario REPEAT-04
+        // 1. A bill that repeats on the 31st shows up in November on the 30th,
+        // the month's last day.
+        try run.setClock("2026-11-30T09:00:00")
+        run.expect(dayLine: "November \u{00B7} day 30 of 30", "on November 30")
+        try expectOneBill(on: "2026-11-30T09:00:00", in: run, "in November")
+    }
+
     // MARK: - A statement line and a made bill
 
     /// Utilities with the $85.00 phone bill made this month, and a statement

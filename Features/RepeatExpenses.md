@@ -48,9 +48,13 @@ Platforms: Mac, Linux, iPhone
 
 Platforms: Mac, Linux, iPhone
 
-- Given Robin didn't open the app for two months
-- When he opens it
-- Then each month that has come has its bill, one each
+Proven by: Tests/WellSpentAppCoreTests/RepeatsTests.swift eachMonthThatHasComeGetsOneBill
+
+Ruling, 2026-11-13: no screen shows an earlier month's bills without moving the date, and moving it makes the missing bill itself. So "each month that has come has its bill, one each" is a note proven by the package test above. The steps below are checked on screen.
+
+- Given Robin set a $85.00 Phone repeat on the 15th, and didn't open the app for two months
+- When he opens it after this month's 15th
+- Then Utilities shows this month's Phone bill once, dated the 15th, at $85.00
 
 ## REPEAT-04 A short month
 
