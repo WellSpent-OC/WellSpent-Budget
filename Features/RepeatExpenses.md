@@ -117,9 +117,14 @@ Platforms: Mac, Linux, iPhone
 
 Platforms: Mac, Linux, iPhone
 
-- Given Robin set the repeat, and Leslie is at Add level
-- When Leslie changes a made bill she can edit
-- Then she's offered only "This month only"
+Ruling, 2026-11-13: reworded to what each person sees. A repeat makes bills only for its owner, so someone at Add never has a made bill of their own to change (EDIT-11).
+
+- Given Robin set the Phone repeat in Household, Leslie is at Add, and Kim is a manager
+- When Leslie opens December's Phone bill
+- Then it opens read-only, as EDIT-11 says, with no "This month and later" and no "Stop repeating…"
+- And when she opens the Phone repeat from Utilities' repeats list, its sheet says "Only Robin or a manager can change this repeat." and has nothing to change
+- When Kim opens December's Phone bill and changes its amount
+- Then under "Which months?" she's offered "This month only" and "This month and later", and "Stop repeating…"
 
 ## REPEAT-12 Finding them all
 
