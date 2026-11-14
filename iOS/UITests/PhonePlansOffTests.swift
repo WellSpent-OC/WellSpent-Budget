@@ -12,7 +12,7 @@ import WellSpentModel
 /// Each of those gates on a shared value the package tests also check with
 /// plans off: `plans.answer`, `lockedScreen`, `pickScreen()` and
 /// `sync.planSheet`. Needs the four WELLSPENT_UI_TEST_ variables and skips
-/// without them. Signs in, so it runs in light only.
+/// without them. The Houses job runs it in light and dark.
 final class PhonePlansOffTests: XCTestCase {
     nonisolated(unsafe) private static var dataRootPath: String?
 
