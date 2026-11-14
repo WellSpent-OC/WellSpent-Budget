@@ -139,9 +139,9 @@ final class PhoneRepeatTests: XCTestCase {
         run.goBack()
         run.addGroup(named: "Home")
         run.addBudget(named: "Utilities", amount: "600", inGroup: "Home")
-        addRepeat(Self.bill, "85.00", in: run)
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
         // A second bill, for the exact amount in step 3.
-        addRepeat("Internet", "60.00", in: run)
+        run.addRepeat(merchant: "Internet", amount: "60.00")
         let month = EntryEditor.Words.monthName(RepeatRule.month(of: Date(), calendar: AppLocale.calendar))
         let once = TodaysBudget(limit: 60_000, spent: 14_540).wheel.spokenSummary
 
@@ -218,8 +218,8 @@ final class PhoneRepeatTests: XCTestCase {
         // 2. With two, the count line says "2 repeats" and opens a short list.
         // A row opens that repeat's own sheet, which changes this month and
         // later, or stops it.
-        addRepeat(Self.bill, "85.00", in: run)
-        addRepeat("Internet", "60.00", in: run)
+        run.addRepeat(merchant: Self.bill, amount: "85.00")
+        run.addRepeat(merchant: "Internet", amount: "60.00")
         openRepeat(Self.bill, in: run)
         XCTAssertTrue(run.shows(RepeatEditor.Words.note), "the sheet doesn't say what a change reaches")
         XCTAssertTrue(run.has(AccessibilityID.repeatSave), "the owner has no Save on the repeat's sheet")
@@ -261,17 +261,6 @@ final class PhoneRepeatTests: XCTestCase {
         run.tap(AccessibilityID.repeatRow(name))
         XCTAssertTrue(run.app.navigationBars[name].waitForExistence(timeout: 10),
                       "no sheet for \(name). On screen: \(run.visibleTexts())")
-    }
-
-    /// Adds a bill that repeats every month to the open budget.
-    @MainActor
-    private func addRepeat(_ merchant: String, _ amount: String, in run: PhoneTestApp) {
-        run.tap(AccessibilityID.budgetAdd)
-        run.type(merchant, into: AccessibilityID.entryMerchant)
-        run.type(amount, into: AccessibilityID.entryAmount)
-        run.turnOnRepeats()
-        run.tap(AccessibilityID.entryAdd)
-        XCTAssertTrue(run.hasRow(merchant), "\(merchant) is not in the list. On screen: \(run.visibleTexts())")
     }
 
     @MainActor
@@ -530,65 +519,5 @@ final class PhoneRepeatTests: XCTestCase {
         guard let button = run.questionButton(choice) else { return XCTFail("no \(choice)") }
         button.tap()
         run.expectNoSheet()
-    }
-}
-
-private extension PhoneTestApp {
-    /// Opens the short list of repeats, checks what a row says, and closes it.
-    func expectRepeat(_ name: String, says amount: String, _ problem: String,
-                      file: StaticString = #filePath, line: UInt = #line) {
-        bringToMiddle(scrollTo(AccessibilityID.budgetRepeats))
-        tap(AccessibilityID.budgetRepeats)
-        let row = element(AccessibilityID.repeatRow(name))
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "no row for \(name)", file: file, line: line)
-        let inRow = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", amount, amount)
-        XCTAssertTrue(row.label.contains(amount) || row.descendants(matching: .any).matching(inRow).firstMatch.exists,
-                      "\(problem). The row says: \(row.label)", file: file, line: line)
-        app.buttons[RepeatsList.Words.done].firstMatch.tap()
-        XCTAssertTrue(wait(for: row, until: "exists == false", timeout: 5), "the short list stayed open", file: file, line: line)
-    }
-
-    func showsLine(containing words: String) -> Bool {
-        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch.waitForExistence(timeout: 10)
-    }
-
-    /// The Repeats switch, under the number pad after the amount.
-    func turnOnRepeats() {
-        bringUpInSheet(AccessibilityID.entryRepeats)
-        let row = element(AccessibilityID.entryRepeats)
-        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
-        XCTAssertTrue(wait(for: row, until: "value == '1'", timeout: 5), "Repeats did not turn on")
-    }
-
-    func switchValue() -> String? {
-        switchValue(of: AccessibilityID.entryRepeats)
-    }
-
-    func flipRepeats() {
-        bringUpInSheet(AccessibilityID.entryRepeats)
-        flip(AccessibilityID.entryRepeats)
-    }
-
-    func switchValue(of identifier: String) -> String? {
-        let row = element(identifier)
-        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
-    }
-
-    func flip(_ identifier: String) {
-        let row = element(identifier)
-        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
-    }
-
-    /// The number pad can cover a sheet's lower rows. A drag from the screen
-    /// moves the sheet's form, where `scrollTo` would move the list behind it.
-    func bringUpInSheet(_ identifier: String) {
-        let row = element(identifier)
-        let low = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let high = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-        var drags = 0
-        while !(row.exists && row.isHittable), drags < 5 {
-            low.press(forDuration: 0.05, thenDragTo: high)
-            drags += 1
-        }
     }
 }

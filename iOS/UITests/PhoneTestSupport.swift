@@ -768,3 +768,78 @@ extension SecondAccount {
         return false
     }
 }
+
+/// Repeats, on any budget: shared by the repeat tests that set one up
+/// by hand and by those on the test clock.
+@MainActor
+extension PhoneTestApp {
+    /// Adds a bill that repeats every month to the open budget, and checks
+    /// it's in the list.
+    func addRepeat(merchant: String, amount: String) {
+        tap(AccessibilityID.budgetAdd)
+        type(merchant, into: AccessibilityID.entryMerchant)
+        type(amount, into: AccessibilityID.entryAmount)
+        turnOnRepeats()
+        tap(AccessibilityID.entryAdd)
+        XCTAssertTrue(hasRow(merchant), "\(merchant) is not in the list. On screen: \(visibleTexts())")
+    }
+
+    /// Opens the short list of repeats, checks what a row says, and closes it.
+    func expectRepeat(_ name: String, says amount: String, _ problem: String,
+                      file: StaticString = #filePath, line: UInt = #line) {
+        bringToMiddle(scrollTo(AccessibilityID.budgetRepeats))
+        tap(AccessibilityID.budgetRepeats)
+        let row = element(AccessibilityID.repeatRow(name))
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "no row for \(name)", file: file, line: line)
+        let inRow = NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", amount, amount)
+        XCTAssertTrue(row.label.contains(amount) || row.descendants(matching: .any).matching(inRow).firstMatch.exists,
+                      "\(problem). The row says: \(row.label)", file: file, line: line)
+        app.buttons[RepeatsList.Words.done].firstMatch.tap()
+        XCTAssertTrue(wait(for: row, until: "exists == false", timeout: 5), "the short list stayed open", file: file, line: line)
+    }
+
+    func showsLine(containing words: String) -> Bool {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch.waitForExistence(timeout: 10)
+    }
+
+    /// The Repeats switch, under the number pad after the amount.
+    func turnOnRepeats() {
+        bringUpInSheet(AccessibilityID.entryRepeats)
+        let row = element(AccessibilityID.entryRepeats)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+        XCTAssertTrue(wait(for: row, until: "value == '1'", timeout: 5), "Repeats did not turn on")
+    }
+
+    func switchValue() -> String? {
+        switchValue(of: AccessibilityID.entryRepeats)
+    }
+
+    func flipRepeats() {
+        bringUpInSheet(AccessibilityID.entryRepeats)
+        flip(AccessibilityID.entryRepeats)
+    }
+
+    func switchValue(of identifier: String) -> String? {
+        let row = element(identifier)
+        return ((row.switches.firstMatch.exists ? row.switches.firstMatch : row).value as? String)
+    }
+
+    func flip(_ identifier: String) {
+        let row = element(identifier)
+        (row.switches.firstMatch.exists ? row.switches.firstMatch : row).tap()
+    }
+
+    /// The number pad can cover a sheet's lower rows. A drag from the screen
+    /// moves the sheet's form, where `scrollTo` would move the list behind it.
+    func bringUpInSheet(_ identifier: String) {
+        let row = element(identifier)
+        let low = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let high = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        var drags = 0
+        while !(row.exists && row.isHittable), drags < 5 {
+            low.press(forDuration: 0.05, thenDragTo: high)
+            drags += 1
+        }
+        XCTAssertTrue(row.exists && row.isHittable, "\(identifier) is not on the sheet's screen. On screen: \(visibleTexts())")
+    }
+}
