@@ -446,6 +446,24 @@ final class SharingGapTests: XCTestCase {
                        "an invitation already grants membership")
         for budget in budgets { XCTAssertFalse(run.element(AccessibilityID.sidebarBudget(budget)).exists) }
 
+        // Scenario EMAIL-07
+        // Signing out clears this account's invitation from the screen.
+        let invitation = run.element(AccessibilityID.incomingInvitation(first.id))
+        run.signOut()
+        XCTAssertTrue(run.wait(for: invitation, until: "exists == false", timeout: 20),
+                      "the invitation stayed after signing out. On screen: \(run.visibleTexts())")
+
+        // Scenario EMAIL-07
+        // Quit, opened again and signed in to the same account, the sync puts
+        // the unanswered invitation back beside the groups.
+        run.app.terminate()
+        run.launch()
+        XCTAssertFalse(invitation.exists, "an invitation shows while signed out")
+        try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
+        XCTAssertTrue(invitation.waitForExistence(timeout: 30),
+                      "the invitation did not come back after signing in again. On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.app.staticTexts[EmailInvitationWords.from("Leslie")].exists, "it doesn't say who sent it")
+
         // Scenario EMAIL-04
         run.click(AccessibilityID.rejectInvitation(first.id))
         try XCTUnwrap(run.dialogButton(MainScreen.Words.cancel)).click()
