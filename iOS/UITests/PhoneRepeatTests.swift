@@ -42,9 +42,9 @@ final class PhoneRepeatTests: XCTestCase {
         run.type(Self.bill, into: AccessibilityID.entryMerchant)
         run.type("85.00", into: AccessibilityID.entryAmount)
         run.turnOnRepeats()
-        // A new entry's date is the real day, whatever day the wheel is pinned
-        // to, so the line names today's day.
-        let day = RepeatsList.Words.ordinal(AppLocale.calendar.component(.day, from: Date()))
+        // The app's today is the pinned day, so a new entry is dated the 18th
+        // and the line names it.
+        let day = RepeatsList.Words.ordinal(18)
         XCTAssertTrue(run.showsLine(containing: "\(day) of each month"),
                       "no line says it shows up on the \(day): \(run.visibleTexts())")
         run.tap(AccessibilityID.entryAdd)
