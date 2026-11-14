@@ -340,7 +340,7 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Linux |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux |
 | LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac |
 
 The lifecycle native and shared tests check focus callbacks and date handling.
@@ -380,7 +380,7 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-04 | Reject ends the invitation and requires a fresh one | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-05 | The sender can cancel a pending invitation | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-06 | Invitations enforce account and group permissions | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Linux, iPhone |
+| EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | None yet |
 | EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | None yet |
