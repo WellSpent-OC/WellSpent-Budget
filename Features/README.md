@@ -383,4 +383,4 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | None yet |
-| EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | None yet |
+| EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | Mac, iPhone |
