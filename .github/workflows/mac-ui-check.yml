@@ -97,7 +97,7 @@ jobs:
         if: steps.classes.outputs.list != ''
         run: make ui-test-build
 
-      - name: Make this run's own two staging accounts
+      - name: Make this run's own three staging accounts
         if: steps.classes.outputs.list != ''
         env:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
