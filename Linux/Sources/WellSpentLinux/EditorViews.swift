@@ -281,6 +281,19 @@ struct EntryEditorView: View {
                     set: { editor.budgetID = $0?.value ?? editor.budgetID }))
             }
         }
+        if editor.showsLinkRow, let offered = editor.linkChoices {
+            // An extension's row, such as Properties' House on a bill
+            // (PROP-35): None, then what it offers in this group.
+            let choices = linkChoices(offered)
+            HStack(spacing: 10) {
+                Text(offered.label)
+                    .font(.system(size: 12))
+                Picker(of: choices, selection: Binding(
+                    get: { choices.first { $0.value == editor.linkSelection } },
+                    set: { editor.linkSelection = $0?.value ?? nil }))
+                    .controlDescription(offered.label)
+            }
+        }
         if editor.showsRepeatRow {
             // The Mac's switch, a labelled check box here, as Money in is.
             Toggle(Words.repeatsRow, isOn: Binding(get: { editor.repeats }, set: { editor.repeats = $0 }))
@@ -304,6 +317,11 @@ struct EntryEditorView: View {
                 Note(line)
             }
         }
+    }
+
+    private func linkChoices(_ offered: EntryLinkChoices) -> [Choice<RecordID?>] {
+        [Choice(value: nil, description: Words.noLink)]
+            + offered.choices.map { Choice(value: $0.id, description: $0.name) }
     }
 
     private var reachChoices: [Choice<AppModel.RepeatReach>] {
