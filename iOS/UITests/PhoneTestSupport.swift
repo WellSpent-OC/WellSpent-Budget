@@ -773,6 +773,32 @@ extension SecondAccount {
 /// by hand and by those on the test clock.
 @MainActor
 extension PhoneTestApp {
+    /// Quits, moves the test clock to `day`, and opens the app again on
+    /// `budget`. The app may open again where it was, on that budget.
+    func reopen(on day: String, budget: String) throws {
+        app.terminate()
+        try setClock(day)
+        launch()
+        if !app.navigationBars[budget].waitForExistence(timeout: 5) { openBudget(named: budget) }
+    }
+
+    /// The open budget holds `merchant` once, dated `day`, at `amount`.
+    func expectOneBill(_ merchant: String, on day: String, at amount: String, _ when: String,
+                       file: StaticString = #filePath, line: UInt = #line) throws {
+        let date = try Self.clockDate(day).formatted(.dateTime.month(.abbreviated).day())
+        XCTAssertTrue(row(merchant, says: date, timeout: 15),
+                      "\(when): no \(merchant) dated \(date): \(rowLabel(merchant))", file: file, line: line)
+        XCTAssertTrue(row(merchant, says: amount), "\(when): not \(amount): \(rowLabel(merchant))", file: file, line: line)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: AccessibilityID.entryRow(merchant)).count, 1,
+                       "\(when): not one \(merchant). On screen: \(visibleTexts())", file: file, line: line)
+    }
+
+    /// The open budget holds no `merchant`.
+    func expectNoBill(_ merchant: String, _ when: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(lacksRow(merchant), "\(when): a \(merchant) was made. On screen: \(visibleTexts())",
+                      file: file, line: line)
+    }
+
     /// Adds a bill that repeats every month to the open budget, and checks
     /// it's in the list.
     func addRepeat(merchant: String, amount: String) {
