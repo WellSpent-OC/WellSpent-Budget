@@ -126,6 +126,33 @@ struct TestClockTests {
         }
     }
 
+    /// Opening the app reads the budgets with the clock's day from the very
+    /// first read. A repeat set on 14 January 2020 and the app opened again
+    /// on the 20th has made January's bill and nothing later, whatever the
+    /// real date. The date is well before any day this test runs, so a first
+    /// read by the real date would make a bill for every month since.
+    @Test func theFirstReadOnOpeningIsOnTheClocksDay() throws {
+        let defaults = isolatedDefaults()
+        let accounts = AccountDirectory(root: nil, defaults: defaults) { _ in InMemoryKeyStore() }
+        let transport = StubReadableTransport()
+        let january = { (day: Int) in AppLocale.calendar.date(from: DateComponents(year: 2020, month: 1, day: day, hour: 9))! }
+        let hand = HandClock(january(14))
+
+        let first = try Workspace.launch(accounts: accounts, defaults: defaults, makeTransport: { _ in transport },
+                                         clock: hand.clock, announcesDays: false)
+        let group = try #require(first.model.addGroup(named: "Home"))
+        let utilities = try #require(first.model.addBudget(named: "Utilities", limit: .dollars(600), in: group))
+        first.model.addRepeatingTransaction(merchant: "Phone bill", amount: Money(minorUnits: 8_500),
+                                            date: january(14), note: "", budget: utilities)
+
+        hand.date = january(20)
+        let second = try Workspace.launch(accounts: accounts, defaults: defaults, makeTransport: { _ in transport },
+                                          clock: hand.clock, announcesDays: false)
+        let bills = try second.model.store.transactions(in: utilities, period: nil)
+            .filter { $0.merchant == "Phone bill" && !$0.isDeleted }
+        #expect(bills.map(\.repeatMonth) == ["2020-01"], "bills were made for months the clock hasn't reached")
+    }
+
     #if !os(Linux)
     /// On the Mac and iPhone the system says when a day begins. With the test
     /// clock, the workspace says it in the same words, to the same watcher,
