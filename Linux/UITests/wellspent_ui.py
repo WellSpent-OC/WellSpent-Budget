@@ -1098,17 +1098,15 @@ class App:
         self.button("Sync", within=self.main)
 
     def sign_in_as(self, name):
-        """Signs this copy in to the person's account for this run, making it
-        the first time it's needed. Signed in, with their groups synced."""
-        if name.lower() not in _ACCOUNTS:
-            return self.sign_up(name)
+        """Signs this copy in to the person's account for this run, whichever
+        test asks first. Signed in, with their groups synced."""
         self.button("Sign in", within=self.main).press()
         return self.sign_in_on_sheet(name)
 
     def sign_in_on_sheet(self, name):
         """Signs in on the account sheet something else opened, such as the
         invitation page's Sign in…, to the person's account for this run."""
-        self.email, self.password = _ACCOUNTS[name.lower()]
+        self.email, self.password = account(name)
         sheet = self.wait_for_window(2, "the account sheet")
         if SERVER_OVERRIDE:
             self.field("Server", sheet).type(STAGING)
