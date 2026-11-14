@@ -100,12 +100,15 @@ public final class AppModel {
     public let opensFirstBudget: Bool
 
     /// `undoWindow` is how long the bar after a delete stays. Tests pass a
-    /// short one, as `AutoSync` takes its wait time.
+    /// short one, as `AutoSync` takes its wait time. `today` is what the
+    /// first read of the budgets, here, takes as today, so a test clock
+    /// governs it too (`Workspace.clockFileVariable`).
     public init(store: Store, undoWindow: Duration = AppModel.defaultUndoWindow,
-                opensFirstBudget: Bool = true) {
+                opensFirstBudget: Bool = true, today: @escaping () -> Date = { Date() }) {
         self.store = store
         self.undoWindow = undoWindow
         self.opensFirstBudget = opensFirstBudget
+        self.today = today
         reload()
     }
 

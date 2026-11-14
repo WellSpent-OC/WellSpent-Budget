@@ -180,9 +180,9 @@ It is not kept here, where every pull request would change the same lines.
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
 | REPEAT-01 | Setting a repeat | Mac, Linux, iPhone | Mac, Linux |
-| REPEAT-02 | It shows up each month | Mac, Linux, iPhone | None yet |
-| REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | None yet |
-| REPEAT-04 | A short month | Mac, Linux, iPhone | None yet |
+| REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac |
+| REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac |
+| REPEAT-04 | A short month | Mac, Linux, iPhone | Mac |
 | REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | None yet |
 | REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux |
 | REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux |
