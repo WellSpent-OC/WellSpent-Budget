@@ -64,6 +64,8 @@ let package = Package(
                 .product(name: "WarTableCore", package: "WarTable"),
                 "WellSpentServerCore",
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
+                // To read an invitation page's link with the apps' own reader.
+                .product(name: "WellSpentSync", package: "WellSpentBudget"),
                 .product(name: "VaporTesting", package: "vapor"),
                 // To sign test purchases with a test chain of certificates.
                 .product(name: "X509", package: "swift-certificates"),

@@ -8,6 +8,7 @@ import VaporTesting
 import WellSpentCrypto
 import WellSpentModel
 @testable import WellSpentServerCore
+import WellSpentSync
 
 private struct AddressedInvite: Content {
     let level: Int
@@ -446,7 +447,8 @@ struct EmailInvitationTests {
             // The invitation page asks for no password, and its "Open in
             // WellSpent" button carries the app's own link with the
             // invitation, the group and who sent it: wellspent-staging://join
-            // on staging, and wellspent://join on live.
+            // on staging, and wellspent://join on live. The apps' own reader
+            // reads it, so it is the same form as any invite link.
             func page(_ environment: String) async throws -> String {
                 var html = ""
                 try await app.testing().test(.GET, "invite/\(token)?environment=\(environment)",
@@ -456,15 +458,27 @@ struct EmailInvitationTests {
                     })
                 return html
             }
-            let opens = "#s=\(token)&amp;g=Household&amp;f=Robin\">Open in WellSpent</a>"
+            func openLink(_ html: String) throws -> InviteLink {
+                let start = try #require(html.range(of: "<a class=\"open\" href=\""))
+                let end = try #require(html[start.upperBound...].range(of: "\">Open in WellSpent</a>"))
+                let href = html[start.upperBound..<end.lowerBound].replacingOccurrences(of: "&amp;", with: "&")
+                let link = try #require(InviteLink(parsing: href), "the apps read the button's link")
+                #expect(link.url == href, "the button's link is exactly the form the apps make")
+                #expect(href.hasPrefix("\(link.scheme)://join#s=\(token)&"), "it carries this invitation")
+                return link
+            }
             let staging = try await page("staging")
             #expect(!staging.lowercased().contains("type=\"password\""), "no password field")
-            #expect(staging.contains("href=\"wellspent-staging://join\(opens)"))
+            let stagingLink = try openLink(staging)
+            #expect(stagingLink.scheme == "wellspent-staging")
+            #expect(stagingLink.groupName == "Household" && stagingLink.inviterName == "Robin")
             app.storage[ServerEnvironmentKey.self] = .live
             let live = try await page("live")
             app.storage[ServerEnvironmentKey.self] = .staging
             #expect(!live.lowercased().contains("type=\"password\""), "no password field")
-            #expect(live.contains("href=\"wellspent://join\(opens)"))
+            let liveLink = try openLink(live)
+            #expect(liveLink.scheme == "wellspent")
+            #expect(liveLink.groupName == "Household" && liveLink.inviterName == "Robin")
 
             // Opening that page alone never accepts or rejects it.
             let opened = try #require(try await InviteRow.find(invite.id, on: app.db))
@@ -488,8 +502,7 @@ struct EmailInvitationTests {
             let ending = try #require(try await InviteRow.find(expired.id, on: app.db))
             ending.expiresAt = Date().addingTimeInterval(-1)
             try await ending.save(on: app.db)
-            let expiredAnswers = try await acceptAnswers(expired.id)
-            #expect(expiredAnswers[0] == .gone && expiredAnswers[1] != .ok, "expired")
+            #expect(try await acceptAnswers(expired.id) == [.gone, .gone], "expired")
             #expect(try await v2Status(.GET, "api/v2/groups/\(group)/pull", token: recipient.token, on: app) == .forbidden)
         }
     }
