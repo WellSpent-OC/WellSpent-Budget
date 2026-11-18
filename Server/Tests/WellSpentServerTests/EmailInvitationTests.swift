@@ -409,6 +409,91 @@ struct EmailInvitationTests {
         }
     }
 
+    // Scenario EMAIL-09
+    @Test func theInvitationEmailAndItsPageDoEveryLineOfTheScenario() async throws {
+        try await withV2App { app, _ in
+            await app.invitationDelivery.shutdown()
+            app.invitationDelivery = InvitationDelivery(automatic: false)
+            let (group, owner, recipient, address) = try await invitationFixture(on: app)
+            let mailer = RetryInvitationMailer()
+            app.mailer = mailer
+
+            // Given an invitation is pending.
+            let invite = try await sendInvitation(group, to: address, as: owner, on: app)
+            #expect(try await incoming(recipient, on: app).map(\.id) == [invite.id])
+
+            // A temporary email service failure is retried without creating
+            // another invitation: the first send fails, the retry sends, and
+            // the group still has the one invitation.
+            let now = Date()
+            await app.invitationDelivery.deliverPending(on: app, now: now)
+            #expect(await mailer.messages.isEmpty)
+            await app.invitationDelivery.deliverPending(on: app, now: now.addingTimeInterval(61))
+            #expect(await mailer.messages.count == 1)
+            #expect(try await InviteRow.query(on: app.db).filter(\.$groupID == group).count() == 1)
+
+            // Its email provides one invitation link, the expiry and a way to
+            // stop invitation emails.
+            let text = try #require(await mailer.messages.last)
+            let token = EmailInvitationRules.token(invite.id, key: app.emailCodeKey)
+            #expect(text.components(separatedBy: "/invite/").count == 2, "one invitation link, not two")
+            #expect(text.contains("https://staging.wellspent.space/invite/\(token)?environment=staging"))
+            let row = try #require(try await InviteRow.find(invite.id, on: app.db))
+            #expect(text.contains("This invitation expires on \(row.expiresAt.ISO8601Format())"))
+            let stop = EmailInvitationRules.token(invite.id, purpose: "stop-invite-email", key: app.emailCodeKey)
+            #expect(text.contains("Stop invitation emails:\nhttps://staging.wellspent.space/email/invites/stop?token=\(stop)"))
+
+            // The invitation page asks for no password, and its "Open in
+            // WellSpent" button carries the app's own link with the
+            // invitation, the group and who sent it: wellspent-staging://join
+            // on staging, and wellspent://join on live.
+            func page(_ environment: String) async throws -> String {
+                var html = ""
+                try await app.testing().test(.GET, "invite/\(token)?environment=\(environment)",
+                    afterResponse: { response async throws in
+                        #expect(response.status == .ok)
+                        html = response.body.string
+                    })
+                return html
+            }
+            let opens = "#s=\(token)&amp;g=Household&amp;f=Robin\">Open in WellSpent</a>"
+            let staging = try await page("staging")
+            #expect(!staging.lowercased().contains("type=\"password\""), "no password field")
+            #expect(staging.contains("href=\"wellspent-staging://join\(opens)"))
+            app.storage[ServerEnvironmentKey.self] = .live
+            let live = try await page("live")
+            app.storage[ServerEnvironmentKey.self] = .staging
+            #expect(!live.lowercased().contains("type=\"password\""), "no password field")
+            #expect(live.contains("href=\"wellspent://join\(opens)"))
+
+            // Opening that page alone never accepts or rejects it.
+            let opened = try #require(try await InviteRow.find(invite.id, on: app.db))
+            #expect(opened.acceptedAt == nil && opened.rejectedAt == nil)
+            #expect(try await incoming(recipient, on: app).map(\.id) == [invite.id])
+            #expect(try await v2Status(.GET, "api/v2/groups/\(group)/pull", token: recipient.token, on: app) == .forbidden)
+
+            // Expired, rejected or cancelled invitations cannot be accepted,
+            // by the invitation's Accept or by its link.
+            func acceptAnswers(_ id: UUID) async throws -> [HTTPStatus] {
+                let byLink = InviteTokenBody(token: EmailInvitationRules.token(id, key: app.emailCodeKey))
+                return [try await v2Status(.POST, "api/v2/invitations/\(id)/accept", token: recipient.token, on: app),
+                        try await v2Status(.POST, "api/v2/invites/accept", token: recipient.token, body: byLink, on: app)]
+            }
+            #expect(try await v2Status(.POST, "api/v2/invitations/\(invite.id)/reject", token: recipient.token, on: app) == .noContent)
+            #expect(try await acceptAnswers(invite.id) == [.conflict, .conflict], "rejected")
+            let cancelled = try await sendInvitation(group, to: address, as: owner, on: app)
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(group)/invites/\(cancelled.id)", token: owner.token, on: app) == .noContent)
+            #expect(try await acceptAnswers(cancelled.id) == [.notFound, .notFound], "cancelled")
+            let expired = try await sendInvitation(group, to: address, as: owner, on: app)
+            let ending = try #require(try await InviteRow.find(expired.id, on: app.db))
+            ending.expiresAt = Date().addingTimeInterval(-1)
+            try await ending.save(on: app.db)
+            let expiredAnswers = try await acceptAnswers(expired.id)
+            #expect(expiredAnswers[0] == .gone && expiredAnswers[1] != .ok, "expired")
+            #expect(try await v2Status(.GET, "api/v2/groups/\(group)/pull", token: recipient.token, on: app) == .forbidden)
+        }
+    }
+
     @Test func invitationPublicOriginsCannotCrossEnvironmentsOrPointAtAnotherSite() throws {
         #expect(try InvitationWeb.baseURL(nil, environment: .live) == "https://sync.wellspent.space")
         #expect(try InvitationWeb.baseURL(nil, environment: .staging) == "https://staging.wellspent.space")

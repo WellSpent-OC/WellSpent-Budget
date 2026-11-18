@@ -4,6 +4,8 @@ Clicking an invite link lets someone join a group straight from the message it c
 
 ## CLICK-01 A clicked invite link opens its invitation page
 
+The "Open in WellSpent" button on an emailed invitation's web page carries a link of this same form (EMAIL-09, ruling 13), so this scenario is also what that button promises.
+
 - Given Robin made a link to Household at Add, with "Everything so far", and sent it to Leslie
 - And Leslie is signed in, with her email confirmed, and WellSpent is open
 - When she clicks the link

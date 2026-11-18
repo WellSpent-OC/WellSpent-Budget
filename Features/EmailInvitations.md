@@ -97,9 +97,12 @@ Platforms: Server
 
 Ruling, 2026-11-13: split from EMAIL-08. These happen in the email and on the server, so a server test proves them.
 
+Ruling 13, 2026-11-14: the page line says what the server does. The app opening from that link is CLICK-01 and CLICK-02, tested on each platform.
+
 - Given an invitation is pending
 - Then its email provides one invitation link, the expiry and a way to stop invitation emails
-- And the invitation page opens WellSpent without asking for a password on the website
+- And the invitation page asks for no password
+- And its "Open in WellSpent" button carries the app's own link, wellspent://join on live and wellspent-staging://join on staging, with the invitation, the group and who sent it, in the same form as any invite link
 - And opening that page alone never accepts or rejects an invitation
 - And a temporary email service failure is retried without creating another invitation
 - And expired, rejected or cancelled invitations cannot be accepted
