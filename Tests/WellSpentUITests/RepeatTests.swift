@@ -442,7 +442,7 @@ final class RepeatTests: XCTestCase {
 
         // 4. Tidy: the group goes, for everyone, and both sign out.
         run.deleteGroup(named: home)
-        run.signOut()
+        run.signOutIfSignedIn()
         await phone.cleanUp()
     }
 
@@ -538,7 +538,7 @@ final class RepeatTests: XCTestCase {
         run.expectNoSheet()
 
         // 5. Tidy: Robin deletes Household for everyone, and the window signs out.
-        run.signOut()
+        run.signOutIfSignedIn()
         let robin = try SecondAccount(server: accounts.server)
         try await robin.signIn(email: accounts.email, password: accounts.password)
         try await robin.syncAll()

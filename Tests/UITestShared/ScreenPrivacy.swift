@@ -23,6 +23,8 @@ enum ScreenPrivacy {
         let giveaways = Self.giveaways
         guard !giveaways.isEmpty else { return false }
         for app in apps where app.state != .notRunning {
+            // A screen that can't be read counts as showing an address, so
+            // the check fails safe rather than passing quietly.
             guard let root = try? app.snapshot() else { return true }
             var waiting = [root]
             while let element = waiting.popLast() {

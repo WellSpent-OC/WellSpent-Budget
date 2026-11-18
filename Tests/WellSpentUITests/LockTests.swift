@@ -148,7 +148,7 @@ final class LockTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10),
                       "Pay for This Group didn't open Choose a plan")
         run.click(AccessibilityID.planNotNow)
-        run.signOut()
+        run.signOutIfSignedIn()
     }
 
     // MARK: - Steps

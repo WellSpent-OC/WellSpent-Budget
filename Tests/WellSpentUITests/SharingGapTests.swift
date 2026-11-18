@@ -500,7 +500,7 @@ final class SharingGapTests: XCTestCase {
         XCTAssertTrue(run.app.staticTexts["Existing purchase"].waitForExistence(timeout: 15))
 
         run.deleteGroup(named: ownGroup)
-        run.signOut()
+        run.signOutIfSignedIn()
         await sender.deleteGroup(named: groupName)
         await sender.cleanUp()
     }

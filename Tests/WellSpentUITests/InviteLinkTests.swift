@@ -98,7 +98,7 @@ final class InviteLinkTests: XCTestCase {
 
         // 6. Tidy: the second account deletes its group, and both sessions end.
         await second.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
         await second.cleanUp()
     }
 

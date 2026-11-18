@@ -85,7 +85,7 @@ final class ReturningTests: XCTestCase {
 
         // 4. Tidy: Robin deletes the group for everyone, and both sign out.
         run.deleteGroup(named: groupName)
-        run.signOut()
+        run.signOutIfSignedIn()
         await leslie.cleanUp()
     }
 
