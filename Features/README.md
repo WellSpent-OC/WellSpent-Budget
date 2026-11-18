@@ -13,6 +13,7 @@ What WellSpent does, written once for every platform. Each file here is one feat
 - `Server` and `Connector` name service and agent boundaries explicitly. Their integration tests use the same scenario tags; omitting a Platforms line still means only the three apps.
 - Each platform reads a scenario in its own words. Where a scenario says "this computer", an iPhone says "this iPhone". Where a budget opens "on the right", an iPhone opens it as its own screen, and what "the right side" says shows on Home.
 - Then come Given, When and Then lines, with And for one more of the same. They say what a person sees and does, in plain English. They never say how the code does it.
+- Something no screen can show, such as a same-day date check not reloading anything, is a note under the heading, not a step. A `Proven by:` line names the package test that proves it: the file from the repo's top, then the test's function name, such as `Proven by: Tests/WellSpentAppCoreTests/WheelDayTests.swift aClockCheckOnTheSameDayLeavesTheBudgetsAlone`. The scenario check fails when that file or that test is gone. It counts toward no platform's "Has a test on".
 - The people in the scenarios are Robin (he) and Leslie (she). No real person's name goes in.
 - Only behaviour that is built goes in: on `main`, or in an open pull request. Planned behaviour stays out until it is built.
 
