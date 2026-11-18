@@ -22,11 +22,14 @@ Ruling, 2026-11-13: a date check on the same day does not reload the budgets or 
 - Then the money wheels use that day's pace and expected amount
 - And when a new month begins, the displayed spending and transactions use the new period
 - And returning to the app after sleep checks the date immediately
+- And on Linux, which has no wake signal, a window already in front when the computer slept finds the new day within 30 seconds of waking, and at once when the window comes back to the front
 
 ## Verification
 
-The Linux UI test `test_lifecycle.py` covers LIFE-01. The native fixture in
+The Linux UI test `test_lifecycle.py` covers LIFE-01. `test_new_day.py` covers
+LIFE-02 on the test clock: a window left in front finds a new day and a new
+month by itself, and a window that comes back to the front checks the date at
+once. The native fixture in
 `Linux/NativeTests/lifecycle.c` checks window and sheet focus, recurring clock
 callbacks, duplicate installation, and shutdown. Shared workspace tests cover
-the date check and its budget reload. **LIFE-02 still needs a full UI scenario
-test on Linux; native and shared tests are not a substitute for that test.**
+the date check and its budget reload.
