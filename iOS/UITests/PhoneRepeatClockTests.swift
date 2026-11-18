@@ -81,10 +81,11 @@ final class PhoneRepeatClockTests: XCTestCase {
     // MARK: - Two devices
 
     /// Robin's iPhone, the app, and another device of his on the same account
-    /// with no window, both hold the repeat set on December 10. Both are
-    /// opened on January 12, and each makes January's bill. Once both have
-    /// synced there is one January bill, on each. The phone is on the test
-    /// clock; the other device reads its budgets with January 12 as today.
+    /// with no window, both hold the repeat set on December 14. Both are
+    /// opened on January 16, after the 14th, and each makes January's bill.
+    /// Once both have synced there is one January bill, on each. The phone is
+    /// on the test clock; the other device reads its budgets with January 16
+    /// as today.
     @MainActor
     func testTwoDevicesMakeOneBill() async throws {
         let accounts = try TestAccounts.fromEnvironment()
@@ -92,10 +93,10 @@ final class PhoneRepeatClockTests: XCTestCase {
         Self.dataRootPath = run.dataRoot.path
         let stamp = PhoneTestApp.stamp()
         let home = "UI Phone \(stamp) Repeats", utilities = "Utilities \(stamp)"
-        let january = try PhoneTestApp.clockDate("2027-01-12T09:00:00")
+        let january = try PhoneTestApp.clockDate("2027-01-16T09:00:00")
 
-        // 1. On the phone, signed in, on December 10: the phone bill repeats.
-        try run.setClock("2026-12-10T09:00:00")
+        // 1. On the phone, signed in, on December 14: the phone bill repeats.
+        try run.setClock("2026-12-14T09:00:00")
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.addGroup(named: home)
@@ -104,7 +105,7 @@ final class PhoneRepeatClockTests: XCTestCase {
         run.goBack()
         run.syncAndWait()
 
-        // 2. The other device takes the repeat in, and is opened on January 12:
+        // 2. The other device takes the repeat in, and is opened on January 16:
         // it makes January's bill.
         let other = try SecondAccount(server: accounts.server)
         try await other.signIn(email: accounts.email, password: accounts.password)
@@ -122,9 +123,9 @@ final class PhoneRepeatClockTests: XCTestCase {
         XCTAssertEqual(try januaryBills().count, 1, "the other device did not make January's bill")
 
         // Scenario REPEAT-05
-        // 3. The phone is opened on January 12 too, and makes its own. After
+        // 3. The phone is opened on January 16 too, and makes its own. After
         // both sync, the phone shows one January bill, and so does the other.
-        try run.setClock("2027-01-12T09:00:00")
+        try run.setClock("2027-01-16T09:00:00")
         run.openBudget(named: utilities)
         XCTAssertTrue(run.hasRow(Self.bill, timeout: 20), "the phone did not make January's bill. On screen: \(run.visibleTexts())")
         try await other.syncAll()
@@ -132,8 +133,8 @@ final class PhoneRepeatClockTests: XCTestCase {
         run.syncAndWait()
         try await other.syncAll()
         run.openBudget(named: utilities)
-        // Dated the 10th, the repeat's day, though opened on the 12th.
-        try run.expectOneBill(Self.bill, on: "2027-01-10T09:00:00", at: "$85.00", "on the phone in January")
+        // Dated the 14th, the repeat's day, though opened on the 16th.
+        try run.expectOneBill(Self.bill, on: "2027-01-14T09:00:00", at: "$85.00", "on the phone in January")
         XCTAssertEqual(try januaryBills().count, 1, "not one January bill on the other device")
 
         // 4. Tidy: the group goes, for everyone, and both sign out.
@@ -157,11 +158,13 @@ final class PhoneRepeatClockTests: XCTestCase {
                       "Join a Group stayed. On screen: \(run.visibleTexts())")
     }
 
-    /// Robin sets the phone bill to repeat in Household, then invites Leslie
-    /// at Add and Kim as a manager, with links. The phone is each of them in
-    /// turn. Leslie's sheets show the bill and the repeat with nothing to
-    /// change. Kim may change the bill and the repeat. Needs the third test
-    /// account (`TestAccounts.third()`). The Mac's twin is `RepeatTests`.
+    /// Robin sets the phone bill to repeat in Household on November 14, and
+    /// on December 14 his phone makes December's bill. He invites Leslie at
+    /// Add and Kim as a manager, with links. The phone, still on December 14,
+    /// is each of them in turn. Leslie's sheets show December's bill and the
+    /// repeat with nothing to change. Kim may change the bill and the repeat.
+    /// Needs the third test account (`TestAccounts.third()`). The Mac's twin
+    /// is `RepeatTests`.
     @MainActor
     func testOnlyTheOwnerOrAManagerChangesTheRule() async throws {
         let accounts = try TestAccounts.fromEnvironment()
@@ -172,25 +175,32 @@ final class PhoneRepeatClockTests: XCTestCase {
         let household = "UI Phone \(stamp) Household", utilities = "Utilities \(stamp)"
         typealias Words = EntryEditor.Words
 
-        // 1. Robin sets the repeat, and makes a link at Add for Leslie and one
-        // at Manage for Kim.
+        // 1. On November 14 Robin sets the repeat. December 14 comes, and his
+        // phone makes December's bill. He makes a link at Add for Leslie and
+        // one at Manage for Kim.
+        try run.setClock("2026-11-14T09:00:00")
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         run.addGroup(named: household)
         run.addBudget(named: utilities, amount: "600", inGroup: household)
         run.addRepeat(merchant: Self.bill, amount: "85.00")
+        run.goBack()
+        try run.setClock("2026-12-14T09:00:00")
+        run.openBudget(named: utilities)
+        try run.expectOneBill(Self.bill, on: "2026-12-14T09:00:00", at: "$85.00", "Robin's December")
         let leslieLink = try await run.legacyInvite(household, as: "Robin", role: .add)
         let kimLink = try await run.legacyInvite(household, as: "Robin", role: .manage)
         run.goBack()
+        run.syncAndWait()
         run.signOut()
 
         // Scenario REPEAT-11
-        // 2. Leslie, at Add, opens this month's phone bill: it opens read-only,
-        // with no Which months? and no Stop repeating.
+        // 2. Leslie, at Add, opens December's phone bill: it opens read-only,
+        // with no This month and later and no Stop repeating.
         try run.signIn(email: accounts.secondEmail, password: accounts.secondPassword, server: accounts.server)
         join(run, leslieLink, as: "Leslie")
         run.openBudget(named: utilities)
-        XCTAssertTrue(run.hasRow(Self.bill, timeout: 20), "the bill did not arrive. On screen: \(run.visibleTexts())")
+        try run.expectOneBill(Self.bill, on: "2026-12-14T09:00:00", at: "$85.00", "December's bill, for Leslie")
         _ = run.scrollTo(AccessibilityID.entryRow(Self.bill))
         run.tap(AccessibilityID.entryRow(Self.bill))
         XCTAssertTrue(run.has(AccessibilityID.entryDone), "the bill did not open read-only. On screen: \(run.visibleTexts())")
@@ -219,13 +229,13 @@ final class PhoneRepeatClockTests: XCTestCase {
         run.signOut()
 
         // Scenario REPEAT-11
-        // 4. Kim, a manager, opens the same bill and changes its amount: she's
+        // 4. Kim, a manager, opens December's phone bill and changes its amount: she's
         // offered This month only and This month and later under Which months?,
         // and Stop repeating.
         try run.signIn(email: kim.email, password: kim.password, server: accounts.server)
         join(run, kimLink, as: "Kim")
         run.openBudget(named: utilities)
-        XCTAssertTrue(run.hasRow(Self.bill, timeout: 20), "the bill did not arrive for Kim. On screen: \(run.visibleTexts())")
+        try run.expectOneBill(Self.bill, on: "2026-12-14T09:00:00", at: "$85.00", "December's bill, for Kim")
         run.openEntry(Self.bill)
         run.type("92.00", into: AccessibilityID.entryAmount)
         run.bringUpInSheet(AccessibilityID.entryWhichMonth(Words.thisMonthAndLater))
