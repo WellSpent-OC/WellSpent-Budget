@@ -60,6 +60,8 @@ let package = Package(
                 .product(name: "WellSpentSync", package: "WellSpentBudget"),
                 .product(name: "WellSpentCrypto", package: "WellSpentBudget"),
                 .product(name: "WellSpentExtensionKitLinux", package: "WellSpent-ExtensionKit"),
+                // What an extension asks the app to draw, such as the NOI wheel (HostWheel).
+                .product(name: "WellSpentExtensionKit", package: "WellSpent-ExtensionKit"),
             ] + propertiesProducts,
             // "live" or "staging", written by the packaging step. Only the exact
             // word "live" is live, as on the Mac.

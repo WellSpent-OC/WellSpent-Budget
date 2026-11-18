@@ -43,6 +43,9 @@ struct GroupPageView: View {
     var sync: SyncCoordinator
     /// Opens the Share sheet for this group.
     var invite: () -> Void
+    /// What an extension adds below the money, such as Properties' NOI
+    /// section. None without one.
+    var extensionSection: AnyView?
     @State private var cancellingInvite: ServerInvite?
     private typealias Words = MembersScreen.Words
 
@@ -73,6 +76,9 @@ struct GroupPageView: View {
                     // its people. None for a group with no budgets.
                     if let money = main.money(of: group.id) {
                         GroupMoneySection(money: money)
+                    }
+                    if let extensionSection {
+                        extensionSection
                     }
                     if !screen.rows.isEmpty || !screen.pendingInvites.isEmpty {
                         people

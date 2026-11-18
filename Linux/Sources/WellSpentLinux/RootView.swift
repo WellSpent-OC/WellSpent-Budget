@@ -9,6 +9,22 @@ import WellSpentExtensionKitLinux
 import WellSpentPropertiesLinux
 #endif
 
+#if canImport(WellSpentPropertiesLinux)
+/// Properties' one feed, made again when signing in or out gives the window
+/// another AppModel, so Houses and the NOI section read that person's groups.
+@MainActor
+final class OpenProperties {
+    private var made: (model: ObjectIdentifier, properties: PropertiesLinux)?
+
+    func properties(for model: AppModel) -> PropertiesLinux {
+        if let made, made.model == ObjectIdentifier(model) { return made.properties }
+        let properties = PropertiesLinux(host: AppExtensionHost(model: model))
+        made = (ObjectIdentifier(model), properties)
+        return properties
+    }
+}
+#endif
+
 /// The window, drawn from MainScreen: groups and budgets on the left, the
 /// chosen budget, a group's page or an invite link's page on the right, and
 /// the sheets over them. The rules and words are the Mac's, from the shared
@@ -35,6 +51,12 @@ struct RootView: View {
     @State var activeExtension: ActiveExtension = .budgets
     @State var isWarTableInstalled = false
     @State var isPropertiesInstalled = false
+    #if canImport(WellSpentPropertiesLinux)
+    /// Properties' screens on one feed: Houses on the rail, and a group's NOI
+    /// section on the Budget tab.
+    @State var openProperties = OpenProperties()
+    private var properties: PropertiesLinux { openProperties.properties(for: workspace.model) }
+    #endif
 
     private var isWarTableActive: Bool {
         workspace.features.isWarTableEnabled &&
@@ -113,7 +135,7 @@ struct RootView: View {
                     case .properties:
                         if isPropertiesActive {
                             #if canImport(WellSpentPropertiesLinux)
-                            HousesTab(host: AppExtensionHost(model: workspace.model))
+                            HousesTab(properties: properties)
                             #else
                             HousesView(
                                 openCatalog: { activeExtension = .catalog },
@@ -263,11 +285,22 @@ struct RootView: View {
                 LockedCardView(screen: locked) { lockedAction($0, group: openGroup.id) }
             } else if let openGroup, let people {
                 GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
-                              invite: { sheet = .share(openGroup) })
+                              invite: { sheet = .share(openGroup) }, extensionSection: extensionSection(openGroup))
             } else {
                 detail
             }
         }
+    }
+
+    /// What an extension adds to a group's page, below its money: Properties'
+    /// NOI section while Properties is on.
+    private func extensionSection(_ group: BudgetGroup) -> AnyView? {
+        #if canImport(WellSpentPropertiesLinux)
+        guard isPropertiesActive else { return nil }
+        return AnyView(NOISectionLinux(properties: properties, groupID: group.id.uuid.uuidString, wheel: extensionWheel))
+        #else
+        return nil
+        #endif
     }
 
     /// GTK's alert has a title and no message, so the two go together. The
