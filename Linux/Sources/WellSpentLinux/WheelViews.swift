@@ -1,6 +1,7 @@
 import Foundation
 import SwiftCrossUI
 import WellSpentAppCore
+import WellSpentExtensionKit
 import WellSpentModel
 import WellSpentExtensionKitLinux
 
@@ -59,6 +60,9 @@ struct TickShape: Shape {
 struct MoneyWheelView: View {
     let wheel: MoneyWheel
     let geometry: WheelGeometry
+    /// The amount and one word in the middle, as the Mac's compact middle
+    /// has it, for a wheel an extension asks for (the NOI wheel).
+    var compact = false
 
     var body: some View {
         let g = geometry
@@ -78,7 +82,21 @@ struct MoneyWheelView: View {
             }
             // Each on one line, inside the tick's inner end, so the words
             // never cross it.
-            if wheel.showsCashFlow {
+            if compact {
+                VStack(spacing: 0) {
+                    let amount = wheel.showsCashFlow ? wheel.cashFlowAmount : wheel.middleAmount
+                    let word = wheel.showsCashFlow ? MoneyWheel.Words.thisMonth : wheel.compactWord
+                    Text(amount)
+                        .font(.money(Self.fitting(amount, size: 17, in: g), weight: .semibold))
+                        .foregroundColor(Color(wheel.showsCashFlow ? wheel.cashFlowColor : wheel.amountColor))
+                        .fixedSize()
+                    Text(word)
+                        .font(.system(size: Self.fitting(word, size: 10, in: g)))
+                        .foregroundColor(Color(PaletteValues.muted))
+                        .fixedSize()
+                }
+                .frame(width: g.tickInner * 2)
+            } else if wheel.showsCashFlow {
                 // A group with money in: money in, money out, and the cash
                 // flow for this month, as on the Mac (WHEEL-15).
                 VStack(spacing: 2) {
@@ -132,6 +150,17 @@ struct MoneyWheelView: View {
         guard across > 0 else { return size }
         return min(size, geometry.tickInner * 2 / across)
     }
+}
+
+/// A wheel an extension asks for, such as Properties' NOI wheel: what is
+/// planned against what covers it, with the compact middle. The Mac's host
+/// draws the same (`AppExtensionHost.wheel`).
+@MainActor
+func extensionWheel(_ values: HostWheel) -> AnyView? {
+    guard let currency = Currency(rawValue: values.currency) else { return nil }
+    let wheel = MoneyWheel(scope: .group, budgeted: Money(minorUnits: values.coversMinorUnits, currency: currency),
+                           spent: Money(minorUnits: values.plannedMinorUnits, currency: currency), day: nil)
+    return AnyView(MoneyWheelView(wheel: wheel, geometry: .groupDesktop, compact: true))
 }
 
 // MARK: - A budget's row
