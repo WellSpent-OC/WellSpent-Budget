@@ -1,9 +1,10 @@
 #!/bin/sh
-# Tests scripts/scenario-check.py's --require against a throwaway Features/
-# folder: one scenario on the Mac, Linux and the iPhone, with a test on the Mac
-# and the iPhone but none on Linux. Requiring a platform fails only when that
-# platform has a scenario with no test, and a platform it does not know is
-# refused.
+# Tests scripts/scenario-check.py's --require and its Proven by lines against
+# a throwaway Features/ folder: one scenario on the Mac, Linux and the iPhone,
+# with a test on the Mac and the iPhone but none on Linux. Requiring a platform
+# fails only when that platform has a scenario with no test, and a platform it
+# does not know is refused. A Proven by line fails when its file or its test
+# is missing, or the line is malformed.
 #
 #   scripts/scenario-check-test.sh
 set -eu
@@ -51,5 +52,19 @@ expect refused "one required platform with a gap fails the check" --require Mac 
 expect refused "--require-all still fails on any platform's gap" --require-all
 expect refused "a platform the check does not know is refused" --require Moon
 expect refused "--require with no platform after it is refused" --require
+
+# Proven by: a line under a scenario names a package test by its file and
+# function. The check fails when either is missing, or the line is malformed.
+mkdir -p "$tmp/root/Tests"
+echo '@Test func robinSeesHisBudget() {}' > "$tmp/root/Tests/SampleTests.swift"
+proven() { printf '# Sample\n\n## SAMP-01 Robin sees his budget\n\nProven by: %s\n' "$1" > "$tmp/root/Features/Sample.md"; }
+proven "Tests/SampleTests.swift robinSeesHisBudget"
+expect ok "a Proven by line naming a test that exists passes"
+proven "Tests/MissingTests.swift robinSeesHisBudget"
+expect refused "a Proven by line naming a missing file fails"
+proven "Tests/SampleTests.swift robinSeesHisBudgetToday"
+expect refused "a Proven by line naming a renamed test fails"
+proven "robinSeesHisBudget"
+expect refused "a Proven by line without a file and a test fails"
 
 exit "$failed"

@@ -12,7 +12,10 @@ PAGE-03" in Swift or "# Scenario PAGE-02" in Python.
 Always fails on:
 - a tag naming a scenario that does not exist,
 - a tag on a platform its scenario does not name,
-- a row in Features/README.md that does not match the scenarios and the tags.
+- a row in Features/README.md that does not match the scenarios and the tags,
+- a "Proven by: PATH TEST" line under a scenario whose file is missing, or
+  whose file has no "func TEST(". Such a line names the package test that
+  proves a note no screen can show. It counts toward no platform.
 
 The per-platform counts are printed, not kept in the README: a count every pull
 request changed was a merge conflict every time two were open.
@@ -50,6 +53,7 @@ HEADING = re.compile(r"^## ([A-Z]+-\d+) (.+?)\s*$")
 TAG = re.compile(r"^\s*(?://|#)\s*Scenario\s+(.+?)\s*$")
 ID = re.compile(r"[A-Z]+-\d+")
 ROW = re.compile(r"^\|\s*([A-Z]+-\d+)\s*\|(.*)\|\s*$")
+PROVEN = re.compile(r"^Proven by:(.*)$")
 
 
 def platforms_named(text):
@@ -58,13 +62,19 @@ def platforms_named(text):
     return names, unknown
 
 
-def read_scenarios(features, problems, scenarios=None):
+def read_scenarios(features, problems, scenarios=None, proofs=None):
+    """Every scenario in `features`. With `proofs`, a list, each "Proven by:"
+    line is added to it as (where, scenario, the rest of the line)."""
     scenarios = {} if scenarios is None else scenarios  # ID: (title, set of platforms, file)
     for path in sorted(features.glob("*.md")):
         if path.name == "README.md":
             continue
         lines = path.read_text(encoding="utf-8").splitlines()
+        current = None
         for index, line in enumerate(lines):
+            proven = PROVEN.match(line)
+            if proven and proofs is not None:
+                proofs.append((f"{path.name}:{index + 1}", current, proven.group(1).strip()))
             match = HEADING.match(line)
             if not match:
                 continue
@@ -80,7 +90,23 @@ def read_scenarios(features, problems, scenarios=None):
             if identifier in scenarios:
                 problems.append(f"{path.name}: {identifier} is written twice")
             scenarios[identifier] = (title, where, path.name)
+            current = identifier
     return scenarios
+
+
+def check_proofs(root, proofs, problems):
+    """Each "Proven by: PATH TEST" names a file under `root` that has `func TEST(`."""
+    for where, identifier, rest in proofs:
+        parts = rest.split()
+        if identifier is None or len(parts) != 2:
+            problems.append(f"{where}: a Proven by line wants a scenario above it, then PATH TEST")
+            continue
+        path, test = parts
+        file = root / path
+        if not file.is_file():
+            problems.append(f"{where}: {identifier} is proven by {path}, which does not exist")
+        elif not re.search(rf"\bfunc {re.escape(test)}\(", file.read_text(encoding="utf-8")):
+            problems.append(f"{where}: {identifier} is proven by {test}, which is not in {path}")
 
 
 def read_tags(root, tests, scenarios, own, problems):
@@ -159,8 +185,9 @@ def options(arguments):
 
 def main(arguments):
     root, also, tests, required = options(arguments)
-    problems = []
-    own = read_scenarios(root / "Features", problems)
+    problems, proofs = [], []
+    own = read_scenarios(root / "Features", problems, proofs=proofs)
+    check_proofs(root, proofs, problems)
     scenarios = dict(own)
     if also:
         theirs = read_scenarios(also / "Features", [])
@@ -187,8 +214,9 @@ def main(arguments):
         print(f"scenario check: {problem}", file=sys.stderr)
     for name in PLATFORMS:
         if name in required and missing[name]:
-            print(f"scenario check: {len(missing[name])} scenarios on {name} have no test there yet, "
-                  f"and {name} is required", file=sys.stderr)
+            count = len(missing[name])
+            some = "1 scenario on {} has".format(name) if count == 1 else f"{count} scenarios on {name} have"
+            print(f"scenario check: {some} no test there yet, and {name} is required", file=sys.stderr)
     still = sum(len(missing[name]) for name in required)
     if problems or still:
         return 1
