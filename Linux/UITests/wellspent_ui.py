@@ -1167,6 +1167,7 @@ class App:
         slug = "".join(ch for ch in name.lower() if ch.isalnum())
         self.email = f"linux-{RUN}{next(_ACCOUNT_NUMBERS)}-{slug}@example.com"
         self.password = secrets.token_urlsafe(18)
+        self.server = server
         if len(self.windows()) < 2:
             self.button("Sign in", within=self.main).press()
         sheet = self.wait_for_window(2, "the account sheet")
@@ -1187,7 +1188,7 @@ class App:
     def confirm_on_sheet(self):
         """Types the emailed code on the sheet asking for it, then Done."""
         self.wait_shows("Confirm your email")
-        self.field("Code", self.front).type(emailed_code(self.email, self.asked_at))
+        self.field("Code", self.front).type(emailed_code(self.email, self.asked_at, getattr(self, "server", None)))
         self.button("Confirm", within=self.front).press()
         self.wait_shows("Your email is confirmed.")
         self.button("Done", within=self.front).press()
@@ -1481,6 +1482,10 @@ if SERVER_OVERRIDE:
     if not (_server.scheme in ("http", "https") and _server.hostname in ("localhost", "127.0.0.1", "::1")):
         raise ValueError("Server override must be a loopback test server")
 STAGING = SERVER_OVERRIDE or "https://staging.wellspent.space"
+# A server with plans on, which holds an account to the free plan (PLAN-18).
+# The fixture starts one beside the first. Real staging has plans on itself.
+PLANS_SERVER = (os.environ.get("WELLSPENT_UI_PLANS_SERVER_URL") or "").rstrip("/") or (
+    None if SERVER_OVERRIDE else STAGING)
 MAILBOX_TOKEN = os.environ.get("WELLSPENT_UI_TEST_MAILBOX_TOKEN") or None
 RUN = f"{datetime.datetime.now():%m%d%H%M%S}{secrets.token_hex(2)}"
 # Every account in a run has an address of its own.
@@ -1539,11 +1544,11 @@ def needs_accounts(test):
         test.skipTest("no WELLSPENT_UI_TEST_MAILBOX_TOKEN, so no account can be made")
 
 
-def emailed_code(address, after):
-    """The code staging emailed `address` after `after` (a UTC time), read from
-    the test mailbox. Waits for it, since the email goes out just after the
-    answer."""
-    url = f"{STAGING}/test/mailbox?address={urllib.parse.quote(address, safe='')}"
+def emailed_code(address, after, server=None):
+    """The code `server`, staging unless named, emailed `address` after `after`
+    (a UTC time), read from the test mailbox. Waits for it, since the email goes
+    out just after the answer."""
+    url = f"{server or STAGING}/test/mailbox?address={urllib.parse.quote(address, safe='')}"
     # Named, since the site's front door turns away Python's own unnamed requests.
     request = urllib.request.Request(url, headers={"Authorization": f"Bearer {MAILBOX_TOKEN}",
                                                    "User-Agent": "WellSpent-Linux-UI-tests"})
@@ -1645,6 +1650,17 @@ def _faults():
 
 
 FAULTS = _faults()
+
+
+def set_test_plan(email, tier, server):
+    """Gives a test account a plan on `server`, through its test mailbox's
+    plan route, as a purchase would. Paid plans are active for a year."""
+    body = json.dumps({"email": email, "tier": tier}).encode()
+    request = urllib.request.Request(f"{server}/test/plan", data=body, method="POST", headers={
+        "Authorization": f"Bearer {MAILBOX_TOKEN}", "Content-Type": "application/json",
+        "User-Agent": "WellSpent-Linux-UI-tests"})
+    with urllib.request.urlopen(request, timeout=30):
+        pass
 
 
 def launch_fresh(test, *arguments, **settings):

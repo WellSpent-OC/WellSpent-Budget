@@ -6,6 +6,10 @@ Build the server from the same checkout first, then:
 
 The service binds only to loopback, owns a fresh SQLite database, logs no
 credentials to the caller's console, and disappears with its child command.
+
+A second server, with plans on, runs beside it for the tests that need the
+server to hold someone to the free plan (WELLSPENT_UI_PLANS_SERVER_URL). The
+first keeps plans off, so its free limits never get in another test's way.
 """
 from __future__ import annotations
 
@@ -50,7 +54,7 @@ def main() -> int:
     if not binary.is_file() or not os.access(binary, os.X_OK):
         parser.error("--server must name the executable built from this checkout")
 
-    server = None
+    servers: list[subprocess.Popen] = []
     child = None
     interrupted = 0
     temporary = None
@@ -65,31 +69,36 @@ def main() -> int:
         temporary = tempfile.TemporaryDirectory(prefix="wellspent-ui-fixture-")
         root = Path(temporary.name)
         root.chmod(0o700)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
-            reservation.bind(("127.0.0.1", 0))
-            port = reservation.getsockname()[1]
-        url = f"http://127.0.0.1:{port}"
         token = secrets.token_hex(32)
-        server_env = dict(os.environ)
-        # Never inherit a database, provider credential or real mail sender.
-        for name in list(server_env):
-            if name in {"DATABASE_URL", "SKIP_AUTO_MIGRATE", "TRUSTED_PROXY", "RESEND_API_KEY", "EMAIL_FROM", "EMAIL_CODE_KEY"} or name.startswith(("SMTP_", "WARTABLE_GITHUB_", "MAIL_")):
-                del server_env[name]
-        server_env.update({
-            "WELLSPENT_ENVIRONMENT": "staging",
-            "WELLSPENT_SQLITE_PATH": str(root / "fixture.sqlite"),
-            "TEST_MAILBOX_TOKEN": token,
-            "EMAIL_CODE_KEY": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
-            "LLVM_PROFILE_FILE": str(root / "server-%p.profraw"),
-        })
-        log_path = root / "server.log"
-        descriptor = os.open(log_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        with os.fdopen(descriptor, "wb") as log:
-            server = subprocess.Popen(
-                [str(binary), "serve", "--env", "development", "--hostname", "127.0.0.1", "--port", str(port)],
-                cwd=root, env=server_env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
-            )
-            ready = False
+
+        def start(name: str, extra: dict[str, str]) -> str | None:
+            """A disposable server in `root/name`, ready on loopback, or None."""
+            home = root / name
+            home.mkdir(mode=0o700)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+                reservation.bind(("127.0.0.1", 0))
+                port = reservation.getsockname()[1]
+            url = f"http://127.0.0.1:{port}"
+            server_env = dict(os.environ)
+            # Never inherit a database, provider credential or real mail sender.
+            for variable in list(server_env):
+                if variable in {"DATABASE_URL", "SKIP_AUTO_MIGRATE", "TRUSTED_PROXY", "RESEND_API_KEY", "EMAIL_FROM", "EMAIL_CODE_KEY", "WELLSPENT_PLANS"} or variable.startswith(("SMTP_", "WARTABLE_GITHUB_", "MAIL_")):
+                    del server_env[variable]
+            server_env.update({
+                "WELLSPENT_ENVIRONMENT": "staging",
+                "WELLSPENT_SQLITE_PATH": str(home / "fixture.sqlite"),
+                "TEST_MAILBOX_TOKEN": token,
+                "EMAIL_CODE_KEY": base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
+                "LLVM_PROFILE_FILE": str(root / "server-%p.profraw"),
+                **extra,
+            })
+            descriptor = os.open(home / "server.log", os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(descriptor, "wb") as log:
+                server = subprocess.Popen(
+                    [str(binary), "serve", "--env", "development", "--hostname", "127.0.0.1", "--port", str(port)],
+                    cwd=home, env=server_env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+                )
+            servers.append(server)
             deadline = time.monotonic() + 30
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             while time.monotonic() < deadline and server.poll() is None:
@@ -97,28 +106,33 @@ def main() -> int:
                     with opener.open(url + "/health", timeout=1) as response:
                         health = json.load(response)
                     if health == {"status": "ok", "environment": "staging"}:
-                        ready = True
-                        break
+                        return url
                 except (OSError, urllib.error.URLError, ValueError):
                     time.sleep(0.1)
-            if not ready:
-                print("Disposable UI server did not become ready; private logs were not published.", file=sys.stderr)
-                return 1
-            child_env = dict(os.environ)
-            child_env.update({
-                "WELLSPENT_UI_SERVER_URL": url,
-                "WELLSPENT_UI_TEST_MAILBOX_TOKEN": token,
-                "WELLSPENT_UI_NO_SKIPS": "true",
-            })
-            print("Disposable matching UI server is ready on loopback.", flush=True)
-            child = subprocess.Popen(command, env=child_env, start_new_session=True)
-            result = child.wait()
-            return result if result >= 0 else 128 - result
+            return None
+
+        url = start("server", {})
+        plans_url = start("plans", {"WELLSPENT_PLANS": "on"})
+        if url is None or plans_url is None:
+            print("Disposable UI server did not become ready; private logs were not published.", file=sys.stderr)
+            return 1
+        child_env = dict(os.environ)
+        child_env.update({
+            "WELLSPENT_UI_SERVER_URL": url,
+            "WELLSPENT_UI_PLANS_SERVER_URL": plans_url,
+            "WELLSPENT_UI_TEST_MAILBOX_TOKEN": token,
+            "WELLSPENT_UI_NO_SKIPS": "true",
+        })
+        print("Disposable matching UI servers are ready on loopback.", flush=True)
+        child = subprocess.Popen(command, env=child_env, start_new_session=True)
+        result = child.wait()
+        return result if result >= 0 else 128 - result
     except KeyboardInterrupt:
         return 128 + (interrupted or signal.SIGINT)
     finally:
         stop(child)
-        stop(server)
+        for server in servers:
+            stop(server)
         if temporary is not None:
             temporary.cleanup()
         for number, handler in previous.items():
