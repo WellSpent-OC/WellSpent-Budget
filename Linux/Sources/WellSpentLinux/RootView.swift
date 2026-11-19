@@ -92,6 +92,7 @@ struct RootView: View {
         let pick = picking
         let adding = entrySheets.isAdding
         let openedEntry = entrySheets.opened
+        let requested = model.entrySheetRequest
         #if DEBUG
         let _ = DebugCounts.drew(workspace)
         #endif
@@ -232,6 +233,15 @@ struct RootView: View {
         .sheet(isPresented: Binding(get: { openedEntry != nil }, set: { if !$0 { entrySheets.opened = nil } })) {
             if let openedEntry {
                 EntryEditorView(editor: openedEntry, close: { entrySheets.opened = nil })
+                    .tabMovesFocus()
+            }
+        }
+        // The sheet an extension asked for, such as Properties' Add on a house
+        // bill, from any tab, as on the Mac.
+        .sheet(isPresented: Binding(get: { requested != nil },
+                                    set: { if !$0 { model.entrySheetRequest = nil } })) {
+            if let requested {
+                EntryEditorView(model: model, request: requested, close: { model.entrySheetRequest = nil })
                     .tabMovesFocus()
             }
         }
