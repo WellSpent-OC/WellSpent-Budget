@@ -70,7 +70,7 @@ Ruling, 2026-11-13: kept on Linux. A Linux person with an Apple plan still needs
 - Then the card says "Apple couldn't renew your plan", with a "Growth" badge
 - And it says everything keeps working for 16 days, and until when
 - And on the Mac and iPhone it offers "Open Apple Settings"
-- And on Linux it says the plan is managed on the Mac or iPhone, with no button
+- And on Linux it says to update his payment in his Apple account settings, on his Mac or iPhone, with no button
 
 ## PLAN-09 After the 16 days, the plan is paused and extras are locked
 

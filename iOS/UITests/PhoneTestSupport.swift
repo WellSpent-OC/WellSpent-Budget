@@ -703,6 +703,21 @@ final class PhoneTestApp {
         return try XCTUnwrap(formatter.date(from: text), "not a clock time: \(text)")
     }
 
+    // MARK: - Test failures
+
+    /// The failures file, in the run's own folder.
+    var faultFile: URL { dataRoot.appendingPathComponent("faults.txt") }
+
+    /// Makes `operations` fail as an unreachable server would
+    /// (`Workspace.faultFileVariable`). Call it before launch so the app
+    /// knows the file. After launch, calling it again changes the failures
+    /// with no relaunch; `[]` turns them all off.
+    func setFaults(_ operations: [AppFaults.Operation]) throws {
+        try FileManager.default.createDirectory(at: dataRoot, withIntermediateDirectories: true)
+        try AppFaults.text(for: operations).write(to: faultFile, atomically: true, encoding: .utf8)
+        app.launchEnvironment[Workspace.faultFileVariable] = faultFile.path
+    }
+
     /// Closes the app and removes the run's folder.
     func cleanUp() {
         if app.state != .notRunning { app.terminate() }
