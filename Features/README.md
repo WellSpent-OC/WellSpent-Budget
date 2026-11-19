@@ -185,13 +185,13 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-04 | A short month | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -311,15 +311,15 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
 | PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
-| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac, iPhone |
-| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
 | PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -342,8 +342,8 @@ It is not kept here, where every pull request would change the same lines.
 
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
-| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux |
-| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac, Linux |
+| LIFE-01 | Returning to the app brings in shared changes | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| LIFE-02 | A new local day refreshes the displayed money | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 The lifecycle native and shared tests check focus callbacks and date handling.
 They do not count as UI scenario coverage in this table.
@@ -385,4 +385,4 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | Server |
-| EMAIL-10 | A failed Accept or Reject says so | Mac, Linux, iPhone | None yet |
+| EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, iPhone |
