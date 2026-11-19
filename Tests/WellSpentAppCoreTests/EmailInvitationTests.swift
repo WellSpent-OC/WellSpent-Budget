@@ -523,7 +523,7 @@ struct AppFaultsTests {
         let invitation = try #require(leslie.main.incomingInvitations.first)
         leslie.sync.faults = faults([.invitationAccept])
         #expect(!(await leslie.main.acceptInvitation(invitation)))
-        #expect(leslie.main.invitationFailure(for: invitation.id)?.hasSuffix("is not connected to the internet.") == true)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
         #expect(leslie.main.incomingInvitations.map(\.id) == [invitation.id], "the invitation stays")
         #expect(try leslie.sync.store.group(group) == nil)
         #expect(await status(of: sent.id, in: group, for: robin) == "pending", "the server never heard the Accept")
@@ -542,7 +542,7 @@ struct AppFaultsTests {
         let invitation = try #require(leslie.main.incomingInvitations.first)
         leslie.sync.faults = faults([.invitationReject])
         #expect(!(await leslie.main.rejectInvitation(invitation)))
-        #expect(leslie.main.invitationFailure(for: invitation.id)?.hasSuffix("is not connected to the internet.") == true)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
         #expect(leslie.main.incomingInvitations.map(\.id) == [invitation.id])
         #expect(await status(of: sent.id, in: group, for: robin) == "pending")
     }
@@ -568,7 +568,7 @@ struct AppFaultsTests {
         let invitation = try #require(leslie.main.incomingInvitations.first)
         leslie.sync.faults = faults([.invitationAcceptAnswerLost])
         #expect(!(await leslie.main.acceptInvitation(invitation)))
-        #expect(leslie.main.invitationFailure(for: invitation.id)?.hasSuffix("is not connected to the internet.") == true)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
         #expect(leslie.main.openGroup?.id != group, "the app never heard it joined")
         #expect(await status(of: sent.id, in: group, for: robin) == nil, "the server took the Accept")
         let people = MembersScreen(actions: robin.sync, group: group, groupName: "Household")
@@ -584,7 +584,7 @@ struct AppFaultsTests {
         let invitation = try #require(leslie.main.incomingInvitations.first)
         leslie.sync.faults = faults([.invitationRejectAnswerLost])
         #expect(!(await leslie.main.rejectInvitation(invitation)))
-        #expect(leslie.main.invitationFailure(for: invitation.id)?.hasSuffix("is not connected to the internet.") == true)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
         #expect(await status(of: sent.id, in: group, for: robin) == "rejected", "the server took the Reject")
     }
 
