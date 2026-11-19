@@ -354,6 +354,7 @@ They do not count as UI scenario coverage in this table.
 | - | - | - | - |
 | PROP-01 | Properties appears in the catalog and joins the rail when turned on | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PROP-02 | With Properties off, nothing of it shows | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PROP-63 | Properties stays on after the app is closed | Mac, Linux, iPhone | Linux |
 
 ### [WarTable.md](WarTable.md)
 

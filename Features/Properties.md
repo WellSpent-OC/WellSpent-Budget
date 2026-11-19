@@ -20,3 +20,11 @@ Platforms: Mac, Linux, iPhone
 - Given a live build, or Properties turned off
 - When Robin uses the app
 - Then there is no Houses on the rail, no Properties tab, and no house group marked as one
+
+## PROP-63 Properties stays on after the app is closed
+
+Platforms: Mac, Linux, iPhone
+
+- Given Robin turned Properties on
+- When he closes WellSpent and opens it again
+- Then Properties is still on, and Houses is on the rail (desktop) or a tab (iPhone)
