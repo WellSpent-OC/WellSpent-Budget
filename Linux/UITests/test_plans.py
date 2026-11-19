@@ -11,7 +11,8 @@ account, so it is skipped without the test mailbox's token."""
 import datetime
 import unittest
 
-from wellspent_ui import free_plan, launch_fresh, needs_accounts, pinned_plan, unique, write_plan
+from wellspent_ui import (PLANS_SERVER, free_plan, launch_fresh, needs_accounts, pinned_plan, set_test_plan,
+                         unique, write_plan)
 
 FREE_LINE = "1 property, sync on every device, and 1 group shared with 1 person."
 CHECKOUT = "https://wellspent.space/checkout"
@@ -247,6 +248,75 @@ class Plans(unittest.TestCase):
              "2 properties are locked until you pick a plan. Nothing was deleted.", badge="Free",
              buttons=("See Plans",))
         done()
+
+    def test_a_group_past_the_free_plan_says_its_only_on_this_computer(self):
+        needs_accounts(self)
+        self.assertIsNotNone(PLANS_SERVER, "no server with plans on (WELLSPENT_UI_PLANS_SERVER_URL)")
+        # Before the app sells plans. The answer is the server's, not a file.
+        app = launch_fresh(self, purchases=False)
+        home, beach = unique("Home"), unique("Beach")
+        app.new_group(home)
+        app.new_group(beach)
+        app.sign_up(unique("plan-held"), server=PLANS_SERVER)
+        app.sync()
+
+        # Scenario PLAN-18
+        # 1. Signed in on the free plan, the server takes one group and refuses
+        # the other, which says "Only on this computer" beside its name. Which
+        # one it takes isn't fixed, so the test reads which the list marks.
+        marker = "Only on this computer"
+        held = app.until(lambda: [g for g in (home, beach) if app.group(g).value == marker] or None,
+                         f"one group to say {marker}")
+        self.assertEqual(1, len(held), f"{held} say {marker}")
+        held = held[0]
+        synced = beach if held == home else home
+        self.assertEqual("", app.group(synced).value, f"{synced}, which the server took, says something")
+        # The line drawn under its name, read as a person sees it: once, after
+        # the held group's name and before the next group's.
+        texts = app.texts(app.main)
+        self.assertEqual(1, texts.count(marker), f"not one {marker!r} line: {texts}")
+        at, held_at, synced_at = texts.index(marker), texts.index(held.upper()), texts.index(synced.upper())
+        self.assertTrue(held_at < at and (synced_at < held_at or at < synced_at),
+                        f"{marker!r} isn't under {held}: {texts}")
+
+        # Scenario PLAN-18
+        # 2. Choose a plan doesn't open by itself.
+        self.assertEqual(1, len(app.windows()), "something opened by itself")
+        self.assertFalse(app.shows("Choose a plan"), "Choose a plan opened by itself")
+
+        # Scenario PLAN-18
+        # 3. The held group's page says why, and before the app sells plans it
+        # ends "Paid plans are coming soon."
+        notice = (f"{held} is only on this computer. Your free plan syncs 1 group, and {synced} is that group. "
+                  f"Nothing in {held} is deleted. ")
+        app.group(held).press()
+        app.wait_shows(notice + "Paid plans are coming soon.", within=app.main)
+        app.picture("plan-held-group")
+
+        # Scenario PLAN-18
+        # 4. See Plans opens Choose a plan.
+        app.button("See Plans", within=app.main).press()
+        app.until(lambda: app.shows("Choose a plan", within=app.front), "Choose a plan to open")
+        app.button("Not Now", within=app.front).press()
+        app.wait_for_window(1, "Choose a plan to close")
+
+        # Scenario PLAN-18
+        # 5. Once the app sells plans, it ends "Choose a plan to sync it too."
+        app.quit()
+        app.launch(**dict(app.launched_with, purchases=True))
+        app.group(held).press()
+        app.wait_shows(notice + "Choose a plan to sync it too.", within=app.main)
+
+        # Scenario PLAN-18
+        # 6. Once a plan lets the server take it, neither the mark nor the
+        # notice shows.
+        set_test_plan(app.email, "growth", PLANS_SERVER)
+        app.sync()
+        app.until(lambda: app.group(held).value == "" or None, f"{held} to stop saying {marker}")
+        app.wait_gone(marker, within=app.main)
+        app.group(held).press()
+        app.wait_gone(notice + "Choose a plan to sync it too.", within=app.main)
+        self.assertFalse(app.main.all(starts=f"{held} is only on this computer"), "the notice stayed")
 
 
 if __name__ == "__main__":

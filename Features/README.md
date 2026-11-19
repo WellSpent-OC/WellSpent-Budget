@@ -323,7 +323,7 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | Mac, iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | Mac, iPhone |
 | PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [Locks.md](Locks.md)
 
