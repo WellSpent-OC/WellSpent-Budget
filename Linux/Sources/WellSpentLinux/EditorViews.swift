@@ -251,8 +251,11 @@ struct EntryEditorView: View {
         }
     }
 
+    /// The group's budgets, then "+ New budget" for a manager adding in a
+    /// group, as on the Mac. Nil is the new budget.
     private var budgetChoices: [Choice<BudgetID?>] {
         editor.budgetChoices.map { Choice(value: $0.id, description: $0.name) }
+            + (editor.offersNewBudget ? [Choice(value: nil, description: Words.newBudget)] : [])
     }
 
     @ViewBuilder
@@ -285,14 +288,27 @@ struct EntryEditorView: View {
               text: Binding(get: { editor.note }, set: { editor.note = $0 }))
         // The two pickers sit beside their labels, so a repeat's bill, with its
         // extra rows, still fits a laptop's height.
-        if editor.editing != nil {
+        // An opened entry, or a bill an extension asked to add in a group.
+        // Someone who can't make a budget, in a group with none, gets a line
+        // in its place.
+        if editor.offersBudgetChoice, editor.noBudgetLine == nil {
             HStack(spacing: 10) {
                 Text(Words.budget)
                     .font(.system(size: 12))
                 Picker(of: budgetChoices, selection: Binding(
-                    get: { budgetChoices.first { $0.value == editor.budgetID } },
-                    set: { editor.budgetID = $0?.value ?? editor.budgetID }))
+                    get: { budgetChoices.first { $0.value == editor.budgetSelection } },
+                    set: { if let choice = $0 { editor.budgetSelection = choice.value } }))
+                    .controlDescription(Words.budget)
             }
+        }
+        if editor.isNewBudget {
+            Field(label: Words.newBudgetName, prompt: Words.newBudgetName,
+                  text: Binding(get: { editor.newBudgetName }, set: { editor.newBudgetName = $0 }))
+            Field(label: Words.newBudgetAmount, prompt: editor.amountPrompt,
+                  text: Binding(get: { editor.newBudgetAmountText }, set: { editor.newBudgetAmountText = $0 }))
+        }
+        if let line = editor.noBudgetLine {
+            Note(line)
         }
         if editor.showsLinkRow, let offered = editor.linkChoices {
             // An extension's row, such as Properties' House on a bill
