@@ -147,7 +147,7 @@ Platforms: Mac, iPhone
 
 - Given Robin is on the free plan, with "Choose a plan" open
 - When he presses Subscribe and the App Store refuses the purchase
-- Then "The App Store couldn't finish. Try again." shows under the button
+- Then "The App Store couldn't finish. Try again." shows in Choose a plan
 - And his plan is still the free plan
 
 ## PLAN-18 A group past the free plan says it's only on this device
