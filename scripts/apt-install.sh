@@ -9,13 +9,28 @@
 # Three tries, 30 then 60 seconds apart. Each try reads the package lists
 # again, since the lists are what a sync breaks. APT_RETRY_WAIT changes the
 # 30 seconds, for testing this script.
+#
+# A try that runs past APT_TRY_SECONDS (10 minutes) is stopped and counts as a
+# failure, so a mirror that answers slowly rather than not at all is tried
+# again instead of using up the job. On GitHub, a container's Ubuntu image
+# names archive.ubuntu.com and security.ubuntu.com, which can crawl for many
+# minutes. The runner itself uses Azure's mirror, in the same network, so the
+# container is pointed there too.
 set -eu
 [ "$#" -gt 0 ] || { echo "usage: $0 PACKAGE..." >&2; exit 2; }
 wait="${APT_RETRY_WAIT:-30}"
+limit="${APT_TRY_SECONDS:-600}"
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+    for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+        [ -f "$sources" ] || continue
+        sed -i -e 's#http://archive\.ubuntu\.com/#http://azure.archive.ubuntu.com/#g' \
+               -e 's#http://security\.ubuntu\.com/#http://azure.archive.ubuntu.com/#g' "$sources"
+    done
+fi
 try=1
 while :; do
-    if apt-get -o Acquire::Retries=3 update -q &&
-       apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends "$@"; then
+    if timeout "$limit" apt-get -o Acquire::Retries=3 update -q &&
+       timeout "$limit" apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends "$@"; then
         exit 0
     fi
     if [ "$try" -ge 3 ]; then
