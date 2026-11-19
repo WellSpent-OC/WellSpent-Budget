@@ -203,11 +203,12 @@ class RepeatsOnTheClock(unittest.TestCase):
     comes back another day. No account is needed."""
 
     def repeating(self, start):
-        """Utilities in Home on the test clock at `start`, with the $85.00
-        phone bill set to repeat that day."""
+        """Bills in Home on the test clock at `start`, with the $85.00 phone
+        bill set to repeat that day. (A sample group has a Utilities, so the
+        scenarios' Utilities is Bills here, as in the class above.)"""
         app = launch_fresh(self, clock=start)
         app.new_group("Home")
-        app.new_budget("Utilities", "600", group="Home")
+        app.new_budget("Bills", "600", group="Home")
         app.button("Add", within=app.main).press()
         sheet = app.wait_for_window(2, "the New transaction sheet")
         app.field("Merchant", sheet).type(BILL)
@@ -220,13 +221,13 @@ class RepeatsOnTheClock(unittest.TestCase):
 
     def reopen(self, app, when):
         """Closes the app, moves the clock to `when`, opens the app again and
-        opens Utilities."""
+        opens Bills."""
         # Closed first, so the open window can't notice the new day itself:
         # the bill must come from opening the app.
         app.quit()
         app.launch(**dict(app.launched_with, clock=when))
-        app.budget("Utilities").press()
-        app.until(app.budget_open, "Utilities to open")
+        app.budget("Bills").press()
+        app.until(lambda: app.budget("Bills").selected, "Bills to open")
 
     def expect_one_bill(self, app, day, what):
         """The phone bill is listed once, dated the day of `day`, a clock
@@ -246,7 +247,7 @@ class RepeatsOnTheClock(unittest.TestCase):
 
         # Scenario REPEAT-02
         # 1. December 14 comes and the app is opened: a new $85.00 bill is in
-        # Utilities, dated Dec 14, with Source reading Repeat.
+        # Bills, dated Dec 14, with Source reading Repeat.
         self.reopen(app, "2026-12-14T09:00:00")
         row = self.expect_one_bill(app, "2026-12-14T09:00:00", "on December 14")
         self.assertIn("Repeat", row, "its source doesn't say Repeat")
@@ -259,8 +260,8 @@ class RepeatsOnTheClock(unittest.TestCase):
         app = self.repeating("2026-10-15T09:00:00")
 
         # Scenario REPEAT-03
-        # 1. Opened again on December 20, after this month's 15th, Utilities
-        # shows December's phone bill once, dated the 15th, at $85.00.
+        # 1. Opened again on December 20, after this month's 15th, Bills shows
+        # December's phone bill once, dated the 15th, at $85.00.
         self.reopen(app, "2026-12-20T09:00:00")
         self.expect_one_bill(app, "2026-12-15T09:00:00", "in December, after two months away")
 
