@@ -133,7 +133,7 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-15 | The app keeps answering a screen reader while it shows a new transaction | Linux | Linux |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, iPhone |
+| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [EditEntry.md](EditEntry.md)
@@ -385,4 +385,4 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | Server |
-| EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, iPhone |
+| EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
