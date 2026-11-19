@@ -1,12 +1,14 @@
 """Repeat expenses (Features/RepeatExpenses.md) in the real window, signed out,
 as the Mac's RepeatTests: setting one, the short list and a repeat's own
 sheet, which months a change reaches, stopping, the two ways to delete, and
-Undo. A later month's bill and who may change a repeat are the shared code's
-tests (RepeatsTests)."""
+Undo. Then a later month's bill, on the test clock: each month, after time
+away, and in a short month. Who may change a repeat is the shared code's test
+(RepeatsTests)."""
 
+import datetime
 import unittest
 
-from wellspent_ui import launch_fresh
+from wellspent_ui import launch_fresh, short_date
 
 BILL = "Phone bill"
 REPEATS = "Repeats every month"
@@ -192,6 +194,85 @@ class Repeats(unittest.TestCase):
         app.button("Undo", within=app.main).press()
         app.entry(BILL)
         app.until(lambda: self.count(app) == "1 repeat" or None, "Undo to bring the repeat back")
+
+
+class RepeatsOnTheClock(unittest.TestCase):
+    """A repeat's later months, on the test clock: the test writes a local
+    date and time to a file and the app reads today from it. The app is
+    closed, the clock moves, and the app is opened again, as a person who
+    comes back another day. No account is needed."""
+
+    def repeating(self, start):
+        """Bills in Home on the test clock at `start`, with the $85.00 phone
+        bill set to repeat that day. (A sample group has a Utilities, so the
+        scenarios' Utilities is Bills here, as in the class above.)"""
+        app = launch_fresh(self, clock=start)
+        app.new_group("Home")
+        app.new_budget("Bills", "600", group="Home")
+        app.button("Add", within=app.main).press()
+        sheet = app.wait_for_window(2, "the New transaction sheet")
+        app.field("Merchant", sheet).type(BILL)
+        app.field("Amount", sheet).type("85.00")
+        app.find("check box", REPEATS, within=sheet).press()
+        app.button("Add", within=sheet).press()
+        app.wait_for_window(1, "the New transaction sheet to close")
+        self.expect_one_bill(app, start, "on the day it was set")
+        return app
+
+    def reopen(self, app, when):
+        """Closes the app, moves the clock to `when`, opens the app again and
+        opens Bills."""
+        # Closed first, so the open window can't notice the new day itself:
+        # the bill must come from opening the app.
+        app.quit()
+        app.launch(**dict(app.launched_with, clock=when))
+        app.budget("Bills").press()
+        app.until(lambda: app.budget("Bills").selected, "Bills to open")
+
+    def expect_one_bill(self, app, day, what):
+        """The phone bill is listed once, dated the day of `day`, a clock
+        time, at $85.00. Gives its row's texts."""
+        date = short_date(datetime.datetime.strptime(day, "%Y-%m-%dT%H:%M:%S").date())
+
+        def bills():
+            rows = [row for row in app.entries() if BILL in row]
+            return rows if rows and rows[0][0] == date else None
+        rows = app.until(bills, f"the phone bill dated {date}, {what}. The list says {app.entries()}")
+        self.assertEqual(1, len(rows), f"{len(rows)} phone bills {what}: {rows}")
+        self.assertIn("$85.00", rows[0], f"the bill {what} is not $85.00")
+        return rows[0]
+
+    def test_it_shows_up_each_month(self):
+        app = self.repeating("2026-11-14T09:00:00")
+
+        # Scenario REPEAT-02
+        # 1. December 14 comes and the app is opened: a new $85.00 bill is in
+        # Bills, dated Dec 14, with Source reading Repeat.
+        self.reopen(app, "2026-12-14T09:00:00")
+        row = self.expect_one_bill(app, "2026-12-14T09:00:00", "on December 14")
+        self.assertIn("Repeat", row, "its source doesn't say Repeat")
+
+    def test_catching_up_after_time_away(self):
+        # Every month between getting its bill, once, is proven by RepeatsTests
+        # (eachMonthThatHasComeGetsOneBill): no screen shows an earlier
+        # month's bills without moving the date, and moving it makes the
+        # missing bill itself.
+        app = self.repeating("2026-10-15T09:00:00")
+
+        # Scenario REPEAT-03
+        # 1. Opened again on December 20, after this month's 15th, Bills shows
+        # December's phone bill once, dated the 15th, at $85.00.
+        self.reopen(app, "2026-12-20T09:00:00")
+        self.expect_one_bill(app, "2026-12-15T09:00:00", "in December, after two months away")
+
+    def test_a_short_month(self):
+        app = self.repeating("2026-10-31T09:00:00")
+
+        # Scenario REPEAT-04
+        # 1. A bill that repeats on the 31st shows up in November on the 30th,
+        # the month's last day.
+        self.reopen(app, "2026-11-30T09:00:00")
+        self.expect_one_bill(app, "2026-11-30T09:00:00", "in November")
 
 
 if __name__ == "__main__":
