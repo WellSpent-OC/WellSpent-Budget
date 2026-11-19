@@ -451,6 +451,8 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/.build/linux-ui-test/coverage/%p.profraw
           # WarTable's tests run in the job below, which does not fail the night.
           WELLSPENT_UI_LEAVE_OUT: test_wartable
+          # A skipped test fails the part (the Definition of Done, item 1).
+          WELLSPENT_UI_NO_SKIPS: "true"
           WELLSPENT_UI_SHARD: ${{ matrix.part }}/2
           # Tests named here run instead, and the share is not used.
           NAMED: ${{ steps.names.outputs.app }}
@@ -584,6 +586,8 @@ jobs:
       - name: Run WarTable's UI tests
         env:
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
+          # Held to the same rule, so it already is the day WarTable comes back.
+          WELLSPENT_UI_NO_SKIPS: "true"
         run: >
           WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux"
           python3 Server/scripts/with-ui-fixture.py
@@ -685,11 +689,11 @@ jobs:
           set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
           make ui-test UI_TEST_SHARD=${{ matrix.part }}/2
 
-      # Nothing skipped (the Definition of Done, item 1). It warns for now,
-      # until a first run shows what CI's machines skip, and then it fails.
+      # Nothing skipped (the Definition of Done, item 1): a skipped test fails
+      # the part. ReleaseTwinTests isn't in the run at all (make ui-test leaves
+      # it out), since only make release-twin can run it.
       - name: Nothing skipped
         if: ${{ !cancelled() && env.HAS_MAILBOX == 'true' }}
-        continue-on-error: true
         run: scripts/skipped-tests.sh .build/xcode/ui-test.xcresult
 
       - name: Say why the run was skipped
@@ -820,10 +824,11 @@ jobs:
           make iphone-ui-test IPHONE_UI_TEST_SHARD=${{ matrix.part }}/2 IPHONE_UI_TEST_LOOKS=${{ matrix.look }} \
             IPHONE_UI_TEST_WITHOUT_ACCOUNTS=$without
 
-      # Nothing skipped, as for the Mac. It warns for now.
+      # Nothing skipped, as for the Mac: a skipped test fails the part. With no
+      # test mailbox, as for a fork, this doesn't run: the signed-in tests have
+      # no accounts there (IPHONE_UI_TEST_WITHOUT_ACCOUNTS), and the step below says so.
       - name: Nothing skipped
         if: ${{ !cancelled() && env.HAS_MAILBOX == 'true' }}
-        continue-on-error: true
         run: scripts/skipped-tests.sh .build/xcode-iphone/ui-test-${{ matrix.look }}.xcresult
 
       - name: Say why the signed-in tests were skipped
@@ -1125,6 +1130,8 @@ jobs:
           WELLSPENT_UI_OUT: ${{ github.workspace }}/.build/linux-ui-test
           PYTHONPATH: ${{ runner.temp }}/wellspent-properties/UITests/Linux
           RUN: ${{ steps.names.outputs.run }}
+          # A skipped test fails the job, as for the Mac and iPhone Houses jobs.
+          WELLSPENT_UI_NO_SKIPS: "true"
         # RUN is left unquoted, so each name is its own argument.
         run: >
           WELLSPENT_APP="$(swift build --package-path Linux --show-bin-path)/WellSpentLinux"

@@ -204,6 +204,8 @@ UI_TEST_ACCOUNTS = TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAI
 	TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
 	TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN"
 
+# ReleaseTwinTests is left out: it can only run against a built twin, which
+# is make release-twin's job. Left out, it is not a skip.
 ui-test: ui-test-project
 	@$(UI_TEST_VARS_SET)
 	rm -rf .build/xcode/ui-test.xcresult
@@ -214,7 +216,8 @@ ui-test: ui-test-project
 	fi; \
 	$(UI_TEST_ACCOUNTS) \
 	$(UI_TEST_XCODEBUILD) test -retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
-		-resultBundlePath .build/xcode/ui-test.xcresult $$only || true; \
+		-resultBundlePath .build/xcode/ui-test.xcresult $$only \
+		-skip-testing:WellSpentUITests/ReleaseTwinTests || true; \
 	DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh .build/xcode/ui-test.xcresult
 
 # The iPhone app (iOS/), as a staging build for the iOS Simulator. It needs
