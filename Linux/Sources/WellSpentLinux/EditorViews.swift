@@ -171,6 +171,19 @@ struct EntryEditorView: View {
         self.close = close
     }
 
+    /// The sheet an extension asked for: a bill to add in a group, with what
+    /// it is for filled in, or an entry to open. One that has gone since
+    /// opens as a new entry, as on the Mac.
+    init(model: AppModel, request: EntrySheetRequest, close: @escaping () -> Void) {
+        switch request {
+        case .add(let group, let link):
+            _editor = State(wrappedValue: EntryEditor(model: model, addingIn: group, link: link))
+        case .open(let id):
+            _editor = State(wrappedValue: EntryEditor(model: model, entry: id) ?? EntryEditor(model: model))
+        }
+        self.close = close
+    }
+
     var body: some View {
         // Read here, so a change redraws the sheet, and kept for the alert's
         // buttons, because GTK closes the alert before a button's action runs.
