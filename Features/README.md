@@ -133,7 +133,7 @@ It is not kept here, where every pull request would change the same lines.
 | ENTRY-15 | The app keeps answering a screen reader while it shows a new transaction | Linux | Linux |
 | INC-01 | An entry can be money coming in | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-02 | A statement line that is money in becomes an income entry | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, iPhone |
+| INC-03 | A group's cash flow counts the mortgage as money out | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | INC-04 | Money in says which budget it adds to | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 ### [EditEntry.md](EditEntry.md)
@@ -185,13 +185,13 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac, iPhone |
 | REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac, iPhone |
 | REPEAT-04 | A short month | Mac, Linux, iPhone | Mac, iPhone |
-| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
@@ -320,8 +320,8 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac, iPhone |
 | PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
-| PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
+| PLAN-15 | Restore Purchases says what it found | Mac, iPhone | Mac, iPhone |
+| PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | Mac, iPhone |
 | PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-18 | A group past the free plan says it's only on this device | Mac, Linux, iPhone | Mac, iPhone |
 
@@ -385,4 +385,4 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-07 | Pending invitations survive reopening | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | Server |
-| EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, iPhone |
+| EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, Linux, iPhone |

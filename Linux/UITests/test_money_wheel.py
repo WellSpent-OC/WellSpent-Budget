@@ -235,6 +235,41 @@ class MoneyWheel(unittest.TestCase):
         for line in drawn.other_money_lines:
             app.wait_shows(line, within=app.main)
 
+    def test_a_groups_cash_flow_counts_the_mortgage_as_money_out(self):
+        """A group's cash flow on its page, with Properties off: money in less
+        money out, a mortgage payment counted as money out like any other
+        bill, and never called profit. Pool House, a plain group, $9,640.00 in
+        and $5,260.00 out this month, on the 18th: the Mac's test, with the
+        same numbers."""
+        app = launch_fresh(self, day=MID_MONTH)
+        app.new_group("Pool House")
+        app.new_budget("Bookings", "6000", group="Pool House")
+
+        # 1. $5,260.00 out, the mortgage included, and $9,640.00 in.
+        for merchant, amount, money_in in (("Mortgage", "4100", False), ("Cleaner", "1160", False),
+                                           ("Guest stays", "9640", True)):
+            app.button("Add", within=app.main).press()
+            sheet = app.wait_for_window(2, "the New transaction sheet")
+            app.field("Merchant", sheet).type(merchant)
+            app.field("Amount", sheet).type(amount)
+            if money_in:
+                app.find("check box", "Money in", within=sheet).press()
+            app.button("Add", within=sheet).press()
+            app.wait_for_window(1, "the New transaction sheet to close")
+
+        # Scenario INC-03
+        # 2. On Pool House's page, the middle of its wheel shows "+$4,380" for
+        # this month, with the mortgage counted in money out, and nothing on
+        # the page says profit. Linux's wheel has no spoken label, so the
+        # test reads the drawn figure, as the scenario allows.
+        wheel = Wheel("Pool House", cents(6000), cents(5260), MID_MONTH, group=True, money_in_cents=cents(9640))
+        self.assertEqual(["$9,640 in", "$5,260 out", "+$4,380", "this month"], wheel.middle, "the test's own numbers")
+        app.group("Pool House").press()
+        app.wait_shows("MONEY", within=app.main)
+        self.expect_wheel(app, wheel)
+        words = [w for e in app.main.all() if e.showing for w in (e.words, e.value) if w]
+        self.assertFalse([w for w in words if "profit" in w.lower()], "the page says profit")
+
     def add_dated(self, app, budget, merchant, amount, day, money_in=False):
         """Add on `budget`, dated `day` of this month: the sheet starts on the
         app's day, and Left and Right move the calendar a day at a time."""
