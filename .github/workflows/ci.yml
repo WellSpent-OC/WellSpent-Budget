@@ -27,12 +27,15 @@ on:
     - cron: '0 9 * * *'
   # Started by hand, it runs everything, as the nightly does. "houses" runs
   # the Houses UI job without the other UI suites, to prove one change to it.
+  # "houses-mac" runs only its Mac part, with no iPhone look and no Linux
+  # Houses job: one Mac for about 35 minutes, where "houses" takes three Macs
+  # for about two hours.
   # "linux" names Linux UI tests to run on their own, so one file or one test
   # is proved on the exact head without the whole two-hour suite.
   workflow_dispatch:
     inputs:
       only:
-        description: 'Leave empty to run everything. "houses" skips the other UI suites.'
+        description: 'Leave empty to run everything. "houses" skips the other UI suites. "houses-mac" runs only the Mac part of the Houses UI tests.'
         required: false
         default: ''
       linux:
@@ -390,7 +393,7 @@ jobs:
   linux-ui-test-part:
     name: ${{ inputs.linux != '' && 'Linux UI test, the tests named' || format('Linux UI test, part {0} of 2', matrix.part) }}
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -514,7 +517,7 @@ jobs:
   linux-ui-test:
     name: Linux UI test
     needs: linux-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
@@ -556,7 +559,7 @@ jobs:
   # again they go back into the job above.
   linux-wartable-ui-test:
     name: Linux UI test, WarTable
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') && inputs.linux == '' }}
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -639,7 +642,7 @@ jobs:
     name: Mac UI test, part ${{ matrix.part }} of 2
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') && inputs.linux == '' }}
     runs-on: macos-latest
     # Every Mac scenario has a UI test now, and a part runs close to an hour
     # on GitHub's Macs. 120 leaves room; a hung run still stops.
@@ -728,7 +731,7 @@ jobs:
   mac-ui-test:
     name: Mac UI test
     needs: mac-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') && inputs.linux == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -778,7 +781,7 @@ jobs:
     name: iPhone UI test, part ${{ matrix.part }} of 2, ${{ matrix.look }}
     needs: unit-tests
     # Nightly and by hand only; a pull request runs the fast checks.
-    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') && inputs.linux == '' }}
     runs-on: macos-latest
     timeout-minutes: 240
     strategy:
@@ -865,7 +868,7 @@ jobs:
   iphone-ui-test:
     name: iPhone UI test
     needs: iphone-ui-test-part
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && inputs.only != 'houses' && inputs.linux == '' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' && !startsWith(inputs.only, 'houses') && inputs.linux == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -944,7 +947,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [mac, iphone-light, iphone-dark]
+        # Started by hand with only=houses-mac, the Mac alone.
+        platform: ${{ fromJSON(inputs.only == 'houses-mac' && '["mac"]' || '["mac", "iphone-light", "iphone-dark"]') }}
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
       HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
@@ -1061,7 +1065,7 @@ jobs:
   # never comes doesn't skip it.
   houses-linux-ui-test:
     name: Houses UI test, linux
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.only != 'houses-mac') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
