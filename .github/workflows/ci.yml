@@ -936,8 +936,11 @@ jobs:
     runs-on: macos-latest
     # Each iPhone look has a Mac of its own: both looks in one job took 81
     # minutes one day and passed 120 the next, as the runners' speed swings.
-    # One look is about 55 minutes on a slow day, plus the build.
-    timeout-minutes: 120
+    # One look was 71 to 73 minutes of tests with 26 tests. Five more tests
+    # made it 92 to 110, plus about 8 for the build, and a test that needs
+    # its second try adds its own time again. At 120 one look was cut off 2
+    # minutes after its last test had passed.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
