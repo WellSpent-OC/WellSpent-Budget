@@ -15,6 +15,7 @@ import glob
 import itertools
 import json
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -304,6 +305,25 @@ class App:
     # Starting and stopping
 
     @property
+    def fault_file(self):
+        """The failure switch's file, in this copy's home. Every launch names
+        it (`WELLSPENT_FAULT_FILE`); with no file, nothing fails."""
+        return os.path.join(self.home, "test-faults.txt")
+
+    def set_faults(self, *names):
+        """Makes these requests fail as if the server couldn't be reached,
+        such as "invitation.accept", and no others. The app reads the file on
+        every request, so it takes effect at once; none turns them all off.
+        Each name must be one of the app's own (`FAULTS`)."""
+        unknown = set(names) - FAULTS
+        if unknown:
+            raise ValueError(f"not a request the app can fail: {sorted(unknown)}. It knows {sorted(FAULTS)}")
+        temporary = f"{self.fault_file}.{secrets.token_hex(4)}"
+        with open(temporary, "w") as file:
+            file.write("".join(f"{name}\n" for name in names))
+        os.replace(temporary, self.fault_file)
+
+    @property
     def clock_file(self):
         """The test clock's file, in this copy's home."""
         return os.path.join(self.home, "test-clock.txt")
@@ -364,6 +384,7 @@ class App:
             env["WELLSPENT_CLOCK_FILE"] = self.clock_file
         if clock_announces is not None:
             env["WELLSPENT_CLOCK_ANNOUNCES"] = "1" if clock_announces else "0"
+        env["WELLSPENT_FAULT_FILE"] = self.fault_file
         if counts:
             env["WELLSPENT_DEBUG_COUNTS_FILE"] = os.path.join(self.home, "debug-counts")
         if plan_file is not None:
@@ -1612,6 +1633,18 @@ def pinned_plan(test, answer=None):
     path = os.path.join(folder, "plan.json")
     write_plan(path, answer or free_plan())
     return path
+
+
+def _faults():
+    """The requests the app's failure switch knows, read from its own
+    source (`AppFaults.Operation`), so a test can't name one it ignores."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                        "Sources", "WellSpentAppCore", "AppFaults.swift")
+    with open(path) as file:
+        return frozenset(re.findall(r'^\s*case \w+ = "([\w.]+)"', file.read(), re.MULTILINE))
+
+
+FAULTS = _faults()
 
 
 def launch_fresh(test, *arguments, **settings):
