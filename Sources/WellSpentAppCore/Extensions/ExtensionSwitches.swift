@@ -33,5 +33,8 @@ public struct ExtensionSwitches {
         } else {
             defaults.removeObject(forKey: key(for: extensionID))
         }
+        // Linux keeps settings in memory until asked, so without this a quit
+        // forgot the switch (PROP-63).
+        defaults.saveNow()
     }
 }
