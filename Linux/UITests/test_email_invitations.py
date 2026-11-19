@@ -7,6 +7,10 @@ import unittest
 
 from wellspent_ui import launch_fresh, needs_accounts, unique
 
+# What every app says for a server it can't reach (AccountWording, for
+# URLError.cannotConnectToHost, the failure switch's own error).
+UNREACHABLE = "Could not reach the server. Check its address and your connection."
+
 
 class EmailInvitations(unittest.TestCase):
 
@@ -98,6 +102,56 @@ class EmailInvitations(unittest.TestCase):
         leslie.sync()
         leslie.accept_invitation(self.group)
         leslie.until(lambda: len(leslie.budgets_in(self.group)) == 2, "both budgets from a new invitation")
+
+    def test_an_accept_or_reject_that_cant_reach_the_server_says_so(self):
+        robin, leslie = self.robin, self.leslie
+        self.send()
+
+        def still_invited():
+            """The invitation is in her list with Accept and Reject, she isn't
+            in the group, and the server still holds it as pending."""
+            leslie.invitation_button(self.group, "Accept")
+            leslie.invitation_button(self.group, "Reject")
+            self.assertFalse(leslie.shows(self.group.upper(), within=leslie.main, role="push button"),
+                             "the group shows as joined")
+            self.assertFalse(leslie.has_budget("Food"))
+            self.assertFalse(leslie.has_budget("Travel"))
+            robin.sync()
+            robin.near("label", "Pending", to=robin.find("label", leslie.email, within=robin.main))
+
+        # Scenario EMAIL-10
+        # 1. Accept can't reach the server: the app says so, and she is not in
+        # the group, and the invitation stays with Accept and Reject.
+        leslie.set_faults("invitation.accept", "invitation.reject")
+        leslie.invitation_button(self.group, "Accept").press()
+        leslie.wait_shows(UNREACHABLE, within=leslie.main)
+        still_invited()
+
+        # Scenario EMAIL-10
+        # 2. Reject can't either: the app says so, and the invitation isn't
+        # gone. Reopened first, so the Accept's words are gone and these are
+        # the Reject's own.
+        leslie.restart()
+        leslie.sync()
+        leslie.invitation_button(self.group, "Reject")
+        self.assertFalse(leslie.shows(UNREACHABLE, within=leslie.main), "the Accept's failure outlived a restart")
+        leslie.invitation_button(self.group, "Reject").press()
+        leslie.answer("Reject")
+        leslie.wait_shows(UNREACHABLE, within=leslie.main)
+        still_invited()
+
+        # Scenario EMAIL-10
+        # 3. With the server in reach, Accept again: she is in the group, as
+        # in EMAIL-03, with both budgets, and Robin's Pending row goes.
+        leslie.set_faults()
+        leslie.accept_invitation(self.group)
+        leslie.until(lambda: len(leslie.budgets_in(self.group)) == 2, "both budgets after accepting")
+        self.assertEqual({"Food $487.50", "Travel $200.00"}, set(leslie.budgets_in(self.group)))
+        # The invitation, and its failure with it, is gone from her list.
+        self.assertFalse(leslie.shows("Accept", within=leslie.main, role="push button"), "the invitation stayed")
+        robin.sync()
+        robin.person("Leslie")
+        self.assertFalse(robin.shows(leslie.email, within=robin.main), "a pending row remains")
 
     def test_sender_can_cancel_a_pending_invitation(self):
         robin, leslie = self.robin, self.leslie
