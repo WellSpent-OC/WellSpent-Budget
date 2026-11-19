@@ -85,5 +85,34 @@ final class PropertiesRailTests: XCTestCase {
         XCTAssertTrue(run.wait(for: run.app.buttons["Houses"].firstMatch, until: "exists == false", timeout: 10),
                       "Houses stayed on the rail after turning it off")
     }
+
+    @MainActor
+    func testItStaysOnAfterTheAppIsClosed() throws {
+        let run = try TestApp()
+        Self.dataRootPath = run.dataRoot.path
+        run.app.launchEnvironment[FeatureFlags.extensionsVariable] = "1"
+        run.app.launchEnvironment[FeatureFlags.propertiesVariable] = "1"
+        run.launch()
+        let extensions = run.app.buttons["Extensions"].firstMatch
+        XCTAssertTrue(extensions.waitForExistence(timeout: 15), "no Extensions on the rail")
+        extensions.click()
+        let turnOn = run.app.buttons["Turn on"].firstMatch
+        XCTAssertTrue(turnOn.waitForExistence(timeout: 10), "no Turn on. On screen: \(run.visibleTexts())")
+        turnOn.click()
+        XCTAssertTrue(run.app.buttons["Houses"].firstMatch.waitForExistence(timeout: 10),
+                      "Houses did not join the rail. On screen: \(run.visibleTexts())")
+
+        // Scenario PROP-63
+        // Closed and opened again: Properties is still on, and Houses is on the rail.
+        run.app.terminate()
+        XCTAssertTrue(run.app.wait(for: .notRunning, timeout: 15), "the app did not close")
+        run.launch()
+        XCTAssertTrue(run.app.buttons["Houses"].firstMatch.waitForExistence(timeout: 15),
+                      "Houses is not on the rail after the app was closed. On screen: \(run.visibleTexts())")
+        run.app.buttons["Extensions"].firstMatch.click()
+        XCTAssertTrue(run.app.buttons["Turn off"].firstMatch.waitForExistence(timeout: 10),
+                      "Properties is not on in the catalog. On screen: \(run.visibleTexts())")
+        XCTAssertFalse(run.app.buttons["Turn on"].firstMatch.exists, "the catalog offers to turn Properties on again")
+    }
 }
 #endif
