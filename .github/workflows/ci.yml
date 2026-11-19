@@ -939,8 +939,11 @@ jobs:
     runs-on: macos-latest
     # Each iPhone look has a Mac of its own: both looks in one job took 81
     # minutes one day and passed 120 the next, as the runners' speed swings.
-    # One look is about 55 minutes on a slow day, plus the build.
-    timeout-minutes: 120
+    # One look was 71 to 73 minutes of tests with 26 tests. Five more tests
+    # made it 92 to 112, plus about 8 for the build, and a test that needs
+    # its second try adds its own time again. At 120 one look was cut off 2
+    # minutes after its last test had passed.
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
@@ -954,9 +957,9 @@ jobs:
       # its count below; a Properties one in the app pull request that moves
       # .github/properties-ref past it.
       MAC_SIGNED_IN: WellSpentUITests/PlanLimitTests WellSpentUITests/SharedHousesTests WellSpentUITests/MemberHousesTests WellSpentUITests/HouseLockTests
-      MAC_SIGNED_IN_COUNT: 7
+      MAC_SIGNED_IN_COUNT: 8
       IPHONE_SIGNED_IN: WellSpentPhoneUITests/PhoneLockedHouseTests WellSpentPhoneUITests/PhonePlanLimitTests WellSpentPhoneUITests/PhoneSharedHousesTests WellSpentPhoneUITests/PhoneMemberHousesTests WellSpentPhoneUITests/PhonePlansOffTests
-      IPHONE_SIGNED_IN_COUNT: 8
+      IPHONE_SIGNED_IN_COUNT: 9
     steps:
       - uses: actions/checkout@v4
 
