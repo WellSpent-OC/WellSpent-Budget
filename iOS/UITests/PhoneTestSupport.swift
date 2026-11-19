@@ -708,7 +708,7 @@ final class PhoneTestApp {
     /// The failures file, in the run's own folder.
     var faultFile: URL { dataRoot.appendingPathComponent("faults.txt") }
 
-    /// Makes `operations` fail as a lost connection would
+    /// Makes `operations` fail as an unreachable server would
     /// (`Workspace.faultFileVariable`). Call it before launch so the app
     /// knows the file. After launch, calling it again changes the failures
     /// with no relaunch; `[]` turns them all off.

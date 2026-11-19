@@ -105,10 +105,13 @@ Ruling, 2026-11-13: split from EMAIL-08. These happen in the email and on the se
 - And a temporary email service failure is retried without creating another invitation
 - And expired, rejected or cancelled invitations cannot be accepted
 
-## EMAIL-10 A failed Accept or Reject says so
+## EMAIL-10 An Accept or Reject that can't reach the server says so
 
-Ruling, 2026-11-13: split from EMAIL-07 and kept on every app. A failed Accept that looks like it worked would leave Leslie outside her group.
+Ruling, 2026-11-13: split from EMAIL-07 and kept on every app. A failed Accept that looks like it worked would leave Leslie outside her group. Ruling, 2026-11-14: this is the request that never reaches the server. A refusal and a lost answer are not part of it.
 
 - Given Leslie has not answered an invitation
-- When accepting or rejecting fails
-- Then the app shows the failure and allows a retry without pretending the request succeeded
+- When she presses Accept or Reject and the app can't reach the server
+- Then the app says it couldn't reach the server, and never shows her in the group or the invitation as gone
+- And the invitation stays in her list with Accept and Reject
+- When she presses Accept again once the server can be reached
+- Then she is in the group, as in EMAIL-03

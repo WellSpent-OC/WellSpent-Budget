@@ -952,7 +952,7 @@ extension TestApp {
     /// The failures file, in the run's data folder, which the app can read.
     var faultFile: URL { dataRoot.appendingPathComponent("test-faults.txt") }
 
-    /// Makes `operations` fail as a lost connection would
+    /// Makes `operations` fail as an unreachable server would
     /// (`Workspace.faultFileVariable`). Call it before launch so the app
     /// knows the file. After launch, calling it again changes the failures
     /// with no relaunch; `[]` turns them all off.

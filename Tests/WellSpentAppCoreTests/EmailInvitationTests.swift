@@ -499,7 +499,7 @@ struct EmailInvitationTests {
 }
 
 /// The failures a staging UI test turns on (`Workspace.faultFileVariable`):
-/// a named request fails as a lost connection would, and nothing else does.
+/// a named request fails as an unreachable server would, and nothing else does.
 @Suite("Test build network failures", .serialized)
 @MainActor
 struct AppFaultsTests {
