@@ -94,6 +94,9 @@ public final class SyncCoordinator {
     /// screens can switch with it.
     public var didSwitchStore: (@MainActor (Store) -> Void)?
     private let makeTransport: @Sendable (URL) -> any ReadableAccountTransport
+    /// Requests a staging UI test makes fail (`Workspace.faultFileVariable`).
+    /// None in a real build.
+    public var faults: AppFaults = .none
 
     private var transport: (any ReadableAccountTransport)?
     /// This device, as the server knows it, while signed in.
@@ -1110,7 +1113,9 @@ public final class SyncCoordinator {
         var acceptedGroup: GroupID?
         do {
             let transport = try requireTransport()
+            try faults.check(.invitationAccept)
             let joined = try await transport.acceptInvitation(invitation.id)
+            try faults.check(.invitationAcceptAnswerLost)
             try checkSession(generation)
             acceptedGroup = joined.id
             invitationRevision += 1
@@ -1162,7 +1167,10 @@ public final class SyncCoordinator {
     public func rejectInvitation(_ invitation: IncomingInvitation) async throws {
         let generation = sessionGeneration
         do {
-            try await requireTransport().rejectInvitation(invitation.id)
+            let transport = try requireTransport()
+            try faults.check(.invitationReject)
+            try await transport.rejectInvitation(invitation.id)
+            try faults.check(.invitationRejectAnswerLost)
             try checkSession(generation)
             invitationRevision += 1
             incomingInvitations.removeAll { $0.id == invitation.id }

@@ -497,3 +497,131 @@ struct EmailInvitationTests {
         #expect(waiting.notice == "Confirm your email before inviting someone.")
     }
 }
+
+/// The failures a staging UI test turns on (`Workspace.faultFileVariable`):
+/// a named request fails as an unreachable server would, and nothing else does.
+@Suite("Test build network failures", .serialized)
+@MainActor
+struct AppFaultsTests {
+    /// Robin's invitation as Robin's group page sees it, after a sync.
+    private func status(of id: UUID, in group: GroupID, for robin: EmailPerson) async -> String? {
+        await robin.sync.syncAll()
+        let people = MembersScreen(actions: robin.sync, group: group, groupName: "Household")
+        return people.pendingInvites.first { $0.id == id }?.status
+    }
+
+    private func faults(_ operations: Set<AppFaults.Operation>) -> AppFaults {
+        AppFaults { operations }
+    }
+
+    @Test func aNamedAcceptFailsAndSendsNothing() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, sent) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationAccept])
+        #expect(!(await leslie.main.acceptInvitation(invitation)))
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
+        #expect(leslie.main.incomingInvitations.map(\.id) == [invitation.id], "the invitation stays")
+        #expect(try leslie.sync.store.group(group) == nil)
+        #expect(await status(of: sent.id, in: group, for: robin) == "pending", "the server never heard the Accept")
+
+        leslie.sync.faults = .none
+        #expect(await leslie.main.acceptInvitation(invitation), "with the failure off, Accept goes through")
+        #expect(leslie.main.openGroup?.id == group)
+    }
+
+    @Test func aNamedRejectFailsAndSendsNothing() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, sent) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationReject])
+        #expect(!(await leslie.main.rejectInvitation(invitation)))
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
+        #expect(leslie.main.incomingInvitations.map(\.id) == [invitation.id])
+        #expect(await status(of: sent.id, in: group, for: robin) == "pending")
+    }
+
+    @Test func anUnnamedRequestGoesThrough() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, _) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationReject, .invitationRejectAnswerLost])
+        #expect(await leslie.main.acceptInvitation(invitation), "only Reject was named")
+        #expect(leslie.main.openGroup?.id == group)
+    }
+
+    @Test func aLostAcceptAnswerSendsTheAcceptAndThenFails() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, sent) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationAcceptAnswerLost])
+        #expect(!(await leslie.main.acceptInvitation(invitation)))
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
+        #expect(leslie.main.openGroup?.id != group, "the app never heard it joined")
+        #expect(await status(of: sent.id, in: group, for: robin) == nil, "the server took the Accept")
+        let people = MembersScreen(actions: robin.sync, group: group, groupName: "Household")
+        #expect(people.rows.contains { $0.name == "Leslie" })
+    }
+
+    @Test func aLostRejectAnswerSendsTheRejectAndThenFails() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, sent) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationRejectAnswerLost])
+        #expect(!(await leslie.main.rejectInvitation(invitation)))
+        #expect(leslie.main.invitationFailure(for: invitation.id) == AccountWording.words(for: AppFaults.unreachable))
+        #expect(await status(of: sent.id, in: group, for: robin) == "rejected", "the server took the Reject")
+    }
+
+    @Test func theFileNamesFailuresAndIsReadEachTime() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("faults-\(UUID().uuidString)").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        let file = AppFaults.file(path)
+        #expect(throws: Never.self, "a missing file names none") { try file.check(.invitationAccept) }
+
+        try AppFaults.text(for: [.invitationAccept, .invitationRejectAnswerLost])
+            .write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(throws: URLError.self) { try file.check(.invitationAccept) }
+        #expect(throws: URLError.self) { try file.check(.invitationRejectAnswerLost) }
+        #expect(throws: Never.self) { try file.check(.invitationReject) }
+
+        try "".write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(throws: Never.self, "an empty file names none, with no relaunch") { try file.check(.invitationAccept) }
+    }
+
+    @Test func theFileIgnoresNamesItDoesNotKnow() {
+        #expect(AppFaults.parse("invitation.accept\n  nonsense \ninvitation.reject.answerLost\n")
+                == [.invitationAccept, .invitationRejectAnswerLost])
+        #expect(AppFaults.parse("").isEmpty)
+        for operation in AppFaults.Operation.allCases {
+            #expect(AppFaults.parse(AppFaults.text(for: [operation])) == [operation])
+        }
+    }
+
+    @Test func onlyAStagingTestBuildReadsTheVariable() throws {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("faults-\(UUID().uuidString)").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        try AppFaults.text(for: [.invitationAccept]).write(toFile: path, atomically: true, encoding: .utf8)
+        let asked = [Workspace.faultFileVariable: path]
+        #expect(throws: URLError.self) { try Workspace.faults(for: .staging, in: asked).check(.invitationAccept) }
+        #expect(throws: Never.self, "a live build never reads it") {
+            try Workspace.faults(for: .live, in: asked).check(.invitationAccept)
+        }
+        #expect(throws: Never.self) { try Workspace.faults(for: .staging, in: [:]).check(.invitationAccept) }
+    }
+}
