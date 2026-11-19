@@ -271,6 +271,13 @@ class Plans(unittest.TestCase):
         held = held[0]
         synced = beach if held == home else home
         self.assertEqual("", app.group(synced).value, f"{synced}, which the server took, says something")
+        # The line drawn under its name, read as a person sees it: once, after
+        # the held group's name and before the next group's.
+        texts = app.texts(app.main)
+        self.assertEqual(1, texts.count(marker), f"not one {marker!r} line: {texts}")
+        at, held_at, synced_at = texts.index(marker), texts.index(held.upper()), texts.index(synced.upper())
+        self.assertTrue(held_at < at and (synced_at < held_at or at < synced_at),
+                        f"{marker!r} isn't under {held}: {texts}")
 
         # Scenario PLAN-18
         # 2. Choose a plan doesn't open by itself.
@@ -306,6 +313,7 @@ class Plans(unittest.TestCase):
         set_test_plan(app.email, "growth", PLANS_SERVER)
         app.sync()
         app.until(lambda: app.group(held).value == "" or None, f"{held} to stop saying {marker}")
+        app.wait_gone(marker, within=app.main)
         app.group(held).press()
         app.wait_gone(notice + "Choose a plan to sync it too.", within=app.main)
         self.assertFalse(app.main.all(starts=f"{held} is only on this computer"), "the notice stayed")
