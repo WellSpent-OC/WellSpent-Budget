@@ -18,7 +18,10 @@ final class OpenProperties {
 
     func properties(for model: AppModel) -> PropertiesLinux {
         if let made, made.model == ObjectIdentifier(model) { return made.properties }
-        let properties = PropertiesLinux(host: AppExtensionHost(model: model))
+        // A PriceLabs key goes in the desktop keyring, so it outlasts the app.
+        // With no keyring answering, nil: it's kept in memory, as before.
+        let secrets = KeyringSecretStore.reachable(service: LinuxSetup.environment.keychainService + ".extensions")
+        let properties = PropertiesLinux(host: AppExtensionHost(model: model), secrets: secrets)
         made = (ObjectIdentifier(model), properties)
         return properties
     }
