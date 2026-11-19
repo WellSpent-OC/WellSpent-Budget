@@ -136,7 +136,7 @@ struct RootView: View {
                     case .properties:
                         if isPropertiesActive {
                             #if canImport(WellSpentPropertiesLinux)
-                            HousesTab(properties: properties)
+                            HousesTab(properties: properties, lockedPage: lockedHouse)
                             #else
                             HousesView(
                                 openCatalog: { activeExtension = .catalog },
@@ -349,6 +349,19 @@ struct RootView: View {
             } description: {
                 Text(MainScreen.Words.noneSelectedText)
             }
+        }
+    }
+
+    /// A locked house's card, in place of its page in Houses (PROP-61). Nil
+    /// for an open house. The Mac's host draws the same.
+    private func lockedHouse(_ record: String) -> AnyView? {
+        workspace.lockedScreen(property: record).map { locked in
+            AnyView(LockedCardView(screen: locked) { action in
+                switch action {
+                case .switchWhichIsOpen, .changeWhatsOpen: openPick()
+                case .seePlans, .payForThisGroup: showingPlans = true
+                }
+            })
         }
     }
 
