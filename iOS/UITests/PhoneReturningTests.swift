@@ -99,6 +99,10 @@ final class PhoneReturningTests: XCTestCase {
         run.goBack()
         run.signOut()
         await leslie.deleteGroup(named: groupName)
+        // The delete's own sync is sent once and not looked at. This one is
+        // sent again if the network drops, and fails with the server's words.
+        // Robin is in this group, so a later test would find it on his Home.
+        try await leslie.syncAll()
         await leslie.cleanUp()
     }
 
