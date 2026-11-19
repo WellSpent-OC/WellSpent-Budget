@@ -46,6 +46,11 @@ struct GroupPageView: View {
     /// What an extension adds below the money, such as Properties' NOI
     /// section. None without one.
     var extensionSection: AnyView?
+    /// Why the free plan kept this group on this computer, with See Plans
+    /// (PLAN-18). Nil for a group the server has.
+    var held: HeldGroupScreen? = nil
+    /// Opens Choose a plan.
+    var seePlans: () -> Void = {}
     @State private var cancellingInvite: ServerInvite?
     private typealias Words = MembersScreen.Words
 
@@ -71,6 +76,18 @@ struct GroupPageView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // First on the page, above its name, as on the Mac.
+                    if let held {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(held.notice)
+                                .font(.system(size: 13))
+                                .foregroundColor(Palette.ink)
+                            Button(held.action) { seePlans() }
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Palette.sidebar))
+                    }
                     header
                     // Every budget in the group added up for the month, above
                     // its people. None for a group with no budgets.

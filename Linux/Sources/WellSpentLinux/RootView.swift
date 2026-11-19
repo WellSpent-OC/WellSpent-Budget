@@ -286,6 +286,7 @@ struct RootView: View {
     private func budgetSplitView(invitation: JoinScreen?, openGroup: BudgetGroup?, people: MembersScreen?) -> some View {
         NavigationSplitView {
             SidebarView(screen: screen, perform: perform, locks: workspace.planLocks,
+                        held: { workspace.heldScreen(group: $0, device: .computer) },
                         showsAccountInFooter: !workspace.features.areExtensionsEnabled,
                         showingAccount: $showingAccount)
         } detail: {
@@ -295,7 +296,9 @@ struct RootView: View {
                 LockedCardView(screen: locked) { lockedAction($0, group: openGroup.id) }
             } else if let openGroup, let people {
                 GroupPageView(screen: people, group: openGroup, main: screen, sync: sync,
-                              invite: { sheet = .share(openGroup) }, extensionSection: extensionSection(openGroup))
+                              invite: { sheet = .share(openGroup) }, extensionSection: extensionSection(openGroup),
+                              held: workspace.heldScreen(group: openGroup.id, device: .computer),
+                              seePlans: { showingPlans = true })
             } else {
                 detail
             }
@@ -491,6 +494,9 @@ struct SidebarView: View {
     var perform: (MainScreen.Action) -> Void
     /// What the plan locks, for "Locked" beside a group's name (LOCK-03).
     var locks = PlanLocks(nil)
+    /// A group the free plan kept on this computer, for its marker under its
+    /// name (PLAN-18). Nil for a group the server has.
+    var held: (GroupID) -> HeldGroupScreen? = { _ in nil }
     /// True when the activity rail is hidden, so the footer carries Sign in
     /// and Sync instead.
     var showsAccountInFooter: Bool = false
@@ -605,7 +611,8 @@ struct SidebarView: View {
                 // Before the style, which wraps the button in a widget of its own.
                 // Named by the group alone, with Locked as its value, so the
                 // mark doesn't change the name a screen reader or a test knows.
-                .accessibility(label: section.title.uppercased(), value: isLocked(section) ? PlanLocks.mark : "",
+                .accessibility(label: section.title.uppercased(),
+                               value: isLocked(section) ? PlanLocks.mark : held(section.id)?.marker ?? "",
                                selected: section.isPageOpen)
                 .buttonStyle(.plain)
                 // GTK has no right-click menu here, so each group has a button
@@ -614,8 +621,23 @@ struct SidebarView: View {
                     menuItems(screen.groupMenu(section.group))
                 }
             }
+            // A group the free plan kept here says so on a line of its own
+            // under its name, never wrapped, so the row above keeps its shape
+            // (PLAN-18). The name's button carries it as its value too.
+            if !isLocked(section), let marker = held(section.id)?.marker {
+                Text(marker)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Palette.muted)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.leading, Self.markerIndent)
+            }
         }
     }
+
+    /// How far the line under a group's name sits in from the row's edge, so
+    /// it starts under the name's first letter: past the arrow and the gap,
+    /// and the name's own padding.
+    private static let markerIndent = 21
 
     private func isLocked(_ section: MainScreen.Section) -> Bool {
         locks.isLocked(group: section.id.uuid)
