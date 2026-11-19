@@ -29,8 +29,11 @@ final class PlanTests: XCTestCase {
 
     /// Signed in on the free plan, the account sheet closed. Buying is open
     /// (`PlanBuying.variable`) unless a test asks for build A's closed store.
+    /// `emptyStore` gives the app a store with nothing in it, which refuses
+    /// every purchase (`Workspace.emptyStoreVariable`): the same every run,
+    /// with no Apple account.
     @MainActor
-    private func signedIn(buyingIsOpen: Bool = true) throws -> TestApp {
+    private func signedIn(buyingIsOpen: Bool = true, emptyStore: Bool = false) throws -> TestApp {
         let accounts = try TestAccounts.fromEnvironment()
         let run = try TestApp()
         Self.dataRootPath = run.dataRoot.path
@@ -39,6 +42,7 @@ final class PlanTests: XCTestCase {
         try Self.write(Self.answer(), to: file)
         run.app.launchEnvironment[Workspace.pinnedPlanVariable] = file.path
         if buyingIsOpen { run.app.launchEnvironment[Self.buyingVariable] = "open" }
+        if emptyStore { run.app.launchEnvironment[Workspace.emptyStoreVariable] = "empty" }
         run.launch()
         try run.signIn(email: accounts.email, password: accounts.password, server: accounts.server)
         return run
@@ -222,7 +226,84 @@ final class PlanTests: XCTestCase {
         XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
     }
 
+    // Scenario PLAN-15
+    /// The test store holds no purchase, so Restore Purchases finds nothing
+    /// and says so.
+    @MainActor
+    func testRestoreWithNothingToRestoreSaysSo() throws {
+        let run = try signedIn(emptyStore: true)
+        openAccount(run)
+        let nothing = RestoreResultScreen(answer: nil, device: "Mac")
+        XCTAssertEqual(nothing.title, "Nothing to restore")
+        XCTAssertFalse(shows(run, nothing.title), "it says \"\(nothing.title)\" before Restore Purchases is pressed")
+
+        run.click(AccessibilityID.planRestore)
+        XCTAssertTrue(shows(run, nothing.title, timeout: 20),
+                      "no \"\(nothing.title)\". On screen: \(run.visibleTexts())")
+        // The Apple account has no WellSpent plan, and where to sign in if he
+        // paid on the website.
+        XCTAssertTrue(nothing.lines.contains { $0.contains("This Apple account has no WellSpent plan") })
+        XCTAssertTrue(nothing.lines.contains { $0.contains("If you paid on wellspent.space, sign in with that email") })
+        for line in nothing.lines {
+            XCTAssertTrue(shows(run, line), "missing \"\(line)\". On screen: \(run.visibleTexts())")
+        }
+
+        try XCTUnwrap(run.dialogButton(nothing.close), "no \(nothing.close) button").click()
+        XCTAssertTrue(gone(run, nothing.title, timeout: 10), "\(nothing.close) didn't close it")
+        expectCard(run, title: "Free plan", action: "See Plans")
+    }
+
+    // Scenario PLAN-16
+    /// The test store refuses every purchase. Choose a plan says so, and the
+    /// plan is still the free one.
+    @MainActor
+    func testAPurchaseTheStoreRefusesSaysSoAndChangesNothing() throws {
+        let run = try signedIn(emptyStore: true)
+        openAccount(run)
+        run.click(AccessibilityID.planCardAction)
+        XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForExistence(timeout: 10), "Choose a plan didn't open")
+        let refused = "The App Store couldn't finish. Try again."
+        // The line under the plans, which is there only when it has something
+        // to say.
+        let status = run.element(AccessibilityID.planStatus)
+        XCTAssertFalse(status.exists, "Choose a plan says \"\(run.text(of: status))\" before Subscribe is pressed")
+
+        let buy = run.element(AccessibilityID.planBuy)
+        XCTAssertTrue(run.wait(for: buy, until: "isEnabled == true", timeout: 10), "Subscribe can't be pressed")
+        run.click(AccessibilityID.planBuy)
+        XCTAssertTrue(run.wait(for: status, holds: refused, timeout: 15),
+                      "no \"\(refused)\". On screen: \(run.visibleTexts())")
+        XCTAssertTrue(run.element(AccessibilityID.planChoices).exists, "Choose a plan closed after the refusal")
+
+        // Still the free plan: Not Now goes back to the same card.
+        run.click(AccessibilityID.planNotNow)
+        XCTAssertTrue(run.element(AccessibilityID.planChoices).waitForNonExistence(timeout: 5), "Not Now didn't close it")
+        expectCard(run, title: "Free plan", action: "See Plans")
+    }
+
     // MARK: - Steps
+
+    /// Whether `words` is one of the texts on screen, within `timeout`.
+    @MainActor
+    private func shows(_ run: TestApp, _ words: String, timeout: TimeInterval = 0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if run.visibleTexts().contains(words) { return true }
+            if Date() < deadline { Thread.sleep(forTimeInterval: 0.5) }
+        } while Date() < deadline
+        return false
+    }
+
+    /// Whether `words` left the screen within `timeout`.
+    @MainActor
+    private func gone(_ run: TestApp, _ words: String, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !run.visibleTexts().contains(words) { return true }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return !run.visibleTexts().contains(words)
+    }
 
     /// Closes the pick that opens on its own when a plan ends with something
     /// locked, as LOCK-05 says.
