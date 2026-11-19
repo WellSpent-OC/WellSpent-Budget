@@ -182,16 +182,16 @@ It is not kept here, where every pull request would change the same lines.
 | ID | Scenario | Platforms | Has a test on |
 | - | - | - | - |
 | REPEAT-01 | Setting a repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac |
-| REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac |
-| REPEAT-04 | A short month | Mac, Linux, iPhone | Mac |
-| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac |
+| REPEAT-02 | It shows up each month | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-03 | Catching up after time away | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-04 | A short month | Mac, Linux, iPhone | Mac, iPhone |
+| REPEAT-05 | Two devices make one bill | Mac, Linux, iPhone | Mac, iPhone |
 | REPEAT-06 | This month only | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-07 | This month and later | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-08 | Stopping | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-09 | Deleting a made bill asks | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-10 | Undo | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac |
+| REPEAT-11 | Only the owner or a manager changes the rule | Mac, Linux, iPhone | Mac, iPhone |
 | REPEAT-12 | Finding them all | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
