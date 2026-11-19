@@ -41,6 +41,22 @@ class Properties(unittest.TestCase):
         app.button("Budget", within=app.main).press()
         app.wait_shows("Repairs", within=app.main)
 
+    def test_properties_stays_on_after_the_app_is_closed(self):
+        app = launch_fresh(self, extensions=True, properties=True)
+        app.button("Extensions", within=app.main).press()
+        app.button("Turn on", within=app.main).press()
+        app.wait_shows("Houses", role="push button")
+
+        # Scenario PROP-63
+        # Closed, as a desktop closes it, and opened again: Properties is
+        # still on, and Houses is on the rail.
+        app.quit()
+        app.launch(**app.launched_with)
+        app.wait_shows("Houses", within=app.main, role="push button")
+        app.button("Extensions", within=app.main).press()
+        app.wait_shows("Turned on", within=app.main, role="label")
+        self.assertFalse(app.shows("Turn on", within=app.main, role="push button"), "Properties is off again")
+
     def test_flag_off_shows_nothing_of_properties(self):
         # Scenario PROP-02: a live build, or the flag off.
         app = launch_fresh(self, extensions=True, properties=False)
