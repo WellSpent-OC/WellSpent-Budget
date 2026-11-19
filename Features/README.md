@@ -311,15 +311,15 @@ It is not kept here, where every pull request would change the same lines.
 | PLAN-03 | Yearly shows each plan's yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-04 | On Linux, Continue opens the website's checkout for the picked plan | Linux | Linux |
 | PLAN-05 | More than 15 properties offers an email to us | Linux | Linux |
-| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac, iPhone |
-| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-06 | Account shows a paid plan with its price and when it renews | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-07 | A yearly plan shows its yearly price | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-08 | A failed renewal says everything keeps working for 16 days | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-09 | After the 16 days, the plan is paused and extras are locked | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-10 | A canceled plan says when it ends and offers to keep it | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-11 | An ended plan says what's locked and what's open | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| PLAN-12 | A refunded plan says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-13 | A plan bought on the website is managed there | Mac, iPhone | Mac, iPhone |
-| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, iPhone |
+| PLAN-14 | A plan that changed elsewhere shows when the app comes back to the front | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | PLAN-15 | Restore Purchases says what it found | Mac, iPhone | iPhone |
 | PLAN-16 | A purchase the store refuses says so and changes nothing | Mac, iPhone | iPhone |
 | PLAN-17 | Before the app sells plans, Choose a plan says "Coming soon" | Mac, Linux, iPhone | Mac, Linux, iPhone |
