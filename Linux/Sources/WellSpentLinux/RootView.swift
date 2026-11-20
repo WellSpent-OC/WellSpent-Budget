@@ -269,6 +269,14 @@ struct RootView: View {
         .onChange(of: sync.signInPrompt) {
             if sync.signInPrompt != nil { showingAccount = true }
         }
+        // A change refused past the plan, such as a house past it, asks once
+        // for Choose a plan, as on the Mac (PROP-58). A group made here past
+        // the plan doesn't: it stays here behind its notice (PLAN-18).
+        .onChange(of: sync.planSheet) {
+            guard sync.planSheet != nil else { return }
+            sync.planSheetShown()
+            showingPlans = true
+        }
         .alert(question(pendingDelete), isPresented: Binding(get: { pendingDelete != nil },
                                                                    set: { if !$0 { screen.keepIt() } })) {
             // Cancel first: GTK focuses the first button, so Return keeps it.
