@@ -8,10 +8,15 @@
 #
 # To stop needing the flags locally:
 #   sudo xcodebuild -license accept && sudo xcode-select -s /Applications/Xcode.app
+#
+# Off a Mac there is no developer directory, and the flags would break the
+# link, so Linux gets none.
 DEVELOPER_DIR_PATH := $(shell xcode-select -p 2>/dev/null)
 CLT := /Library/Developer/CommandLineTools
 
-ifeq ($(findstring Xcode.app,$(DEVELOPER_DIR_PATH)),Xcode.app)
+ifneq ($(shell uname -s),Darwin)
+FLAGS :=
+else ifeq ($(findstring Xcode.app,$(DEVELOPER_DIR_PATH)),Xcode.app)
 FLAGS :=
 else
 FLAGS := -Xswiftc -F -Xswiftc $(CLT)/Library/Developer/Frameworks \
@@ -93,6 +98,7 @@ script-test:
 	scripts/linux-ui-names-test.sh
 	scripts/no-deploy-key-test.sh
 	scripts/ui-test-outcome-test.sh
+	scripts/pre-push-test.sh
 
 # The app's Package.resolved pins nothing from SwiftCrossUI, which is Linux
 # only. With it pinned, Xcode 26.6 crashes reading the file with Properties linked.

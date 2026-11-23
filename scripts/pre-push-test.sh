@@ -1,0 +1,87 @@
+#!/bin/sh
+# Tests scripts/hooks/pre-push in a throwaway repository, with make, swift,
+# docker and scripts/prepush-in-docker.sh stood in for by stubs that write
+# down that they ran. With swift on the PATH, the hook runs make prepush, as
+# on a Mac. With no swift but docker, it runs prepush-in-docker.sh, and then
+# only for a push of HEAD, since the container checks HEAD.
+#
+#   scripts/pre-push-test.sh
+set -eu
+hook="$(cd "$(dirname "$0")" && pwd)/hooks/pre-push"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+# Git's own variables would point the throwaway repository's commands at
+# this one when the test runs inside a hook.
+unset $(git rev-parse --local-env-vars)
+
+repo="$tmp/repo"
+git init -q "$repo"
+git -C "$repo" -c user.name=Test -c user.email=test@example.com commit -q --allow-empty -m first
+git -C "$repo" -c user.name=Test -c user.email=test@example.com commit -q --allow-empty -m second
+head="$(git -C "$repo" rev-parse HEAD)"
+before="$(git -C "$repo" rev-parse HEAD~1)"
+mkdir -p "$repo/scripts" "$tmp/with-swift" "$tmp/no-swift"
+printf '#!/bin/sh\necho in-docker >> "%s/ran"\n' "$tmp" > "$repo/scripts/prepush-in-docker.sh"
+chmod +x "$repo/scripts/prepush-in-docker.sh"
+# A PATH with the stubs and the system's own tools, minus any real swift.
+for dir in with-swift no-swift; do
+    printf '#!/bin/sh\necho "make $*" >> "%s/ran"\n' "$tmp" > "$tmp/$dir/make"
+    printf '#!/bin/sh\nexit 0\n' > "$tmp/$dir/docker"
+    chmod +x "$tmp/$dir/make" "$tmp/$dir/docker"
+done
+printf '#!/bin/sh\nexit 0\n' > "$tmp/with-swift/swift"
+chmod +x "$tmp/with-swift/swift"
+# Only the system tools the hook needs, linked one by one: a Mac's /usr/bin
+# has a swift of its own, which would spoil the no-swift case.
+mkdir -p "$tmp/system"
+for tool in sh git cat; do
+    ln -s "$(command -v "$tool")" "$tmp/system/$tool"
+done
+system=":$tmp/system"
+
+failed=0
+# run DIR SHA: runs the hook in the repository with DIR's stubs first on the
+# PATH, for a push of SHA. Leaves what ran in $tmp/ran and the exit code in $code.
+run() {
+    : > "$tmp/ran"
+    code=0
+    (cd "$repo" && echo "refs/heads/main $2 refs/heads/main 0000000000000000000000000000000000000000" |
+        PATH="$tmp/$1$system" sh "$hook" origin git@example.com:x.git) > "$tmp/out" 2>&1 || code=$?
+}
+check() {
+    if [ "$1" = "$2" ]; then echo "pass: $3"; else echo "FAIL: $3: got [$1], wanted [$2]"; cat "$tmp/out"; failed=1; fi
+}
+
+run with-swift "$head"
+check "$code" 0 "with swift, the push goes on"
+check "$(cat "$tmp/ran")" "make prepush" "with swift, the hook runs make prepush"
+
+run no-swift "$head"
+check "$code" 0 "with no swift, a push of HEAD goes on"
+check "$(cat "$tmp/ran")" "in-docker" "with no swift, the hook runs the checks in the container"
+
+run no-swift "$before"
+check "$code" 1 "with no swift, a push of anything but HEAD is refused"
+check "$(cat "$tmp/ran")" "" "and nothing runs for it"
+
+# prepush-in-docker.sh on a disk at or past its limit stops before it builds
+# anything: no image, no container.
+mkdir -p "$tmp/full"
+printf '#!/bin/sh\necho Use%%\necho " 85%%"\n' > "$tmp/full/df"
+printf '#!/bin/sh\necho "docker $*" >> "%s/ran"\nexit 1\n' "$tmp" > "$tmp/full/docker"
+chmod +x "$tmp/full/df" "$tmp/full/docker"
+for tool in tail tr mkdir sha256sum cut; do
+    [ -e "$tmp/system/$tool" ] || ln -s "$(command -v "$tool")" "$tmp/system/$tool"
+done
+mkdir -p "$repo/Linux/UITests"
+: > "$repo/Linux/UITests/Dockerfile"
+: > "$repo/Linux/UITests/packages.txt"
+: > "$tmp/ran"
+code=0
+(cd "$repo" && PATH="$tmp/full:$tmp/system" PREPUSH_SCRATCH="$tmp/scratch" \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || code=$?
+check "$code" 1 "a disk past the limit stops the checks"
+check "$(cat "$tmp/ran")" "" "and nothing is built"
+check "$(grep -c 'builds stop at 80%' "$tmp/out")" 1 "it says why"
+
+exit "$failed"
