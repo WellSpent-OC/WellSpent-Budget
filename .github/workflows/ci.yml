@@ -568,7 +568,25 @@ jobs:
     timeout-minutes: 60
     container:
       image: swift:6.2.4-noble
-      options: --cap-add=SYS_PTRACE
+      # ptrace, as for the other Linux UI jobs, and what WarTable's code
+      # sandbox (bubblewrap) needs to start in a container (ops#397).
+      # GitHub's Ubuntu runners hold Docker's AppArmor profile, which forbids
+      # the sandbox's mounts, and limit unprivileged user namespaces, which
+      # only a process with SYS_ADMIN gets past. So: SYS_ADMIN, with
+      # AppArmor, seccomp and the masked /proc paths unconfined.
+      # This is safe only because a GitHub-hosted runner is a throwaway VM,
+      # and the VM is the boundary, not the container: a step outside a
+      # container already has root there, and the WarTable connector tests
+      # already run bubblewrap on the runner itself. It gives this job nothing
+      # a job without a container lacks. The job never runs for a pull
+      # request (see its if:), so no fork's code reaches it.
+      # Keep these options on this job only: no other job needs them. On a
+      # self-hosted runner the container would be the boundary, so revisit
+      # this before ever moving to one.
+      options: >-
+        --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN
+        --security-opt apparmor=unconfined --security-opt seccomp=unconfined
+        --security-opt systempaths=unconfined
     steps:
       - uses: actions/checkout@v4
 
