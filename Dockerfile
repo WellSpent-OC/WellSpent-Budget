@@ -50,10 +50,14 @@ RUN mkdir -p /staging \
 FROM ubuntu:noble
 
 # ca-certificates for outbound TLS, tzdata so timestamps are not guesses.
-RUN apt-get update -q \
- && DEBIAN_FRONTEND=noninteractive apt-get install -q -y \
+# Through the CI script, so a slow mirror is stopped and tried again. CI sets
+# APT_MIRROR to the runner's own mirror. A build without it, such as the
+# server's own, uses Ubuntu's hosts as before, and gets the same packages.
+ARG APT_MIRROR=
+COPY ./scripts/apt-install.sh /tmp/apt-install.sh
+RUN DEBIAN_FRONTEND=noninteractive APT_RECOMMENDS=1 sh /tmp/apt-install.sh \
       ca-certificates tzdata libcurl4 libxml2 \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* /tmp/apt-install.sh
 
 # Not root. A server that reads other people's financial records should not be
 # able to rewrite its own binary.

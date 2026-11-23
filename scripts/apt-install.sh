@@ -16,21 +16,31 @@
 # names archive.ubuntu.com and security.ubuntu.com, which can crawl for many
 # minutes. The runner itself uses Azure's mirror, in the same network, so the
 # container is pointed there too.
+#
+# APT_MIRROR names that mirror's host, such as http://azure.archive.ubuntu.com/,
+# for a build GitHub runs that can't tell it's on GitHub: the server image's
+# Dockerfile passes it in as a build argument. Unset, and off GitHub, the
+# image's own hosts are used. APT_RECOMMENDS=1 installs recommended packages
+# too, as the server image always has.
 set -eu
 [ "$#" -gt 0 ] || { echo "usage: $0 PACKAGE..." >&2; exit 2; }
 wait="${APT_RETRY_WAIT:-30}"
 limit="${APT_TRY_SECONDS:-600}"
-if [ "${GITHUB_ACTIONS:-}" = true ]; then
+mirror="${APT_MIRROR:-}"
+[ -z "$mirror" ] && [ "${GITHUB_ACTIONS:-}" = true ] && mirror=http://azure.archive.ubuntu.com/
+if [ -n "$mirror" ]; then
     for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
         [ -f "$sources" ] || continue
-        sed -i -e 's#http://archive\.ubuntu\.com/#http://azure.archive.ubuntu.com/#g' \
-               -e 's#http://security\.ubuntu\.com/#http://azure.archive.ubuntu.com/#g' "$sources"
+        sed -i -e "s#http://archive\\.ubuntu\\.com/#$mirror#g" \
+               -e "s#http://security\\.ubuntu\\.com/#$mirror#g" "$sources"
     done
 fi
+recommends=--no-install-recommends
+[ "${APT_RECOMMENDS:-}" = 1 ] && recommends=
 try=1
 while :; do
     if timeout "$limit" apt-get -o Acquire::Retries=3 update -q &&
-       timeout "$limit" apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends "$@"; then
+       timeout "$limit" apt-get -o Acquire::Retries=3 install -y -q $recommends "$@"; then
         exit 0
     fi
     if [ "$try" -ge 3 ]; then

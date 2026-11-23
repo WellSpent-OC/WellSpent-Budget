@@ -147,6 +147,9 @@ jobs:
           push: false
           load: true
           tags: wellspent-server:ci
+          # The image's apt goes through scripts/apt-install.sh, on the
+          # runner's own mirror (ops#382).
+          build-args: APT_MIRROR=http://azure.archive.ubuntu.com/
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
