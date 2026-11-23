@@ -29,8 +29,18 @@ import urllib.request
 from datetime import datetime, timezone
 
 
-def call(method, url, body=None, token=None):
-    """The status and the JSON answer, or None when there is no body to read."""
+# How long one call waits for its answer, and the pause before trying again.
+REQUEST_SECONDS = 20
+RETRY_WAIT = 3
+
+
+def call(method, url, body=None, token=None, retry=False):
+    """The status and the JSON answer, or None when there is no body to read.
+
+    With `retry`, a call whose answer doesn't come in time, or whose
+    connection drops, is sent again, up to three tries in all: one slow trip
+    to staging shouldn't cost a two-hour run. Only for calls that do the same
+    thing when sent twice. An answer, even a refusal, is never retried."""
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(url, data=data, method=method)
     request.add_header("Content-Type", "application/json")
@@ -39,12 +49,20 @@ def call(method, url, body=None, token=None):
     request.add_header("User-Agent", "WellSpent-UI-test-setup/1.0")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            text = response.read()
-            return response.status, json.loads(text) if text else None
-    except urllib.error.HTTPError as error:
-        return error.code, None
+    tries = 3 if retry else 1
+    for attempt in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=REQUEST_SECONDS) as response:
+                text = response.read()
+                return response.status, json.loads(text) if text else None
+        except urllib.error.HTTPError as error:
+            return error.code, None
+        except (TimeoutError, ConnectionError, urllib.error.URLError) as error:
+            if attempt == tries:
+                raise
+            print(f"fresh-test-accounts: no answer from {urllib.parse.urlsplit(url).path} ({error}); "
+                  f"trying again", file=sys.stderr)
+            time.sleep(RETRY_WAIT * attempt)
 
 
 def code_for(server, mailbox, address, timeout=15):
@@ -54,7 +72,7 @@ def code_for(server, mailbox, address, timeout=15):
     last = "nothing yet"
     while time.monotonic() < deadline:
         try:
-            status, message = call("GET", url, token=mailbox)
+            status, message = call("GET", url, token=mailbox, retry=True)
         except urllib.error.URLError as error:
             status, message, last = 0, None, f"staging could not be reached: {error.reason}"
         if status == 200 and message and message.get("code"):
@@ -72,12 +90,15 @@ def make_account(server, mailbox, label, stamp, who):
     password = secrets.token_urlsafe(18) + "Aa1!"
     if os.environ.get("GITHUB_ACTIONS") == "true":
         print(f"::add-mask::{password}")
+    # Not retried: a second sign-up for an address the first one made is
+    # refused as taken.
     status, session = call("POST", f"{server}/api/v2/signup",
                            {"email": address, "password": password, "deviceLabel": f"UI test setup, {label}"})
     if status != 200 or not session:
         sys.exit(f"fresh-test-accounts: staging answered {status} to the sign-up for {address}")
     code = code_for(server, mailbox, address)
-    status, _ = call("POST", f"{server}/api/v2/email/verify", {"code": code}, token=session["token"])
+    # A second try of a code that went through answers 204, as verified.
+    status, _ = call("POST", f"{server}/api/v2/email/verify", {"code": code}, token=session["token"], retry=True)
     if status not in (200, 204):
         sys.exit(f"fresh-test-accounts: staging answered {status} to the code for {address}")
     # Signs this session out, so the account's list of devices holds only the tests' own.
@@ -91,7 +112,7 @@ TIERS = ("free", "starter", "growth", "portfolio")
 
 def set_plan(server, mailbox, address, tier):
     """Puts the account on this plan, through staging's test route. Free removes any plan."""
-    status, _ = call("POST", f"{server}/test/plan", {"email": address, "tier": tier}, token=mailbox)
+    status, _ = call("POST", f"{server}/test/plan", {"email": address, "tier": tier}, token=mailbox, retry=True)
     if status == 401:
         sys.exit("fresh-test-accounts: the test plan route turned the token down")
     if status not in (200, 204):
