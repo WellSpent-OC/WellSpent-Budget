@@ -40,14 +40,6 @@ When a paid plan ends, nothing is deleted. The free plan keeps 1 group, 1 person
 - Then it says which group, person and property Skip keeps open
 - And when he presses "Skip", those are saved and the sheet closes
 
-## LOCK-06 A locked property says which one is open
-
-- Given Robin is on the free plan with 2 properties, and "Pool House" is open
-- When he opens "Mountain Cabin"
-- Then he sees "This property is locked" in place of its page
-- And it says "Your free plan keeps Pool House open."
-- And it offers "Switch Which Is Open" and "See Plans"
-
 ## LOCK-07 The open group changes at most once in 30 days
 
 - Given Robin changed his open group 10 days ago

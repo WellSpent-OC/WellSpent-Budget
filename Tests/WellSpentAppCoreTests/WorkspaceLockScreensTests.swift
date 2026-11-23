@@ -116,7 +116,7 @@ struct WorkspaceLockScreensTests {
         #expect(await world.robin.workspace(ended(locked: nil)).planOpenNames.isEmpty)
     }
 
-    // Scenario LOCK-06
+    // For the Properties extension's PROP-61, whose screen steps are its own UI tests.
     /// A locked house gets the property card, through the host the Properties
     /// extension asks. An open house, or an id that isn't one, gets nothing.
     @Test func aLockedHouseGetsThePropertyCardThroughTheHost() async throws {
