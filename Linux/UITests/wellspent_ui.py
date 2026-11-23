@@ -852,13 +852,15 @@ class App:
         menus from opening on the test display, so those are closed first."""
         close_open_menus()
         button.press()
+        # Listed as soon as it's pressed: a menu that opens only after this
+        # step gives up must still be closed before the next one opens.
+        _OPEN_MENUS.append((self, button))
         try:
             self.until(lambda: _menu_open(button), "the menu to open", wait=4)
         except ScreenError:
             if not _menu_open(button):
                 button.press()
         self.until(lambda: _has_items(button), f"{button!r}'s menu to open")
-        _OPEN_MENUS.append((self, button))
         return button
 
     def close_menu(self, button):
@@ -1234,6 +1236,15 @@ class App:
         """Takes a group a test made off this person's computer and, for its
         owner, off the server: Delete… where they may, else Leave…. For a
         test's clean-up."""
+        try:
+            self._remove_group(name)
+        except Exception:
+            # The group is still on the server, on its owner's account and on
+            # every member's. Later tests get fresh accounts, not those.
+            spend_accounts()
+            raise
+
+    def _remove_group(self, name):
         # A sync can replace GTK nodes while a scan reads them. Retry a
         # failed scan instead of turning a stale accessibility object into a
         # cleanup failure. The tuple makes an absent thing a completed scan.
@@ -1581,6 +1592,14 @@ def account(name):
     if name.lower() not in _ACCOUNTS:
         _ACCOUNTS[name.lower()] = _confirmed_account(name)
     return _ACCOUNTS[name.lower()]
+
+
+def spend_accounts():
+    """Stops handing out this run's accounts: a group a test made is still on
+    the server, on its owner's account and its members'. The next test that
+    asks for anyone gets a fresh account. Only a failed clean-up calls this,
+    so the extra accounts are rare."""
+    _ACCOUNTS.clear()
 
 
 def _confirmed_account(name):

@@ -222,5 +222,78 @@ class Sync(unittest.TestCase):
         self.check_sync([True, False])
 
 
+class SpilledCleanup(unittest.TestCase):
+    """A test's clean-up that fails leaves what it made on the server. The
+    next test that signs in as that person must not inherit it (ops#392: one
+    slow menu, then a failed Delete…, then five later tests saw a stray Food
+    budget)."""
+
+    def setUp(self):
+        made = iter(range(1, 100))
+        patcher = unittest.mock.patch.object(
+            wellspent_ui, "_confirmed_account", lambda name: (f"{name.lower()}{next(made)}@example.com", "a password"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = unittest.mock.patch.dict(wellspent_ui._ACCOUNTS, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = unittest.mock.patch.object(wellspent_ui, "_OPEN_MENUS", [])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def removing_app(self, email, menu_fails):
+        """An App signed in as `email`, on the Budget tab with the group
+        showing, whose group menu fails to open when `menu_fails`."""
+        app = signing_in_app()
+        app.email = email
+        app.until = lambda check, what, wait=None: check()
+        app.shows = lambda *arguments, **settings: True
+        app.settle = lambda: None
+
+        def group_menu(name):
+            if menu_fails:
+                raise wellspent_ui.ScreenError("2 menu items say 'Delete…'")
+            return "menu"
+        app.group_menu = group_menu
+        app.menu_items = lambda menu: ["Delete…"]
+        app.pick = lambda words, menu: app.done.append(("pick", words))
+        app.answer = lambda words: None
+        return app
+
+    def test_a_failed_removal_gives_everyone_a_fresh_account_next(self):
+        # Leslie made Home 3 and Robin joined it, so it's on both accounts.
+        leslie, robin = wellspent_ui.account("Leslie"), wellspent_ui.account("Robin")
+        app = self.removing_app(leslie[0], menu_fails=True)
+        with self.assertRaises(wellspent_ui.ScreenError):
+            app.remove_group("Home 3")
+        self.assertNotEqual(leslie, wellspent_ui.account("Leslie"), "the next test gets the account the group was left on")
+        self.assertNotEqual(robin, wellspent_ui.account("Robin"), "the next test gets a member's account the group is on")
+
+    def test_a_removal_that_works_keeps_the_account(self):
+        first = wellspent_ui.account("Leslie")
+        app = self.removing_app(first[0], menu_fails=False)
+        present = iter([True, True])
+        app.shows = lambda *arguments, **settings: next(present, False)
+        app.remove_group("Home 3")
+        self.assertIn(("pick", "Delete…"), app.done)
+        self.assertEqual(first, wellspent_ui.account("Leslie"), "a clean removal made a new account")
+
+    def test_a_menu_that_opens_too_late_is_still_closed_after(self):
+        # The step gives up, then the menu opens. It must be on the list
+        # close_open_menus works from, or the next menu opened makes two.
+        app = signing_in_app()
+        app.button_presses = []
+        button = Recording(app, "More")
+
+        def never(check, what, wait=None):
+            raise wellspent_ui.ScreenError(f"waited for {what}")
+        app.until = never
+        with unittest.mock.patch.object(wellspent_ui, "close_open_menus", lambda: None), \
+                unittest.mock.patch.object(wellspent_ui, "_menu_open", lambda button: False):
+            with self.assertRaises(wellspent_ui.ScreenError):
+                app.open_menu(button)
+        self.assertIn((app, button), wellspent_ui._OPEN_MENUS, "a menu that opens late is never closed")
+
+
 if __name__ == "__main__":
     unittest.main()
