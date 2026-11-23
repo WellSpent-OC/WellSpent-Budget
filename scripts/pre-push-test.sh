@@ -84,4 +84,29 @@ check "$code" 1 "a disk past the limit stops the checks"
 check "$(cat "$tmp/ran")" "" "and nothing is built"
 check "$(grep -c 'builds stop at 80%' "$tmp/out")" 1 "it says why"
 
+# With room on the disk, the container gets at most 8 cores to see, not
+# only 8 cores' worth of time: Swift starts one compile per core it sees,
+# and 32 at once ran past the container's memory on a cold build.
+mkdir -p "$tmp/room"
+printf '#!/bin/sh\necho Use%%\necho " 40%%"\n' > "$tmp/room/df"
+printf '#!/bin/sh\necho "docker $*" >> "%s/ran"\nexit 0\n' "$tmp" > "$tmp/room/docker"
+printf '#!/bin/sh\nexit 0\n' > "$tmp/room/rsync"
+printf '#!/bin/sh\nexit 0\n' > "$tmp/room/make"
+printf '#!/bin/sh\necho 32\n' > "$tmp/room/nproc"
+chmod +x "$tmp/room/df" "$tmp/room/docker" "$tmp/room/rsync" "$tmp/room/make" "$tmp/room/nproc"
+for tool in tar mktemp basename id rm; do
+    [ -e "$tmp/system/$tool" ] || ln -s "$(command -v "$tool")" "$tmp/system/$tool"
+done
+: > "$tmp/ran"
+code=0
+(cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$tmp/scratch" \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || code=$?
+check "$code" 0 "with room on the disk, the checks run"
+check "$(grep -c -- '^docker run .*--cpuset-cpus=0-7 ' "$tmp/ran")" 1 "the container sees 8 of 32 cores"
+printf '#!/bin/sh\necho 4\n' > "$tmp/room/nproc"
+: > "$tmp/ran"
+(cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$tmp/scratch" \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || true
+check "$(grep -c -- '^docker run .*--cpuset-cpus=0-3 ' "$tmp/ran")" 1 "on a 4-core machine, all 4 and no more"
+
 exit "$failed"
