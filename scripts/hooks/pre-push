@@ -14,5 +14,22 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # and a script that makes a throwaway repository writes into this one. Clear
 # git's own list of them, now that the top level is found.
 unset $(git rev-parse --local-env-vars)
+# A machine with no Swift on the host, such as a Linux box that builds in
+# containers, runs the same checks with the Swift half in the Linux UI test
+# image (scripts/prepush-in-docker.sh). That copy is HEAD, so only a push of
+# HEAD is let through: anything else would go out with checks run on
+# something else.
+if ! command -v swift >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
+    head="$(git rev-parse HEAD)"
+    while read -r _ local_sha _ _; do
+        case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+        if [ "$local_sha" != "$head" ]; then
+            echo "pre-push: this push sends $local_sha, but HEAD is $head. Check out what you push, so the checks test it." >&2
+            exit 1
+        fi
+    done
+    echo "pre-push: no swift here, so make prepush's Swift half runs in a container (SKIP_PREPUSH=1 skips it)" >&2
+    exec scripts/prepush-in-docker.sh
+fi
 echo "pre-push: running make prepush (about 25 minutes on a Mac; SKIP_PREPUSH=1 skips it)" >&2
 exec make prepush
