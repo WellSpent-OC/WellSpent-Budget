@@ -112,13 +112,16 @@ class Connected(unittest.TestCase):
         app.button("Turn off…", within=app.main).press()
         app.answer("Turn off")
         app.wait_shows("Turn on WarTable", role="push button", within=app.main)
+        # The budgets still work, on the Budget tab, where their sidebar is.
+        app.button("Budget", within=app.main).press()
         app.budget(f"{self.group} food").press()
         app.until(app.budget_open, "budget after disabling WarTable")
 
     # Scenario WARTABLE-03, WARTABLE-04, WARTABLE-10
     def test_direct_audience_and_real_agent_controls(self):
         app = self.app
-        leslie = launch_fresh(self)
+        # The same flags as Robin's copy: without them, the app hides Extensions.
+        leslie = launch_fresh(self, extensions=True, wartable=True)
         leslie.sign_in_as("Leslie")
         leslie.join(app.legacy_invite(self.group, "Robin", "Add"), "Leslie")
         app.sync()
