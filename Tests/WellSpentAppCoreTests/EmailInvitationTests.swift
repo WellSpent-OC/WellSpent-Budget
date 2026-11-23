@@ -575,6 +575,65 @@ struct AppFaultsTests {
         #expect(people.rows.contains { $0.name == "Leslie" })
     }
 
+    // Scenario EMAIL-12
+    /// The server took Leslie's Accept and the answer was lost. Pressing
+    /// Accept again opens the group, as in EMAIL-03, and says nothing about
+    /// the invitation being accepted already (ops#368).
+    @Test func acceptingAgainAfterALostAnswerJoins() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, _) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationAcceptAnswerLost])
+        #expect(!(await leslie.main.acceptInvitation(invitation)))
+
+        leslie.sync.faults = .none
+        #expect(await leslie.main.acceptInvitation(invitation), "the second Accept says it failed")
+        #expect(leslie.main.openGroup?.id == group)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == nil)
+        #expect(leslie.main.incomingInvitations.isEmpty)
+        #expect(try leslie.sync.store.group(group) != nil)
+    }
+
+    // Scenario EMAIL-12
+    /// The same lost answer, and then a sync: the group comes in, and the
+    /// invitation and its error go.
+    @Test func aSyncAfterALostAnswerJoins() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, _) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        leslie.sync.faults = faults([.invitationAcceptAnswerLost])
+        #expect(!(await leslie.main.acceptInvitation(invitation)))
+
+        leslie.sync.faults = .none
+        await leslie.sync.syncAll()
+        #expect(try leslie.sync.store.group(group) != nil)
+        #expect(leslie.main.invitationFailure(for: invitation.id) == nil)
+        #expect(leslie.main.incomingInvitations.isEmpty)
+    }
+
+    /// The fix for EMAIL-12 reads a refusal as joined only when the account
+    /// is in the group. An invitation rejected on another device is refused
+    /// the same way, and still fails, since Leslie is not in the group.
+    @Test func aRefusedAcceptForAGroupNotJoinedStillFails() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await EmailPerson("robin@example.com", on: server)
+        let leslie = try await EmailPerson("leslie@example.com", on: server)
+        let (group, _) = try await robin.offer()
+        await leslie.sync.syncAll()
+        let invitation = try #require(leslie.main.incomingInvitations.first)
+        try await leslie.transport.rejectInvitation(invitation.id)
+        #expect(!(await leslie.main.acceptInvitation(invitation)))
+        #expect(leslie.main.invitationFailure(for: invitation.id) != nil)
+        #expect(leslie.main.openGroup?.id != group)
+        #expect(try leslie.sync.store.group(group) == nil)
+    }
+
     @Test func aLostRejectAnswerSendsTheRejectAndThenFails() async throws {
         let server = InMemoryReadableServer()
         let robin = try await EmailPerson("robin@example.com", on: server)
