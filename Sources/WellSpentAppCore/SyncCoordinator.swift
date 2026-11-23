@@ -1114,7 +1114,7 @@ public final class SyncCoordinator {
         do {
             let transport = try requireTransport()
             try faults.check(.invitationAccept)
-            let joined = try await transport.acceptInvitation(invitation.id)
+            let joined = try await acceptOrFindJoined(invitation, on: transport)
             try faults.check(.invitationAcceptAnswerLost)
             try checkSession(generation)
             acceptedGroup = joined.id
@@ -1161,6 +1161,22 @@ public final class SyncCoordinator {
                 return acceptedGroup
             }
             throw failure
+        }
+    }
+
+    /// Accepts the invitation. If the server refuses because this account
+    /// already joined, as when an earlier Accept went through and its answer
+    /// was lost (EMAIL-12, ops#368), the group the account is in counts as
+    /// joined. Any other refusal is thrown as it came.
+    private func acceptOrFindJoined(_ invitation: IncomingInvitation,
+                                    on transport: any ReadableAccountTransport) async throws -> ServerGroup {
+        do {
+            return try await transport.acceptInvitation(invitation.id)
+        } catch ReadableTransportError.http(status: 409, let reason) {
+            let mine = try? await transport.groups()
+            guard let joined = mine?.first(where: { $0.id == invitation.groupID && !$0.deleted && $0.level != .none })
+            else { throw ReadableTransportError.http(status: 409, reason: reason) }
+            return joined
         }
     }
 
