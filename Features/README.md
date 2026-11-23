@@ -196,7 +196,6 @@ It is not kept here, where every pull request would change the same lines.
 | REPEAT-13 | Money in doesn't repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-14 | A statement line replaces that month's repeat | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-15 | Saying no to a match | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| REPEAT-16 | A house's repeat | Mac, Linux, iPhone | None yet |
 | REPEAT-17 | Turning it on for a bill already there | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | REPEAT-18 | The switch shows the truth | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
@@ -334,7 +333,6 @@ It is not kept here, where every pull request would change the same lines.
 | LOCK-03 | A locked group says Locked beside its name | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | LOCK-04 | Change what stays open saves the pick | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | LOCK-05 | Skip keeps the first ones, and says so before | Mac, Linux, iPhone | Mac, Linux, iPhone |
-| LOCK-06 | A locked property says which one is open | Mac, Linux, iPhone | None yet |
 | LOCK-07 | The open group changes at most once in 30 days | Mac, Linux, iPhone | Mac, Linux, iPhone |
 
 

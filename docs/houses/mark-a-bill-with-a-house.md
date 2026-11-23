@@ -66,4 +66,4 @@ You can't mark a bill with a house on Linux yet. The transaction window has no *
 - [How Houses counts the money](how-houses-counts-the-money.md)
 - [Side quest: Make a bill repeat every month](../transactions/make-a-bill-repeat.md)
 
-<!-- Scenarios: PROP-35, PROP-36, PROP-37, PROP-38, PROP-39, PROP-51, REPEAT-16 -->
+<!-- Scenarios: PROP-35, PROP-36, PROP-37, PROP-38, PROP-39, PROP-51, PROP-62 -->

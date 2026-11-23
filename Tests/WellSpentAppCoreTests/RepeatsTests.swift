@@ -210,7 +210,8 @@ struct RepeatsTests {
         #expect(!editor.showsRepeatRow)
     }
 
-    // Scenario REPEAT-16
+    // Proves the Properties extension's PROP-62: every later month's bill is
+    // marked with the house, not only the one a screen shows.
     @Test func aHousesRepeatMarksEachBill() throws {
         let house = RecordID()
         model.addRepeatingTransaction(merchant: "Power", amount: Money(minorUnits: 100), date: Self.day(2026, 11, 3), note: "",

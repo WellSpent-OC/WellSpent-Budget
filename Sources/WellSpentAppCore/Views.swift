@@ -286,7 +286,7 @@ struct RootView: View {
     }
 
     #if os(macOS)
-    /// A locked house's card, in place of its page in Houses (LOCK-06).
+    /// A locked house's card, in place of its page in Houses (the Properties extension's PROP-61).
     private func lockedHouse(_ record: String) -> AnyView? {
         workspace.lockedScreen(property: record).map { locked in
             AnyView(LockedCardView(screen: locked) { action in

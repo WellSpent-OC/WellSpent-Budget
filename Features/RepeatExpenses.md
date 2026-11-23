@@ -169,10 +169,3 @@ Platforms: Mac, Linux, iPhone
 
 - When Robin presses "Keep both" on that match
 - Then both stay, and neither is changed
-
-## REPEAT-16 A house's repeat
-
-Ruling, 2026-11-13: Linux added. The Platforms line was out of date: Linux has Houses now, and the apps match feature for feature.
-
-- Given Properties is on and Robin sets a repeat with House set to Pool House
-- Then each month's bill is marked with Pool House

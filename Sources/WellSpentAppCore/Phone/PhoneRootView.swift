@@ -285,7 +285,7 @@ struct PhoneRootView: View {
         .navigationBarTitleDisplayMode(.large)
     }
 
-    /// A house past the plan: the card in place of its page (LOCK-06).
+    /// A house past the plan: the card in place of its page (the Properties extension's PROP-61).
     /// Houses asks for it through the host.
     private func lockedHouse(_ record: String) -> AnyView? {
         workspace.lockedScreen(property: record).map { locked in
