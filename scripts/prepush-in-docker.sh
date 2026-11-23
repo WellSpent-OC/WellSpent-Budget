@@ -36,7 +36,12 @@ trap 'rm -rf "$fresh"' EXIT
 git archive HEAD | tar -x -C "$fresh"
 rsync -rc --delete --exclude='/.build/' --exclude='/Server/.build/' "$fresh/" "$OUT/src/"
 echo "prepush: the Swift half on $(git rev-parse --short HEAD), in $IMAGE"
-docker run --rm --name "wsr-prepush-$(basename "$ROOT")" --cpus=8 --memory=8g \
+# --cpus limits CPU time, not the cores the container sees, and Swift
+# starts one compile per core it sees: 32 at once ran past 8 GB on a cold
+# build. So the container sees at most 8 cores, or all of a smaller machine's.
+cores="$(nproc)"
+[ "$cores" -gt 8 ] && cores=8
+docker run --rm --name "wsr-prepush-$(basename "$ROOT")" --cpuset-cpus="0-$((cores - 1))" --memory=8g \
     -v "$OUT:/b" -e HOME=/b/home "$IMAGE" \
     setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups sh -c 'cd /b/src && make gates wartable-test'
 make script-test mac-pins
