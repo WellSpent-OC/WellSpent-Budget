@@ -568,13 +568,39 @@ jobs:
     timeout-minutes: 60
     container:
       image: swift:6.2.4-noble
-      options: --cap-add=SYS_PTRACE
+      # ptrace, as for the other Linux UI jobs, and what WarTable's code
+      # sandbox (bubblewrap) needs to start in a container (ops#397).
+      # GitHub's Ubuntu runners hold Docker's AppArmor profile, which forbids
+      # the sandbox's mounts, and limit unprivileged user namespaces, which
+      # only a process with SYS_ADMIN gets past. So: SYS_ADMIN, with
+      # AppArmor, seccomp and the masked /proc paths unconfined.
+      # This is safe only because a GitHub-hosted runner is a throwaway VM,
+      # and the VM is the boundary, not the container: a step outside a
+      # container already has root there, and the WarTable connector tests
+      # already run bubblewrap on the runner itself. It gives this job nothing
+      # a job without a container lacks. The job never runs for a pull
+      # request (see its if:), so no fork's code reaches it.
+      # Keep these options on this job only: no other job needs them. On a
+      # self-hosted runner the container would be the boundary, so revisit
+      # this before ever moving to one.
+      options: >-
+        --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN
+        --security-opt apparmor=unconfined --security-opt seccomp=unconfined
+        --security-opt systempaths=unconfined
     steps:
       - uses: actions/checkout@v4
 
       - name: Install the GTK 4 headers, a virtual display, a keyring and the accessibility bus
         run: |
           xargs -a Linux/UITests/packages.txt scripts/apt-install.sh
+
+      # WarTable's code work runs in bubblewrap, which needs namespaces and
+      # mounts this container must allow (ops#397). Checked before the build,
+      # so a container that can't start it fails in seconds, not after the
+      # tests.
+      - name: WarTable's code sandbox starts
+        working-directory: Extensions/WarTable/adapter
+        run: python3 -I -c "import sys; sys.path.insert(0, '.'); from wartable_adapter.work import probe_sandbox; probe_sandbox()"
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
