@@ -64,4 +64,24 @@ run no-swift "$before"
 check "$code" 1 "with no swift, a push of anything but HEAD is refused"
 check "$(cat "$tmp/ran")" "" "and nothing runs for it"
 
+# prepush-in-docker.sh on a disk at or past its limit stops before it builds
+# anything: no image, no container.
+mkdir -p "$tmp/full"
+printf '#!/bin/sh\necho Use%%\necho " 85%%"\n' > "$tmp/full/df"
+printf '#!/bin/sh\necho "docker $*" >> "%s/ran"\nexit 1\n' "$tmp" > "$tmp/full/docker"
+chmod +x "$tmp/full/df" "$tmp/full/docker"
+for tool in tail tr mkdir sha256sum cut; do
+    [ -e "$tmp/system/$tool" ] || ln -s "$(command -v "$tool")" "$tmp/system/$tool"
+done
+mkdir -p "$repo/Linux/UITests"
+: > "$repo/Linux/UITests/Dockerfile"
+: > "$repo/Linux/UITests/packages.txt"
+: > "$tmp/ran"
+code=0
+(cd "$repo" && PATH="$tmp/full:$tmp/system" PREPUSH_SCRATCH="$tmp/scratch" \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || code=$?
+check "$code" 1 "a disk past the limit stops the checks"
+check "$(cat "$tmp/ran")" "" "and nothing is built"
+check "$(grep -c 'builds stop at 80%' "$tmp/out")" 1 "it says why"
+
 exit "$failed"
