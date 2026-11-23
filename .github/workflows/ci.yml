@@ -576,6 +576,14 @@ jobs:
         run: |
           xargs -a Linux/UITests/packages.txt scripts/apt-install.sh
 
+      # WarTable's code work runs in bubblewrap, which needs namespaces and
+      # mounts this container must allow (ops#397). Checked before the build,
+      # so a container that can't start it fails in seconds, not after the
+      # tests.
+      - name: WarTable's code sandbox starts
+        working-directory: Extensions/WarTable/adapter
+        run: python3 -I -c "import sys; sys.path.insert(0, '.'); from wartable_adapter.work import probe_sandbox; probe_sandbox()"
+
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
