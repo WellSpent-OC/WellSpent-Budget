@@ -14,6 +14,18 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # and a script that makes a throwaway repository writes into this one. Clear
 # git's own list of them, now that the top level is found.
 unset $(git rev-parse --local-env-vars)
+# What is being pushed, one line per ref: local ref, local sha, remote ref,
+# remote sha. A delete has an all-zero local sha. A push that only deletes
+# sends no commit, so there is nothing to check.
+pushed="$(cat)"
+sends_commit=""
+for local_sha in $(printf '%s\n' "$pushed" | while read -r _ sha _ _; do echo "$sha"; done); do
+    case "$local_sha" in *[!0]*) sends_commit=1 ;; esac
+done
+if [ -z "$sends_commit" ]; then
+    echo "pre-push: this push only deletes, so there is nothing to check" >&2
+    exit 0
+fi
 # A machine with no Swift on the host, such as a Linux box that builds in
 # containers, runs the same checks with the Swift half in the Linux UI test
 # image (scripts/prepush-in-docker.sh). That copy is HEAD, so only a push of
@@ -21,7 +33,7 @@ unset $(git rev-parse --local-env-vars)
 # something else.
 if ! command -v swift >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
     head="$(git rev-parse HEAD)"
-    while read -r _ local_sha _ _; do
+    for local_sha in $(printf '%s\n' "$pushed" | while read -r _ sha _ _; do echo "$sha"; done); do
         case "$local_sha" in *[!0]*) ;; *) continue ;; esac
         if [ "$local_sha" != "$head" ]; then
             echo "pre-push: this push sends $local_sha, but HEAD is $head. Check out what you push, so the checks test it." >&2
