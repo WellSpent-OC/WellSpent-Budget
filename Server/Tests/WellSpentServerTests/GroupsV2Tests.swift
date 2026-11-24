@@ -245,6 +245,49 @@ struct GroupsV2Tests {
         }
     }
 
+    /// An Accept the server took, sent again by the same account, as when its
+    /// answer was lost on the way: it answers as the first did, with the group
+    /// at the same level and history floor. Anyone else, or the same account
+    /// once it has left, is still refused as before (EMAIL-12, ops#405).
+    @Test func anAcceptSentAgainBySameAccountAnswersAsTheFirstDid() async throws {
+        try await withV2App { app, _ in
+            let founder = try await v2SignUpConfirmed("v2-again-founder@example.com", on: app)
+            let partner = try await v2SignUpConfirmed("v2-again-partner@example.com", on: app)
+            let late = try await v2SignUpConfirmed("v2-again-late@example.com", on: app)
+            let groupID = UUID()
+            #expect(try await create(groupID, as: founder, on: app).0 == .created)
+            let group = try #require(try await GroupRow.find(groupID, on: app.db))
+            group.lastSeq = 41
+            try await group.save(on: app.db)
+            let created = try #require(try await invite(groupID, level: .write, history: "fromNow",
+                                                        as: founder, on: app).1)
+
+            let (first, joined) = try await accept(created.token, as: partner, on: app)
+            #expect(first == .ok)
+            let (second, again) = try await accept(created.token, as: partner, on: app)
+            #expect(second == .ok, "the same account's second Accept is refused")
+            #expect(again?.id == joined?.id && again?.level == joined?.level
+                    && again?.historyFloor == joined?.historyFloor, "the second answer differs from the first")
+            let memberships = try await MembershipRow.query(on: app.db).filter(\.$groupID == groupID)
+                .filter(\.$userID == partner.userID).count()
+            #expect(memberships == 1, "a second membership was made")
+
+            // Someone else on the used link is still refused, in the same words (CLICK-09).
+            try await app.testing().test(.POST, "api/v2/invites/accept", headers: v2Bearer(late.token),
+                                         beforeRequest: { request in
+                try request.content.encode(Accept(token: created.token))
+            }, afterResponse: { response async throws in
+                #expect(response.status == .conflict, "someone else got in with a used link")
+                #expect(response.body.string.contains("that invite has already been accepted"),
+                        "the refusal's words changed: \(response.body.string)")
+            })
+            #expect(try await v2Status(.DELETE, "api/v2/groups/\(groupID)/members/\(partner.userID)",
+                                       token: founder.token, on: app) == .noContent)
+            #expect(try await accept(created.token, as: partner, on: app).0 == .conflict,
+                    "a person no longer in the group got back in with a used link")
+        }
+    }
+
     /// An invite speaks for whoever made it, as they are now: a removed admin
     /// cannot let herself back in, and a demoted one's invite is void.
     @Test func anInviteIsVoidOnceItsMakerCanNoLongerGiveThatLevel() async throws {
