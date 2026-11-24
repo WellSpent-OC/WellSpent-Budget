@@ -115,3 +115,13 @@ Ruling, 2026-11-13: split from EMAIL-07 and kept on every app. A failed Accept t
 - And the invitation stays in her list with Accept and Reject
 - When she presses Accept again once the server can be reached
 - Then she is in the group, as in EMAIL-03
+
+## EMAIL-12 An Accept whose answer was lost still joins
+
+Platforms: Mac, Linux, iPhone
+
+Ruling, 2026-11-14: split from EMAIL-10. The server took the Accept, but the app never heard back. Placed in 0.4.0 on 2026-11-22 (ops#368).
+
+- Given Leslie pressed Accept, the server accepted it, and the answer never reached the app
+- When she presses Accept again, or the app syncs
+- Then she is in the group, as in EMAIL-03, with no error about it being accepted already
