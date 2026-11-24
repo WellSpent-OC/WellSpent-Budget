@@ -14,6 +14,11 @@ import WellSpentLinuxNative
 struct WellSpentLinuxApp {
     @MainActor
     static func main() {
+        // `wellspent --version` says which release this is, and opens nothing.
+        if CommandLine.arguments.dropFirst().contains("--version") {
+            print("\(LinuxSetup.environment.appName) \(LinuxSetup.version)")
+            exit(0)
+        }
         if LinuxSetup.features().isNativeShellEnabled {
             runNative()
         } else {

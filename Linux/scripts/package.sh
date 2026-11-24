@@ -19,17 +19,24 @@
 # WELLSPENT_FEATURES  the flags this build carries on, names separated by
 #                commas, such as "purchases". Default none. The Mac's
 #                Info.plist list; on Linux a file beside the environment one.
+# VERSION        the release, such as 0.4.0 (default 0.0.0-dev, as the Mac's
+#                make-app.sh). It goes in a file beside the environment one,
+#                which `wellspent --version` prints, in install.sh's last line,
+#                and in the .tar.gz's name. `make linux-release` sets it from
+#                the vX.Y.Z tag.
 #
 # Staging is the default because a test build mistaken for live could reach real
 # budgets, and the reverse cannot. The same rule as the Mac's make-app.sh.
 #
 # The result is a folder and a .tar.gz of it, holding the app, its resources, the
 # icon and install.sh. Swift's own libraries are built in, so the computer it runs
-# on needs only GTK 4 and libsecret, which desktop Linux has.
+# on needs GTK 4, libsecret, SQLite and curl, which desktop Linux has. install.sh
+# checks for them before it installs anything.
 set -eu
 
 WELLSPENT_ENV="${WELLSPENT_ENV:-staging}"
 OUT="${OUT:-Linux/dist}"
+VERSION="${VERSION:-0.0.0-dev}"
 
 # These must match AppEnvironment.swift: appName, dataFolderName,
 # linuxAppIdentifier and inviteScheme. SCHEME is the build's own type of invite
@@ -86,11 +93,17 @@ strip "$DEST/$SLUG"
 cp -R "$BIN/WellSpentLinux_WellSpentLinux.resources" "$DEST/"
 printf '%s\n' "$WELLSPENT_ENV" > "$DEST/WellSpentLinux_WellSpentLinux.resources/environment"
 printf '%s\n' "${WELLSPENT_FEATURES:-}" > "$DEST/WellSpentLinux_WellSpentLinux.resources/features"
+printf '%s\n' "$VERSION" > "$DEST/WellSpentLinux_WellSpentLinux.resources/version"
 cp Design/AppIcon/AppIcon.svg "$DEST/$SLUG.svg"
 sed -e "s/@NAME@/$NAME/g" -e "s/@SLUG@/$SLUG/g" -e "s/@APPID@/$APPID/g" -e "s/@SCHEME@/$SCHEME/g" \
+    -e "s/@VERSION@/$VERSION/g" \
     Linux/scripts/install.sh.in > "$DEST/install.sh"
 chmod +x "$DEST/install.sh" "$DEST/$SLUG"
 
-tar -C "$OUT" -czf "$OUT/$SLUG.tar.gz" "$SLUG"
+# Named for the release and the chip it runs on, such as
+# wellspent-0.4.0-linux-x86_64.tar.gz. It unpacks to the plain $SLUG folder.
+TARBALL="$OUT/$SLUG-$VERSION-linux-$(uname -m).tar.gz"
+rm -f "$TARBALL"
+tar -C "$OUT" -czf "$TARBALL" "$SLUG"
 if [ -n "$PROPERTIES" ]; then HOUSES="Houses linked from $PROPERTIES"; else HOUSES="Houses is the placeholder"; fi
-echo "Built $NAME: $DEST and $OUT/$SLUG.tar.gz. $HOUSES."
+echo "Built $NAME $VERSION: $DEST and $TARBALL. $HOUSES."

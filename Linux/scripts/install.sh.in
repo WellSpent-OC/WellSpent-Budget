@@ -38,6 +38,32 @@ if [ "${1:-}" = "--remove" ]; then
     exit 0
 fi
 
+# The libraries the app needs from the computer: GTK 4, libsecret, SQLite and
+# curl. Checked before anything is copied, so a computer that lacks one is
+# told which, and how to add it, with nothing half installed. Installing them
+# needs the computer's password, which this script never asks for.
+if command -v ldd >/dev/null 2>&1; then
+    missing="$(ldd "$HERE/@SLUG@" 2>/dev/null | awk '/not found/ { print $1 }')"
+    if [ -n "$missing" ]; then
+        apt="" dnf=""
+        for library in $missing; do
+            case "$library" in
+                libgtk-4.so*) apt="$apt libgtk-4-1" dnf="$dnf gtk4" ;;
+                libsecret-1.so*) apt="$apt libsecret-1-0" dnf="$dnf libsecret" ;;
+                libsqlite3.so*) apt="$apt libsqlite3-0" dnf="$dnf sqlite-libs" ;;
+                libcurl.so*) apt="$apt libcurl4" dnf="$dnf libcurl" ;;
+            esac
+        done
+        echo "@NAME@ needs some libraries this computer doesn't have:" $missing >&2
+        if [ -n "$apt" ]; then
+            echo "On Ubuntu or Debian, add them with: sudo apt install$apt" >&2
+            echo "On Fedora, add them with: sudo dnf install$dnf" >&2
+        fi
+        echo "Then run ./install.sh again. Nothing was installed." >&2
+        exit 1
+    fi
+fi
+
 mkdir -p "$APP_DIR" "$MENU_DIR" "$ICON_DIR"
 # Replaced whole, so nothing from an older version is left behind.
 rm -rf "$APP_DIR"
@@ -69,4 +95,4 @@ MimeType=x-scheme-handler/@SCHEME@;
 EOF
 refresh_links
 
-echo "@NAME@ is installed. It is in the app menu."
+echo "@NAME@ @VERSION@ is installed. It is in the app menu."

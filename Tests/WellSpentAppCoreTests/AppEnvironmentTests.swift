@@ -170,6 +170,10 @@ struct AppEnvironmentTests {
                 #expect(script.contains("-e \"s/@\(name)@/$\(name)/g\""), "package.sh fills in @\(name)@")
                 filled = filled.replacingOccurrences(of: "@\(name)@", with: value)
             }
+            // The version is the same for every build, so it isn't set per
+            // environment, but package.sh fills it in too.
+            #expect(script.contains("-e \"s/@VERSION@/$VERSION/g\""), "package.sh fills in @VERSION@")
+            filled = filled.replacingOccurrences(of: "@VERSION@", with: "0.4.0")
             #expect(filled.range(of: "@[A-Z_]+@", options: .regularExpression) == nil, "\(environment)")
             let lines = filled.components(separatedBy: "\n")
             #expect(lines.contains("MimeType=x-scheme-handler/\(environment.inviteScheme);"), "\(environment)")
