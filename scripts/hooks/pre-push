@@ -41,7 +41,7 @@ if ! command -v swift >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
         fi
     done
     echo "pre-push: no swift here, so make prepush's Swift half runs in a container (SKIP_PREPUSH=1 skips it)" >&2
-    exec scripts/prepush-in-docker.sh
+    PREPUSH_FROM_HOOK=1 exec scripts/prepush-in-docker.sh
 fi
 echo "pre-push: running make prepush (about 25 minutes on a Mac; SKIP_PREPUSH=1 skips it)" >&2
 exec make prepush
