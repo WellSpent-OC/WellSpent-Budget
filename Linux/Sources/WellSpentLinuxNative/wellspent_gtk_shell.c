@@ -558,9 +558,9 @@ void *wellspent_gtk_create_shell_window(void *gtk_app,
     gtk_widget_set_hexpand(title_spacer, TRUE);
     gtk_box_append(GTK_BOX(titlebar), title_spacer);
 
-    char sub_buf[256];
-    snprintf(sub_buf, sizeof(sub_buf), "%s · Linux desktop", team_name ? team_name : "Demo Team");
-    GtkWidget *sub = gtk_label_new(sub_buf);
+    // The open group's name alone, or nothing (ops#408). The controller keeps
+    // it current through wellspent_gtk_set_subtitle.
+    GtkWidget *sub = gtk_label_new(team_name ? team_name : "");
     shell->subtitle_label = sub;
     gtk_widget_add_css_class(sub, "header-subtitle");
     gtk_box_append(GTK_BOX(titlebar), sub);
@@ -830,6 +830,12 @@ void wellspent_gtk_set_active_tab(void *shell_ptr, const char *tab_name) {
     } else if (strcmp(tab_name, "catalog") == 0) {
         gtk_widget_add_css_class(shell->btn_catalog, "active");
     }
+}
+
+void wellspent_gtk_set_subtitle(void *shell_ptr, const char *text) {
+    WellSpentGtkShell *shell = (WellSpentGtkShell *)shell_ptr;
+    if (!shell || !shell->subtitle_label) return;
+    gtk_label_set_text(GTK_LABEL(shell->subtitle_label), text ? text : "");
 }
 
 void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing) {
