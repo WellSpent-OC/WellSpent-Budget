@@ -13,6 +13,9 @@ trap 'rm -rf "$tmp"' EXIT
 # Git's own variables would point the throwaway repository's commands at
 # this one when the test runs inside a hook.
 unset $(git rev-parse --local-env-vars)
+# Run inside the hook, this test must not inherit the hook's word to the
+# container script: each case below sets it, or not, itself.
+unset PREPUSH_FROM_HOOK
 
 repo="$tmp/repo"
 git init -q "$repo"
