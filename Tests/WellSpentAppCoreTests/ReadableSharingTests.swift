@@ -99,6 +99,30 @@ struct ReadableSharingTests {
         #expect(try leslie.sees(group.id))
     }
 
+    /// The server took Leslie's join through the link, and its answer never
+    /// reached her app. Joining again with the same link opens the group, as
+    /// a first join does, with nothing about the link being used already.
+    /// The link's half of EMAIL-12's lost answer (ops#405). A used link for
+    /// someone not in the group still fails: aUsedOrCancelledLinkSaysWhy.
+    @Test func joiningAgainAfterALostAnswerOpensTheGroup() async throws {
+        let server = InMemoryReadableServer()
+        let robin = try await Person("robin@example.com", on: server)
+        robin.model.addGroup(named: "Household")
+        let group = try #require(robin.model.groups.first)
+        robin.model.addBudget(named: "Groceries", limit: Money(minorUnits: 50_000), in: group.id)
+        let link = try await robin.sync.share(group: group.id, groupName: group.name, level: .write,
+                                              historyAccess: .all, myName: "Robin")
+        let leslie = try await Person("leslie@example.com", on: server)
+        // The server takes the join, and the app never hears its answer.
+        _ = try await leslie.transport.acceptInvite(token: link.token)
+
+        let joined = try await leslie.sync.join(link, myName: "Leslie")
+        #expect(joined.groupID == group.id && joined.level == .write)
+        #expect(try leslie.sees(group.id))
+        #expect(try leslie.store.budgets(in: group.id).map(\.name) == ["Groceries"])
+        if case .failed(let words) = leslie.sync.state { Issue.record("the join failed: \(words)") }
+    }
+
     /// A link used twice, or cancelled, says so in words.
     @Test func aUsedOrCancelledLinkSaysWhy() async throws {
         let server = InMemoryReadableServer()
