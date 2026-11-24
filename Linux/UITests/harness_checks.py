@@ -123,6 +123,72 @@ class Press(unittest.TestCase):
                 button.press()
 
 
+class Node:
+    """A node with a role and a name, and children. Once `gone`, it reads as
+    a node a redraw replaced. With `slow` set, its first `slow` reads fail as
+    an app that doesn't answer does."""
+
+    def __init__(self, role, name, children=(), slow=0):
+        self.role, self.name, self.children, self.slow, self.gone = role, name, list(children), slow, False
+
+    def _answer(self):
+        if self.gone:
+            raise wellspent_ui.GLib.Error("The object /org/a11y/atspi/accessible/42 does not exist")
+        if self.slow:
+            self.slow -= 1
+            raise wellspent_ui.GLib.Error("Did not receive a reply")
+
+    def get_role_name(self):
+        self._answer()
+        return self.role
+
+    def get_name(self):
+        self._answer()
+        return self.name
+
+    def get_relation_set(self):
+        return []
+
+    def get_child_count(self):
+        self._answer()
+        return len(self.children)
+
+    def get_child_at_index(self, index):
+        return self.children[index]
+
+
+class Focus(unittest.TestCase):
+    """focus() finds the element again by its role and words, then tabs to
+    it. A redraw or a slow answer between finding it and focusing it must not
+    send it looking for the wrong thing (ops#395)."""
+
+    def focusing_app(self):
+        app = quit_app(0)
+        app.process = None
+        app.bring_to_front = lambda: None
+        app.sought = []
+
+        def find(role, words, within=None, wait=None):
+            app.sought.append((role, words))
+            return unittest.mock.Mock(focused=True)
+        app.find = find
+        return app
+
+    def test_a_redrawn_element_is_focused_by_the_words_it_was_found_by(self):
+        app = self.focusing_app()
+        box = Node("check box", "Sample Cottage")
+        found = wellspent_ui.Element(app, Node("frame", "WellSpent", [box])).all("check box", "Sample Cottage")
+        self.assertEqual(1, len(found))
+        box.gone = True
+        app.focus(found[0])
+        self.assertEqual([("check box", "Sample Cottage")], app.sought)
+
+    def test_an_app_slow_to_answer_is_asked_again(self):
+        app = self.focusing_app()
+        app.focus(wellspent_ui.Element(app, Node("push button", "Save", slow=2)))
+        self.assertEqual([("push button", "Save")], app.sought)
+
+
 class Recording:
     """A button or a field that writes down what was done to it."""
 
