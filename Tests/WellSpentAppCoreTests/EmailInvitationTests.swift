@@ -581,6 +581,9 @@ struct AppFaultsTests {
     /// the invitation being accepted already (ops#368).
     @Test func acceptingAgainAfterALostAnswerJoins() async throws {
         let server = InMemoryReadableServer()
+        // As today's live server does: a repeat Accept is refused as used, and
+        // the app's own recovery is what is tested.
+        server.repeatsAcceptAnswers = false
         let robin = try await EmailPerson("robin@example.com", on: server)
         let leslie = try await EmailPerson("leslie@example.com", on: server)
         let (group, _) = try await robin.offer()
@@ -602,6 +605,9 @@ struct AppFaultsTests {
     /// invitation and its error go.
     @Test func aSyncAfterALostAnswerJoins() async throws {
         let server = InMemoryReadableServer()
+        // As today's live server does: a repeat Accept is refused as used, and
+        // the app's own recovery is what is tested.
+        server.repeatsAcceptAnswers = false
         let robin = try await EmailPerson("robin@example.com", on: server)
         let leslie = try await EmailPerson("leslie@example.com", on: server)
         let (group, _) = try await robin.offer()

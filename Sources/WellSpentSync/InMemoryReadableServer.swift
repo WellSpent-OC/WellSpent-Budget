@@ -12,6 +12,15 @@ import WellSpentModel
 public final class InMemoryReadableServer: @unchecked Sendable {
     public let environment: String
     private let lock = NSLock()
+    /// An Accept sent again by the account that made it answers as the first
+    /// did, as the server does since ops#405. False acts as a server from
+    /// before that, which refuses it as used: for tests of the app's own
+    /// recovery on such a server (EMAIL-12).
+    private var _repeatsAcceptAnswers = true
+    public var repeatsAcceptAnswers: Bool {
+        get { lock.withLock { _repeatsAcceptAnswers } }
+        set { lock.withLock { _repeatsAcceptAnswers = newValue } }
+    }
 
     private struct Account {
         let id: UserID
@@ -61,6 +70,7 @@ public final class InMemoryReadableServer: @unchecked Sendable {
         let history: HistoryAccess
         let expiresAt: Date
         var accepted = false
+        var acceptedBy: UserID? = nil
         var email: String? = nil
         var inviteeName: String? = nil
         var inviterName: String? = nil
@@ -563,6 +573,13 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             guard user.verified else { throw Self.fail(403, "confirm your email address before joining a group") }
             guard var invite = invitesByToken[inviteToken] else { throw Self.fail(404, "no such invite") }
             if let email = invite.email, email != user.email { throw Self.fail(404, "no such invite") }
+            // This account's own Accept, sent again: the first answer again,
+            // while it is still a member (ops#405).
+            if _repeatsAcceptAnswers, invite.accepted, invite.acceptedBy == user.id,
+               let group = groups[invite.group], !group.deleted,
+               let membership = memberships[invite.group]?[user.id], membership.level != .none {
+                return serverGroup(group, membership)
+            }
             guard !invite.accepted else { throw Self.fail(409, "that invite has already been accepted") }
             guard !invite.rejected else { throw Self.fail(409, "that invite has already been rejected") }
             guard !invite.cancelled, !invite.closed else { throw Self.fail(404, "no such invite") }
@@ -579,6 +596,7 @@ public final class InMemoryReadableServer: @unchecked Sendable {
             }
             let floor = max(invite.history == .fromNow ? group.lastSeq : 0, inviter.floor)
             invite.accepted = true
+            invite.acceptedBy = user.id
             invitesByToken[inviteToken] = invite
             closeInvitations(to: user.email, in: invite.group, except: invite.id)
             let membership = Membership(level: invite.level, floor: floor)
