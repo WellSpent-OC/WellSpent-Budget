@@ -385,3 +385,4 @@ They do not count as UI scenario coverage in this table.
 | EMAIL-08 | A link from an earlier WellSpent version still works | Mac, Linux, iPhone | Mac, Linux, iPhone |
 | EMAIL-09 | The invitation email and its page | Server | Server |
 | EMAIL-10 | An Accept or Reject that can't reach the server says so | Mac, Linux, iPhone | Mac, Linux, iPhone |
+| EMAIL-12 | An Accept whose answer was lost still joins | Mac, Linux, iPhone | Mac |
