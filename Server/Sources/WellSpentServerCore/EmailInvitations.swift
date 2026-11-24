@@ -219,6 +219,18 @@ func acceptInvitation(id: UUID, userID: UUID, on database: any Database) async t
             throw Abort(.forbidden, reason: "confirm your email address before joining a group")
         }
         guard let invite = try await InviteRow.find(id, on: database) else { throw ServerError.inviteNotFound }
+        // This account's own Accept, sent again because the first answer was
+        // lost on the way (EMAIL-12, ops#405): the same answer, the group at
+        // the level and history floor it joined with, while it is still a
+        // member. Anyone else, or this account once it has left, is refused
+        // below as before.
+        if invite.acceptedAt != nil, invite.acceptedByUserID == userID,
+           let group = try await GroupRow.find(invite.groupID, on: database), group.deletedAt == nil,
+           let membership = try await MembershipRow.query(on: database).filter(\.$groupID == invite.groupID)
+               .filter(\.$userID == userID).first(),
+           membership.level > AccessLevel.none.rawValue {
+            return try groupResponse(group, membership: membership)
+        }
         let (group, inviter) = try await usableInvitation(invite, for: user, on: database)
         let fromInvite = HistoryAccess(rawValue: invite.historyAccess) == .fromNow ? group.lastSeq : 0
         let floor = max(fromInvite, inviter.joinedAtSequence)
