@@ -115,6 +115,9 @@ class Press(unittest.TestCase):
             def get_child_count(self):
                 return 0
 
+            def clear_cache(self):
+                pass
+
         app = quit_app(0)
         app.process = None
         button = wellspent_ui.Element(app, Pressable())
@@ -148,6 +151,9 @@ class Node:
 
     def get_relation_set(self):
         return []
+
+    def clear_cache(self):
+        pass
 
     def get_child_count(self):
         self._answer()
@@ -187,6 +193,43 @@ class Focus(unittest.TestCase):
         app = self.focusing_app()
         app.focus(wellspent_ui.Element(app, Node("push button", "Save", slow=2)))
         self.assertEqual([("push button", "Save")], app.sought)
+
+
+class Cached(Node):
+    """A node whose children are read from a cache, as libatspi keeps them:
+    a child added after the first look stays unseen until the cache is
+    cleared."""
+
+    def __init__(self, role, name, children=()):
+        super().__init__(role, name, children)
+        self.cached = None
+
+    def clear_cache(self):
+        self.cached = None
+
+    def get_child_count(self):
+        if self.cached is None:
+            self.cached = list(self.children)
+        return len(self.cached)
+
+    def get_child_at_index(self, index):
+        return self.cached[index]
+
+
+class Within(unittest.TestCase):
+    """A step that looks inside a window it found earlier, such as a sheet,
+    sees what is drawn there after it found it (ops#395: the House row came
+    in after the sheet opened, and picker() waited 15s on the sheet's old
+    children)."""
+
+    def test_a_row_drawn_after_the_sheet_was_found_is_seen(self):
+        app = quit_app(0)
+        app.process = None
+        sheet = Cached("dialog", "New transaction", [Node("combo box", "Lake bills")])
+        found = wellspent_ui.Element(app, sheet)
+        self.assertEqual([], found.all("combo box", "Lake House"))
+        sheet.children.append(Node("combo box", "Lake House"))
+        self.assertEqual(1, len(found.all("combo box", "Lake House")), "the row drawn later isn't seen")
 
 
 class Recording:

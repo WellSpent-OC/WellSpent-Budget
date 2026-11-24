@@ -216,6 +216,10 @@ class Element:
     def all(self, role=None, words=None, starts=None):
         """Everything inside this element with that role and those words, or
         whose words start with `starts`."""
+        # Read fresh, as front and main are. A step that looks inside a window
+        # it found earlier, such as a sheet, would otherwise walk the window's
+        # children as they were then, and miss a row drawn since (ops#395).
+        self.node.clear_cache()
         found = (role, words) if role is not None and words is not None else None
         return [
             Element(self.app, n, found)
