@@ -153,6 +153,59 @@ class EmailInvitations(unittest.TestCase):
         robin.person("Leslie")
         self.assertFalse(robin.shows(leslie.email, within=robin.main), "a pending row remains")
 
+    def accepted_but_unheard(self):
+        """Leslie presses Accept, the server takes it, and its answer never
+        reaches her app, so the app says it couldn't reach the server."""
+        leslie = self.leslie
+        self.send()
+        leslie.set_faults("invitation.accept.answerLost")
+        leslie.invitation_button(self.group, "Accept").press()
+        leslie.wait_shows(UNREACHABLE, within=leslie.main)
+        leslie.set_faults()
+
+    def joined(self):
+        """She is in the group, as in EMAIL-03, with both budgets. Nothing says
+        the invitation was accepted already, and the invitation, with its
+        failure, is gone from her list. The sidebar's footer can still say the
+        earlier sync failed: that is ops#379, not this scenario."""
+        robin, leslie = self.robin, self.leslie
+        leslie.until(lambda: len(leslie.budgets_in(self.group)) == 2, "both budgets after accepting")
+        self.assertEqual({"Food $487.50", "Travel $200.00"}, set(leslie.budgets_in(self.group)))
+        self.assertFalse(leslie.shows("Accept", within=leslie.main, role="push button"), "the invitation stayed")
+        self.assertFalse(leslie.shows("Invited by Robin", within=leslie.main), "the invitation stayed")
+        said = [t for t in leslie.texts(leslie.main) if "already" in t.lower()]
+        self.assertEqual([], said, "an error about the invitation being accepted already")
+        robin.sync()
+        robin.person("Leslie")
+        self.assertFalse(robin.shows(leslie.email, within=robin.main), "a pending row remains")
+
+    def test_accepting_again_after_a_lost_answer_joins(self):
+        # Scenario EMAIL-12
+        # 1. The server took her Accept, and its answer was lost.
+        self.accepted_but_unheard()
+
+        # Scenario EMAIL-12
+        # 2. She presses Accept again: she is in the group, with no error
+        # about it being accepted already.
+        self.leslie.accept_invitation(self.group)
+        self.joined()
+
+    def test_a_sync_after_a_lost_answer_joins(self):
+        # Scenario EMAIL-12
+        # 1. The server took her Accept, and its answer was lost.
+        self.accepted_but_unheard()
+
+        # Scenario EMAIL-12
+        # 2. The app syncs: she presses the footer's sync button, which after
+        # the failed Accept says "Sync failed" (ops#379). She is in the group,
+        # with no error about it being accepted already.
+        leslie = self.leslie
+        footer = leslie.until(lambda: next((b for b in leslie.main.all("push button")
+                                            if b.showing and b.words in ("Sync", "Sync failed")), None),
+                              "the footer's sync button")
+        footer.press()
+        self.joined()
+
     def test_sender_can_cancel_a_pending_invitation(self):
         robin, leslie = self.robin, self.leslie
         self.send()
