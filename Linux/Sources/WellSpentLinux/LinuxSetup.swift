@@ -23,6 +23,17 @@ enum LinuxSetup {
         return BuildFeatures.parse(url.flatMap { try? String(contentsOf: $0, encoding: .utf8) })
     }()
 
+    /// The release, such as "0.4.0", from the file the packaging step writes.
+    /// A build nobody packaged says 0.0.0-dev, as the Mac's make-app.sh does.
+    static let version: String = version(in: Bundle.module.url(forResource: "version", withExtension: nil)
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) })
+
+    /// The version file's text, trimmed. Missing or empty is 0.0.0-dev.
+    static func version(in text: String?) -> String {
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "0.0.0-dev" : trimmed
+    }
+
     /// $XDG_DATA_HOME, else ~/.local/share, then the build's own folder: "WellSpent"
     /// or "WellSpent Staging", as on the Mac. From $HOME, not the account record,
     /// which can differ.
