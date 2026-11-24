@@ -64,6 +64,18 @@ run no-swift "$before"
 check "$code" 1 "with no swift, a push of anything but HEAD is refused"
 check "$(cat "$tmp/ran")" "" "and nothing runs for it"
 
+# A push that only deletes branches sends no commit, so there is nothing to
+# check: it goes on, and nothing runs, with or without swift.
+zero=0000000000000000000000000000000000000000
+for dir in with-swift no-swift; do
+    : > "$tmp/ran"
+    code=0
+    (cd "$repo" && echo "(delete) $zero refs/heads/old $before" |
+        PATH="$tmp/$dir$system" sh "$hook" origin git@example.com:x.git) > "$tmp/out" 2>&1 || code=$?
+    check "$code" 0 "$dir: a push that only deletes goes on"
+    check "$(cat "$tmp/ran")" "" "$dir: and runs no checks"
+done
+
 # prepush-in-docker.sh on a disk at or past its limit stops before it builds
 # anything: no image, no container.
 mkdir -p "$tmp/full"
