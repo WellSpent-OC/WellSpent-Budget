@@ -27,7 +27,8 @@ endif
 
 .PHONY: mac-pins script-test build run test clean server-build server-test integration-test serve all-test coverage gates icon app \
         ui-test-project ui-test-build ui-test iphone-project iphone-build iphone-ui-test-build \
-        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin
+        iphone-ui-test iphone-icon iphone-testflight iphone-testflight-upload testflight testflight-upload release-twin \
+        linux-release
 
 build:
 	swift build
@@ -99,6 +100,8 @@ script-test:
 	scripts/no-deploy-key-test.sh
 	scripts/ui-test-outcome-test.sh
 	scripts/pre-push-test.sh
+	scripts/fresh-test-accounts-test.sh
+	scripts/linux-release-test.sh
 
 # The app's Package.resolved pins nothing from SwiftCrossUI, which is Linux
 # only. With it pinned, Xcode 26.6 crashes reading the file with Properties linked.
@@ -377,6 +380,18 @@ testflight:
 # Connect takes a few minutes to process it, then it shows under TestFlight.
 testflight-upload:
 	DEVELOPER_DIR=$(XCODE) KEYINFO="$(KEYINFO)" scripts/testflight.sh upload "$(TESTFLIGHT_PKG)"
+
+# The Linux release: the live app, packaged for install, from the same vX.Y.Z
+# tag and with the same flags as the TestFlight builds, so the two can't
+# differ. It stops without a release tag, as make testflight does. It needs
+# Swift with the GTK 4 and libsecret headers, which the Linux UI test image has,
+# and the Properties checkout at the commit .github/properties-ref names.
+LINUX_RELEASE_PROPERTIES_PATH ?= $(TESTFLIGHT_PROPERTIES_PATH)
+
+linux-release:
+	@[ -n "$(TESTFLIGHT_VERSION)" ] || { echo "make linux-release builds a release: check out its vX.Y.Z tag, or give TESTFLIGHT_VERSION for a trial build." >&2; exit 1; }
+	WELLSPENT_ENV=live VERSION=$(TESTFLIGHT_VERSION) WELLSPENT_FEATURES="$(TESTFLIGHT_FEATURES)" \
+		WELLSPENT_PROPERTIES_PATH="$(LINUX_RELEASE_PROPERTIES_PATH)" Linux/scripts/package.sh
 
 # The iPhone's TestFlight build: the live iPhone app, archived and exported by
 # Xcode, signed for the App Store, as one .ipa, release-checked and checked by

@@ -122,6 +122,10 @@ Platforms: Mac, Linux, iPhone
 
 Ruling, 2026-11-14: split from EMAIL-10. The server took the Accept, but the app never heard back. Placed in 0.4.0 on 2026-11-22 (ops#368).
 
+The same holds for a link. If Leslie pressed "Join" on Robin's link, the server took her in, and the answer never reached the app, pressing "Join" again opens Household as in CLICK-04, with no "That invite has already been accepted." CLICK-09 still holds when someone else used the link.
+
+Proven by: Server/Tests/WellSpentServerTests/GroupsV2Tests.swift anAcceptSentAgainBySameAccountAnswersAsTheFirstDid
+
 - Given Leslie pressed Accept, the server accepted it, and the answer never reached the app
 - When she presses Accept again, or the app syncs
 - Then she is in the group, as in EMAIL-03, with no error about it being accepted already

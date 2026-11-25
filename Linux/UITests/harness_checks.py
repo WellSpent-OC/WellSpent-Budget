@@ -115,12 +115,121 @@ class Press(unittest.TestCase):
             def get_child_count(self):
                 return 0
 
+            def clear_cache(self):
+                pass
+
         app = quit_app(0)
         app.process = None
         button = wellspent_ui.Element(app, Pressable())
         with unittest.mock.patch.object(wellspent_ui.Atspi.Action, "do_action", lambda node, index: False):
             with self.assertRaises(wellspent_ui.ScreenError):
                 button.press()
+
+
+class Node:
+    """A node with a role and a name, and children. Once `gone`, it reads as
+    a node a redraw replaced. With `slow` set, its first `slow` reads fail as
+    an app that doesn't answer does."""
+
+    def __init__(self, role, name, children=(), slow=0):
+        self.role, self.name, self.children, self.slow, self.gone = role, name, list(children), slow, False
+
+    def _answer(self):
+        if self.gone:
+            raise wellspent_ui.GLib.Error("The object /org/a11y/atspi/accessible/42 does not exist")
+        if self.slow:
+            self.slow -= 1
+            raise wellspent_ui.GLib.Error("Did not receive a reply")
+
+    def get_role_name(self):
+        self._answer()
+        return self.role
+
+    def get_name(self):
+        self._answer()
+        return self.name
+
+    def get_relation_set(self):
+        return []
+
+    def clear_cache(self):
+        pass
+
+    def get_child_count(self):
+        self._answer()
+        return len(self.children)
+
+    def get_child_at_index(self, index):
+        return self.children[index]
+
+
+class Focus(unittest.TestCase):
+    """focus() finds the element again by its role and words, then tabs to
+    it. A redraw or a slow answer between finding it and focusing it must not
+    send it looking for the wrong thing (ops#395)."""
+
+    def focusing_app(self):
+        app = quit_app(0)
+        app.process = None
+        app.bring_to_front = lambda: None
+        app.sought = []
+
+        def find(role, words, within=None, wait=None):
+            app.sought.append((role, words))
+            return unittest.mock.Mock(focused=True)
+        app.find = find
+        return app
+
+    def test_a_redrawn_element_is_focused_by_the_words_it_was_found_by(self):
+        app = self.focusing_app()
+        box = Node("check box", "Sample Cottage")
+        found = wellspent_ui.Element(app, Node("frame", "WellSpent", [box])).all("check box", "Sample Cottage")
+        self.assertEqual(1, len(found))
+        box.gone = True
+        app.focus(found[0])
+        self.assertEqual([("check box", "Sample Cottage")], app.sought)
+
+    def test_an_app_slow_to_answer_is_asked_again(self):
+        app = self.focusing_app()
+        app.focus(wellspent_ui.Element(app, Node("push button", "Save", slow=2)))
+        self.assertEqual([("push button", "Save")], app.sought)
+
+
+class Cached(Node):
+    """A node whose children are read from a cache, as libatspi keeps them:
+    a child added after the first look stays unseen until the cache is
+    cleared."""
+
+    def __init__(self, role, name, children=()):
+        super().__init__(role, name, children)
+        self.cached = None
+
+    def clear_cache(self):
+        self.cached = None
+
+    def get_child_count(self):
+        if self.cached is None:
+            self.cached = list(self.children)
+        return len(self.cached)
+
+    def get_child_at_index(self, index):
+        return self.cached[index]
+
+
+class Within(unittest.TestCase):
+    """A step that looks inside a window it found earlier, such as a sheet,
+    sees what is drawn there after it found it (ops#395: the House row came
+    in after the sheet opened, and picker() waited 15s on the sheet's old
+    children)."""
+
+    def test_a_row_drawn_after_the_sheet_was_found_is_seen(self):
+        app = quit_app(0)
+        app.process = None
+        sheet = Cached("dialog", "New transaction", [Node("combo box", "Lake bills")])
+        found = wellspent_ui.Element(app, sheet)
+        self.assertEqual([], found.all("combo box", "Lake House"))
+        sheet.children.append(Node("combo box", "Lake House"))
+        self.assertEqual(1, len(found.all("combo box", "Lake House")), "the row drawn later isn't seen")
 
 
 class Recording:

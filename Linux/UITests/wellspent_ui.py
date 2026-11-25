@@ -141,9 +141,12 @@ def _walk(node):
 class Element:
     """One thing on screen: a button, a text, a text box, a menu item."""
 
-    def __init__(self, app, node):
+    def __init__(self, app, node, found=None):
         self.app = app
         self.node = node
+        # The role and words it was found by, if it was found by both. A
+        # redraw can replace its node, and then reading them again gives none.
+        self.found = found
 
     def __repr__(self):
         # Also used to describe a step before it waits, so a node a redraw
@@ -213,8 +216,13 @@ class Element:
     def all(self, role=None, words=None, starts=None):
         """Everything inside this element with that role and those words, or
         whose words start with `starts`."""
+        # Read fresh, as front and main are. A step that looks inside a window
+        # it found earlier, such as a sheet, would otherwise walk the window's
+        # children as they were then, and miss a row drawn since (ops#395).
+        self.node.clear_cache()
+        found = (role, words) if role is not None and words is not None else None
         return [
-            Element(self.app, n)
+            Element(self.app, n, found)
             for n in _walk(self.node)[1:]
             if (role is None or _role(n) == role)
             and (words is None or _words(n) == words)
@@ -709,8 +717,10 @@ class App:
 
     def focus(self, element):
         """Moves the real keyboard focus with Tab. GTK 4 does not implement
-        AT-SPI grab_focus for every text control; no coordinates are used."""
-        role, words = element.role, element.words
+        AT-SPI grab_focus for every text control; no coordinates are used.
+        It finds the element again by the role and words it was found by:
+        read again, a redrawn one has none, and a slow app may not answer."""
+        role, words = element.found or self.until(lambda: (element.role, element.words), f"{element!r}'s name")
         self.bring_to_front()
         for _ in range(60):
             if self.find(role, words).focused:

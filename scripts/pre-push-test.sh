@@ -13,6 +13,9 @@ trap 'rm -rf "$tmp"' EXIT
 # Git's own variables would point the throwaway repository's commands at
 # this one when the test runs inside a hook.
 unset $(git rev-parse --local-env-vars)
+# Run inside the hook, this test must not inherit the hook's word to the
+# container script: each case below sets it, or not, itself.
+unset PREPUSH_FROM_HOOK
 
 repo="$tmp/repo"
 git init -q "$repo"
@@ -64,6 +67,18 @@ run no-swift "$before"
 check "$code" 1 "with no swift, a push of anything but HEAD is refused"
 check "$(cat "$tmp/ran")" "" "and nothing runs for it"
 
+# A push that only deletes branches sends no commit, so there is nothing to
+# check: it goes on, and nothing runs, with or without swift.
+zero=0000000000000000000000000000000000000000
+for dir in with-swift no-swift; do
+    : > "$tmp/ran"
+    code=0
+    (cd "$repo" && echo "(delete) $zero refs/heads/old $before" |
+        PATH="$tmp/$dir$system" sh "$hook" origin git@example.com:x.git) > "$tmp/out" 2>&1 || code=$?
+    check "$code" 0 "$dir: a push that only deletes goes on"
+    check "$(cat "$tmp/ran")" "" "$dir: and runs no checks"
+done
+
 # prepush-in-docker.sh on a disk at or past its limit stops before it builds
 # anything: no image, no container.
 mkdir -p "$tmp/full"
@@ -108,5 +123,29 @@ printf '#!/bin/sh\necho 4\n' > "$tmp/room/nproc"
 (cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$tmp/scratch" \
     sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || true
 check "$(grep -c -- '^docker run .*--cpuset-cpus=0-3 ' "$tmp/ran")" 1 "on a 4-core machine, all 4 and no more"
+
+# From the hook, with a cold build folder: it stops at once and says how to
+# warm it, since a cold build outlasts the push's connection to the remote,
+# which then fails after the checks pass. Run directly, it builds, and the
+# folder is warm for the next push.
+cold="$tmp/cold-scratch"
+rm -rf "$cold"
+: > "$tmp/ran"
+code=0
+(cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$cold" PREPUSH_FROM_HOOK=1 \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || code=$?
+check "$code" 1 "from the hook, a cold folder stops the push"
+check "$(cat "$tmp/ran")" "" "and builds nothing"
+check "$(grep -c 'scripts/prepush-in-docker.sh' "$tmp/out")" 1 "it says to run the checks once first"
+: > "$tmp/ran"
+(cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$cold" \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || true
+check "$(grep -c '^docker run' "$tmp/ran")" 1 "run directly, a cold folder builds"
+: > "$tmp/ran"
+code=0
+(cd "$repo" && PATH="$tmp/room:$tmp/system" PREPUSH_SCRATCH="$cold" PREPUSH_FROM_HOOK=1 \
+    sh "$(dirname "$hook")/../prepush-in-docker.sh") > "$tmp/out" 2>&1 || code=$?
+check "$code" 0 "after that, the hook's checks run"
+check "$(grep -c '^docker run' "$tmp/ran")" 1 "and build in the warm folder"
 
 exit "$failed"
