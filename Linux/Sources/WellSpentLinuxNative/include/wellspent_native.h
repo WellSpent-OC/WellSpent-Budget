@@ -206,6 +206,9 @@ void wellspent_gtk_set_active_tab(void *shell_ptr, const char *tab_name);
 
 void wellspent_gtk_set_sync_state(void *shell_ptr, int is_syncing);
 
+/// The words beside WELLSPENT in the titlebar: the open group's name, or "".
+void wellspent_gtk_set_subtitle(void *shell_ptr, const char *text);
+
 void wellspent_gtk_show_new_budget_dialog(void *shell_ptr,
                                           wellspent_gtk_new_budget_cb cb,
                                           void *context);

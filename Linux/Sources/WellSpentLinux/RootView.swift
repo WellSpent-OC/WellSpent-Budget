@@ -108,7 +108,7 @@ struct RootView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(Palette.goldLight)
                 Spacer()
-                Text("\(screen.openGroup?.name ?? "Demo Team") · Linux desktop")
+                Text(Titlebar.subtitle(openGroup: screen.openGroup?.name))
                     .font(.system(size: 11))
                     .foregroundColor(Palette.sidebarHeader)
             }

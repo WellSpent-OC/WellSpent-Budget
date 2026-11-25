@@ -26,7 +26,7 @@ final class NativeShellController {
             return
         }
         Self.loadLook()
-        let teamName = screen.openGroup?.name ?? "Demo Team"
+        let teamName = Titlebar.subtitle(openGroup: screen.openGroup?.name)
         let title = LinuxSetup.environment.appName
 
         // Unretained: the app holds this controller for as long as it runs,
@@ -311,6 +311,9 @@ final class NativeShellController {
 
     func render() {
         guard let shellPtr else { return }
+
+        // The titlebar follows the open group (ops#408).
+        wellspent_gtk_set_subtitle(shellPtr, Titlebar.subtitle(openGroup: screen.openGroup?.name))
 
         // The sidebar, rebuilt from the shared screen: invitations, each
         // group's name and menu, its note and budgets, the waiting note,

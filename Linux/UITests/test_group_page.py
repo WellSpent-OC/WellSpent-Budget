@@ -74,6 +74,22 @@ class GroupPage(unittest.TestCase):
         self.assertEqual("⋯", line[name + 1].words, "something other than the menu after the name")
         return "".join(l.text for l in line[name - 1].all("label"))
 
+    def test_the_titlebar_names_the_open_group_and_nothing_else(self):
+        app = self.app
+        # ops#408: beside WELLSPENT, the open group's name alone, nothing when
+        # no group's page is open, and never "Linux desktop".
+        app.budget("Groceries").press()
+        app.until(lambda: self.budget_shows("Groceries"), "Groceries to open")
+        said = [t for t in app.texts(app.main) if "Linux desktop" in t or "Demo Team" in t]
+        self.assertEqual([], said, "the titlebar with a budget open")
+
+        app.group("Household").press()
+        app.until(lambda: self.page_shows("Household"), "Household's page")
+        texts = app.texts(app.main)
+        self.assertEqual("Household", texts[texts.index("WELLSPENT") + 1], f"the titlebar: {texts[:6]}")
+        self.assertEqual([], [t for t in texts if "Linux desktop" in t], "the titlebar on the group's page")
+        app.picture("titlebar-group-page")
+
     def test_the_arrow_hides_and_shows_a_groups_budgets(self):
         app = self.app
         household = ("Groceries", "Eating out", "Utilities")
