@@ -304,22 +304,26 @@ iphone-ui-test: iphone-ui-test-build
 		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true; \
 		$(IPHONE_SIMCTL) spawn "$$udid" defaults write com.apple.Preferences DidShowContinuousPathIntroduction -bool true; \
 		$(IPHONE_SIMCTL) ui "$$udid" appearance $$look; \
-		rm -rf .build/xcode-iphone/ui-test-$$look.xcresult; \
+		result=.build/xcode-iphone/ui-test-$$look; \
+		rm -rf $$result.xcresult $$result-retry.xcresult $$result-lost.txt; \
+		phone_tests() { \
+			bundle=$$1; shift; \
+			TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_3="$$WELLSPENT_UI_TEST_EMAIL_3" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_3="$$WELLSPENT_UI_TEST_PASSWORD_3" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
+			TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
+			DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
+				-test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
+				-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
+				-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
+				-resultBundlePath "$$bundle" "$$@"; \
+		}; \
 		status=0; \
-		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL="$$WELLSPENT_UI_TEST_EMAIL" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD="$$WELLSPENT_UI_TEST_PASSWORD" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_2="$$WELLSPENT_UI_TEST_EMAIL_2" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_2="$$WELLSPENT_UI_TEST_PASSWORD_2" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_EMAIL_3="$$WELLSPENT_UI_TEST_EMAIL_3" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_PASSWORD_3="$$WELLSPENT_UI_TEST_PASSWORD_3" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_SERVER="$$WELLSPENT_UI_TEST_SERVER" \
-		TEST_RUNNER_WELLSPENT_UI_TEST_MAILBOX_TOKEN="$$WELLSPENT_UI_TEST_MAILBOX_TOKEN" \
-		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" xcodebuild test-without-building \
-			-retry-tests-on-failure -test-iterations 2 -test-timeouts-enabled YES -default-test-execution-time-allowance 900 -maximum-test-execution-time-allowance 1200 \
-			-project $(IPHONE_PROJECT) -scheme WellSpentPhone -destination "id=$$udid" \
-			-derivedDataPath .build/xcode-iphone -clonedSourcePackagesDirPath .build/xcode-packages \
-			-resultBundlePath .build/xcode-iphone/ui-test-$$look.xcresult \
-			-enableCodeCoverage YES \
+		phone_tests $$result.xcresult -retry-tests-on-failure -test-iterations 2 -enableCodeCoverage YES \
 			$$only \
 			$$(if [ $$look = dark ]; then echo -skip-testing:WellSpentPhoneUITests/PhoneSignInSyncTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneSharingTests \
@@ -328,10 +332,19 @@ iphone-ui-test: iphone-ui-test-build
 				-skip-testing:WellSpentPhoneUITests/PhoneAccountTests \
 				-skip-testing:WellSpentPhoneUITests/PhoneNewAccountTests; fi) \
 			|| status=$$?; \
+		outcome=0; \
+		DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh $$result.xcresult $$result-lost.txt || outcome=$$?; \
+		if [ $$outcome = 2 ]; then \
+			echo "These failed, and lost their retry when the test runner restarted. Each now has its retry, on its own:"; \
+			cat $$result-lost.txt; \
+			outcome=0; \
+			phone_tests $$result-retry.xcresult $$(sed 's/^/-only-testing:/' $$result-lost.txt) || true; \
+			DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh $$result-retry.xcresult || outcome=1; \
+		fi; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \
 		trap - EXIT INT TERM; \
-		if ! DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh .build/xcode-iphone/ui-test-$$look.xcresult; then \
+		if [ $$outcome != 0 ]; then \
 			echo "iPhone UI tests failed in $$look mode (xcodebuild status $$status)"; exit 1; \
 		fi; \
 	done
