@@ -16,6 +16,9 @@
 # names archive.ubuntu.com and security.ubuntu.com, which can crawl for many
 # minutes. The runner itself uses Azure's mirror, in the same network, so the
 # container is pointed there too.
+# When the first try on that mirror fails, the others go to archive.ubuntu.com,
+# Ubuntu's own, which carries the security pocket too: a mirror that stalls
+# one night stalls every try.
 #
 # APT_MIRROR names that mirror's host, such as http://azure.archive.ubuntu.com/,
 # for a build GitHub runs that can't tell it's on GitHub: the server image's
@@ -52,6 +55,13 @@ while :; do
         exit 1
     fi
     echo "apt failed (try $try of 3); trying again in $((try * wait)) seconds." >&2
+    if [ "$try" -eq 1 ] && [ -n "$mirror" ]; then
+        echo "apt: trying Ubuntu's own archive in place of $mirror." >&2
+        for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
+            [ -f "$sources" ] || continue
+            sed -i -e "s#$mirror#http://archive.ubuntu.com/#g" "$sources"
+        done
+    fi
     sleep $((try * wait))
     try=$((try + 1))
 done
