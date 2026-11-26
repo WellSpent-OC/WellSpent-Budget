@@ -124,4 +124,47 @@ run failed.json lost.json
 check "$code" 1 "with no file for them, lost retries fail the run"
 check "$(grep -c '^ui-test-outcome: FAILED testB()' "$tmp/out")" 1 "and are named failed"
 
+# The retries' own run, read with --retry-of the file of lost retries. It
+# passes only when it passed exactly those tests, with none failed or
+# skipped. A name that matched no test makes xcodebuild run nothing, and
+# that bundle still reads Passed, so it has to fail here.
+printf 'UITests/SampleTests/testB\nUITests/OtherTests/testC\n' > "$tmp/lost-list.txt"
+cat > "$tmp/retry-exact.json" <<'JSON'
+{"testNodes": [{"nodeType": "Unit test bundle", "name": "UITests", "children": [
+  {"nodeType": "Test Suite", "name": "SampleTests", "children": [
+    {"nodeType": "Test Case", "name": "testB()", "result": "Passed"}]},
+  {"nodeType": "Test Suite", "name": "OtherTests", "children": [
+    {"nodeType": "Test Case", "name": "testC()", "result": "Passed"}]}]}]}
+JSON
+echo '{"testNodes": []}' > "$tmp/retry-none.json"
+cat > "$tmp/retry-short.json" <<'JSON'
+{"testNodes": [{"nodeType": "Unit test bundle", "name": "UITests", "children": [
+  {"nodeType": "Test Suite", "name": "SampleTests", "children": [
+    {"nodeType": "Test Case", "name": "testB()", "result": "Passed"}]}]}]}
+JSON
+cat > "$tmp/retry-skipped.json" <<'JSON'
+{"testNodes": [{"nodeType": "Unit test bundle", "name": "UITests", "children": [
+  {"nodeType": "Test Suite", "name": "SampleTests", "children": [
+    {"nodeType": "Test Case", "name": "testB()", "result": "Passed"}]},
+  {"nodeType": "Test Suite", "name": "OtherTests", "children": [
+    {"nodeType": "Test Case", "name": "testC()", "result": "Skipped"}]}]}]}
+JSON
+# run_retry SUMMARY TESTS: reads a retries' run against lost-list.txt.
+run_retry() {
+    code=0
+    python3 -I "$outcome" "$tmp/$1" "$tmp/$2" --retry-of "$tmp/lost-list.txt" > "$tmp/out" 2>&1 || code=$?
+}
+run_retry passed.json retry-exact.json
+check "$code" 0 "a retries' run that passed exactly the lost tests passes"
+check "$(grep -c 'passed on its own retry' "$tmp/out")" 2 "it says each passed on its own retry"
+run_retry passed.json retry-none.json
+check "$code" 1 "a retries' run that ran no test fails, though it reads Passed"
+run_retry passed.json retry-short.json
+check "$code" 1 "a retries' run that left a lost test out fails"
+check "$(grep -c 'UITests/OtherTests/testC' "$tmp/out")" 1 "and names the one left out"
+run_retry passed.json retry-skipped.json
+check "$code" 1 "a retries' run that skipped a lost test fails"
+run_retry failed.json retry-exact.json
+check "$code" 1 "a retries' run whose verdict is Failed fails"
+
 exit "$failed"
