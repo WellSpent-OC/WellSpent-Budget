@@ -102,6 +102,7 @@ script-test:
 	scripts/pre-push-test.sh
 	scripts/fresh-test-accounts-test.sh
 	scripts/linux-release-test.sh
+	scripts/apt-install-test.sh
 
 # The app's Package.resolved pins nothing from SwiftCrossUI, which is Linux
 # only. With it pinned, Xcode 26.6 crashes reading the file with Properties linked.

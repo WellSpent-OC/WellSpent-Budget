@@ -22,14 +22,18 @@
 # Dockerfile passes it in as a build argument. Unset, and off GitHub, the
 # image's own hosts are used. APT_RECOMMENDS=1 installs recommended packages
 # too, as the server image always has.
+#
+# APT_ETC is where the sources files are (default /etc/apt), for testing this
+# script.
 set -eu
 [ "$#" -gt 0 ] || { echo "usage: $0 PACKAGE..." >&2; exit 2; }
 wait="${APT_RETRY_WAIT:-30}"
 limit="${APT_TRY_SECONDS:-600}"
 mirror="${APT_MIRROR:-}"
+etc="${APT_ETC:-/etc/apt}"
 [ -z "$mirror" ] && [ "${GITHUB_ACTIONS:-}" = true ] && mirror=http://azure.archive.ubuntu.com/
 if [ -n "$mirror" ]; then
-    for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+    for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
         [ -f "$sources" ] || continue
         sed -i -e "s#http://archive\\.ubuntu\\.com/#$mirror#g" \
                -e "s#http://security\\.ubuntu\\.com/#$mirror#g" "$sources"
