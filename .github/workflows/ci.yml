@@ -971,8 +971,13 @@ jobs:
     # One look was 71 to 73 minutes of tests with 26 tests. Five more tests
     # made it 92 to 112, plus about 8 for the build, and a test that needs
     # its second try adds its own time again. At 120 one look was cut off 2
-    # minutes after its last test had passed.
-    timeout-minutes: 180
+    # minutes after its last test had passed. From 11-24 to 11-26 the tests
+    # grew from 32 to 34, but each row batch lengthens the tests themselves:
+    # a look's test step went from 90 to 140 minutes to 135 to 160, about 6
+    # minutes a batch. The same tests swing up to 50 minutes between runners,
+    # so a slow one would pass 180 before the iPhone rows are done. Split each
+    # look in two once one passes 200.
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
