@@ -285,6 +285,24 @@ class HeldSheet(unittest.TestCase):
         with open(path) as note:
             self.assertIn("New transaction: found again after 1 redraw while held", note.read())
 
+    def test_a_held_sheet_never_becomes_another_window(self):
+        # The sheet closes and another opens where it was: the held one
+        # isn't read as the new one.
+        held = self.app.wait_for_window(2, "the sheet")
+        self.sheet.gone = True
+        self.shown = [self.main, Shown("dialog", "Delete Lake bills?", [Shown("push button", "Delete")])]
+        self.assertEqual([], held.all("push button", "Delete"), "the held sheet read another window's Delete")
+
+    def test_a_held_window_is_found_by_its_name_when_the_order_shifts(self):
+        # A question over the sheet is held, then the sheet under it closes:
+        # the question moves down a place and is still the one read.
+        question = Shown("dialog", "Discard changes?", [Shown("push button", "Discard")])
+        self.shown = [self.main, self.sheet, question]
+        held = self.app.wait_for_window(3, "the question")
+        self.sheet.gone, question.gone = True, True
+        self.shown = [self.main, Shown("dialog", "Discard changes?", [Shown("push button", "Discard")])]
+        self.assertEqual(1, len(held.all("push button", "Discard")), "the held question was lost when the sheet closed")
+
 class Recording:
     """A button or a field that writes down what was done to it."""
 
