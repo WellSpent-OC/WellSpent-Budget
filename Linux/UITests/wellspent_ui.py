@@ -301,8 +301,11 @@ class Window(Element):
     """A window held across steps, such as a sheet: found again at its place
     among the windows each time it's read. GTK can redraw a sheet after it
     first shows, and the node held from then reads nothing and takes no
-    press (ops#416). A redraw while it's held is counted, and the failure
-    dump says so. Once the window closes, it reads as the window it was."""
+    press (ops#416). It's the window of the same role and name: at its
+    place if that one matches, else the front-most that does, so a window
+    opening or closing around it never makes it another window. A redraw
+    while it's held is counted, and the failure dump says so. Once the
+    window closes, it reads as the window it was."""
 
     def __init__(self, app, index, node):
         self.index = index
@@ -310,9 +313,9 @@ class Window(Element):
         self._node = None
         super().__init__(app, node)
         try:
-            self.name = _words(node)
+            self.kind, self.name = node.get_role_name(), _words(node)
         except Exception:
-            self.name = "a window"
+            self.kind, self.name = None, "a window"
         held = getattr(app, "held_windows", None)
         if held is None:
             held = app.held_windows = []
@@ -324,11 +327,21 @@ class Window(Element):
             windows = self.app.windows()
         except Exception:
             return self._node
-        if self.index < len(windows):
+        def same(window):
+            try:
+                return window.role == self.kind and window.words == self.name
+            except Exception:
+                return False
+        if self.index < len(windows) and same(windows[self.index]):
             now = windows[self.index].node
-            if now is not self._node:
-                self.redrawn += 1
-                self._node = now
+        else:
+            matching = [window for window in windows if same(window)]
+            if not matching:
+                return self._node
+            now = matching[-1].node
+        if now is not self._node:
+            self.redrawn += 1
+            self._node = now
         return self._node
 
     @node.setter
