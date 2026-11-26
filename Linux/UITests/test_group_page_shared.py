@@ -52,7 +52,12 @@ class GroupPageShared(unittest.TestCase):
         Someone… can sit between the two."""
         def line_under():
             texts = app.texts(app.main)
-            return group in texts and words in texts[texts.index(group) + 1:texts.index(group) + 3]
+            # From after the title bar, which names the open group too (#274).
+            start = texts.index("WELLSPENT") + 2 if "WELLSPENT" in texts else 0
+            if group not in texts[start:]:
+                return False
+            at = texts.index(group, start)
+            return words in texts[at + 1:at + 3]
         app.until(line_under, f"{words!r} under {group}")
 
     def test_the_line_the_people_and_someone_joining(self):
