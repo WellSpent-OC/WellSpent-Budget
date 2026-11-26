@@ -339,7 +339,7 @@ iphone-ui-test: iphone-ui-test-build
 			cat $$result-lost.txt; \
 			outcome=0; \
 			phone_tests $$result-retry.xcresult $$(sed 's/^/-only-testing:/' $$result-lost.txt) || true; \
-			DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh $$result-retry.xcresult || outcome=1; \
+			DEVELOPER_DIR="$(UI_TEST_DEVELOPER_DIR)" scripts/ui-test-outcome.sh $$result-retry.xcresult --retry-of $$result-lost.txt || outcome=1; \
 		fi; \
 		$(IPHONE_SIMCTL) shutdown "$$udid" || true; \
 		$(IPHONE_SIMCTL) delete "$$udid" || true; \

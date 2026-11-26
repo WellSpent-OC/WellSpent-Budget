@@ -6,6 +6,9 @@
 #
 #   scripts/skipped-tests.sh RESULT.xcresult [RESULT.xcresult ...]
 #
+# Each bundle's NAME-retry.xcresult beside it, the retries a runner restart
+# lost (make iphone-ui-test), is read too, when there is one.
+#
 # A missing bundle is passed over, since a run that stopped early has
 # already failed for its own reason. CI runs this only when the test mailbox
 # token is there: without it, as for a fork, the signed-in tests skip by
@@ -17,10 +20,13 @@ set -eu
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 count=0
-for bundle in "$@"; do
+for given in "$@"; do
+  for bundle in "$given" "${given%.xcresult}-retry.xcresult"; do
+    [ "$bundle" = "$given" ] || [ -d "$bundle" ] || continue
     [ -d "$bundle" ] || { echo "skipped tests: no result bundle at $bundle, so nothing to read"; continue; }
     count=$((count + 1))
     xcrun xcresulttool get test-results tests --path "$bundle" --format json > "$work/tests-$count.json"
+  done
 done
 [ "$count" -gt 0 ] || exit 0
 
