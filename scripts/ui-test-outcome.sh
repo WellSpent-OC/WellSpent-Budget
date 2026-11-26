@@ -5,9 +5,12 @@
 # Xcode versions still exit non-zero for it, which read as a red run every
 # night. Prints each test that needed its retry, so flakiness stays visible,
 # and on GitHub puts them in the run's summary too (scripts/ui-test-outcome.py).
-#   scripts/ui-test-outcome.sh RESULT.xcresult
+#   scripts/ui-test-outcome.sh RESULT.xcresult [LOST]
 # Exits 0 when the bundle's verdict is Passed, 1 otherwise, naming the tests
-# that failed on their last attempt.
+# that failed on their last attempt. Given LOST, a file, and when every failed
+# test lost its retry to a test runner restart, it names them there and exits
+# 2, so each can have its retry on its own. With --retry-of LOST, it reads
+# that run of the retries, and passes only when it passed exactly those tests.
 set -u
 bundle=$1
 if [ ! -d "$bundle" ]; then
@@ -22,4 +25,4 @@ xcrun xcresulttool get test-results summary --path "$bundle" > "$tmp/summary.jso
     exit 1
 }
 xcrun xcresulttool get test-results tests --path "$bundle" > "$tmp/tests.json" 2>/dev/null
-python3 -I "$here/ui-test-outcome.py" "$tmp/summary.json" "$tmp/tests.json"
+python3 -I "$here/ui-test-outcome.py" "$tmp/summary.json" "$tmp/tests.json" ${2:+"$2"} ${3:+"$3"}
