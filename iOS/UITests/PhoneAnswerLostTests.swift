@@ -28,10 +28,11 @@ final class PhoneAnswerLostTests: XCTestCase {
         super.tearDown()
     }
 
-    /// What the phone says when it can't reach the server.
+    /// What the phone says when the server's answer is lost: the failure
+    /// switch's error, the same words the Mac's test reads.
     @MainActor
     private static var offline: String {
-        AccountWording.words(for: URLError(.notConnectedToInternet), device: PhoneTestApp.device)
+        AccountWording.words(for: AppFaults.unreachable, device: PhoneTestApp.device)
     }
 
     /// Two invitations whose Accept answers are lost. The first is accepted
