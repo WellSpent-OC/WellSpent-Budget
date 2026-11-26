@@ -296,6 +296,45 @@ class Element:
 # MARK: - The app
 
 
+
+class Window(Element):
+    """A window held across steps, such as a sheet: found again at its place
+    among the windows each time it's read. GTK can redraw a sheet after it
+    first shows, and the node held from then reads nothing and takes no
+    press (ops#416). A redraw while it's held is counted, and the failure
+    dump says so. Once the window closes, it reads as the window it was."""
+
+    def __init__(self, app, index, node):
+        self.index = index
+        self.redrawn = 0
+        self._node = None
+        super().__init__(app, node)
+        try:
+            self.name = _words(node)
+        except Exception:
+            self.name = "a window"
+        held = getattr(app, "held_windows", None)
+        if held is None:
+            held = app.held_windows = []
+        held.append(self)
+
+    @property
+    def node(self):
+        try:
+            windows = self.app.windows()
+        except Exception:
+            return self._node
+        if self.index < len(windows):
+            now = windows[self.index].node
+            if now is not self._node:
+                self.redrawn += 1
+                self._node = now
+        return self._node
+
+    @node.setter
+    def node(self, node):
+        self._node = node
+
 class App:
     """One copy of WellSpent, with a home of its own, so it starts with fresh
     data and never touches anyone's budgets.
@@ -583,6 +622,10 @@ class App:
                 lines += [f"  {words}" for words in self.texts(window)]
         except Exception as error:  # a hung or ended app answers nothing
             lines.append(f"no words: {error}")
+        for held in getattr(self, "held_windows", []):
+            if held.redrawn:
+                times = "redraw" if held.redrawn == 1 else "redraws"
+                lines.append(f"{held.name}: found again after {held.redrawn} {times} while held")
         with open(path, "w") as note:
             note.write("\n".join(lines) + "\n")
 
@@ -650,9 +693,10 @@ class App:
 
     def wait_for_window(self, count, what):
         """Waits until `count` windows show, such as 2 for a sheet over the
-        main window, and gives back the one in front."""
+        main window, and gives back the one in front, found again at each
+        step after (Window)."""
         self.until(lambda: len(self.windows()) == count, what)
-        return self.front
+        return Window(self, count - 1, self.front.node)
 
     # Finding
 
