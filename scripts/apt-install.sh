@@ -35,11 +35,21 @@ limit="${APT_TRY_SECONDS:-600}"
 mirror="${APT_MIRROR:-}"
 etc="${APT_ETC:-/etc/apt}"
 [ -z "$mirror" ] && [ "${GITHUB_ACTIONS:-}" = true ] && mirror=http://azure.archive.ubuntu.com/
+# Edits a file with sed's expressions, the same on GNU and BSD sed: their
+# sed -i reads a backup suffix differently, so a test on a Mac broke. The
+# result is copied back over the file, not moved, so a sources file keeps
+# its owner and mode.
+edit() {
+    edit_file=$1
+    shift
+    sed "$@" "$edit_file" > "$edit_file.apt-install" && cat "$edit_file.apt-install" > "$edit_file"
+    rm -f "$edit_file.apt-install"
+}
 if [ -n "$mirror" ]; then
     for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
         [ -f "$sources" ] || continue
-        sed -i -e "s#http://archive\\.ubuntu\\.com/#$mirror#g" \
-               -e "s#http://security\\.ubuntu\\.com/#$mirror#g" "$sources"
+        edit "$sources" -e "s#http://archive\\.ubuntu\\.com/#$mirror#g" \
+                        -e "s#http://security\\.ubuntu\\.com/#$mirror#g"
     done
 fi
 recommends=--no-install-recommends
@@ -59,7 +69,7 @@ while :; do
         echo "apt: trying Ubuntu's own archive in place of $mirror." >&2
         for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
             [ -f "$sources" ] || continue
-            sed -i -e "s#$mirror#http://archive.ubuntu.com/#g" "$sources"
+            edit "$sources" -e "s#$mirror#http://archive.ubuntu.com/#g"
         done
     fi
     sleep $((try * wait))
