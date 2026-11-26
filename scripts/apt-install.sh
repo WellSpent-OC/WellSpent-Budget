@@ -16,20 +16,27 @@
 # names archive.ubuntu.com and security.ubuntu.com, which can crawl for many
 # minutes. The runner itself uses Azure's mirror, in the same network, so the
 # container is pointed there too.
+# When the first try on that mirror fails, the others go to archive.ubuntu.com,
+# Ubuntu's own, which carries the security pocket too: a mirror that stalls
+# one night stalls every try.
 #
 # APT_MIRROR names that mirror's host, such as http://azure.archive.ubuntu.com/,
 # for a build GitHub runs that can't tell it's on GitHub: the server image's
 # Dockerfile passes it in as a build argument. Unset, and off GitHub, the
 # image's own hosts are used. APT_RECOMMENDS=1 installs recommended packages
 # too, as the server image always has.
+#
+# APT_ETC is where the sources files are (default /etc/apt), for testing this
+# script.
 set -eu
 [ "$#" -gt 0 ] || { echo "usage: $0 PACKAGE..." >&2; exit 2; }
 wait="${APT_RETRY_WAIT:-30}"
 limit="${APT_TRY_SECONDS:-600}"
 mirror="${APT_MIRROR:-}"
+etc="${APT_ETC:-/etc/apt}"
 [ -z "$mirror" ] && [ "${GITHUB_ACTIONS:-}" = true ] && mirror=http://azure.archive.ubuntu.com/
 if [ -n "$mirror" ]; then
-    for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+    for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
         [ -f "$sources" ] || continue
         sed -i -e "s#http://archive\\.ubuntu\\.com/#$mirror#g" \
                -e "s#http://security\\.ubuntu\\.com/#$mirror#g" "$sources"
@@ -48,6 +55,13 @@ while :; do
         exit 1
     fi
     echo "apt failed (try $try of 3); trying again in $((try * wait)) seconds." >&2
+    if [ "$try" -eq 1 ] && [ -n "$mirror" ]; then
+        echo "apt: trying Ubuntu's own archive in place of $mirror." >&2
+        for sources in "$etc/sources.list" "$etc"/sources.list.d/*.sources "$etc"/sources.list.d/*.list; do
+            [ -f "$sources" ] || continue
+            sed -i -e "s#$mirror#http://archive.ubuntu.com/#g" "$sources"
+        done
+    fi
     sleep $((try * wait))
     try=$((try + 1))
 done
