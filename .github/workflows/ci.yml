@@ -977,7 +977,8 @@ jobs:
       fail-fast: false
       matrix:
         # Started by hand with only=houses-mac, the Mac alone.
-        platform: ${{ fromJSON(inputs.only == 'houses-mac' && '["mac"]' || '["mac", "iphone-light", "iphone-dark"]') }}
+        # Run-only branch (ops#412): iPhone light alone.
+        platform: ["iphone-light"]
     env:
       HAS_PROPERTIES_KEY: ${{ secrets.PROPERTIES_DEPLOY_KEY != '' }}
       HAS_MAILBOX: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN != '' }}
@@ -1050,13 +1051,14 @@ jobs:
           WELLSPENT_UI_TEST_MAILBOX_TOKEN: ${{ secrets.WELLSPENT_UI_TEST_MAILBOX_TOKEN }}
         run: |
           set -a; . "$RUNNER_TEMP/ui-test-accounts.env"; set +a
-          make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneHousesTests WellSpentPhoneUITests/PhonePropertiesTabTests/testTurningOnPropertiesAddsTheTab $IPHONE_SIGNED_IN"
+          make iphone-ui-test IPHONE_UI_TEST_LOOKS="${{ matrix.platform == 'iphone-dark' && 'dark' || 'light' }}" IPHONE_UI_TEST_ONLY="WellSpentPhoneUITests/PhoneLostRetryProofTests"
 
       # Each run must show it tested something: four Houses tests on the
       # Mac, and four in its iPhone look, plus the signed-in ones. Nothing
       # skipped, as for every UI job.
       - name: The Houses tests ran, and nothing was skipped
-        if: env.HAS_PROPERTIES_KEY == 'true'
+        # Run-only branch (ops#412): one proof test, so no count.
+        if: false
         run: |
           if [ "${{ matrix.platform }}" = mac ]; then
             bundles=".build/xcode/ui-test.xcresult"
