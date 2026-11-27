@@ -993,7 +993,7 @@ jobs:
       MAC_SIGNED_IN: WellSpentUITests/PlanLimitTests WellSpentUITests/SharedHousesTests WellSpentUITests/MemberHousesTests WellSpentUITests/HouseLockTests
       MAC_SIGNED_IN_COUNT: 10
       IPHONE_SIGNED_IN: WellSpentPhoneUITests/PhoneLockedHouseTests WellSpentPhoneUITests/PhonePlanLimitTests WellSpentPhoneUITests/PhoneSharedHousesTests WellSpentPhoneUITests/PhoneMemberHousesTests WellSpentPhoneUITests/PhonePlansOffTests
-      IPHONE_SIGNED_IN_COUNT: 9
+      IPHONE_SIGNED_IN_COUNT: 11
     steps:
       - uses: actions/checkout@v4
 
