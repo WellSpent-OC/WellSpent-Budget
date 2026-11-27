@@ -303,6 +303,32 @@ class HeldSheet(unittest.TestCase):
         self.shown = [self.main, Shown("dialog", "Discard changes?", [Shown("push button", "Discard")])]
         self.assertEqual(1, len(held.all("push button", "Discard")), "the held question was lost when the sheet closed")
 
+
+class CrashBacktrace(unittest.TestCase):
+    """The app is started so that a crash writes its backtrace, frame by
+    frame, to its log, which a failure keeps beside the screenshot. The Linux
+    app crashed once with exit status 139 and left nothing to read
+    (wellspent-ops#421)."""
+
+    def test_the_app_starts_with_a_backtrace_on_a_crash(self):
+        app = wellspent_ui.App(path="/bin/true")
+        self.addCleanup(lambda: __import__("shutil").rmtree(app.home, ignore_errors=True))
+        started = {}
+
+        class Started(Exception):
+            pass
+
+        def popen(command, env=None, **_):
+            started.update(env)
+            raise Started()
+        with unittest.mock.patch.object(wellspent_ui.subprocess, "Popen", popen), \
+                unittest.mock.patch.object(wellspent_ui, "_accessibility_bus", lambda: "unix:path=/nowhere"):
+            with self.assertRaises(Started):
+                app.launch()
+        settings = dict(part.split("=", 1) for part in started.get("SWIFT_BACKTRACE", "").split(",") if "=" in part)
+        self.assertEqual("yes", settings.get("enable"), f"no backtrace on a crash: {started.get('SWIFT_BACKTRACE')!r}")
+        self.assertEqual("no", settings.get("interactive"), "a crash would wait for someone to answer")
+
 class Recording:
     """A button or a field that writes down what was done to it."""
 

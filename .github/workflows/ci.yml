@@ -512,6 +512,7 @@ jobs:
             .build/linux-ui-test/*.png
             .build/linux-ui-test/*-process.txt
             .build/linux-ui-test/*-words.txt
+            .build/linux-ui-test/*-app.log
           if-no-files-found: ignore
 
   # The night's Linux UI result, under the name it always had. It passes only
@@ -636,6 +637,7 @@ jobs:
             .build/linux-ui-test/*.png
             .build/linux-ui-test/*-process.txt
             .build/linux-ui-test/*-words.txt
+            .build/linux-ui-test/*-app.log
           if-no-files-found: ignore
 
   # Gate enforcement, without branch protection.
@@ -1191,6 +1193,7 @@ jobs:
             .build/linux-ui-test/*.png
             .build/linux-ui-test/*-process.txt
             .build/linux-ui-test/*-words.txt
+            .build/linux-ui-test/*-app.log
           if-no-files-found: ignore
 
   gate:
