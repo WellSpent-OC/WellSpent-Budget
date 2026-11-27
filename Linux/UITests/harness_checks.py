@@ -232,6 +232,77 @@ class Within(unittest.TestCase):
         self.assertEqual(1, len(found.all("combo box", "Lake House")), "the row drawn later isn't seen")
 
 
+
+class Shown(Node):
+    """A node that reads as showing, with no description, as a window or a
+    combo box on screen does."""
+
+    def get_state_set(self):
+        return unittest.mock.Mock(contains=lambda state: True)
+
+    def get_description(self):
+        return ""
+
+
+class HeldSheet(unittest.TestCase):
+    """A sheet found when it opens is found again at each step after. GTK
+    can redraw a sheet after it first shows, and a step on the window as it
+    was then reads nothing and acts on nothing: picker() waited 15s on a
+    House picker the screen showed, and Save in the on-hand sheet did nothing
+    (ops#416). A redraw while it's held is noted for the failure dump."""
+
+    def setUp(self):
+        self.app = quit_app(0)
+        self.app.process = None
+        self.app.home = os.path.dirname(os.path.abspath(__file__))
+        self.main = Shown("frame", wellspent_ui.MAIN_WINDOW, [Shown("label", "Household")])
+        self.sheet = Shown("dialog", "New transaction", [Shown("combo box", "Lake bills")])
+        self.shown = [self.main, self.sheet]
+        self.app.windows = lambda: [wellspent_ui.Element(self.app, node) for node in self.shown]
+
+    def redraw(self):
+        """The sheet drawn again: the old node goes, a new one with the House
+        picker takes its place."""
+        self.sheet.gone = True
+        self.sheet = Shown("dialog", "New transaction",
+                           [Shown("combo box", "Lake bills"), Shown("combo box", "House")])
+        self.shown = [self.main, self.sheet]
+
+    def test_a_sheet_redrawn_after_it_was_found_is_read_as_it_is_now(self):
+        held = self.app.wait_for_window(2, "the sheet")
+        self.redraw()
+        self.assertEqual(1, len(held.all("combo box", "House")), "the redrawn sheet's House picker isn't seen")
+
+    def test_a_redraw_while_held_is_noted_for_the_failure_dump(self):
+        held = self.app.wait_for_window(2, "the sheet")
+        held.all("combo box")
+        self.redraw()
+        held.all("combo box")
+        self.assertEqual(1, held.redrawn, "the redraw wasn't counted")
+        path = os.path.join(self.app.home, ".held-sheet-words.txt")
+        self.addCleanup(lambda: os.path.exists(path) and os.remove(path))
+        self.app._note_words(path)
+        with open(path) as note:
+            self.assertIn("New transaction: found again after 1 redraw while held", note.read())
+
+    def test_a_held_sheet_never_becomes_another_window(self):
+        # The sheet closes and another opens where it was: the held one
+        # isn't read as the new one.
+        held = self.app.wait_for_window(2, "the sheet")
+        self.sheet.gone = True
+        self.shown = [self.main, Shown("dialog", "Delete Lake bills?", [Shown("push button", "Delete")])]
+        self.assertEqual([], held.all("push button", "Delete"), "the held sheet read another window's Delete")
+
+    def test_a_held_window_is_found_by_its_name_when_the_order_shifts(self):
+        # A question over the sheet is held, then the sheet under it closes:
+        # the question moves down a place and is still the one read.
+        question = Shown("dialog", "Discard changes?", [Shown("push button", "Discard")])
+        self.shown = [self.main, self.sheet, question]
+        held = self.app.wait_for_window(3, "the question")
+        self.sheet.gone, question.gone = True, True
+        self.shown = [self.main, Shown("dialog", "Discard changes?", [Shown("push button", "Discard")])]
+        self.assertEqual(1, len(held.all("push button", "Discard")), "the held question was lost when the sheet closed")
+
 class Recording:
     """A button or a field that writes down what was done to it."""
 
