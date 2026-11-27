@@ -22,7 +22,7 @@ A new version comes as a new file, like the first one. Your budgets stay through
 1. ![A hand types ./install.sh in the new wellspent folder](../assets/shots/update-wellspent-linux-1.svg)
    Unpack the new file, and run its `install.sh`, as in [Quest 1, On Linux](get-wellspent.md#on-linux), steps 2 to 6.
 
-   > You see "WellSpent is installed. It is in the app menu."
+   > You see "WellSpent", then its version number, then "is installed. It is in the app menu."
 
 2. Close WellSpent's window, and open WellSpent again from your app menu.
 

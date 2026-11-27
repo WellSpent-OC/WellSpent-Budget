@@ -89,7 +89,7 @@ Got a link instead of Apple's email? Tap the link, then tap **Accept** and **Ins
 3. Type `cd ~/Downloads` and press **Enter**.
 
 4. ![A hand types tar -xzf in the terminal](../assets/shots/get-wellspent-on-linux-3.svg)
-   Type `tar -xzf`, a space, and the file's name, such as `wellspent.tar.gz`. Press **Enter**.
+   Type `tar -xzf`, a space, and the file's name, such as `wellspent-0.4.0-linux-x86_64.tar.gz`. Press **Enter**.
 
    > You see no message. A new folder, `wellspent`, is in Downloads.
 
@@ -98,7 +98,7 @@ Got a link instead of Apple's email? Tap the link, then tap **Accept** and **Ins
 6. ![A hand types ./install.sh in the terminal](../assets/shots/get-wellspent-on-linux-4.svg)
    Type `./install.sh` and press **Enter**.
 
-   > You see "WellSpent is installed. It is in the app menu."
+   > You see "WellSpent", then its version number, then "is installed. It is in the app menu."
 
 7. ![The app menu opens](../assets/shots/get-wellspent-on-linux-5.svg)
    Open your app menu.
@@ -126,7 +126,7 @@ Keep the `wellspent` folder in Downloads. You need it to remove WellSpent.
 - **Something asks for a password:** don't type it. Write to **dev@wellspent.space**.
 - **WellSpent isn't in your app menu:** in the terminal, type `~/.local/opt/wellspent/wellspent` and press **Enter**. If the window opens, the app works. Write to **dev@wellspent.space** to say the menu entry was missing.
 - **No window opens:** the terminal shows a message. Copy it into an email to **dev@wellspent.space**.
-- **Not sure your computer can run it:** type `uname -m` and press **Enter**. WellSpent runs where that shows `x86_64`. It also needs a recent Linux, such as Ubuntu 24.04 or Fedora 39 or newer, with GTK 4 and a desktop keyring.
+- **Not sure your computer can run it:** type `uname -m` and press **Enter**. WellSpent runs where that shows `x86_64`. It also needs a recent Linux, such as Ubuntu 24.04 or Fedora 39 or newer, with GTK 4, a desktop keyring, SQLite and curl. Most desktops already have the last two. If one is missing, `install.sh` says which and how to add it, and installs nothing until it's there.
 
 ## Next quest
 
