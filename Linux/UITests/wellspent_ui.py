@@ -424,6 +424,9 @@ class App:
         if self.process is not None:
             raise RuntimeError("already running")
         env = dict(os.environ)
+        # A crash writes its backtrace, frame by frame, to the app's log,
+        # which a failure keeps beside its screenshot (wellspent-ops#421).
+        env["SWIFT_BACKTRACE"] = "enable=yes,interactive=no,color=no"
         env.update(HOME=self.home, XDG_DATA_HOME=os.path.join(self.home, ".local/share"),
                    XDG_CONFIG_HOME=os.path.join(self.home, ".config"), LC_ALL=region, LANG=region)
         env.pop("LC_NUMERIC", None)
