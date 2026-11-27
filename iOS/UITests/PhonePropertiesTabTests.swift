@@ -62,5 +62,37 @@ final class PhonePropertiesTabTests: XCTestCase {
         XCTAssertTrue(run.app.tabBars.buttons["Houses"].waitForExistence(timeout: 10), "no Houses tab")
         XCTAssertTrue(run.app.tabBars.buttons["Budgets"].exists, "no Budgets tab beside it")
     }
+
+    // Scenario PROP-63
+    @MainActor
+    func testItStaysOnAfterTheAppIsClosed() throws {
+        // Given Robin turned Properties on
+        let run = launched(extensionsOn: true)
+        run.openAddMenu()
+        let addExtension = run.app.buttons["Add an extension…"].firstMatch
+        XCTAssertTrue(addExtension.waitForExistence(timeout: 15), "no Add an extension…. On screen: \(run.visibleButtons())")
+        addExtension.tap()
+        let turnOn = run.app.buttons["Turn on"].firstMatch
+        XCTAssertTrue(turnOn.waitForExistence(timeout: 10), "no Turn on for Properties. On screen: \(run.visibleButtons())")
+        turnOn.tap()
+        XCTAssertTrue(run.app.tabBars.buttons["Houses"].waitForExistence(timeout: 10), "no Houses tab")
+
+        // When he closes WellSpent and opens it again
+        run.app.terminate()
+        XCTAssertTrue(run.app.wait(for: .notRunning, timeout: 10), "the app did not close")
+        run.launch()
+
+        // Then Properties is still on, and Houses is a tab
+        XCTAssertTrue(run.app.tabBars.buttons["Houses"].waitForExistence(timeout: 15),
+                      "no Houses tab after opening again. On screen: \(run.visibleButtons())")
+        XCTAssertTrue(run.app.tabBars.buttons["Budgets"].exists, "no Budgets tab beside it")
+        run.openAddMenu()
+        let again = run.app.buttons["Add an extension…"].firstMatch
+        XCTAssertTrue(again.waitForExistence(timeout: 15), "no Add an extension…. On screen: \(run.visibleButtons())")
+        again.tap()
+        XCTAssertTrue(run.app.buttons["Turn off"].firstMatch.waitForExistence(timeout: 10),
+                      "Properties is not on in the catalog. On screen: \(run.visibleButtons())")
+        XCTAssertFalse(run.app.buttons["Turn on"].exists, "the catalog offers Turn on again")
+    }
     #endif
 }
