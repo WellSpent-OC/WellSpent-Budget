@@ -356,6 +356,12 @@ final class PhoneTestApp {
         if !paste.waitForExistence(timeout: 3) {
             field.press(forDuration: 1.2)
         }
+        // On a slow runner the press can open no menu at all: the keyboard
+        // is up and nothing else. A fresh tap and a longer press, once more.
+        if !paste.waitForExistence(timeout: 5) {
+            field.tap()
+            field.press(forDuration: 1.5)
+        }
         XCTAssertTrue(paste.waitForExistence(timeout: 5), "the field's menu shows no Paste. On screen: \(visibleButtons())")
         paste.tap()
     }
