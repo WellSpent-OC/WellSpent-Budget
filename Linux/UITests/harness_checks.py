@@ -329,6 +329,48 @@ class CrashBacktrace(unittest.TestCase):
         self.assertEqual("yes", settings.get("enable"), f"no backtrace on a crash: {started.get('SWIFT_BACKTRACE')!r}")
         self.assertEqual("no", settings.get("interactive"), "a crash would wait for someone to answer")
 
+
+class Linked(Shown):
+    """A showing node that knows its parent, for steps that look near
+    something by walking up from it."""
+
+    def __init__(self, role, name, children=()):
+        super().__init__(role, name, children)
+        self.parent = None
+        for child in self.children:
+            child.parent = self
+
+    def get_parent(self):
+        return self.parent
+
+
+class CheckBoxByLabel(unittest.TestCase):
+    """A listing's check box is found by its label. GTK names a check box
+    after its label only once the screen reader catches up, so for a while
+    the box has no name and the label beside it does (wellspent-ops#395:
+    "waited 15s for a check box saying 'Pool House'" with Pool House on the
+    sheet). Then the box is the one nearest the label."""
+
+    def sheet(self, pool_named):
+        pool = Linked("check box", "Pool House" if pool_named else "")
+        rows = [Linked("panel", "", [pool, Linked("label", "Pool House")]),
+                Linked("panel", "", [Linked("check box", ""), Linked("label", "Mountain Cabin")])]
+        return pool, wellspent_ui.Element(self.app, Linked("dialog", "", rows))
+
+    def setUp(self):
+        self.app = quit_app(0)
+        self.app.process = None
+
+    def test_a_named_box_is_found_by_its_name(self):
+        pool, sheet = self.sheet(pool_named=True)
+        self.assertIs(pool, self.app.check_box("Pool House", within=sheet).node)
+
+    def test_a_box_not_named_yet_is_the_one_beside_its_label(self):
+        pool, sheet = self.sheet(pool_named=False)
+        self.assertIs(pool, self.app.check_box("Pool House", within=sheet).node,
+                      "the box beside Pool House's label wasn't the one found")
+
+
 class Recording:
     """A button or a field that writes down what was done to it."""
 
