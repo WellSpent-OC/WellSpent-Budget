@@ -757,6 +757,31 @@ class App:
             return None
         return self.until(nearest, f"a {role} saying {words!r} near {to!r}")
 
+    def check_box(self, label, within=None, wait=WAIT):
+        """The check box for `label`, such as a listing on the pick screen.
+        GTK names a check box after its label only once the screen reader
+        catches up, so for a while the box has no name and the label beside
+        it does (wellspent-ops#395). Then it's the one check box in the
+        smallest part of the window that holds the label."""
+        def one():
+            place = within or self.front
+            named = [e for e in place.all("check box", label) if e.showing]
+            if len(named) == 1:
+                return named[0]
+            labels = [e for e in place.all("label", label) if e.showing]
+            if len(named) > 1 or len(labels) != 1:
+                return None
+            node = labels[0].node
+            while node is not None:
+                boxes = [e for e in Element(self, node).all("check box") if e.showing]
+                if len(boxes) == 1:
+                    return boxes[0]
+                if len(boxes) > 1:
+                    return None
+                node = node.get_parent()
+            return None
+        return self.until(one, f"a check box for {label!r}", wait)
+
     def texts(self, within=None):
         """Every text showing, in reading order."""
         place = within or self.front
