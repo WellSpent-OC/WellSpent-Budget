@@ -6,6 +6,7 @@ seconds rather than partway through the suite.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -312,7 +313,7 @@ class CrashBacktrace(unittest.TestCase):
 
     def test_the_app_starts_with_a_backtrace_on_a_crash(self):
         app = wellspent_ui.App(path="/bin/true")
-        self.addCleanup(lambda: __import__("shutil").rmtree(app.home, ignore_errors=True))
+        self.addCleanup(shutil.rmtree, app.home, ignore_errors=True)
         started = {}
 
         class Started(Exception):
