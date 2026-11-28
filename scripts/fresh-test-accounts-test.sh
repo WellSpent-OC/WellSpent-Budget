@@ -54,8 +54,20 @@ class StandIn(http.server.BaseHTTPRequestHandler):
     do_GET = do_POST = handle_any
 
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StandIn)
-threading.Thread(target=server.serve_forever, daemon=True).start()
+class Server(http.server.ThreadingHTTPServer):
+    # Each answer's thread is waited for when the server closes, so none
+    # outlives the test (wellspent-ops#413).
+    daemon_threads = False
+
+    def handle_error(self, request, client_address):
+        # The script gave up on a late answer and hung up: not a failure.
+        if not isinstance(sys.exc_info()[1], ConnectionError):
+            super().handle_error(request, client_address)
+
+
+server = Server(("127.0.0.1", 0), StandIn)
+serving = threading.Thread(target=server.serve_forever, daemon=True)
+serving.start()
 url = f"http://127.0.0.1:{server.server_address[1]}"
 failed = 0
 
@@ -96,6 +108,14 @@ check(seen.count("/api/v2/signup"), 1, "and is not sent twice, since a second wo
 got = run(None, lambda: fresh.set_plan(url, "token", "robin@example.com", "portfolio"))
 check(seen.count("/test/plan"), 1, "an answer in time is sent once")
 
+# A late answer still asleep when the checks end is waited for, so no
+# answer is left being written while Python shuts down: one was, and the
+# test then crashed after every check had passed (wellspent-ops#413).
+run("/test/plan", lambda: fresh.set_plan(url, "token", "robin@example.com", "portfolio"))
 server.shutdown()
+server.server_close()
+serving.join()
+left = [t.name for t in threading.enumerate() if t is not threading.main_thread() and t.is_alive()]
+check(left, [], "no late answer is still being written when the test ends")
 sys.exit(failed)
 PY
