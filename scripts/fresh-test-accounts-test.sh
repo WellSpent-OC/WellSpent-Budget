@@ -54,7 +54,18 @@ class StandIn(http.server.BaseHTTPRequestHandler):
     do_GET = do_POST = handle_any
 
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StandIn)
+class Server(http.server.ThreadingHTTPServer):
+    # Each answer's thread is waited for when the server closes, so none
+    # outlives the test (wellspent-ops#413).
+    daemon_threads = False
+
+    def handle_error(self, request, client_address):
+        # The script gave up on a late answer and hung up: not a failure.
+        if not isinstance(sys.exc_info()[1], ConnectionError):
+            super().handle_error(request, client_address)
+
+
+server = Server(("127.0.0.1", 0), StandIn)
 serving = threading.Thread(target=server.serve_forever, daemon=True)
 serving.start()
 url = f"http://127.0.0.1:{server.server_address[1]}"
